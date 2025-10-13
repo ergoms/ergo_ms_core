@@ -1,0 +1,407 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Setup Full System",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": ["/d", "/c"]
+                }
+            },
+            "command": "cd /d \"${workspaceFolder}\\api\" && py -3.12 -m venv .venv && .venv\\Scripts\\activate.bat && pip install poetry && poetry install && api migrate && api collectstatic --noinput && cd /d \"${workspaceFolder}\\client\" && npm install",
+            "windows": {
+                "options": {
+                    "cwd": "${workspaceFolder}",
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": ["/d", "/c"]
+                    }
+                },
+                "command": "cd /d \"${workspaceFolder}\\api\" && py -3.12 -m venv .venv && .venv\\Scripts\\activate.bat && pip install poetry && poetry install && api migrate && api collectstatic --noinput && cd /d \"${workspaceFolder}\\client\" && npm install"
+            },
+            "linux": {
+                "options": {
+                    "cwd": "${workspaceFolder}",
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": ["-lc"]
+                    }
+                },
+                "command": "cd \"${workspaceFolder}/api\" && python3.12 -m venv .venv && source .venv/bin/activate && pip install poetry && poetry install && api migrate && api collectstatic --noinput && sudo /bin/bash \"${workspaceFolder}/linux/ergo_ms.sh\" install \"${workspaceFolder}\" && cd \"${workspaceFolder}/client\" && npm install"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "group": {
+                "kind": "build"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Start All Services",
+            "dependsOrder": "parallel",
+            "dependsOn": [
+                "Client",
+                "API",
+                "Celery Worker",
+                "Celery Beat"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Client",
+            "type": "shell",
+            "command": "npm",
+            "args": ["run", "dev"],
+            "options": {
+                "cwd": "${workspaceFolder}/client"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "API",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}/api",
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": ["/d", "/c"]
+                }
+            },
+            "command": ".venv\\Scripts\\activate.bat && api dev",
+            "windows": {
+                "options": {
+                    "cwd": "${workspaceFolder}/api",
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": ["/d", "/c"]
+                    }
+                },
+                "command": ".venv\\Scripts\\activate.bat && api dev"
+            },
+            "linux": {
+                "options": {
+                    "cwd": "${workspaceFolder}/api",
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": ["-lc"]
+                    }
+                },
+                "command": "source .venv/bin/activate && api dev"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Celery Worker",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}/api",
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": ["/d", "/c"]
+                }
+            },
+            "command": ".venv\\Scripts\\activate.bat && api start_celery_worker",
+            "windows": {
+                "options": {
+                    "cwd": "${workspaceFolder}/api",
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": ["/d", "/c"]
+                    }
+                },
+                "command": ".venv\\Scripts\\activate.bat && api start_celery_worker"
+            },
+            "linux": {
+                "options": {
+                    "cwd": "${workspaceFolder}/api",
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": ["-lc"]
+                    }
+                },
+                "command": "source .venv/bin/activate && api start_celery_worker"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Celery Beat",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}/api",
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": ["/d", "/c"]
+                }
+            },
+            "command": ".venv\\Scripts\\activate.bat && api start_celery_beat",
+            "windows": {
+                "options": {
+                    "cwd": "${workspaceFolder}/api",
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": ["/d", "/c"]
+                    }
+                },
+                "command": ".venv\\Scripts\\activate.bat && api start_celery_beat"
+            },
+            "linux": {
+                "options": {
+                    "cwd": "${workspaceFolder}/api",
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": ["-lc"]
+                    }
+                },
+                "command": "source .venv/bin/activate && api start_celery_beat"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Install Video Analysis Dependencies",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}/api",
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": ["/d", "/c"]
+                }
+            },
+            "command": ".venv\\Scripts\\activate.bat && api install_ffmpeg && api install_opus_mt && api install_vosk_model && api install_silero_repo && api install_tts_model --language fr --speaker v3_fr",
+            "windows": {
+                "options": {
+                    "cwd": "${workspaceFolder}/api",
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": ["/d", "/c"]
+                    }
+                },
+                "command": ".venv\\Scripts\\activate.bat && api install_ffmpeg && api install_opus_mt && api install_vosk_model && api install_silero_repo && api install_tts_model --language fr --speaker v3_fr"
+            },
+            "linux": {
+                "options": {
+                    "cwd": "${workspaceFolder}/api",
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": ["-lc"]
+                    }
+                },
+                "command": "source .venv/bin/activate && api install_ffmpeg && api install_opus_mt && api install_vosk_model && api install_silero_repo && api install_tts_model --language fr --speaker v3_fr"
+            },
+            "group": {
+                "kind": "build"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Logs: All services",
+            "dependsOrder": "parallel",
+            "dependsOn": [
+                "Logs: ergo-api-dev",
+                "Logs: ergo-client-dev",
+                "Logs: ergo-celery-worker",
+                "Logs: ergo-celery-beat"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Logs: ergo-api-dev",
+            "type": "shell",
+            "options": {
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": ["/d", "/c"]
+                }
+            },
+            "command": "echo Logs not available on Windows - use Windows tasks instead",
+            "windows": {
+                "command": "echo Logs not available on Windows - use Windows tasks instead",
+                "options": {
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": ["/d", "/c"]
+                    }
+                }
+            },
+            "linux": {
+                "command": "journalctl -u ergo-api-dev -n 500 -f | cat",
+                "options": {
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": ["-lc"]
+                    }
+                }
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "group": "ergo-api-dev",
+                "clear": false
+            },
+            "isBackground": false,
+            "problemMatcher": []
+        },
+        {
+            "label": "Logs: ergo-client-dev",
+            "type": "shell",
+            "options": {
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": ["/d", "/c"]
+                }
+            },
+            "command": "echo Logs not available on Windows - use Windows tasks instead",
+            "windows": {
+                "command": "echo Logs not available on Windows - use Windows tasks instead",
+                "options": {
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": ["/d", "/c"]
+                    }
+                }
+            },
+            "linux": {
+                "command": "journalctl -u ergo-client-dev -n 500 -f | cat",
+                "options": {
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": ["-lc"]
+                    }
+                }
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "group": "ergo-client-dev",
+                "clear": false
+            },
+            "isBackground": false,
+            "problemMatcher": []
+        },
+        {
+            "label": "Logs: ergo-celery-worker",
+            "type": "shell",
+            "options": {
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": ["/d", "/c"]
+                }
+            },
+            "command": "echo Logs not available on Windows - use Windows tasks instead",
+            "windows": {
+                "command": "echo Logs not available on Windows - use Windows tasks instead",
+                "options": {
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": ["/d", "/c"]
+                    }
+                }
+            },
+            "linux": {
+                "command": "journalctl -u ergo-celery-worker -n 500 -f | cat",
+                "options": {
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": ["-lc"]
+                    }
+                }
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "group": "ergo-celery-worker",
+                "clear": false
+            },
+            "isBackground": false,
+            "problemMatcher": []
+        },
+        {
+            "label": "Logs: ergo-celery-beat",
+            "type": "shell",
+            "options": {
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": ["/d", "/c"]
+                }
+            },
+            "command": "echo Logs not available on Windows - use Windows tasks instead",
+            "windows": {
+                "command": "echo Logs not available on Windows - use Windows tasks instead",
+                "options": {
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": ["/d", "/c"]
+                    }
+                }
+            },
+            "linux": {
+                "command": "journalctl -u ergo-celery-beat -n 500 -f | cat",
+                "options": {
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": ["-lc"]
+                    }
+                }
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "group": "ergo-celery-beat",
+                "clear": false
+            },
+            "isBackground": false,
+            "problemMatcher": []
+        }
+    ]
+} 

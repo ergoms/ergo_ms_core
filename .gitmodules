@@ -1,0 +1,11 @@
+[submodule "core"]
+	path = core
+	url = https://github.com/DohaoSTR/ergo_ms_core.git
+
+[submodule "api_core"]
+	path = core/api
+	url = https://github.com/DohaoSTR/ergo_ms_api_core.git
+
+[submodule "client_core"]
+	path = core/client
+	url = https://github.com/DohaoSTR/ergo_ms_client_core.git

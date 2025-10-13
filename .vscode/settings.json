@@ -1,0 +1,44 @@
+{
+    "terminal.integrated.defaultProfile.windows": "PowerShell",
+    "terminal.integrated.defaultProfile.linux": "bash",
+    "terminal.integrated.profiles.windows": {
+        "PowerShell": {
+            "source": "PowerShell",
+            "icon": "terminal-powershell"
+        },
+        "Command Prompt": {
+            "path": [
+                "${env:windir}\\Sysnative\\cmd.exe",
+                "${env:windir}\\System32\\cmd.exe"
+            ],
+            "args": [],
+            "icon": "terminal-cmd"
+        }
+    },
+    "terminal.integrated.profiles.linux": {
+        "bash": {
+            "path": "/bin/bash",
+            "icon": "terminal-bash"
+        },
+        "zsh": {
+            "path": "/bin/zsh",
+            "icon": "terminal-bash"
+        }
+    },
+    "terminal.integrated.tabs.enabled": true,
+    "terminal.integrated.tabs.focusMode": "singleClick",
+    "terminal.integrated.tabs.showActions": "always",
+    "terminal.integrated.tabs.title": "${processName}",
+    "terminal.integrated.tabs.description": "${cwd}",
+    "terminal.integrated.splitCwd": "workspaceRoot",
+    
+    "files.exclude": {
+        "**/.git": false,
+        "**/.DS_Store": true,
+        "**/.*": false
+    },
+    "search.exclude": {
+        "**/.git": true,
+        "**/node_modules": true
+    }
+} 
