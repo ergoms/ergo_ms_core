@@ -73,6 +73,7 @@ requires-python = ">=3.12,<3.13"
 [tool.poetry]
 packages = [
     {include = "src", from = "core/api"},
+    {include = "modules", from = ""},
     {include = "commands", from = "core/api"},
 ]
 

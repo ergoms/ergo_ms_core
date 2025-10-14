@@ -4,25 +4,28 @@
     "terminal.integrated.profiles.windows": {
         "PowerShell": {
             "source": "PowerShell",
-            "icon": "terminal-powershell"
+            "icon": "terminal-powershell",
+            "args": ["-NoExit", "-Command", "& { if (Test-Path '${workspaceFolder}\\virtual_env\\python\\Scripts\\Activate.ps1') { & '${workspaceFolder}\\virtual_env\\python\\Scripts\\Activate.ps1' } }"]
         },
         "Command Prompt": {
             "path": [
                 "${env:windir}\\Sysnative\\cmd.exe",
                 "${env:windir}\\System32\\cmd.exe"
             ],
-            "args": [],
+            "args": ["/k", "${workspaceFolder}\\virtual_env\\python\\Scripts\\activate.bat"],
             "icon": "terminal-cmd"
         }
     },
     "terminal.integrated.profiles.linux": {
         "bash": {
             "path": "/bin/bash",
-            "icon": "terminal-bash"
+            "icon": "terminal-bash",
+            "args": ["-c", "source ${workspaceFolder}/virtual_env/python/bin/activate && exec bash"]
         },
         "zsh": {
             "path": "/bin/zsh",
-            "icon": "terminal-bash"
+            "icon": "terminal-bash",
+            "args": ["-c", "source ${workspaceFolder}/virtual_env/python/bin/activate && exec zsh"]
         }
     },
     "terminal.integrated.tabs.enabled": true,
@@ -40,5 +43,17 @@
     "search.exclude": {
         "**/.git": true,
         "**/node_modules": true
-    }
-} 
+    },
+
+    "explorer.fileNesting.enabled": true,
+    "explorer.fileNesting.patterns": {
+      "tsconfig.json": "tsconfig.*.json, env.d.ts",
+      "vite.config.*": "jsconfig*, vitest.config.*, cypress.config.*, playwright.config.*",
+      "package.json": "package-lock.json, pnpm*, .yarnrc*, yarn*, .eslint*, eslint*, .prettier*, prettier*, .editorconfig"
+    },
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "explicit"
+    },
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+}

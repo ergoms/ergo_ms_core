@@ -1,11 +1,59 @@
-[submodule "core"]
-	path = core
-	url = https://github.com/DohaoSTR/ergo_ms_core.git
+# Core
 
-[submodule "api_core"]
+[submodule "api"]
 	path = core/api
-	url = https://github.com/DohaoSTR/ergo_ms_api_core.git
+	url = https://github.com/SKB-AI/ergo_ms_core_api.git
 
-[submodule "client_core"]
+[submodule "client"]
 	path = core/client
-	url = https://github.com/DohaoSTR/ergo_ms_client_core.git
+	url = https://github.com/SKB-AI/ergo_ms_core_client.git
+
+# Modules
+
+[submodule "assets_analysis"]
+	path = modules/assets_analysis
+	url = https://github.com/SKB-AI/ergo_ms_assets_analysis.git
+
+[submodule "crm"]
+	path = modules/crm
+	url = https://github.com/SKB-AI/ergo_ms_crm.git
+
+[submodule "education_expert_system"]
+	path = modules/education_expert_system
+	url = https://github.com/SKB-AI/ergo_ms_education_expert_system.git
+
+[submodule "lms"]
+	path = modules/lms
+	url = https://github.com/SKB-AI/ergo_ms_lms.git
+
+[submodule "porosity_analysis"]
+	path = modules/porosity_analysis
+	url = https://github.com/SKB-AI/ergo_ms_porosity_analysis.git
+
+[submodule "impuls_analysis"]
+	path = modules/impuls_analysis
+	url = https://github.com/SKB-AI/ergo_ms_impuls_analysis.git
+
+[submodule "video_analysis"]
+	path = modules/video_analysis
+	url = https://github.com/SKB-AI/ergo_ms_video_analysis.git
+
+[submodule "cities_expansion"]
+	path = modules/cities_expansion
+	url = https://github.com/SKB-AI/ergo_ms_cities_expansion.git
+
+[submodule "learning_analytics"]
+	path = modules/learning_analytics
+	url = https://github.com/SKB-AI/ergo_ms_learning_analytics.git
+
+[submodule "university_project_activities"]
+	path = modules/university_project_activities
+	url = https://github.com/SKB-AI/ergo_ms_university_project_activities.git
+
+[submodule "vacancies_parser"]
+	path = modules/vacancies_parser
+	url = https://github.com/SKB-AI/ergo_ms_vacancies_parser.git
+
+[submodule "education_materials_parser"]
+	path = modules/education_materials_parser
+	url = https://github.com/SKB-AI/ergo_ms_education_materials_parser.git

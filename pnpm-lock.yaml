@@ -57,11 +57,11 @@ importers:
         specifier: ^5.3.8
         version: 5.3.8(@popperjs/core@2.11.8)
       chart.js:
-        specifier: ^4.5.0
-        version: 4.5.0
+        specifier: ^4.5.1
+        version: 4.5.1
       chartjs-adapter-date-fns:
         specifier: ^3.0.0
-        version: 3.0.0(chart.js@4.5.0)(date-fns@2.30.0)
+        version: 3.0.0(chart.js@4.5.1)(date-fns@2.30.0)
       date-fns:
         specifier: ^2.30.0
         version: 2.30.0
@@ -109,7 +109,7 @@ importers:
         version: 0.0.1-alpha(vue@3.5.22)
       vue-chartjs:
         specifier: ^5.3.2
-        version: 5.3.2(chart.js@4.5.0)(vue@3.5.22)
+        version: 5.3.2(chart.js@4.5.1)(vue@3.5.22)
       vue-draggable-next:
         specifier: ^2.3.0
         version: 2.3.0(sortablejs@1.14.0)(vue@3.5.22)
@@ -129,8 +129,8 @@ importers:
         specifier: ^2.2.2
         version: 2.2.2(@yandex/ymaps3-context-menu@0.0.2)(@yandex/ymaps3-default-ui-theme@0.0.19)(@yandex/ymaps3-drawer-control@0.0.2)(@yandex/ymaps3-minimap@0.0.4)(@yandex/ymaps3-resizer@0.0.2)(@yandex/ymaps3-signpost@0.0.2)(@yandex/ymaps3-spinner@0.0.2)(@yandex/ymaps3-types@1.0.17690496(@vue/runtime-core@3.5.22))(vue@3.5.22)
       vue3-apexcharts:
-        specifier: ^1.8.0
-        version: 1.8.0(apexcharts@4.7.0)(vue@3.5.22)
+        specifier: ^1.9.0
+        version: 1.9.0(apexcharts@4.7.0)(vue@3.5.22)
       vue3-datepicker:
         specifier: ^0.4.0
         version: 0.4.0(vue@3.5.22)
@@ -1115,8 +1115,8 @@ packages:
     resolution: {integrity: sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA==}
     engines: {node: '>=10'}
 
-  chart.js@4.5.0:
-    resolution: {integrity: sha512-aYeC/jDgSEx8SHWZvANYMioYMZ2KX02W6f6uVfyteuCGcadDLcYVHdfdygsTQkQ4TKn5lghoojAsPj5pu0SnvQ==}
+  chart.js@4.5.1:
+    resolution: {integrity: sha512-GIjfiT9dbmHRiYi6Nl2yFCq7kkwdkp1W/lp2J99rX0yo9tgJGn3lKQATztIjb5tVtevcBtIdICNWqlq5+E8/Pw==}
     engines: {pnpm: '>=8'}
 
   chartjs-adapter-date-fns@3.0.0:
@@ -1307,8 +1307,8 @@ packages:
   echarts@5.6.0:
     resolution: {integrity: sha512-oTbVTsXfKuEhxftHqL5xprgLoc0k7uScAwtryCgWF6hPYFLRwOUHiFmHGCBKP5NPFNkDVopOieyUqYGH8Fa3kA==}
 
-  electron-to-chromium@1.5.234:
-    resolution: {integrity: sha512-RXfEp2x+VRYn8jbKfQlRImzoJU01kyDvVPBmG39eU2iuRVhuS6vQNocB8J0/8GrIMLnPzgz4eW6WiRnJkTuNWg==}
+  electron-to-chromium@1.5.235:
+    resolution: {integrity: sha512-i/7ntLFwOdoHY7sgjlTIDo4Sl8EdoTjWIaKinYOVfC6bOp71bmwenyZthWHcasxgHDNWbWxvG9M3Ia116zIaYQ==}
 
   emoji-regex@8.0.0:
     resolution: {integrity: sha512-MSjYzcWNOA0ewAHpz0MxpYFvwg6yjy1NG3xteoqz644VCo/RPgnr1/GGt+ic3iJTzQ8Eu3TdM14SawnVUmGE6A==}
@@ -2717,8 +2717,8 @@ packages:
       nuxt:
         optional: true
 
-  vue3-apexcharts@1.8.0:
-    resolution: {integrity: sha512-5tSD4mXTBbIJ9ir+58qHE6oNtIe0RNgqIRYMKpcsIaxkKtwUww4JhvPkpUFlmiW4OJbbdklgjleXq1lfcM4gdA==}
+  vue3-apexcharts@1.9.0:
+    resolution: {integrity: sha512-oGbo4kUlV9QRbsvS/zz7s251+yTI9O82d61rSMKWHS5OFo05kO2j5DdTrZW4HcLNXm6iNBsq/s81iylTxWfl5g==}
     peerDependencies:
       apexcharts: '>=4.0.0'
       vue: '>=3.0.0'
@@ -3726,7 +3726,7 @@ snapshots:
     dependencies:
       baseline-browser-mapping: 2.8.16
       caniuse-lite: 1.0.30001750
-      electron-to-chromium: 1.5.234
+      electron-to-chromium: 1.5.235
       node-releases: 2.0.23
       update-browserslist-db: 1.1.3(browserslist@4.26.3)
 
@@ -3781,13 +3781,13 @@ snapshots:
       ansi-styles: 4.3.0
       supports-color: 7.2.0
 
-  chart.js@4.5.0:
+  chart.js@4.5.1:
     dependencies:
       '@kurkle/color': 0.3.4
 
-  chartjs-adapter-date-fns@3.0.0(chart.js@4.5.0)(date-fns@2.30.0):
+  chartjs-adapter-date-fns@3.0.0(chart.js@4.5.1)(date-fns@2.30.0):
     dependencies:
-      chart.js: 4.5.0
+      chart.js: 4.5.1
       date-fns: 2.30.0
 
   chokidar@3.6.0:
@@ -3981,7 +3981,7 @@ snapshots:
       tslib: 2.3.0
       zrender: 5.6.1
 
-  electron-to-chromium@1.5.234: {}
+  electron-to-chromium@1.5.235: {}
 
   emoji-regex@8.0.0: {}
 
@@ -5423,9 +5423,9 @@ snapshots:
     dependencies:
       vue: 3.5.22
 
-  vue-chartjs@5.3.2(chart.js@4.5.0)(vue@3.5.22):
+  vue-chartjs@5.3.2(chart.js@4.5.1)(vue@3.5.22):
     dependencies:
-      chart.js: 4.5.0
+      chart.js: 4.5.1
       vue: 3.5.22
 
   vue-demi@0.13.11(vue@3.5.22):
@@ -5493,7 +5493,7 @@ snapshots:
       '@yandex/ymaps3-types': 1.0.17690496(@vue/runtime-core@3.5.22)
       vue: 3.5.22
 
-  vue3-apexcharts@1.8.0(apexcharts@4.7.0)(vue@3.5.22):
+  vue3-apexcharts@1.9.0(apexcharts@4.7.0)(vue@3.5.22):
     dependencies:
       apexcharts: 4.7.0
       vue: 3.5.22
