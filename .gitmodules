@@ -47,7 +47,7 @@
 	url = https://github.com/SKB-AI/ergo_ms_learning_analytics.git
 
 [submodule "university_project_activities"]
-	path = modules/university_project_activities
+	path = modules/project_ed
 	url = https://github.com/SKB-AI/ergo_ms_university_project_activities.git
 
 [submodule "vacancies_parser"]

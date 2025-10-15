@@ -4,14 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host",
-    "build": "vite build",
-    "preview": "vite preview",
-    "lint": "eslint . --fix",
-    "format": "prettier --write src/"
+    "dev": "cd core/client && vite --host",
+    "build": "cd core/client && vite build",
+    "preview": "cd core/client && vite preview",
+    "lint": "cd core/client && eslint . --fix",
+    "format": "cd core/client && prettier --write src/"
   },
   "script_comments": {
-    "predev": "Скрипт, который выполняется перед запуском сервера разработки и обновляет package-json",
     "dev": "Скрипт для запуска сервера разработки",
     "build": "Скрипт для сборки проекта",
     "preview": "Скрипт для предварительного просмотра сборки",
