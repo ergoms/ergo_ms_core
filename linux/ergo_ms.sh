@@ -295,8 +295,8 @@ main() {
   fi
 
   # Basic sanity checks for expected structure
-  if [[ ! -d "$ERGO_ROOT/api" ]] || [[ ! -d "$ERGO_ROOT/client" ]]; then
-    echo "Detected root $ERGO_ROOT doesn't look like an ergo_ms project (missing api/ or client/)." >&2
+  if [[ ! -d "$ERGO_ROOT/core/api" ]] || [[ ! -d "$ERGO_ROOT/core/client" ]]; then
+    echo "Detected root $ERGO_ROOT doesn't look like an ergo_ms project (missing core/api/ or core/client/)." >&2
     exit 1
   fi
 
@@ -311,7 +311,7 @@ After=network.target
 [Service]
 Type=simple
 EnvironmentFile=/etc/default/ergo_ms
-ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/api" && . "$ERGO_ROOT/api/.venv/bin/activate" && api dev'
+ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && api dev'
 Restart=always
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1
@@ -329,7 +329,7 @@ After=network.target
 [Service]
 Type=simple
 EnvironmentFile=/etc/default/ergo_ms
-ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/client" && npm run dev'
+ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && npm run dev'
 Restart=always
 RestartSec=5
 Environment=NODE_ENV=development
@@ -348,7 +348,7 @@ Requires=ergo-api-dev.service
 [Service]
 Type=simple
 EnvironmentFile=/etc/default/ergo_ms
-ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/api" && . "$ERGO_ROOT/api/.venv/bin/activate" && api start_celery_worker'
+ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && api start_celery_worker'
 Restart=always
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1
@@ -367,7 +367,7 @@ Requires=ergo-api-dev.service
 [Service]
 Type=simple
 EnvironmentFile=/etc/default/ergo_ms
-ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/api" && . "$ERGO_ROOT/api/.venv/bin/activate" && api start_celery_beat'
+ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && api start_celery_beat'
 Restart=always
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1
