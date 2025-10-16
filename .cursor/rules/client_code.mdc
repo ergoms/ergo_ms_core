@@ -14,3 +14,11 @@ import { useToast } from 'vue-toastification'
 const toast = useToast()
 
 Всегда используй модальные окна (client/src/components/ConfirmDialog.vue) вместо алертов (alert) для подтверждения каких то операций.
+
+# Работа с импортами
+Если ты используешь зависимость из ядра системы (core/client) то пиши пути используя абсолютные пути:
+
+import { apiClient } from '@/js/api/manager'
+import { endpoints } from '@/js/api/endpoints'
+
+Если ты используешь внутримодульные зависимости (modules/<имя_модуля>), то пиши пути используя относительные импорты.
