@@ -389,7 +389,8 @@ UNIT
   enable_and_start ergo-celery-worker.service
   enable_and_start ergo-celery-beat.service
 
-  echo "All services installed and started. Use: journalctl -u ergo-api-dev -n 500 -f"
+  echo "All services installed and started."
+  echo "View logs: journalctl -u ergo-api-dev -n 500 -f"
 
   if [[ "$no_cli" == false ]]; then
     create_cli_wrapper "$SELF_SCRIPT"

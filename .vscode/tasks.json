@@ -11,7 +11,7 @@
                     "args": ["/d", "/c"]
                 }
             },
-            "command": "py -3.12 -m venv \"${workspaceFolder}\\virtual_env\\python\" && \"${workspaceFolder}\\virtual_env\\python\\Scripts\\activate.bat\" && pip install poetry && poetry install && api migrate && api collectstatic --noinput && npm install",
+            "command": "git submodule update --init --remote core/api core/client && cd core\\api && git checkout dev && cd ..\\..\\core\\client && git checkout dev && cd ..\\..\\ && py -3.12 -m venv \"${workspaceFolder}\\virtual_env\\python\" && \"${workspaceFolder}\\virtual_env\\python\\Scripts\\activate.bat\" && pip install poetry && cd /d \"${workspaceFolder}\\core\" && poetry install && api migrate && api collectstatic --noinput && npm install && cd /d \"${workspaceFolder}\" && powershell.exe -ExecutionPolicy Bypass -NoProfile -File \"${workspaceFolder}\\windows\\ergo_ms.ps1\" install -Root \"${workspaceFolder}\"",
             "windows": {
                 "options": {
                     "cwd": "${workspaceFolder}",
@@ -20,7 +20,7 @@
                         "args": ["/d", "/c"]
                     }
                 },
-                "command": "py -3.12 -m venv \"${workspaceFolder}\\virtual_env\\python\" && \"${workspaceFolder}\\virtual_env\\python\\Scripts\\activate.bat\" && pip install poetry && poetry install && api migrate && api collectstatic --noinput && npm install"
+                "command": "git submodule update --init --remote core/api core/client && cd core\\api && git checkout dev && cd ..\\..\\core\\client && git checkout dev && cd ..\\..\\ && py -3.12 -m venv \"${workspaceFolder}\\virtual_env\\python\" && \"${workspaceFolder}\\virtual_env\\python\\Scripts\\activate.bat\" && pip install poetry && cd /d \"${workspaceFolder}\\core\" && poetry install && api migrate && api collectstatic --noinput && npm install && cd /d \"${workspaceFolder}\" && powershell.exe -ExecutionPolicy Bypass -NoProfile -File \"${workspaceFolder}\\windows\\ergo_ms.ps1\" install -Root \"${workspaceFolder}\""
             },
             "linux": {
                 "options": {
@@ -30,12 +30,12 @@
                         "args": ["-lc"]
                     }
                 },
-                "command": "python3.12 -m venv \"${workspaceFolder}/virtual_env/python\" && source \"${workspaceFolder}/virtual_env/python/bin/activate\" && pip install poetry && poetry install && api migrate && api collectstatic --noinput && /bin/bash \"${workspaceFolder}/linux/ergo_ms.sh\" install \"${workspaceFolder}\" && npm install"
+                "command": "git submodule update --init --remote core/api core/client && cd core/api && git checkout dev && cd ../../core/client && git checkout dev && cd ../.. && python3.12 -m venv \"${workspaceFolder}/virtual_env/python\" && source \"${workspaceFolder}/virtual_env/python/bin/activate\" && pip install poetry && cd \"${workspaceFolder}/core\" && poetry install && api migrate && api collectstatic --noinput && npm install && cd \"${workspaceFolder}\" && sudo /bin/bash \"${workspaceFolder}/linux/ergo_ms.sh\" install \"${workspaceFolder}\""
             },
             "presentation": {
                 "echo": true,
                 "reveal": "always",
-                "focus": false,
+                "focus": true,
                 "panel": "new",
                 "showReuseMessage": true,
                 "clear": false
@@ -283,17 +283,17 @@
             "type": "shell",
             "options": {
                 "shell": {
-                    "executable": "cmd.exe",
-                    "args": ["/d", "/c"]
+                    "executable": "powershell.exe",
+                    "args": ["-Command"]
                 }
             },
-            "command": "echo Logs not available on Windows - use Windows tasks instead",
+            "command": "Get-Content -Path \"$env:ProgramData\\ergo_ms\\logs\\ergo-api-dev.log\" -Wait -Tail 500",
             "windows": {
-                "command": "echo Logs not available on Windows - use Windows tasks instead",
+                "command": "Get-Content -Path \"$env:ProgramData\\ergo_ms\\logs\\ergo-api-dev.log\" -Wait -Tail 500",
                 "options": {
                     "shell": {
-                        "executable": "cmd.exe",
-                        "args": ["/d", "/c"]
+                        "executable": "powershell.exe",
+                        "args": ["-Command"]
                     }
                 }
             },
@@ -320,17 +320,17 @@
             "type": "shell",
             "options": {
                 "shell": {
-                    "executable": "cmd.exe",
-                    "args": ["/d", "/c"]
+                    "executable": "powershell.exe",
+                    "args": ["-Command"]
                 }
             },
-            "command": "echo Logs not available on Windows - use Windows tasks instead",
+            "command": "Get-Content -Path \"$env:ProgramData\\ergo_ms\\logs\\ergo-client-dev.log\" -Wait -Tail 500",
             "windows": {
-                "command": "echo Logs not available on Windows - use Windows tasks instead",
+                "command": "Get-Content -Path \"$env:ProgramData\\ergo_ms\\logs\\ergo-client-dev.log\" -Wait -Tail 500",
                 "options": {
                     "shell": {
-                        "executable": "cmd.exe",
-                        "args": ["/d", "/c"]
+                        "executable": "powershell.exe",
+                        "args": ["-Command"]
                     }
                 }
             },
@@ -357,17 +357,17 @@
             "type": "shell",
             "options": {
                 "shell": {
-                    "executable": "cmd.exe",
-                    "args": ["/d", "/c"]
+                    "executable": "powershell.exe",
+                    "args": ["-Command"]
                 }
             },
-            "command": "echo Logs not available on Windows - use Windows tasks instead",
+            "command": "Get-Content -Path \"$env:ProgramData\\ergo_ms\\logs\\ergo-celery-worker.log\" -Wait -Tail 500",
             "windows": {
-                "command": "echo Logs not available on Windows - use Windows tasks instead",
+                "command": "Get-Content -Path \"$env:ProgramData\\ergo_ms\\logs\\ergo-celery-worker.log\" -Wait -Tail 500",
                 "options": {
                     "shell": {
-                        "executable": "cmd.exe",
-                        "args": ["/d", "/c"]
+                        "executable": "powershell.exe",
+                        "args": ["-Command"]
                     }
                 }
             },
@@ -394,17 +394,17 @@
             "type": "shell",
             "options": {
                 "shell": {
-                    "executable": "cmd.exe",
-                    "args": ["/d", "/c"]
+                    "executable": "powershell.exe",
+                    "args": ["-Command"]
                 }
             },
-            "command": "echo Logs not available on Windows - use Windows tasks instead",
+            "command": "Get-Content -Path \"$env:ProgramData\\ergo_ms\\logs\\ergo-celery-beat.log\" -Wait -Tail 500",
             "windows": {
-                "command": "echo Logs not available on Windows - use Windows tasks instead",
+                "command": "Get-Content -Path \"$env:ProgramData\\ergo_ms\\logs\\ergo-celery-beat.log\" -Wait -Tail 500",
                 "options": {
                     "shell": {
-                        "executable": "cmd.exe",
-                        "args": ["/d", "/c"]
+                        "executable": "powershell.exe",
+                        "args": ["-Command"]
                     }
                 }
             },

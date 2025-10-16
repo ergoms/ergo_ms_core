@@ -1,6 +1,35 @@
 @echo off
 setlocal enableextensions
 
+REM ========================================================================
+REM УСТАРЕЛО: Этот файл сохранён для обратной совместимости
+REM 
+REM Рекомендуется использовать новую систему управления службами Windows:
+REM   - Установка служб: powershell -ExecutionPolicy Bypass -File ergo_ms.ps1 install
+REM   - Запуск: ergoms start (или powershell -File ergo_ms.ps1 start)
+REM   - Остановка: ergoms stop
+REM   - Перезапуск: ergoms restart
+REM   - Статус: ergoms status
+REM 
+REM Или используйте задачи VS Code: Services: Install, Services: Start и т.д.
+REM ========================================================================
+
+echo.
+echo ========================================================================
+echo ВНИМАНИЕ: Используется устаревший способ запуска служб
+echo.
+echo Рекомендуется установить службы Windows для автоматического управления:
+echo   powershell -ExecutionPolicy Bypass -File "%~dp0ergo_ms.ps1" install
+echo.
+echo Или используйте задачи VS Code:
+echo   - Services: Install  - установить службы Windows
+echo   - Services: Start    - запустить все службы
+echo   - Services: Stop     - остановить все службы
+echo   - Services: Status   - проверить статус служб
+echo ========================================================================
+echo.
+timeout /t 5
+
 REM Root directory of the project (folder where this .bat is located, parent of windows/)
 cd /d "%~dp0"
 cd ..
