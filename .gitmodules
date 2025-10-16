@@ -5,14 +5,14 @@
 	url = https://github.com/SKB-AI/ergo_ms_core_api.git
 	branch = dev
 	update = merge
-	ignore = dirty
+	ignore = all
 
 [submodule "core/client"]
 	path = core/client
 	url = https://github.com/SKB-AI/ergo_ms_core_client.git
 	branch = dev
 	update = merge
-	ignore = dirty
+	ignore = all
 
 # Modules
 
