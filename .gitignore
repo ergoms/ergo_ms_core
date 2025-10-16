@@ -33,8 +33,4 @@ __pycache__/
 /media/*
 !/media/.gitkeep
 
-# Игнорировать все в папке configs/configs.env кроме .gitkeep
-/configs/configs.env/*
-!/configs/configs.env/.gitkeep
-
 /node_modules
