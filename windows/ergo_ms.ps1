@@ -111,18 +111,18 @@ function Test-ProjectStructure {
         throw "Invalid project root: $clientPath not found"
     }
 
-    Write-ColorOutput "✓ Project structure validated" Green
+    Write-ColorOutput "[OK] Project structure validated" Green
 }
 
 function Install-NSSM {
     $nssmExe = Join-Path $NssmDir "nssm.exe"
     
     if (Test-Path $nssmExe) {
-        Write-ColorOutput "✓ NSSM already installed" Green
+        Write-ColorOutput "[OK] NSSM already installed" Green
         return $nssmExe
     }
 
-    Write-ColorOutput "→ Downloading NSSM..." Yellow
+    Write-ColorOutput "-> Downloading NSSM..." Yellow
     $tempZip = Join-Path $env:TEMP "nssm.zip"
     $tempExtract = Join-Path $env:TEMP "nssm_extract"
 
@@ -150,7 +150,7 @@ function Install-NSSM {
         New-Item -ItemType Directory -Path $NssmDir -Force | Out-Null
         Copy-Item $nssmSource.FullName -Destination $nssmExe -Force
 
-        Write-ColorOutput "✓ NSSM installed to $nssmExe" Green
+        Write-ColorOutput "[OK] NSSM installed to $nssmExe" Green
     }
     finally {
         # Cleanup
@@ -176,38 +176,38 @@ function New-ServiceWrapper {
     switch ($ServiceName) {
         'ergo-api-dev' {
             $wrapperPath = Join-Path $wrapperDir "start_api.bat"
-            $content = @"
-@echo off
-cd /d "$corePath"
-call "$venvActivate"
-api dev
-"@
+            $content = @(
+                '@echo off',
+                "cd /d `"$corePath`"",
+                "call `"$venvActivate`"",
+                'api dev'
+            ) -join "`r`n"
         }
         'ergo-client-dev' {
             $wrapperPath = Join-Path $wrapperDir "start_client.bat"
-            $content = @"
-@echo off
-cd /d "$corePath"
-npm run dev
-"@
+            $content = @(
+                '@echo off',
+                "cd /d `"$corePath`"",
+                'npm run dev'
+            ) -join "`r`n"
         }
         'ergo-celery-worker' {
             $wrapperPath = Join-Path $wrapperDir "start_celery_worker.bat"
-            $content = @"
-@echo off
-cd /d "$corePath"
-call "$venvActivate"
-api start_celery_worker
-"@
+            $content = @(
+                '@echo off',
+                "cd /d `"$corePath`"",
+                "call `"$venvActivate`"",
+                'api start_celery_worker'
+            ) -join "`r`n"
         }
         'ergo-celery-beat' {
             $wrapperPath = Join-Path $wrapperDir "start_celery_beat.bat"
-            $content = @"
-@echo off
-cd /d "$corePath"
-call "$venvActivate"
-api start_celery_beat
-"@
+            $content = @(
+                '@echo off',
+                "cd /d `"$corePath`"",
+                "call `"$venvActivate`"",
+                'api start_celery_beat'
+            ) -join "`r`n"
         }
     }
 
@@ -225,7 +225,7 @@ function Install-Service {
     # Check if service already exists
     $existingService = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
     if ($existingService) {
-        Write-ColorOutput "→ Service $ServiceName already exists, reinstalling..." Yellow
+        Write-ColorOutput "-> Service $ServiceName already exists, reinstalling..." Yellow
         & $NssmExe stop $ServiceName 2>$null
         & $NssmExe remove $ServiceName confirm 2>$null
         Start-Sleep -Seconds 2
@@ -234,7 +234,7 @@ function Install-Service {
     $wrapperPath = New-ServiceWrapper -ServiceName $ServiceName -Root $Root
     $displayName = "Ergo MS - $ServiceName"
 
-    Write-ColorOutput "→ Installing service: $ServiceName" Cyan
+    Write-ColorOutput "-> Installing service: $ServiceName" Cyan
 
     # Install service
     & $NssmExe install $ServiceName $wrapperPath
@@ -251,7 +251,7 @@ function Install-Service {
     & $NssmExe set $ServiceName AppExit Default Restart
     & $NssmExe set $ServiceName AppRestartDelay 5000
 
-    Write-ColorOutput "✓ Service $ServiceName installed" Green
+    Write-ColorOutput "[OK] Service $ServiceName installed" Green
 }
 
 function Install-AllServices {
@@ -271,51 +271,51 @@ function Install-AllServices {
         Install-Service -ServiceName $serviceName -Root $Root -NssmExe $nssmExe
     }
 
-    Write-ColorOutput "`n✓ All services installed successfully" Green
+    Write-ColorOutput "`n[OK] All services installed successfully" Green
     Write-ColorOutput "Logs directory: $logsDir" Cyan
 }
 
 function Start-AllServices {
-    Write-ColorOutput "→ Starting all services..." Cyan
+    Write-ColorOutput "-> Starting all services..." Cyan
     foreach ($serviceName in $ServiceNames) {
         try {
             Start-Service -Name $serviceName
-            Write-ColorOutput "✓ Started: $serviceName" Green
+            Write-ColorOutput "[OK] Started: $serviceName" Green
         }
         catch {
-            Write-ColorOutput "✗ Failed to start: $serviceName - $($_.Exception.Message)" Red
+            Write-ColorOutput "[ERROR] Failed to start: $serviceName - $($_.Exception.Message)" Red
         }
     }
 }
 
 function Stop-AllServices {
-    Write-ColorOutput "→ Stopping all services..." Cyan
+    Write-ColorOutput "-> Stopping all services..." Cyan
     foreach ($serviceName in $ServiceNames) {
         try {
             $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
             if ($service -and $service.Status -ne 'Stopped') {
                 Stop-Service -Name $serviceName -Force
-                Write-ColorOutput "✓ Stopped: $serviceName" Green
+                Write-ColorOutput "[OK] Stopped: $serviceName" Green
             }
             else {
                 Write-ColorOutput "- Already stopped: $serviceName" Gray
             }
         }
         catch {
-            Write-ColorOutput "✗ Failed to stop: $serviceName - $($_.Exception.Message)" Red
+            Write-ColorOutput "[ERROR] Failed to stop: $serviceName - $($_.Exception.Message)" Red
         }
     }
 }
 
 function Restart-AllServices {
-    Write-ColorOutput "→ Restarting all services..." Cyan
+    Write-ColorOutput "-> Restarting all services..." Cyan
     foreach ($serviceName in $ServiceNames) {
         try {
             Restart-Service -Name $serviceName -Force
-            Write-ColorOutput "✓ Restarted: $serviceName" Green
+            Write-ColorOutput "[OK] Restarted: $serviceName" Green
         }
         catch {
-            Write-ColorOutput "✗ Failed to restart: $serviceName - $($_.Exception.Message)" Red
+            Write-ColorOutput "[ERROR] Failed to restart: $serviceName - $($_.Exception.Message)" Red
         }
     }
 }
@@ -348,7 +348,7 @@ function Show-ServicesStatus {
 function Uninstall-AllServices {
     param([bool]$PurgeData)
 
-    Write-ColorOutput "→ Uninstalling all services..." Yellow
+    Write-ColorOutput "-> Uninstalling all services..." Yellow
     
     $nssmExe = Join-Path $NssmDir "nssm.exe"
     
@@ -365,42 +365,42 @@ function Uninstall-AllServices {
                     # Remove service using sc.exe if nssm not available
                     sc.exe delete $serviceName
                 }
-                Write-ColorOutput "✓ Removed: $serviceName" Green
+                Write-ColorOutput "[OK] Removed: $serviceName" Green
             }
             catch {
-                Write-ColorOutput "✗ Failed to remove: $serviceName - $($_.Exception.Message)" Red
+                Write-ColorOutput "[ERROR] Failed to remove: $serviceName - $($_.Exception.Message)" Red
             }
         }
     }
 
     if ($PurgeData) {
-        Write-ColorOutput "→ Purging configuration data..." Yellow
+        Write-ColorOutput "-> Purging configuration data..." Yellow
         $dataDir = "$env:ProgramData\ergo_ms"
         if (Test-Path $dataDir) {
             Remove-Item $dataDir -Recurse -Force
-            Write-ColorOutput "✓ Removed: $dataDir" Green
+            Write-ColorOutput "[OK] Removed: $dataDir" Green
         }
     }
 
-    Write-ColorOutput "✓ Uninstall complete" Green
+    Write-ColorOutput "[OK] Uninstall complete" Green
 }
 
 function Install-CliWrapper {
     $selfScript = $PSCommandPath
-    $content = @"
-@echo off
-powershell.exe -ExecutionPolicy Bypass -NoProfile -File "$selfScript" %*
-"@
+    $content = @(
+        '@echo off',
+        "powershell.exe -ExecutionPolicy Bypass -NoProfile -File `"$selfScript`" %*"
+    ) -join "`r`n"
     
     Set-Content -Path $CliPath -Value $content -Encoding ASCII
-    Write-ColorOutput "✓ CLI wrapper installed: $CliPath" Green
+    Write-ColorOutput "[OK] CLI wrapper installed: $CliPath" Green
     Write-ColorOutput "  You can now use: $CliName start|stop|restart|status" Cyan
 }
 
 function Uninstall-CliWrapper {
     if (Test-Path $CliPath) {
         Remove-Item $CliPath -Force
-        Write-ColorOutput "✓ CLI wrapper removed: $CliPath" Green
+        Write-ColorOutput "[OK] CLI wrapper removed: $CliPath" Green
     }
     else {
         Write-ColorOutput "- CLI wrapper not found" Gray
@@ -456,7 +456,7 @@ Notes:
 # Main execution
 function Main {
     if (-not (Test-Administrator)) {
-        Write-ColorOutput "✗ This script requires Administrator privileges" Red
+        Write-ColorOutput "[ERROR] This script requires Administrator privileges" Red
         Write-ColorOutput "  Please run PowerShell as Administrator" Yellow
         exit 1
     }
@@ -464,13 +464,13 @@ function Main {
     switch ($Command) {
         'install' {
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
-            Write-ColorOutput "→ Installing services for: $projectRoot" Cyan
+            Write-ColorOutput "-> Installing services for: $projectRoot" Cyan
             Install-AllServices -Root $projectRoot
             Start-AllServices
             if (-not $NoCli) {
                 Install-CliWrapper
             }
-            Write-ColorOutput "`n✓ Installation complete!" Green
+            Write-ColorOutput "`n[OK] Installation complete!" Green
             Show-ServicesStatus
         }
         'start' {
