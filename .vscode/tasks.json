@@ -11,7 +11,7 @@
                     "args": ["/d", "/c"]
                 }
             },
-            "command": "git submodule update --init --remote core/api core/client && cd core\\api && git checkout dev && cd ..\\..\\core\\client && git checkout dev && cd ..\\..\\ && py -3.12 -m venv \"${workspaceFolder}\\virtual_env\\python\" && \"${workspaceFolder}\\virtual_env\\python\\Scripts\\activate.bat\" && pip install poetry && cd /d \"${workspaceFolder}\\core\" && poetry install && api migrate && api collectstatic --noinput && npm install && cd /d \"${workspaceFolder}\" && powershell.exe -ExecutionPolicy Bypass -NoProfile -File \"${workspaceFolder}\\windows\\ergo_ms.ps1\" install -Root \"${workspaceFolder}\"",
+            "command": "git submodule update --init --remote core/api core/client && cd core\\api && git checkout dev && cd ..\\..\\core\\client && git checkout dev && cd ..\\..\\ && py -3.12 -m venv \"${workspaceFolder}\\virtual_env\\python\" && \"${workspaceFolder}\\virtual_env\\python\\Scripts\\activate.bat\" && pip install poetry && cd /d \"${workspaceFolder}\\core\" && poetry install && api migrate && api collectstatic --noinput && npm install && cd /d \"${workspaceFolder}\" && powershell.exe -ExecutionPolicy Bypass -NoProfile -File \"${workspaceFolder}\\core\\deployment\\windows\\ergo_ms.ps1\" install -Root \"${workspaceFolder}\"",
             "windows": {
                 "options": {
                     "cwd": "${workspaceFolder}",
@@ -20,7 +20,7 @@
                         "args": ["/d", "/c"]
                     }
                 },
-                "command": "git submodule update --init --remote core/api core/client && cd core\\api && git checkout dev && cd ..\\..\\core\\client && git checkout dev && cd ..\\..\\ && py -3.12 -m venv \"${workspaceFolder}\\virtual_env\\python\" && \"${workspaceFolder}\\virtual_env\\python\\Scripts\\activate.bat\" && pip install poetry && cd /d \"${workspaceFolder}\\core\" && poetry install && api migrate && api collectstatic --noinput && npm install && cd /d \"${workspaceFolder}\" && powershell.exe -ExecutionPolicy Bypass -NoProfile -File \"${workspaceFolder}\\windows\\ergo_ms.ps1\" install -Root \"${workspaceFolder}\""
+                "command": "git submodule update --init --remote core/api core/client && cd core\\api && git checkout dev && cd ..\\..\\core\\client && git checkout dev && cd ..\\..\\ && py -3.12 -m venv \"${workspaceFolder}\\virtual_env\\python\" && \"${workspaceFolder}\\virtual_env\\python\\Scripts\\activate.bat\" && pip install poetry && cd /d \"${workspaceFolder}\\core\" && poetry install && api migrate && api collectstatic --noinput && npm install && cd /d \"${workspaceFolder}\" && powershell.exe -ExecutionPolicy Bypass -NoProfile -File \"${workspaceFolder}\\core\\deployment\\windows\\ergo_ms.ps1\" install -Root \"${workspaceFolder}\""
             },
             "linux": {
                 "options": {
@@ -30,7 +30,7 @@
                         "args": ["-lc"]
                     }
                 },
-                "command": "git submodule update --init --remote core/api core/client && cd core/api && git checkout dev && cd ../../core/client && git checkout dev && cd ../.. && python3.12 -m venv \"${workspaceFolder}/virtual_env/python\" && source \"${workspaceFolder}/virtual_env/python/bin/activate\" && pip install poetry && cd \"${workspaceFolder}/core\" && poetry install && api migrate && api collectstatic --noinput && npm install && cd \"${workspaceFolder}\" && sudo /bin/bash \"${workspaceFolder}/linux/ergo_ms.sh\" install \"${workspaceFolder}\""
+                "command": "git submodule update --init --remote core/api core/client && cd core/api && git checkout dev && cd ../../core/client && git checkout dev && cd ../.. && python3.12 -m venv \"${workspaceFolder}/virtual_env/python\" && source \"${workspaceFolder}/virtual_env/python/bin/activate\" && pip install poetry && cd \"${workspaceFolder}/core\" && poetry install && api migrate && api collectstatic --noinput && npm install && cd \"${workspaceFolder}\" && sudo /bin/bash \"${workspaceFolder}/core/deployment/linux/ergo_ms.sh\" install \"${workspaceFolder}\""
             },
             "presentation": {
                 "echo": true,
