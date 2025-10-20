@@ -197,12 +197,162 @@ uninstall_all() {
   fi
 }
 
+load_custom_commands() {
+  local root="$1"
+  local config_file="$root/core/deployment/commands.conf"
+  
+  declare -g -A CUSTOM_COMMANDS=()
+  
+  if [[ -f "$config_file" ]]; then
+    while IFS='=' read -r key value; do
+      # Skip comments and empty lines
+      [[ "$key" =~ ^[[:space:]]*# ]] && continue
+      [[ "$key" =~ ^[[:space:]]*$ ]] && continue
+      [[ -z "$key" ]] && continue
+      
+      # Remove leading/trailing whitespace
+      key=$(echo "$key" | xargs)
+      value=$(echo "$value" | xargs)
+      
+      if [[ -n "$key" && -n "$value" ]]; then
+        CUSTOM_COMMANDS["$key"]="$value"
+      fi
+    done < "$config_file"
+  fi
+}
+
+execute_command_string() {
+  local root="$1"
+  local cmd_string="$2"
+  shift 2
+  local user_args=("$@")
+  
+  # Parse command type (poetry:, api:, npm:)
+  if [[ "$cmd_string" =~ ^(poetry|api|npm):(.+)$ ]]; then
+    local cmd_type="${BASH_REMATCH[1]}"
+    local cmd_args="${BASH_REMATCH[2]}"
+    
+    # shellcheck disable=SC2086
+    case "$cmd_type" in
+      poetry)
+        cd "$root" || exit 1
+        exec poetry $cmd_args "${user_args[@]}"
+        ;;
+      api)
+        local venv_activate="$root/virtual_env/python/bin/activate"
+        if [[ ! -f "$venv_activate" ]]; then
+          echo "[ERROR] Virtual environment not found" >&2
+          exit 1
+        fi
+        cd "$root/core" || exit 1
+        # shellcheck disable=SC1090
+        source "$venv_activate"
+        # shellcheck disable=SC2086
+        exec api $cmd_args "${user_args[@]}"
+        ;;
+      npm)
+        cd "$root/core" || exit 1
+        # shellcheck disable=SC2086
+        exec npm $cmd_args "${user_args[@]}"
+        ;;
+    esac
+  else
+    # Execute as shell command
+    cd "$root" || exit 1
+    # shellcheck disable=SC2086
+    exec $cmd_string "${user_args[@]}"
+  fi
+}
+
+invoke_custom_command() {
+  local root="$1"
+  local cmd_name="$2"
+  shift 2
+  local user_args=("$@")
+  
+  load_custom_commands "$root"
+  
+  if [[ ! -v "CUSTOM_COMMANDS[$cmd_name]" ]]; then
+    echo "[ERROR] Unknown command: $cmd_name" >&2
+    echo "Available custom commands: ${!CUSTOM_COMMANDS[*]}" >&2
+    echo "Run 'ergoms help' for all available commands" >&2
+    exit 1
+  fi
+  
+  local command_def="${CUSTOM_COMMANDS[$cmd_name]}"
+  
+  # Check if it's a composite command (contains &&)
+  if [[ "$command_def" == *"&&"* ]]; then
+    echo "-> Executing composite command: $cmd_name"
+    IFS='&&' read -ra sub_cmds <<< "$command_def"
+    
+    for sub_cmd in "${sub_cmds[@]}"; do
+      sub_cmd=$(echo "$sub_cmd" | xargs)  # Trim whitespace
+      echo "   -> $sub_cmd"
+      
+      # Execute in subshell to avoid exec
+      (execute_command_string "$root" "$sub_cmd" "${user_args[@]}")
+      local exit_code=$?
+      
+      if [[ $exit_code -ne 0 ]]; then
+        echo "[ERROR] Command failed: $sub_cmd" >&2
+        exit $exit_code
+      fi
+    done
+  else
+    execute_command_string "$root" "$command_def" "${user_args[@]}"
+  fi
+}
+
+invoke_poetry_command() {
+  local root="${1:-}"
+  shift
+  cd "$root" || exit 1
+  exec poetry "$@"
+}
+
+invoke_api_command() {
+  local root="${1:-}"
+  shift
+  local venv_activate="$root/virtual_env/python/bin/activate"
+  
+  if [[ ! -f "$venv_activate" ]]; then
+    echo "[ERROR] Virtual environment not found at: $venv_activate" >&2
+    echo "  Please run 'ergoms poetry install' first" >&2
+    exit 1
+  fi
+  
+  cd "$root/core" || exit 1
+  # shellcheck disable=SC1090
+  source "$venv_activate"
+  exec api "$@"
+}
+
+invoke_npm_command() {
+  local root="${1:-}"
+  shift
+  cd "$root/core" || exit 1
+  exec npm "$@"
+}
+
 print_usage() {
+  local detected_root=""
+  detected_root="$(detect_project_root 2>/dev/null || echo '')"
+  
+  declare -A custom_cmds
+  if [[ -n "$detected_root" ]]; then
+    load_custom_commands "$detected_root" 2>/dev/null || true
+    for key in "${!CUSTOM_COMMANDS[@]}"; do
+      custom_cmds["$key"]="${CUSTOM_COMMANDS[$key]}"
+    done
+  fi
+  
   cat <<USAGE
 Usage:
-  sudo bash $0 [install|start|stop|restart|status|uninstall|install-cli|uninstall-cli] [--root /abs/path|--root=/abs/path|/abs/path] [--purge] [--no-cli]
+  bash $0 [command] [options]
+  ergoms [command] [options]  (after installing CLI)
 
-Commands:
+Service Management Commands:
   install    Install units, save ERGO_ROOT, enable and start
   start      Start all services
   stop       Stop all services
@@ -212,13 +362,70 @@ Commands:
   install-cli    Install CLI wrapper /usr/local/bin/ergoms
   uninstall-cli  Remove CLI wrapper
 
-If no command is provided, this help is shown. For install you may pass --root.
+Proxy Commands (automatically forward to respective tools):
+  poetry <args>  Forward to poetry command
+  api <args>     Forward to api command
+  npm <args>     Forward to npm command
+
+USAGE
+
+  if [[ ${#custom_cmds[@]} -gt 0 ]]; then
+    echo "Custom Commands (defined in commands.conf):"
+    echo ""
+    for cmd in $(echo "${!custom_cmds[@]}" | tr ' ' '\n' | sort); do
+      local def="${custom_cmds[$cmd]}"
+      # Truncate long definitions
+      if [[ ${#def} -gt 60 ]]; then
+        def="${def:0:57}..."
+      fi
+      printf "  %-20s -> %s\n" "$cmd" "$def"
+    done
+    echo ""
+  fi
+
+  cat <<USAGE
+Options:
+  --root <path>  Specify project root path (auto-detected if not provided)
+  --purge        Remove all data when uninstalling
+  --no-cli       Skip CLI wrapper installation
+
+Examples:
+  Service Management:
+    sudo bash $0 install
+    sudo bash $0 install --root /projects/ergo_ms
+    sudo bash $0 status
+    sudo bash $0 uninstall --purge
+    ergoms start
+    ergoms stop
+    ergoms restart
+    ergoms status
+
+  Proxy Commands:
+    ergoms poetry install
+    ergoms poetry update
+    ergoms api migrate
+    ergoms api createsuperuser
+    ergoms npm run dev
+    ergoms npm install
+
+  Custom Commands:
+    ergoms python-install       (alias for: poetry install)
+    ergoms setup                (runs: poetry install && npm install && api migrate)
+    ergoms db-migrate           (alias for: api migrate)
+
+Configuration:
+  Custom commands are defined in: core/deployment/commands.conf
+  Edit this file to add your own command aliases and composite commands.
+
+Notes:
+  - Service management requires root or sudo
+  - Proxy and custom commands do not require root privileges
+  - For install you may pass --root
+
 USAGE
 }
 
 main() {
-  require_root_or_sudo
-
   local command=""
   local ERGO_ROOT
   local arg_root=""
@@ -231,13 +438,36 @@ main() {
     SELF_SCRIPT="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
   fi
 
+  # Try to detect root early to load custom commands
+  local detected_root=""
+  detected_root="$(detect_project_root 2>/dev/null || echo '')"
+  
+  declare -A available_custom_cmds
+  if [[ -n "$detected_root" ]]; then
+    load_custom_commands "$detected_root" 2>/dev/null || true
+    for key in "${!CUSTOM_COMMANDS[@]}"; do
+      available_custom_cmds["$key"]="${CUSTOM_COMMANDS[$key]}"
+    done
+  fi
+
   # First positional can be a command
   if (( $# > 0 )); then
-    case "$1" in
-      install|start|stop|restart|status|uninstall|install-cli|uninstall-cli)
-        command="$1"; shift ;;
+    command="$1"
+    case "$command" in
+      install|start|stop|restart|status|uninstall|install-cli|uninstall-cli|poetry|api|npm)
+        shift ;;
       -h|--help)
         print_usage; exit 0 ;;
+      *)
+        # Check if it's a custom command
+        if [[ -v "available_custom_cmds[$command]" ]]; then
+          shift
+        else
+          echo "Unknown command: $command" >&2
+          print_usage
+          exit 1
+        fi
+        ;;
     esac
   fi
 
@@ -247,7 +477,65 @@ main() {
     exit 0
   fi
 
-  # Parse flags/positional root
+  # Check if it's a proxy command (doesn't require root)
+  local is_proxy_command=false
+  case "$command" in
+    poetry|api|npm)
+      is_proxy_command=true ;;
+  esac
+  
+  # Check if it's a custom command (doesn't require root)
+  local is_custom_command=false
+  if [[ -v "available_custom_cmds[$command]" ]]; then
+    is_custom_command=true
+  fi
+
+  # Parse flags/positional root for proxy and custom commands
+  if [[ "$is_proxy_command" == true ]] || [[ "$is_custom_command" == true ]]; then
+    while (( "$#" )); do
+      case "$1" in
+        --root)
+          shift; arg_root="${1:-}"; shift || true ;;
+        --root=*)
+          arg_root="${1#*=}"; shift ;;
+        -h|--help)
+          print_usage; exit 0 ;;
+        *)
+          break ;;  # Rest are arguments for the command
+      esac
+    done
+    
+    # Detect project root
+    if [[ -n "$arg_root" ]]; then
+      if [[ -d "$arg_root" ]]; then
+        if command -v readlink >/dev/null 2>&1; then ERGO_ROOT="$(readlink -f "$arg_root")"; else ERGO_ROOT="$(cd "$arg_root" && pwd)"; fi
+      else
+        echo "Provided --root path does not exist or is not a directory: $arg_root" >&2
+        exit 1
+      fi
+    else
+      ERGO_ROOT="$(detect_project_root)"
+    fi
+    
+    # Execute custom command
+    if [[ "$is_custom_command" == true ]]; then
+      invoke_custom_command "$ERGO_ROOT" "$command" "$@"
+      exit 0
+    fi
+    
+    # Execute proxy command
+    case "$command" in
+      poetry) invoke_poetry_command "$ERGO_ROOT" "$@" ;;
+      api)    invoke_api_command "$ERGO_ROOT" "$@" ;;
+      npm)    invoke_npm_command "$ERGO_ROOT" "$@" ;;
+    esac
+    exit 0
+  fi
+
+  # For non-proxy commands, require root/sudo
+  require_root_or_sudo
+
+  # Parse flags/positional root for service commands
   while (( "$#" )); do
     case "$1" in
       --root)

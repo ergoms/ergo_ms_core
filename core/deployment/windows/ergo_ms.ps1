@@ -29,10 +29,11 @@
 
 param(
     [Parameter(Position=0)]
-    [ValidateSet('install', 'start', 'stop', 'restart', 'status', 'uninstall', 'install-cli', 'uninstall-cli', 'help')]
     [string]$Command = 'help',
 
-    [Parameter(Position=1)]
+    [Parameter(ValueFromRemainingArguments=$true)]
+    [string[]]$RemainingArgs = @(),
+
     [string]$Root = '',
 
     [switch]$Purge,
@@ -407,8 +408,192 @@ function Uninstall-CliWrapper {
     }
 }
 
+function Get-CustomCommands {
+    param([string]$ProjectRoot)
+    
+    $configPath = Join-Path $ProjectRoot "core\deployment\commands.conf"
+    $commands = @{}
+    
+    if (Test-Path $configPath) {
+        Get-Content $configPath | ForEach-Object {
+            $line = $_.Trim()
+            # Skip comments and empty lines
+            if ($line -and -not $line.StartsWith('#') -and -not $line.StartsWith('=')) {
+                if ($line -match '^([a-zA-Z0-9_-]+)=(.+)$') {
+                    $cmdName = $matches[1].Trim()
+                    $cmdValue = $matches[2].Trim()
+                    $commands[$cmdName] = $cmdValue
+                }
+            }
+        }
+    }
+    
+    return $commands
+}
+
+function Invoke-CustomCommand {
+    param(
+        [string]$CommandName,
+        [string[]]$Args,
+        [string]$ProjectRoot
+    )
+    
+    $customCommands = Get-CustomCommands -ProjectRoot $ProjectRoot
+    
+    if (-not $customCommands.ContainsKey($CommandName)) {
+        Write-ColorOutput "[ERROR] Unknown command: $CommandName" Red
+        Write-ColorOutput "Available custom commands: $($customCommands.Keys -join ', ')" Yellow
+        Write-ColorOutput "Run 'ergoms help' for all available commands" Cyan
+        exit 1
+    }
+    
+    $commandDef = $customCommands[$CommandName]
+    
+    # Check if it's a composite command (contains &&)
+    if ($commandDef -match '&&') {
+        $subCommands = $commandDef -split '&&' | ForEach-Object { $_.Trim() }
+        Write-ColorOutput "-> Executing composite command: $CommandName" Cyan
+        
+        foreach ($subCmd in $subCommands) {
+            Write-ColorOutput "   -> $subCmd" Yellow
+            Execute-CommandString -CommandString $subCmd -ProjectRoot $ProjectRoot -Args $Args
+            if ($LASTEXITCODE -ne 0) {
+                Write-ColorOutput "[ERROR] Command failed: $subCmd" Red
+                exit $LASTEXITCODE
+            }
+        }
+    }
+    else {
+        Execute-CommandString -CommandString $commandDef -ProjectRoot $ProjectRoot -Args $Args
+    }
+}
+
+function Execute-CommandString {
+    param(
+        [string]$CommandString,
+        [string]$ProjectRoot,
+        [string[]]$Args
+    )
+    
+    # Parse command type (poetry:, api:, npm:)
+    if ($CommandString -match '^(poetry|api|npm):(.+)$') {
+        $cmdType = $matches[1]
+        $cmdArgs = $matches[2].Trim()
+        
+        # Split command arguments and add user arguments
+        $allArgs = ($cmdArgs -split '\s+') + $Args
+        
+        switch ($cmdType) {
+            'poetry' {
+                Push-Location $ProjectRoot
+                try {
+                    & poetry $allArgs
+                }
+                finally {
+                    Pop-Location
+                }
+            }
+            'api' {
+                $venvActivate = Join-Path $ProjectRoot "virtual_env\python\Scripts\activate.bat"
+                if (-not (Test-Path $venvActivate)) {
+                    Write-ColorOutput "[ERROR] Virtual environment not found" Red
+                    exit 1
+                }
+                Push-Location (Join-Path $ProjectRoot "core")
+                try {
+                    $argsString = $allArgs -join ' '
+                    & cmd /c "$venvActivate && api $argsString"
+                }
+                finally {
+                    Pop-Location
+                }
+            }
+            'npm' {
+                Push-Location (Join-Path $ProjectRoot "core")
+                try {
+                    & npm $allArgs
+                }
+                finally {
+                    Pop-Location
+                }
+            }
+        }
+    }
+    else {
+        # Execute as shell command
+        Push-Location $ProjectRoot
+        try {
+            $allArgs = ($CommandString -split '\s+') + $Args
+            $mainCmd = $allArgs[0]
+            $cmdArgs = $allArgs[1..($allArgs.Length-1)]
+            & $mainCmd $cmdArgs
+        }
+        finally {
+            Pop-Location
+        }
+    }
+}
+
+function Invoke-PoetryCommand {
+    param([string[]]$Args)
+    
+    $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+    Push-Location $projectRoot
+    try {
+        & poetry $Args
+    }
+    finally {
+        Pop-Location
+    }
+}
+
+function Invoke-ApiCommand {
+    param([string[]]$Args)
+    
+    $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+    $venvActivate = Join-Path $projectRoot "virtual_env\python\Scripts\activate.bat"
+    
+    if (-not (Test-Path $venvActivate)) {
+        Write-ColorOutput "[ERROR] Virtual environment not found at: $venvActivate" Red
+        Write-ColorOutput "  Please run 'poetry install' first" Yellow
+        exit 1
+    }
+    
+    Push-Location (Join-Path $projectRoot "core")
+    try {
+        & cmd /c "$venvActivate && api $($Args -join ' ')"
+    }
+    finally {
+        Pop-Location
+    }
+}
+
+function Invoke-NpmCommand {
+    param([string[]]$Args)
+    
+    $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+    Push-Location (Join-Path $projectRoot "core")
+    try {
+        & npm $Args
+    }
+    finally {
+        Pop-Location
+    }
+}
+
 function Show-Help {
-    Write-ColorOutput @"
+    $projectRoot = $null
+    $customCommands = @{}
+    
+    try {
+        $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+        $customCommands = Get-CustomCommands -ProjectRoot $projectRoot
+    }
+    catch {
+        # Ignore errors when getting custom commands
+    }
+    
+    $helpText = @"
 
 Ergo MS Service Manager for Windows
 ====================================
@@ -417,7 +602,7 @@ Usage:
     .\ergo_ms.ps1 [command] [options]
     ergoms [command] [options]  (after installing CLI)
 
-Commands:
+Service Management Commands:
     install         Install all services and start them
     start          Start all services
     stop           Stop all services
@@ -428,40 +613,134 @@ Commands:
     uninstall-cli  Remove CLI wrapper
     help           Show this help
 
+Proxy Commands (automatically forward to respective tools):
+    poetry <args>  Forward to poetry command
+    api <args>     Forward to api command
+    npm <args>     Forward to npm command
+
+"@
+
+    if ($customCommands.Count -gt 0) {
+        $helpText += @"
+Custom Commands (defined in commands.conf):
+
+"@
+        foreach ($cmd in ($customCommands.Keys | Sort-Object)) {
+            $def = $customCommands[$cmd]
+            # Truncate long definitions
+            if ($def.Length -gt 60) {
+                $def = $def.Substring(0, 57) + "..."
+            }
+            $helpText += "    $cmd`n        -> $def`n"
+        }
+        $helpText += "`n"
+    }
+
+    $helpText += @"
 Options:
     -Root <path>   Specify project root path (auto-detected if not provided)
     -Purge         Remove all data when uninstalling
     -NoCli         Skip CLI wrapper installation
 
 Examples:
-    .\ergo_ms.ps1 install
-    .\ergo_ms.ps1 install -Root "C:\projects\ergo_ms"
-    .\ergo_ms.ps1 status
-    .\ergo_ms.ps1 uninstall -Purge
+    Service Management:
+        .\ergo_ms.ps1 install
+        .\ergo_ms.ps1 install -Root "C:\projects\ergo_ms"
+        .\ergo_ms.ps1 status
+        .\ergo_ms.ps1 uninstall -Purge
+        ergoms start
+        ergoms stop
+        ergoms restart
+        ergoms status
 
-    ergoms start
-    ergoms stop
-    ergoms restart
-    ergoms status
+    Proxy Commands:
+        ergoms poetry install
+        ergoms poetry update
+        ergoms api migrate
+        ergoms api createsuperuser
+        ergoms npm run dev
+        ergoms npm install
+
+    Custom Commands:
+        ergoms python-install       (alias for: poetry install)
+        ergoms setup                (runs: poetry install && npm install && api migrate)
+        ergoms db-migrate           (alias for: api migrate)
+
+Configuration:
+    Custom commands are defined in: core/deployment/commands.conf
+    Edit this file to add your own command aliases and composite commands.
 
 Notes:
-    - This script requires Administrator privileges
+    - Service management requires Administrator privileges
     - Services are installed using NSSM (Non-Sucking Service Manager)
     - Logs are stored in: $env:ProgramData\ergo_ms\logs\
     - Service wrappers: $env:ProgramData\ergo_ms\wrappers\
+    - Proxy and custom commands do not require Administrator privileges
 
-"@ White
+"@
+    
+    Write-ColorOutput $helpText White
 }
 
 # Main execution
 function Main {
-    if (-not (Test-Administrator)) {
-        Write-ColorOutput "[ERROR] This script requires Administrator privileges" Red
+    # Proxy commands that don't require admin
+    $proxyCommands = @('poetry', 'api', 'npm')
+    $isProxyCommand = $proxyCommands -contains $Command.ToLower()
+    
+    # Commands that require admin
+    $adminCommands = @('install', 'start', 'stop', 'restart', 'status', 'uninstall', 'install-cli', 'uninstall-cli')
+    $requiresAdmin = $adminCommands -contains $Command.ToLower()
+    
+    # Check if it's a custom command
+    $projectRoot = $null
+    $customCommands = @{}
+    $isCustomCommand = $false
+    
+    if (-not $requiresAdmin -and -not $isProxyCommand -and $Command -ne 'help') {
+        try {
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+            $customCommands = Get-CustomCommands -ProjectRoot $projectRoot
+            $isCustomCommand = $customCommands.ContainsKey($Command)
+        }
+        catch {
+            # Ignore errors
+        }
+    }
+    
+    # Check admin only for admin commands
+    if ($requiresAdmin -and -not (Test-Administrator)) {
+        Write-ColorOutput "[ERROR] This script requires Administrator privileges for '$Command' command" Red
         Write-ColorOutput "  Please run PowerShell as Administrator" Yellow
         exit 1
     }
 
-    switch ($Command) {
+    # Handle custom commands (no admin required)
+    if ($isCustomCommand) {
+        Invoke-CustomCommand -CommandName $Command -Args $RemainingArgs -ProjectRoot $projectRoot
+        return
+    }
+
+    # Handle proxy commands
+    if ($isProxyCommand) {
+        switch ($Command.ToLower()) {
+            'poetry' {
+                Invoke-PoetryCommand -Args $RemainingArgs
+                return
+            }
+            'api' {
+                Invoke-ApiCommand -Args $RemainingArgs
+                return
+            }
+            'npm' {
+                Invoke-NpmCommand -Args $RemainingArgs
+                return
+            }
+        }
+    }
+
+    # Handle service management commands
+    switch ($Command.ToLower()) {
         'install' {
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
             Write-ColorOutput "-> Installing services for: $projectRoot" Cyan
@@ -499,6 +778,11 @@ function Main {
         }
         'help' {
             Show-Help
+        }
+        default {
+            Write-ColorOutput "[ERROR] Unknown command: $Command" Red
+            Write-ColorOutput "Run 'ergoms help' for usage information" Yellow
+            exit 1
         }
     }
 }
