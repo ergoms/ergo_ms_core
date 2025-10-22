@@ -157,7 +157,7 @@ setup_full_system() {
   # Step 2: Create virtual environment
   echo "-> Step 2/7: Creating Python virtual environment..."
   local venv_path="$root/virtual_env/python"
-  if [[ -d "$venv_path" ]]; then
+  if [[ -f "$venv_path/bin/activate" && -f "$venv_path/bin/python" ]]; then
     echo "  Virtual environment already exists"
   else
     if ! python3.12 -m venv "$venv_path"; then
