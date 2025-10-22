@@ -37,3 +37,6 @@ __pycache__/
 !/media/.gitkeep
 
 /node_modules
+
+/core/deployment/wrappers/*
+!/core/deployment/wrappers/.gitkeep

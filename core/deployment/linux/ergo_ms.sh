@@ -157,7 +157,7 @@ setup_full_system() {
   # Step 2: Create virtual environment
   echo "-> Step 2/7: Creating Python virtual environment..."
   local venv_path="$root/virtual_env/python"
-  if [[ -d "$venv_path" ]]; then
+  if [[ -f "$venv_path/bin/activate" && -f "$venv_path/bin/python" ]]; then
     echo "  Virtual environment already exists"
   else
     if ! python3.12 -m venv "$venv_path"; then
@@ -213,103 +213,14 @@ setup_full_system() {
   fi
   echo "[OK] Static files collected"
   
-  # Step 7: Install and start services
-  echo "-> Step 7/7: Installing services..."
-  cd "$root" || exit 1
+  # Step 7: Setup complete (services not installed)
+  echo "-> Step 7/7: Setup complete"
   
-  write_env_file "$root"
-  
-  # Define and install units
-  API_UNIT=$(cat <<'UNIT'
-[Unit]
-Description=Ergo API (dev)
-After=network.target
-
-[Service]
-Type=simple
-EnvironmentFile=/etc/default/ergo_ms
-ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && api dev'
-Restart=always
-RestartSec=5
-Environment=PYTHONUNBUFFERED=1
-
-[Install]
-WantedBy=multi-user.target
-UNIT
-)
-
-  CLIENT_UNIT=$(cat <<'UNIT'
-[Unit]
-Description=Ergo Client (npm run dev)
-After=network.target
-
-[Service]
-Type=simple
-EnvironmentFile=/etc/default/ergo_ms
-ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && npm run dev'
-Restart=always
-RestartSec=5
-Environment=NODE_ENV=development
-
-[Install]
-WantedBy=multi-user.target
-UNIT
-)
-
-  CELERY_WORKER_UNIT=$(cat <<'UNIT'
-[Unit]
-Description=Ergo Celery Worker
-After=network.target
-Requires=ergo-api-dev.service
-
-[Service]
-Type=simple
-EnvironmentFile=/etc/default/ergo_ms
-ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && api start_celery_worker'
-Restart=always
-RestartSec=5
-Environment=PYTHONUNBUFFERED=1
-
-[Install]
-WantedBy=multi-user.target
-UNIT
-)
-
-  CELERY_BEAT_UNIT=$(cat <<'UNIT'
-[Unit]
-Description=Ergo Celery Beat
-After=network.target
-Requires=ergo-api-dev.service
-
-[Service]
-Type=simple
-EnvironmentFile=/etc/default/ergo_ms
-ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && api start_celery_beat'
-Restart=always
-RestartSec=5
-Environment=PYTHONUNBUFFERED=1
-
-[Install]
-WantedBy=multi-user.target
-UNIT
-)
-
-  install_unit "ergo-api-dev"        "$API_UNIT"
-  install_unit "ergo-client-dev"     "$CLIENT_UNIT"
-  install_unit "ergo-celery-worker"  "$CELERY_WORKER_UNIT"
-  install_unit "ergo-celery-beat"    "$CELERY_BEAT_UNIT"
-
-  daemon_reload
-
-  enable_and_start ergo-api-dev.service
-  enable_and_start ergo-client-dev.service
-  enable_and_start ergo-celery-worker.service
-  enable_and_start ergo-celery-beat.service
-
   echo ""
   echo "=== Full System Setup Complete ==="
   echo ""
-  status_all
+  echo "System is ready! To install and start services, run:"
+  echo "  ergoms install-services"
   echo ""
   echo "You can now use 'ergoms' commands to manage your system."
 }
@@ -610,6 +521,11 @@ Usage:
 
 Service Management Commands:
   install    Install units, save ERGO_ROOT, enable and start
+  install-services Install and start services only
+  install-api-service     Install and start API service only
+  install-client-service  Install and start Client service only
+  install-worker-service  Install and start Worker service only
+  install-beat-service    Install and start Beat service only
   start      Start all services
   stop       Stop all services
   restart    Restart all services
@@ -618,7 +534,14 @@ Service Management Commands:
   install-cli    Install CLI wrapper /usr/local/bin/ergoms
   uninstall-cli  Remove CLI wrapper
   logs       Show logs for a service (usage: logs <service-name> [lines])
-  setup-full     Full system setup (git, venv, poetry, npm, services)
+  setup-full     Full system setup (git, venv, poetry, npm) - no services
+
+Deployment Commands (no root required):
+  deploy-api     Deploy API only (install deps, migrate, collect static)
+  deploy-client  Deploy Client only (install deps, build)
+  deploy-api-dev Deploy and start API in development mode
+  deploy-client-dev Deploy and start Client in development mode
+  deploy-all     Deploy all components (API + Client)
 
 Proxy Commands (automatically forward to respective tools):
   poetry <args>  Forward to poetry command
@@ -707,10 +630,13 @@ Examples:
     ergoms setup                (runs: poetry install && npm install && api migrate)
     ergoms db-migrate           (alias for: api migrate)
 
-  Module Commands:
-    ergoms video_analysis:install-deps    (install all video_analysis dependencies)
-    ergoms install-deps                   (same as above if no conflict)
-
+  Deployment Commands:
+    ergoms deploy-api           (deploy API only)
+    ergoms deploy-client        (deploy Client only)
+    ergoms deploy-api-dev       (deploy and start API in dev mode)
+    ergoms deploy-client-dev    (deploy and start Client in dev mode)
+    ergoms deploy-all           (deploy all components)
+    
 Configuration:
   Core commands: core/deployment/commands.conf
   Module commands: modules/*/ergoms.conf
@@ -722,6 +648,225 @@ Notes:
   - For install you may pass --root
 
 USAGE
+}
+
+install_services() {
+  local root="$1"
+  
+  echo ""
+  echo "=== Installing Services ==="
+  echo ""
+  
+  cd "$root" || exit 1
+  
+  write_env_file "$root"
+  
+  # Define and install units
+  API_UNIT=$(cat <<'UNIT'
+[Unit]
+Description=Ergo API (dev)
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/default/ergo_ms
+ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && api dev'
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+)
+
+  CLIENT_UNIT=$(cat <<'UNIT'
+[Unit]
+Description=Ergo Client (npm run dev)
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/default/ergo_ms
+ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && npm run dev'
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=development
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+)
+
+  CELERY_WORKER_UNIT=$(cat <<'UNIT'
+[Unit]
+Description=Ergo Celery Worker
+After=network.target
+Requires=ergo-api-dev.service
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/default/ergo_ms
+ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && api start_celery_worker'
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+)
+
+  CELERY_BEAT_UNIT=$(cat <<'UNIT'
+[Unit]
+Description=Ergo Celery Beat
+After=network.target
+Requires=ergo-api-dev.service
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/default/ergo_ms
+ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && api start_celery_beat'
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+)
+
+  install_unit "ergo-api-dev"        "$API_UNIT"
+  install_unit "ergo-client-dev"     "$CLIENT_UNIT"
+  install_unit "ergo-celery-worker"  "$CELERY_WORKER_UNIT"
+  install_unit "ergo-celery-beat"    "$CELERY_BEAT_UNIT"
+
+  daemon_reload
+
+  enable_and_start ergo-api-dev.service
+  enable_and_start ergo-client-dev.service
+  enable_and_start ergo-celery-worker.service
+  enable_and_start ergo-celery-beat.service
+
+  echo ""
+  echo "=== Services Installed and Started ==="
+  echo ""
+  status_all
+  echo ""
+  echo "Services are now running!"
+}
+
+install_single_service() {
+  local service_name="$1"
+  local root="$2"
+  
+  echo ""
+  echo "=== Installing $service_name Service ==="
+  echo ""
+  
+  cd "$root" || exit 1
+  
+  write_env_file "$root"
+  
+  case "$service_name" in
+    "api")
+      local unit_name="ergo-api-dev"
+      local unit_content=$(cat <<'UNIT'
+[Unit]
+Description=Ergo API (dev)
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/default/ergo_ms
+ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && api dev'
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+)
+      ;;
+    "client")
+      local unit_name="ergo-client-dev"
+      local unit_content=$(cat <<'UNIT'
+[Unit]
+Description=Ergo Client (npm run dev)
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/default/ergo_ms
+ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && npm run dev'
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=development
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+)
+      ;;
+    "worker")
+      local unit_name="ergo-celery-worker"
+      local unit_content=$(cat <<'UNIT'
+[Unit]
+Description=Ergo Celery Worker
+After=network.target
+Requires=ergo-api-dev.service
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/default/ergo_ms
+ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && api start_celery_worker'
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+)
+      ;;
+    "beat")
+      local unit_name="ergo-celery-beat"
+      local unit_content=$(cat <<'UNIT'
+[Unit]
+Description=Ergo Celery Beat
+After=network.target
+Requires=ergo-api-dev.service
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/default/ergo_ms
+ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && api start_celery_beat'
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+)
+      ;;
+    *)
+      echo "Unknown service: $service_name" >&2
+      exit 1
+      ;;
+  esac
+
+  install_unit "$unit_name" "$unit_content"
+  daemon_reload
+  enable_and_start "${unit_name}.service"
+
+  echo ""
+  echo "=== $service_name Service Installed and Started ==="
+  echo ""
+  status_all
+  echo ""
+  echo "$service_name service is now running!"
 }
 
 main() {
@@ -753,7 +898,7 @@ main() {
   if (( $# > 0 )); then
     command="$1"
     case "$command" in
-      install|start|stop|restart|status|uninstall|install-cli|uninstall-cli|logs|setup-full|poetry|api|npm)
+      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|start|stop|restart|status|uninstall|install-cli|uninstall-cli|logs|setup-full|poetry|api|npm)
         shift ;;
       -h|--help)
         print_usage; exit 0 ;;
@@ -794,9 +939,16 @@ main() {
   if [[ -v "available_custom_cmds[$command]" ]]; then
     is_custom_command=true
   fi
+  
+  # Check if it's a deployment command (doesn't require root)
+  local is_deploy_command=false
+  case "$command" in
+    deploy-api|deploy-client|deploy-api-dev|deploy-client-dev|deploy-all)
+      is_deploy_command=true ;;
+  esac
 
-  # Parse flags/positional root for proxy, custom, and logs commands
-  if [[ "$is_proxy_command" == true ]] || [[ "$is_custom_command" == true ]] || [[ "$is_logs_command" == true ]]; then
+  # Parse flags/positional root for proxy, custom, logs, and deploy commands
+  if [[ "$is_proxy_command" == true ]] || [[ "$is_custom_command" == true ]] || [[ "$is_logs_command" == true ]] || [[ "$is_deploy_command" == true ]]; then
     while (( "$#" )); do
       case "$1" in
         --root)
@@ -824,6 +976,12 @@ main() {
     
     # Execute custom command
     if [[ "$is_custom_command" == true ]]; then
+      invoke_custom_command "$ERGO_ROOT" "$command" "$@"
+      exit 0
+    fi
+    
+    # Execute deploy command
+    if [[ "$is_deploy_command" == true ]]; then
       invoke_custom_command "$ERGO_ROOT" "$command" "$@"
       exit 0
     fi
@@ -919,6 +1077,7 @@ main() {
       exit 0
       ;;
     install)  ;; # Continue to install flow
+    install-services)  ;; # Continue to install flow
     *)        echo "Unknown command: $command" >&2; print_usage; exit 1 ;;
   esac
 
@@ -1016,26 +1175,38 @@ WantedBy=multi-user.target
 UNIT
 )
 
-  install_unit "ergo-api-dev"        "$API_UNIT"
-  install_unit "ergo-client-dev"     "$CLIENT_UNIT"
-  install_unit "ergo-celery-worker"  "$CELERY_WORKER_UNIT"
-  install_unit "ergo-celery-beat"    "$CELERY_BEAT_UNIT"
-
-  daemon_reload
-
-  enable_and_start ergo-api-dev.service
-  enable_and_start ergo-client-dev.service
-  enable_and_start ergo-celery-worker.service
-  enable_and_start ergo-celery-beat.service
-
-  echo "All services installed and started."
-  echo "View logs: journalctl -u ergo-api-dev -n 500 -f"
-
-  if [[ "$no_cli" == false ]]; then
-    create_cli_wrapper "$SELF_SCRIPT"
-    echo "You can now run: $(cli_name) start|stop|restart|status|uninstall [--purge]"
+  if [[ "$command" == "install-services" ]]; then
+    install_services "$ERGO_ROOT"
+  elif [[ "$command" == "install-api-service" ]]; then
+    install_single_service "api" "$ERGO_ROOT"
+  elif [[ "$command" == "install-client-service" ]]; then
+    install_single_service "client" "$ERGO_ROOT"
+  elif [[ "$command" == "install-worker-service" ]]; then
+    install_single_service "worker" "$ERGO_ROOT"
+  elif [[ "$command" == "install-beat-service" ]]; then
+    install_single_service "beat" "$ERGO_ROOT"
   else
-    echo "CLI wrapper install skipped (--no-cli)."
+    install_unit "ergo-api-dev"        "$API_UNIT"
+    install_unit "ergo-client-dev"     "$CLIENT_UNIT"
+    install_unit "ergo-celery-worker"  "$CELERY_WORKER_UNIT"
+    install_unit "ergo-celery-beat"    "$CELERY_BEAT_UNIT"
+
+    daemon_reload
+
+    enable_and_start ergo-api-dev.service
+    enable_and_start ergo-client-dev.service
+    enable_and_start ergo-celery-worker.service
+    enable_and_start ergo-celery-beat.service
+
+    echo "All services installed and started."
+    echo "View logs: journalctl -u ergo-api-dev -n 500 -f"
+
+    if [[ "$no_cli" == false ]]; then
+      create_cli_wrapper "$SELF_SCRIPT"
+      echo "You can now run: $(cli_name) start|stop|restart|status|uninstall [--purge]"
+    else
+      echo "CLI wrapper install skipped (--no-cli)."
+    fi
   fi
 }
 
