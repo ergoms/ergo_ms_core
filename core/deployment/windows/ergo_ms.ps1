@@ -227,7 +227,16 @@ function Install-Service {
     $existingService = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
     if ($existingService) {
         Write-ColorOutput "-> Service $ServiceName already exists, reinstalling..." Yellow
-        & $NssmExe stop $ServiceName 2>$null
+        
+        # Stop service only if it's running
+        if ($existingService.Status -eq 'Running') {
+            Write-ColorOutput "   Stopping service..." Gray
+            & $NssmExe stop $ServiceName 2>$null
+            Start-Sleep -Seconds 2
+        }
+        
+        # Remove service
+        Write-ColorOutput "   Removing service..." Gray
         & $NssmExe remove $ServiceName confirm 2>$null
         Start-Sleep -Seconds 2
     }
