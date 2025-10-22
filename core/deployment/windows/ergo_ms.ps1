@@ -222,7 +222,7 @@ function Install-Service {
         [string]$Root,
         [string]$NssmExe
     )
-
+    
     # Check if service already exists
     $existingService = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
     if ($existingService) {
@@ -462,17 +462,57 @@ function Setup-FullSystem {
     # Step 2: Create virtual environment
     Write-ColorOutput "-> Step 2/7: Creating Python virtual environment..." Yellow
     $venvPath = Join-Path $Root "virtual_env\python"
+    $venvActivate = Join-Path $venvPath "Scripts\activate.bat"
+    $pipExe = Join-Path $venvPath "Scripts\pip.exe"
+    $pythonExe = Join-Path $venvPath "Scripts\python.exe"
+    
+    $needsRecreation = $false
+    
     if (Test-Path $venvPath) {
         Write-ColorOutput "  Virtual environment already exists" Gray
+        
+        # Check if virtual environment is valid
+        if (-not (Test-Path $pipExe) -or -not (Test-Path $pythonExe) -or -not (Test-Path $venvActivate)) {
+            Write-ColorOutput "  Virtual environment appears corrupted, will recreate..." Yellow
+            $needsRecreation = $true
+        } else {
+            # Test if Python works in the virtual environment
+            try {
+                $testResult = & $pythonExe --version 2>&1
+                if ($LASTEXITCODE -ne 0) {
+                    Write-ColorOutput "  Python in virtual environment not working, will recreate..." Yellow
+                    $needsRecreation = $true
+                } else {
+                    Write-ColorOutput "  Virtual environment is valid" Green
+                }
+            }
+            catch {
+                Write-ColorOutput "  Error testing virtual environment, will recreate..." Yellow
+                $needsRecreation = $true
+            }
+        }
     }
     else {
+        $needsRecreation = $true
+    }
+    
+    if ($needsRecreation) {
+        # Remove existing virtual environment if it exists
+        if (Test-Path $venvPath) {
+            Write-ColorOutput "  Removing corrupted virtual environment..." Yellow
+            Remove-Item $venvPath -Recurse -Force
+        }
+        
         try {
+            Write-ColorOutput "  Creating new virtual environment..." Gray
             & py -3.12 -m venv $venvPath
             if ($LASTEXITCODE -ne 0) { throw "Failed to create venv" }
             Write-ColorOutput "[OK] Virtual environment created" Green
         }
         catch {
             Write-ColorOutput "[ERROR] Failed to create virtual environment: $($_.Exception.Message)" Red
+            Write-ColorOutput "  Python command used: py -3.12 -m venv" Gray
+            Write-ColorOutput "  Target path: $venvPath" Gray
             exit 1
         }
     }
@@ -480,13 +520,33 @@ function Setup-FullSystem {
     # Step 3: Install Poetry
     Write-ColorOutput "-> Step 3/7: Installing Poetry..." Yellow
     $venvActivate = Join-Path $venvPath "Scripts\activate.bat"
+    $pipExe = Join-Path $venvPath "Scripts\pip.exe"
+    
+    if (-not (Test-Path $pipExe)) {
+        Write-ColorOutput "[ERROR] pip not found in virtual environment" Red
+        exit 1
+    }
+    
     try {
-        & cmd /c "$venvActivate && pip install poetry"
-        if ($LASTEXITCODE -ne 0) { throw "Poetry installation failed" }
-        Write-ColorOutput "[OK] Poetry installed" Green
+        # Use direct path to pip instead of cmd /c
+        Write-ColorOutput "  Installing Poetry using: $pipExe" Gray
+        & $pipExe install poetry
+        if ($LASTEXITCODE -ne 0) { 
+            Write-ColorOutput "  pip exit code: $LASTEXITCODE" Red
+            throw "Poetry installation failed" 
+        }
+        # Verify Poetry installation
+        $poetryExe = Join-Path $venvPath "Scripts\poetry.exe"
+        if (Test-Path $poetryExe) {
+            Write-ColorOutput "[OK] Poetry installed and verified" Green
+        } else {
+            Write-ColorOutput "[WARNING] Poetry installed but executable not found at: $poetryExe" Yellow
+        }
     }
     catch {
         Write-ColorOutput "[ERROR] Failed to install Poetry: $($_.Exception.Message)" Red
+        Write-ColorOutput "  pip executable: $pipExe" Gray
+        Write-ColorOutput "  Virtual environment: $venvPath" Gray
         exit 1
     }
     
@@ -498,8 +558,25 @@ function Setup-FullSystem {
     Write-ColorOutput "-> Step 5/7: Running ergoms setup..." Yellow
     Push-Location $Root
     try {
-        & cmd /c "$venvActivate && cd core && poetry install && npm install && api migrate"
-        if ($LASTEXITCODE -ne 0) { throw "Setup failed" }
+        # Activate virtual environment and run commands
+        $env:VIRTUAL_ENV = $venvPath
+        $env:PATH = "$venvPath\Scripts;$env:PATH"
+        
+        Push-Location "core"
+        try {
+            & poetry install
+            if ($LASTEXITCODE -ne 0) { throw "Poetry install failed" }
+            
+            & npm install
+            if ($LASTEXITCODE -ne 0) { throw "NPM install failed" }
+            
+            & api migrate
+            if ($LASTEXITCODE -ne 0) { throw "API migrate failed" }
+        }
+        finally {
+            Pop-Location
+        }
+        
         Write-ColorOutput "[OK] Setup completed" Green
     }
     catch {
@@ -515,8 +592,19 @@ function Setup-FullSystem {
     Write-ColorOutput "-> Step 6/7: Collecting static files..." Yellow
     Push-Location $Root
     try {
-        & cmd /c "$venvActivate && cd core && api collectstatic --noinput"
-        if ($LASTEXITCODE -ne 0) { throw "Collectstatic failed" }
+        # Activate virtual environment and run command
+        $env:VIRTUAL_ENV = $venvPath
+        $env:PATH = "$venvPath\Scripts;$env:PATH"
+        
+        Push-Location "core"
+        try {
+            & api collectstatic --noinput
+            if ($LASTEXITCODE -ne 0) { throw "Collectstatic failed" }
+        }
+        finally {
+            Pop-Location
+        }
+        
         Write-ColorOutput "[OK] Static files collected" Green
     }
     catch {
@@ -674,24 +762,45 @@ function Execute-CommandString {
                 }
             }
             'api' {
-                $venvActivate = Join-Path $ProjectRoot "virtual_env\python\Scripts\activate.bat"
-                if (-not (Test-Path $venvActivate)) {
+                $venvPath = Join-Path $ProjectRoot "virtual_env\python"
+                if (-not (Test-Path $venvPath)) {
                     Write-ColorOutput "[ERROR] Virtual environment not found" Red
                     exit 1
                 }
                 Push-Location (Join-Path $ProjectRoot "core")
                 try {
+                    # Activate virtual environment
+                    $env:VIRTUAL_ENV = $venvPath
+                    $env:PATH = "$venvPath\Scripts;$env:PATH"
+                    
                     $argsString = $allArgs -join ' '
-                    & cmd /c "$venvActivate && api $argsString"
+                    & api $argsString
                 }
                 finally {
                     Pop-Location
                 }
             }
             'npm' {
-                Push-Location (Join-Path $ProjectRoot "core")
+                Push-Location $ProjectRoot
                 try {
-                    & npm $allArgs
+                    # Check if npm is available
+                    $npmVersion = & npm --version 2>&1
+                    if ($LASTEXITCODE -ne 0) {
+                        Write-ColorOutput "[ERROR] npm is not available or not working" Red
+                        Write-ColorOutput "  Please install Node.js and npm" Yellow
+                        exit 1
+                    }
+                    
+                    # Check if package.json exists
+                    if (-not (Test-Path "package.json")) {
+                        Write-ColorOutput "[ERROR] package.json not found in project root" Red
+                        Write-ColorOutput "  Current directory: $(Get-Location)" Gray
+                        exit 1
+                    }
+                    
+                    # For npm commands, pass arguments correctly
+                    $npmCommand = "npm " + ($allArgs -join ' ')
+                    Invoke-Expression $npmCommand
                 }
                 finally {
                     Pop-Location
@@ -746,6 +855,14 @@ function Invoke-PoetryCommand {
     param([string[]]$Args)
     
     $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+    $venvPath = Join-Path $projectRoot "virtual_env\python"
+    
+    # Activate virtual environment if it exists
+    if (Test-Path $venvPath) {
+        $env:VIRTUAL_ENV = $venvPath
+        $env:PATH = "$venvPath\Scripts;$env:PATH"
+    }
+    
     Push-Location $projectRoot
     try {
         & poetry $Args
@@ -759,17 +876,21 @@ function Invoke-ApiCommand {
     param([string[]]$Args)
     
     $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
-    $venvActivate = Join-Path $projectRoot "virtual_env\python\Scripts\activate.bat"
+    $venvPath = Join-Path $projectRoot "virtual_env\python"
     
-    if (-not (Test-Path $venvActivate)) {
-        Write-ColorOutput "[ERROR] Virtual environment not found at: $venvActivate" Red
+    if (-not (Test-Path $venvPath)) {
+        Write-ColorOutput "[ERROR] Virtual environment not found at: $venvPath" Red
         Write-ColorOutput "  Please run 'poetry install' first" Yellow
         exit 1
     }
     
     Push-Location (Join-Path $projectRoot "core")
     try {
-        & cmd /c "$venvActivate && api $($Args -join ' ')"
+        # Activate virtual environment
+        $env:VIRTUAL_ENV = $venvPath
+        $env:PATH = "$venvPath\Scripts;$env:PATH"
+        
+        & api $($Args -join ' ')
     }
     finally {
         Pop-Location
@@ -780,9 +901,10 @@ function Invoke-NpmCommand {
     param([string[]]$Args)
     
     $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
-    Push-Location (Join-Path $projectRoot "core")
+    Push-Location $projectRoot
     try {
-        & npm $Args
+        $npmCommand = "npm " + ($Args -join ' ')
+        Invoke-Expression $npmCommand
     }
     finally {
         Pop-Location
