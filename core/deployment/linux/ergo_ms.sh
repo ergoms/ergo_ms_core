@@ -124,6 +124,196 @@ remove_cli_wrapper() {
   fi
 }
 
+setup_full_system() {
+  local root="$1"
+  
+  echo ""
+  echo "=== Full System Setup ==="
+  echo ""
+  
+  # Step 1: Git submodules
+  echo "-> Step 1/7: Updating git submodules..."
+  cd "$root" || exit 1
+  if ! git submodule update --init --remote core/api core/client; then
+    echo "[ERROR] Failed to update git submodules" >&2
+    exit 1
+  fi
+  
+  cd "$root/core/api" || exit 1
+  if ! git checkout dev; then
+    echo "[ERROR] Failed to checkout dev branch in core/api" >&2
+    exit 1
+  fi
+  
+  cd "$root/core/client" || exit 1
+  if ! git checkout dev; then
+    echo "[ERROR] Failed to checkout dev branch in core/client" >&2
+    exit 1
+  fi
+  
+  cd "$root" || exit 1
+  echo "[OK] Git submodules updated"
+  
+  # Step 2: Create virtual environment
+  echo "-> Step 2/7: Creating Python virtual environment..."
+  local venv_path="$root/virtual_env/python"
+  if [[ -d "$venv_path" ]]; then
+    echo "  Virtual environment already exists"
+  else
+    if ! python3.12 -m venv "$venv_path"; then
+      echo "[ERROR] Failed to create virtual environment" >&2
+      exit 1
+    fi
+    echo "[OK] Virtual environment created"
+  fi
+  
+  # Step 3: Install Poetry
+  echo "-> Step 3/7: Installing Poetry..."
+  local venv_activate="$venv_path/bin/activate"
+  # shellcheck disable=SC1090
+  source "$venv_activate"
+  if ! pip install poetry; then
+    echo "[ERROR] Failed to install Poetry" >&2
+    exit 1
+  fi
+  echo "[OK] Poetry installed"
+  
+  # Step 4: Install CLI wrapper
+  echo "-> Step 4/7: Installing ErgoMS CLI..."
+  local target_script
+  if command -v readlink >/dev/null 2>&1; then
+    target_script="$(readlink -f "$0")"
+  else
+    target_script="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+  fi
+  create_cli_wrapper "$target_script"
+  
+  # Step 5: Run setup (poetry install && npm install && api migrate)
+  echo "-> Step 5/7: Running ergoms setup..."
+  cd "$root/core" || exit 1
+  if ! poetry install; then
+    echo "[ERROR] Poetry install failed" >&2
+    exit 1
+  fi
+  if ! npm install; then
+    echo "[ERROR] npm install failed" >&2
+    exit 1
+  fi
+  if ! api migrate; then
+    echo "[ERROR] Database migration failed" >&2
+    exit 1
+  fi
+  echo "[OK] Setup completed"
+  
+  # Step 6: Collect static
+  echo "-> Step 6/7: Collecting static files..."
+  if ! api collectstatic --noinput; then
+    echo "[ERROR] Failed to collect static files" >&2
+    exit 1
+  fi
+  echo "[OK] Static files collected"
+  
+  # Step 7: Install and start services
+  echo "-> Step 7/7: Installing services..."
+  cd "$root" || exit 1
+  
+  write_env_file "$root"
+  
+  # Define and install units
+  API_UNIT=$(cat <<'UNIT'
+[Unit]
+Description=Ergo API (dev)
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/default/ergo_ms
+ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && api dev'
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+)
+
+  CLIENT_UNIT=$(cat <<'UNIT'
+[Unit]
+Description=Ergo Client (npm run dev)
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/default/ergo_ms
+ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && npm run dev'
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=development
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+)
+
+  CELERY_WORKER_UNIT=$(cat <<'UNIT'
+[Unit]
+Description=Ergo Celery Worker
+After=network.target
+Requires=ergo-api-dev.service
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/default/ergo_ms
+ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && api start_celery_worker'
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+)
+
+  CELERY_BEAT_UNIT=$(cat <<'UNIT'
+[Unit]
+Description=Ergo Celery Beat
+After=network.target
+Requires=ergo-api-dev.service
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/default/ergo_ms
+ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && api start_celery_beat'
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+)
+
+  install_unit "ergo-api-dev"        "$API_UNIT"
+  install_unit "ergo-client-dev"     "$CLIENT_UNIT"
+  install_unit "ergo-celery-worker"  "$CELERY_WORKER_UNIT"
+  install_unit "ergo-celery-beat"    "$CELERY_BEAT_UNIT"
+
+  daemon_reload
+
+  enable_and_start ergo-api-dev.service
+  enable_and_start ergo-client-dev.service
+  enable_and_start ergo-celery-worker.service
+  enable_and_start ergo-celery-beat.service
+
+  echo ""
+  echo "=== Full System Setup Complete ==="
+  echo ""
+  status_all
+  echo ""
+  echo "You can now use 'ergoms' commands to manage your system."
+}
+
 daemon_reload() {
   if [[ $(id -u) -eq 0 ]]; then
     systemctl daemon-reload
@@ -169,6 +359,20 @@ status_all() {
   for u in $(units_list); do systemctl_do status "$u" | cat; done
 }
 
+show_service_logs() {
+  local service_name="$1"
+  local lines="${2:-500}"
+  
+  echo "-> Showing last $lines lines of $service_name logs..."
+  echo ""
+  
+  if [[ $(id -u) -eq 0 ]]; then
+    journalctl -u "$service_name" -n "$lines" -f | cat
+  else
+    sudo journalctl -u "$service_name" -n "$lines" -f | cat
+  fi
+}
+
 uninstall_all() {
   local purge="$1"
   stop_all || true
@@ -199,10 +403,11 @@ uninstall_all() {
 
 load_custom_commands() {
   local root="$1"
-  local config_file="$root/core/deployment/commands.conf"
   
   declare -g -A CUSTOM_COMMANDS=()
   
+  # Load core commands
+  local config_file="$root/core/deployment/commands.conf"
   if [[ -f "$config_file" ]]; then
     while IFS='=' read -r key value; do
       # Skip comments and empty lines
@@ -219,6 +424,41 @@ load_custom_commands() {
       fi
     done < "$config_file"
   fi
+  
+  # Load module commands
+  local modules_path="$root/modules"
+  if [[ -d "$modules_path" ]]; then
+    for module_dir in "$modules_path"/*; do
+      if [[ -d "$module_dir" ]]; then
+        local module_name=$(basename "$module_dir")
+        local module_config="$module_dir/ergoms.conf"
+        
+        if [[ -f "$module_config" ]]; then
+          while IFS='=' read -r key value; do
+            # Skip comments and empty lines
+            [[ "$key" =~ ^[[:space:]]*# ]] && continue
+            [[ "$key" =~ ^[[:space:]]*$ ]] && continue
+            [[ -z "$key" ]] && continue
+            
+            # Remove leading/trailing whitespace
+            key=$(echo "$key" | xargs)
+            value=$(echo "$value" | xargs)
+            
+            if [[ -n "$key" && -n "$value" ]]; then
+              # Add module prefix to command name
+              local prefixed_name="${module_name}:${key}"
+              CUSTOM_COMMANDS["$prefixed_name"]="$value"
+              
+              # Also add without prefix if no conflict
+              if [[ ! -v "CUSTOM_COMMANDS[$key]" ]]; then
+                CUSTOM_COMMANDS["$key"]="$value"
+              fi
+            fi
+          done < "$module_config"
+        fi
+      fi
+    done
+  fi
 }
 
 execute_command_string() {
@@ -227,10 +467,16 @@ execute_command_string() {
   shift 2
   local user_args=("$@")
   
-  # Parse command type (poetry:, api:, npm:)
-  if [[ "$cmd_string" =~ ^(poetry|api|npm):(.+)$ ]]; then
+  # Parse command type (poetry:, api:, npm:, shell:, win:, linux:)
+  if [[ "$cmd_string" =~ ^(poetry|api|npm|shell|win|linux):(.+)$ ]]; then
     local cmd_type="${BASH_REMATCH[1]}"
     local cmd_args="${BASH_REMATCH[2]}"
+    
+    # Skip Windows commands on Linux
+    if [[ "$cmd_type" == "win" ]]; then
+      echo "[INFO] Skipping Windows-only command on Linux: $cmd_args"
+      return 0
+    fi
     
     # shellcheck disable=SC2086
     case "$cmd_type" in
@@ -255,9 +501,19 @@ execute_command_string() {
         # shellcheck disable=SC2086
         exec npm $cmd_args "${user_args[@]}"
         ;;
+      shell|linux)
+        cd "$root" || exit 1
+        # Execute shell command as-is
+        local full_command="$cmd_args"
+        if [[ ${#user_args[@]} -gt 0 ]]; then
+          full_command="$full_command ${user_args[*]}"
+        fi
+        # shellcheck disable=SC2086
+        exec bash -c "$full_command"
+        ;;
     esac
   else
-    # Execute as shell command
+    # Execute as shell command (backward compatibility)
     cd "$root" || exit 1
     # shellcheck disable=SC2086
     exec $cmd_string "${user_args[@]}"
@@ -361,6 +617,8 @@ Service Management Commands:
   uninstall  Stop, disable, remove units; with --purge also removes /etc/default/ergo_ms
   install-cli    Install CLI wrapper /usr/local/bin/ergoms
   uninstall-cli  Remove CLI wrapper
+  logs       Show logs for a service (usage: logs <service-name> [lines])
+  setup-full     Full system setup (git, venv, poetry, npm, services)
 
 Proxy Commands (automatically forward to respective tools):
   poetry <args>  Forward to poetry command
@@ -370,17 +628,46 @@ Proxy Commands (automatically forward to respective tools):
 USAGE
 
   if [[ ${#custom_cmds[@]} -gt 0 ]]; then
-    echo "Custom Commands (defined in commands.conf):"
+    echo "Custom Commands:"
     echo ""
-    for cmd in $(echo "${!custom_cmds[@]}" | tr ' ' '\n' | sort); do
-      local def="${custom_cmds[$cmd]}"
-      # Truncate long definitions
-      if [[ ${#def} -gt 60 ]]; then
-        def="${def:0:57}..."
+    
+    # Separate core and module commands
+    declare -A core_cmds
+    declare -A module_cmds
+    
+    for cmd in "${!custom_cmds[@]}"; do
+      if [[ "$cmd" == *:* ]]; then
+        module_cmds["$cmd"]="${custom_cmds[$cmd]}"
+      else
+        core_cmds["$cmd"]="${custom_cmds[$cmd]}"
       fi
-      printf "  %-20s -> %s\n" "$cmd" "$def"
     done
-    echo ""
+    
+    if [[ ${#core_cmds[@]} -gt 0 ]]; then
+      echo "  Core Commands (defined in commands.conf):"
+      for cmd in $(echo "${!core_cmds[@]}" | tr ' ' '\n' | sort); do
+        local def="${core_cmds[$cmd]}"
+        # Truncate long definitions
+        if [[ ${#def} -gt 60 ]]; then
+          def="${def:0:57}..."
+        fi
+        printf "    %-20s -> %s\n" "$cmd" "$def"
+      done
+      echo ""
+    fi
+    
+    if [[ ${#module_cmds[@]} -gt 0 ]]; then
+      echo "  Module Commands (defined in modules/*/ergoms.conf):"
+      for cmd in $(echo "${!module_cmds[@]}" | tr ' ' '\n' | sort); do
+        local def="${module_cmds[$cmd]}"
+        # Truncate long definitions
+        if [[ ${#def} -gt 60 ]]; then
+          def="${def:0:57}..."
+        fi
+        printf "    %-30s -> %s\n" "$cmd" "$def"
+      done
+      echo ""
+    fi
   fi
 
   cat <<USAGE
@@ -390,6 +677,11 @@ Options:
   --no-cli       Skip CLI wrapper installation
 
 Examples:
+  Full System Setup:
+    sudo bash $0 setup-full
+    sudo bash $0 setup-full --root /projects/ergo_ms
+    sudo ergoms setup-full
+
   Service Management:
     sudo bash $0 install
     sudo bash $0 install --root /projects/ergo_ms
@@ -399,6 +691,8 @@ Examples:
     ergoms stop
     ergoms restart
     ergoms status
+    ergoms logs ergo-api-dev
+    ergoms logs ergo-client-dev 1000
 
   Proxy Commands:
     ergoms poetry install
@@ -413,9 +707,14 @@ Examples:
     ergoms setup                (runs: poetry install && npm install && api migrate)
     ergoms db-migrate           (alias for: api migrate)
 
+  Module Commands:
+    ergoms video_analysis:install-deps    (install all video_analysis dependencies)
+    ergoms install-deps                   (same as above if no conflict)
+
 Configuration:
-  Custom commands are defined in: core/deployment/commands.conf
-  Edit this file to add your own command aliases and composite commands.
+  Core commands: core/deployment/commands.conf
+  Module commands: modules/*/ergoms.conf
+  Edit these files to add your own command aliases and composite commands.
 
 Notes:
   - Service management requires root or sudo
@@ -454,7 +753,7 @@ main() {
   if (( $# > 0 )); then
     command="$1"
     case "$command" in
-      install|start|stop|restart|status|uninstall|install-cli|uninstall-cli|poetry|api|npm)
+      install|start|stop|restart|status|uninstall|install-cli|uninstall-cli|logs|setup-full|poetry|api|npm)
         shift ;;
       -h|--help)
         print_usage; exit 0 ;;
@@ -484,14 +783,20 @@ main() {
       is_proxy_command=true ;;
   esac
   
+  # Check if it's a logs command (doesn't require root for viewing)
+  local is_logs_command=false
+  if [[ "$command" == "logs" ]]; then
+    is_logs_command=true
+  fi
+  
   # Check if it's a custom command (doesn't require root)
   local is_custom_command=false
   if [[ -v "available_custom_cmds[$command]" ]]; then
     is_custom_command=true
   fi
 
-  # Parse flags/positional root for proxy and custom commands
-  if [[ "$is_proxy_command" == true ]] || [[ "$is_custom_command" == true ]]; then
+  # Parse flags/positional root for proxy, custom, and logs commands
+  if [[ "$is_proxy_command" == true ]] || [[ "$is_custom_command" == true ]] || [[ "$is_logs_command" == true ]]; then
     while (( "$#" )); do
       case "$1" in
         --root)
@@ -520,6 +825,38 @@ main() {
     # Execute custom command
     if [[ "$is_custom_command" == true ]]; then
       invoke_custom_command "$ERGO_ROOT" "$command" "$@"
+      exit 0
+    fi
+    
+    # Execute logs command
+    if [[ "$is_logs_command" == true ]]; then
+      if [[ $# -eq 0 ]]; then
+        echo "[ERROR] Please specify a service name" >&2
+        echo "Available services: $(units_list | tr ' ' ',')" >&2
+        echo "Usage: ergoms logs <service-name> [lines]" >&2
+        exit 1
+      fi
+      
+      local service_name="$1"
+      local lines="${2:-500}"
+      
+      # Check if service exists
+      local valid=false
+      for u in $(units_list); do
+        if [[ "$u" == "$service_name" || "$u" == "${service_name}.service" ]]; then
+          valid=true
+          service_name="$u"
+          break
+        fi
+      done
+      
+      if [[ "$valid" == false ]]; then
+        echo "[ERROR] Unknown service: $service_name" >&2
+        echo "Available services: $(units_list | tr '\n' ' ')" >&2
+        exit 1
+      fi
+      
+      show_service_logs "$service_name" "$lines"
       exit 0
     fi
     
@@ -567,6 +904,20 @@ main() {
     uninstall) uninstall_all "$purge"; exit 0 ;;
     install-cli) create_cli_wrapper "$SELF_SCRIPT"; exit 0 ;;
     uninstall-cli) remove_cli_wrapper; exit 0 ;;
+    setup-full)
+      if [[ -n "$arg_root" ]]; then
+        if [[ -d "$arg_root" ]]; then
+          if command -v readlink >/dev/null 2>&1; then ERGO_ROOT="$(readlink -f "$arg_root")"; else ERGO_ROOT="$(cd "$arg_root" && pwd)"; fi
+        else
+          echo "Provided --root path does not exist or is not a directory: $arg_root" >&2
+          exit 1
+        fi
+      else
+        ERGO_ROOT="$(detect_project_root)"
+      fi
+      setup_full_system "$ERGO_ROOT"
+      exit 0
+      ;;
     install)  ;; # Continue to install flow
     *)        echo "Unknown command: $command" >&2; print_usage; exit 1 ;;
   esac

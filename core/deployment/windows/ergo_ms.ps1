@@ -355,6 +355,26 @@ function Show-ServicesStatus {
     Write-ColorOutput "Logs: $env:ProgramData\ergo_ms\logs\" Cyan
 }
 
+function Show-ServiceLogs {
+    param(
+        [string]$ServiceName,
+        [int]$Lines = 500
+    )
+    
+    $logPath = "$env:ProgramData\ergo_ms\logs\${ServiceName}.log"
+    
+    if (-not (Test-Path $logPath)) {
+        Write-ColorOutput "[ERROR] Log file not found: $logPath" Red
+        exit 1
+    }
+    
+    Write-ColorOutput "-> Showing last $Lines lines of $ServiceName logs..." Cyan
+    Write-ColorOutput "   Log file: $logPath" Gray
+    Write-ColorOutput ""
+    
+    Get-Content -Path $logPath -Tail $Lines -Wait
+}
+
 function Uninstall-AllServices {
     param([bool]$PurgeData)
 
@@ -407,6 +427,119 @@ function Install-CliWrapper {
     Write-ColorOutput "  You can now use: $CliName start|stop|restart|status" Cyan
 }
 
+function Setup-FullSystem {
+    param([string]$Root)
+    
+    Write-ColorOutput "`n=== Full System Setup ===" Cyan
+    Write-ColorOutput ""
+    
+    # Step 1: Git submodules
+    Write-ColorOutput "-> Step 1/7: Updating git submodules..." Yellow
+    Push-Location $Root
+    try {
+        & git submodule update --init --remote core/api core/client
+        if ($LASTEXITCODE -ne 0) { throw "Git submodule update failed" }
+        
+        Push-Location "core\api"
+        & git checkout dev
+        Pop-Location
+        
+        Push-Location "core\client"
+        & git checkout dev
+        Pop-Location
+        
+        Write-ColorOutput "[OK] Git submodules updated" Green
+    }
+    catch {
+        Write-ColorOutput "[ERROR] Failed to update git submodules: $($_.Exception.Message)" Red
+        Pop-Location
+        exit 1
+    }
+    finally {
+        Pop-Location
+    }
+    
+    # Step 2: Create virtual environment
+    Write-ColorOutput "-> Step 2/7: Creating Python virtual environment..." Yellow
+    $venvPath = Join-Path $Root "virtual_env\python"
+    if (Test-Path $venvPath) {
+        Write-ColorOutput "  Virtual environment already exists" Gray
+    }
+    else {
+        try {
+            & py -3.12 -m venv $venvPath
+            if ($LASTEXITCODE -ne 0) { throw "Failed to create venv" }
+            Write-ColorOutput "[OK] Virtual environment created" Green
+        }
+        catch {
+            Write-ColorOutput "[ERROR] Failed to create virtual environment: $($_.Exception.Message)" Red
+            exit 1
+        }
+    }
+    
+    # Step 3: Install Poetry
+    Write-ColorOutput "-> Step 3/7: Installing Poetry..." Yellow
+    $venvActivate = Join-Path $venvPath "Scripts\activate.bat"
+    try {
+        & cmd /c "$venvActivate && pip install poetry"
+        if ($LASTEXITCODE -ne 0) { throw "Poetry installation failed" }
+        Write-ColorOutput "[OK] Poetry installed" Green
+    }
+    catch {
+        Write-ColorOutput "[ERROR] Failed to install Poetry: $($_.Exception.Message)" Red
+        exit 1
+    }
+    
+    # Step 4: Install CLI wrapper
+    Write-ColorOutput "-> Step 4/7: Installing ErgoMS CLI..." Yellow
+    Install-CliWrapper
+    
+    # Step 5: Run setup (poetry install && npm install && api migrate)
+    Write-ColorOutput "-> Step 5/7: Running ergoms setup..." Yellow
+    Push-Location $Root
+    try {
+        & cmd /c "$venvActivate && cd core && poetry install && npm install && api migrate"
+        if ($LASTEXITCODE -ne 0) { throw "Setup failed" }
+        Write-ColorOutput "[OK] Setup completed" Green
+    }
+    catch {
+        Write-ColorOutput "[ERROR] Setup failed: $($_.Exception.Message)" Red
+        Pop-Location
+        exit 1
+    }
+    finally {
+        Pop-Location
+    }
+    
+    # Step 6: Collect static
+    Write-ColorOutput "-> Step 6/7: Collecting static files..." Yellow
+    Push-Location $Root
+    try {
+        & cmd /c "$venvActivate && cd core && api collectstatic --noinput"
+        if ($LASTEXITCODE -ne 0) { throw "Collectstatic failed" }
+        Write-ColorOutput "[OK] Static files collected" Green
+    }
+    catch {
+        Write-ColorOutput "[ERROR] Failed to collect static: $($_.Exception.Message)" Red
+        Pop-Location
+        exit 1
+    }
+    finally {
+        Pop-Location
+    }
+    
+    # Step 7: Install and start services
+    Write-ColorOutput "-> Step 7/7: Installing services..." Yellow
+    Install-AllServices -Root $Root
+    Start-AllServices
+    
+    Write-ColorOutput "`n=== Full System Setup Complete ===" Green
+    Write-ColorOutput ""
+    Show-ServicesStatus
+    Write-ColorOutput ""
+    Write-ColorOutput "You can now use 'ergoms' commands to manage your system." Cyan
+}
+
 function Uninstall-CliWrapper {
     if (Test-Path $CliPath) {
         Remove-Item $CliPath -Force
@@ -420,9 +553,10 @@ function Uninstall-CliWrapper {
 function Get-CustomCommands {
     param([string]$ProjectRoot)
     
-    $configPath = Join-Path $ProjectRoot "core\deployment\commands.conf"
     $commands = @{}
     
+    # Load core commands
+    $configPath = Join-Path $ProjectRoot "core\deployment\commands.conf"
     if (Test-Path $configPath) {
         Get-Content $configPath | ForEach-Object {
             $line = $_.Trim()
@@ -432,6 +566,37 @@ function Get-CustomCommands {
                     $cmdName = $matches[1].Trim()
                     $cmdValue = $matches[2].Trim()
                     $commands[$cmdName] = $cmdValue
+                }
+            }
+        }
+    }
+    
+    # Load module commands
+    $modulesPath = Join-Path $ProjectRoot "modules"
+    if (Test-Path $modulesPath) {
+        Get-ChildItem -Path $modulesPath -Directory | ForEach-Object {
+            $moduleName = $_.Name
+            $moduleConfigPath = Join-Path $_.FullName "ergoms.conf"
+            
+            if (Test-Path $moduleConfigPath) {
+                Get-Content $moduleConfigPath | ForEach-Object {
+                    $line = $_.Trim()
+                    # Skip comments and empty lines
+                    if ($line -and -not $line.StartsWith('#') -and -not $line.StartsWith('=')) {
+                        if ($line -match '^([a-zA-Z0-9_-]+)=(.+)$') {
+                            $cmdName = $matches[1].Trim()
+                            $cmdValue = $matches[2].Trim()
+                            
+                            # Add module prefix to command name
+                            $prefixedName = "$moduleName`:$cmdName"
+                            $commands[$prefixedName] = $cmdValue
+                            
+                            # Also add without prefix if no conflict
+                            if (-not $commands.ContainsKey($cmdName)) {
+                                $commands[$cmdName] = $cmdValue
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -484,10 +649,16 @@ function Execute-CommandString {
         [string[]]$Args
     )
     
-    # Parse command type (poetry:, api:, npm:)
-    if ($CommandString -match '^(poetry|api|npm):(.+)$') {
+    # Parse command type (poetry:, api:, npm:, shell:, win:, linux:)
+    if ($CommandString -match '^(poetry|api|npm|shell|win|linux):(.+)$') {
         $cmdType = $matches[1]
         $cmdArgs = $matches[2].Trim()
+        
+        # Skip linux commands on Windows
+        if ($cmdType -eq 'linux') {
+            Write-ColorOutput "[INFO] Skipping Linux-only command on Windows: $cmdArgs" Gray
+            return
+        }
         
         # Split command arguments and add user arguments
         $allArgs = ($cmdArgs -split '\s+') + $Args
@@ -526,10 +697,38 @@ function Execute-CommandString {
                     Pop-Location
                 }
             }
+            'shell' {
+                Push-Location $ProjectRoot
+                try {
+                    # Execute shell command as-is
+                    $fullCommand = $cmdArgs
+                    if ($Args.Count -gt 0) {
+                        $fullCommand += " " + ($Args -join ' ')
+                    }
+                    & cmd /c $fullCommand
+                }
+                finally {
+                    Pop-Location
+                }
+            }
+            'win' {
+                Push-Location $ProjectRoot
+                try {
+                    # Execute Windows-specific command
+                    $fullCommand = $cmdArgs
+                    if ($Args.Count -gt 0) {
+                        $fullCommand += " " + ($Args -join ' ')
+                    }
+                    & cmd /c $fullCommand
+                }
+                finally {
+                    Pop-Location
+                }
+            }
         }
     }
     else {
-        # Execute as shell command
+        # Execute as shell command (backward compatibility)
         Push-Location $ProjectRoot
         try {
             $allArgs = ($CommandString -split '\s+') + $Args
@@ -620,6 +819,8 @@ Service Management Commands:
     uninstall      Uninstall all services (use -Purge to remove data)
     install-cli    Install CLI wrapper (ergoms command)
     uninstall-cli  Remove CLI wrapper
+    logs           Show logs for a service (usage: logs <service-name> [lines])
+    setup-full     Full system setup (git, venv, poetry, npm, services)
     help           Show this help
 
 Proxy Commands (automatically forward to respective tools):
@@ -631,18 +832,47 @@ Proxy Commands (automatically forward to respective tools):
 
     if ($customCommands.Count -gt 0) {
         $helpText += @"
-Custom Commands (defined in commands.conf):
+Custom Commands:
 
 "@
-        foreach ($cmd in ($customCommands.Keys | Sort-Object)) {
-            $def = $customCommands[$cmd]
-            # Truncate long definitions
-            if ($def.Length -gt 60) {
-                $def = $def.Substring(0, 57) + "..."
+        # Separate core and module commands
+        $coreCommands = @{}
+        $moduleCommands = @{}
+        
+        foreach ($key in $customCommands.Keys) {
+            if ($key -match ':') {
+                $moduleCommands[$key] = $customCommands[$key]
             }
-            $helpText += "    $cmd`n        -> $def`n"
+            else {
+                $coreCommands[$key] = $customCommands[$key]
+            }
         }
-        $helpText += "`n"
+        
+        if ($coreCommands.Count -gt 0) {
+            $helpText += "  Core Commands (defined in commands.conf):`n"
+            foreach ($cmd in ($coreCommands.Keys | Sort-Object)) {
+                $def = $coreCommands[$cmd]
+                # Truncate long definitions
+                if ($def.Length -gt 60) {
+                    $def = $def.Substring(0, 57) + "..."
+                }
+                $helpText += "    $cmd`n        -> $def`n"
+            }
+            $helpText += "`n"
+        }
+        
+        if ($moduleCommands.Count -gt 0) {
+            $helpText += "  Module Commands (defined in modules/*/ergoms.conf):`n"
+            foreach ($cmd in ($moduleCommands.Keys | Sort-Object)) {
+                $def = $moduleCommands[$cmd]
+                # Truncate long definitions
+                if ($def.Length -gt 60) {
+                    $def = $def.Substring(0, 57) + "..."
+                }
+                $helpText += "    $cmd`n        -> $def`n"
+            }
+            $helpText += "`n"
+        }
     }
 
     $helpText += @"
@@ -652,6 +882,11 @@ Options:
     -NoCli         Skip CLI wrapper installation
 
 Examples:
+    Full System Setup:
+        .\ergo_ms.ps1 setup-full
+        .\ergo_ms.ps1 setup-full -Root "C:\projects\ergo_ms"
+        ergoms setup-full
+
     Service Management:
         .\ergo_ms.ps1 install
         .\ergo_ms.ps1 install -Root "C:\projects\ergo_ms"
@@ -661,6 +896,8 @@ Examples:
         ergoms stop
         ergoms restart
         ergoms status
+        ergoms logs ergo-api-dev
+        ergoms logs ergo-client-dev 1000
 
     Proxy Commands:
         ergoms poetry install
@@ -675,9 +912,14 @@ Examples:
         ergoms setup                (runs: poetry install && npm install && api migrate)
         ergoms db-migrate           (alias for: api migrate)
 
+    Module Commands:
+        ergoms video_analysis:install-deps    (install all video_analysis dependencies)
+        ergoms install-deps                   (same as above if no conflict)
+
 Configuration:
-    Custom commands are defined in: core/deployment/commands.conf
-    Edit this file to add your own command aliases and composite commands.
+    Core commands: core/deployment/commands.conf
+    Module commands: modules/*/ergoms.conf
+    Edit these files to add your own command aliases and composite commands.
 
 Notes:
     - Service management requires Administrator privileges
@@ -698,8 +940,11 @@ function Main {
     $isProxyCommand = $proxyCommands -contains $Command.ToLower()
     
     # Commands that require admin
-    $adminCommands = @('install', 'start', 'stop', 'restart', 'status', 'uninstall', 'install-cli', 'uninstall-cli')
+    $adminCommands = @('install', 'start', 'stop', 'restart', 'status', 'uninstall', 'install-cli', 'uninstall-cli', 'setup-full')
     $requiresAdmin = $adminCommands -contains $Command.ToLower()
+    
+    # Commands that don't require admin
+    $noAdminCommands = @('logs', 'help')
     
     # Check if it's a custom command
     $projectRoot = $null
@@ -784,6 +1029,33 @@ function Main {
         }
         'uninstall-cli' {
             Uninstall-CliWrapper
+        }
+        'logs' {
+            if ($RemainingArgs.Count -eq 0) {
+                Write-ColorOutput "[ERROR] Please specify a service name" Red
+                Write-ColorOutput "Available services: $($ServiceNames -join ', ')" Yellow
+                Write-ColorOutput "Usage: ergoms logs <service-name> [lines]" Cyan
+                exit 1
+            }
+            
+            $serviceName = $RemainingArgs[0]
+            $lines = 500
+            
+            if ($RemainingArgs.Count -gt 1) {
+                $lines = [int]$RemainingArgs[1]
+            }
+            
+            if ($ServiceNames -notcontains $serviceName) {
+                Write-ColorOutput "[ERROR] Unknown service: $serviceName" Red
+                Write-ColorOutput "Available services: $($ServiceNames -join ', ')" Yellow
+                exit 1
+            }
+            
+            Show-ServiceLogs -ServiceName $serviceName -Lines $lines
+        }
+        'setup-full' {
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+            Setup-FullSystem -Root $projectRoot
         }
         'help' {
             Show-Help

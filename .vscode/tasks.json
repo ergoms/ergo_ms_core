@@ -2,35 +2,95 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Setup Full System",
+            "label": "Install ErgoMS CLI",
             "type": "shell",
             "options": {
                 "cwd": "${workspaceFolder}",
                 "shell": {
                     "executable": "cmd.exe",
-                    "args": ["/d", "/c"]
+                    "args": [
+                        "/d",
+                        "/c"
+                    ]
                 }
             },
-            "command": "git submodule update --init --remote core/api core/client && cd core\\api && git checkout dev && cd ..\\..\\core\\client && git checkout dev && cd ..\\..\\ && py -3.12 -m venv \"${workspaceFolder}\\virtual_env\\python\" && \"${workspaceFolder}\\virtual_env\\python\\Scripts\\activate.bat\" && pip install poetry && cd /d \"${workspaceFolder}\\core\" && poetry install && api migrate && api collectstatic --noinput && npm install && cd /d \"${workspaceFolder}\" && powershell.exe -ExecutionPolicy Bypass -NoProfile -File \"${workspaceFolder}\\core\\deployment\\windows\\ergo_ms.ps1\" install -Root \"${workspaceFolder}\"",
+            "command": "powershell.exe -ExecutionPolicy Bypass -NoProfile -File \"${workspaceFolder}\\core\\deployment\\windows\\ergo_ms.ps1\" install-cli",
             "windows": {
                 "options": {
                     "cwd": "${workspaceFolder}",
                     "shell": {
                         "executable": "cmd.exe",
-                        "args": ["/d", "/c"]
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
                     }
                 },
-                "command": "git submodule update --init --remote core/api core/client && cd core\\api && git checkout dev && cd ..\\..\\core\\client && git checkout dev && cd ..\\..\\ && py -3.12 -m venv \"${workspaceFolder}\\virtual_env\\python\" && \"${workspaceFolder}\\virtual_env\\python\\Scripts\\activate.bat\" && pip install poetry && cd /d \"${workspaceFolder}\\core\" && poetry install && api migrate && api collectstatic --noinput && npm install && cd /d \"${workspaceFolder}\" && powershell.exe -ExecutionPolicy Bypass -NoProfile -File \"${workspaceFolder}\\core\\deployment\\windows\\ergo_ms.ps1\" install -Root \"${workspaceFolder}\""
+                "command": "powershell.exe -ExecutionPolicy Bypass -NoProfile -File \"${workspaceFolder}\\core\\deployment\\windows\\ergo_ms.ps1\" install-cli"
             },
             "linux": {
                 "options": {
                     "cwd": "${workspaceFolder}",
                     "shell": {
                         "executable": "/bin/bash",
-                        "args": ["-lc"]
+                        "args": [
+                            "-lc"
+                        ]
                     }
                 },
-                "command": "git submodule update --init --remote core/api core/client && cd core/api && git checkout dev && cd ../../core/client && git checkout dev && cd ../.. && python3.12 -m venv \"${workspaceFolder}/virtual_env/python\" && source \"${workspaceFolder}/virtual_env/python/bin/activate\" && pip install poetry && cd \"${workspaceFolder}/core\" && poetry install && api migrate && api collectstatic --noinput && npm install && cd \"${workspaceFolder}\" && sudo /bin/bash \"${workspaceFolder}/core/deployment/linux/ergo_ms.sh\" install \"${workspaceFolder}\""
+                "command": "sudo /bin/bash \"${workspaceFolder}/core/deployment/linux/ergo_ms.sh\" install-cli"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "group": {
+                "kind": "build"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Setup Full System",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": [
+                        "/d",
+                        "/c"
+                    ]
+                }
+            },
+            "command": "powershell.exe -ExecutionPolicy Bypass -NoProfile -File \"${workspaceFolder}\\core\\deployment\\windows\\ergo_ms.ps1\" setup-full -Root \"${workspaceFolder}\"",
+            "windows": {
+                "options": {
+                    "cwd": "${workspaceFolder}",
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
+                    }
+                },
+                "command": "powershell.exe -ExecutionPolicy Bypass -NoProfile -File \"${workspaceFolder}\\core\\deployment\\windows\\ergo_ms.ps1\" setup-full -Root \"${workspaceFolder}\""
+            },
+            "linux": {
+                "options": {
+                    "cwd": "${workspaceFolder}",
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": [
+                            "-lc"
+                        ]
+                    }
+                },
+                "command": "sudo /bin/bash \"${workspaceFolder}/core/deployment/linux/ergo_ms.sh\" setup-full --root \"${workspaceFolder}\""
             },
             "presentation": {
                 "echo": true,
@@ -66,29 +126,37 @@
                 "cwd": "${workspaceFolder}",
                 "shell": {
                     "executable": "cmd.exe",
-                    "args": ["/d", "/c"]
+                    "args": [
+                        "/d",
+                        "/c"
+                    ]
                 }
             },
-            "command": "npm run dev",
+            "command": "ergoms start-client",
             "windows": {
                 "options": {
                     "cwd": "${workspaceFolder}",
                     "shell": {
                         "executable": "cmd.exe",
-                        "args": ["/d", "/c"]
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
                     }
                 },
-                "command": "npm run dev"
+                "command": "ergoms start-client"
             },
             "linux": {
                 "options": {
                     "cwd": "${workspaceFolder}",
                     "shell": {
                         "executable": "/bin/bash",
-                        "args": ["-lc"]
+                        "args": [
+                            "-lc"
+                        ]
                     }
                 },
-                "command": "npm run dev"
+                "command": "ergoms start-client"
             },
             "presentation": {
                 "echo": true,
@@ -107,29 +175,37 @@
                 "cwd": "${workspaceFolder}",
                 "shell": {
                     "executable": "cmd.exe",
-                    "args": ["/d", "/c"]
+                    "args": [
+                        "/d",
+                        "/c"
+                    ]
                 }
             },
-            "command": "\"${workspaceFolder}\\virtual_env\\python\\Scripts\\activate.bat\" && api dev",
+            "command": "ergoms dev",
             "windows": {
                 "options": {
                     "cwd": "${workspaceFolder}",
                     "shell": {
                         "executable": "cmd.exe",
-                        "args": ["/d", "/c"]
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
                     }
                 },
-                "command": "\"${workspaceFolder}\\virtual_env\\python\\Scripts\\activate.bat\" && api dev"
+                "command": "ergoms dev"
             },
             "linux": {
                 "options": {
                     "cwd": "${workspaceFolder}",
                     "shell": {
                         "executable": "/bin/bash",
-                        "args": ["-lc"]
+                        "args": [
+                            "-lc"
+                        ]
                     }
                 },
-                "command": "source \"${workspaceFolder}/virtual_env/python/bin/activate\" && api dev"
+                "command": "ergoms dev"
             },
             "presentation": {
                 "echo": true,
@@ -148,29 +224,37 @@
                 "cwd": "${workspaceFolder}",
                 "shell": {
                     "executable": "cmd.exe",
-                    "args": ["/d", "/c"]
+                    "args": [
+                        "/d",
+                        "/c"
+                    ]
                 }
             },
-            "command": "\"${workspaceFolder}\\virtual_env\\python\\Scripts\\activate.bat\" && api start_celery_worker",
+            "command": "ergoms start-worker",
             "windows": {
                 "options": {
                     "cwd": "${workspaceFolder}",
                     "shell": {
                         "executable": "cmd.exe",
-                        "args": ["/d", "/c"]
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
                     }
                 },
-                "command": "\"${workspaceFolder}\\virtual_env\\python\\Scripts\\activate.bat\" && api start_celery_worker"
+                "command": "ergoms start-worker"
             },
             "linux": {
                 "options": {
                     "cwd": "${workspaceFolder}",
                     "shell": {
                         "executable": "/bin/bash",
-                        "args": ["-lc"]
+                        "args": [
+                            "-lc"
+                        ]
                     }
                 },
-                "command": "source \"${workspaceFolder}/virtual_env/python/bin/activate\" && api start_celery_worker"
+                "command": "ergoms start-worker"
             },
             "presentation": {
                 "echo": true,
@@ -189,73 +273,37 @@
                 "cwd": "${workspaceFolder}",
                 "shell": {
                     "executable": "cmd.exe",
-                    "args": ["/d", "/c"]
+                    "args": [
+                        "/d",
+                        "/c"
+                    ]
                 }
             },
-            "command": "\"${workspaceFolder}\\virtual_env\\python\\Scripts\\activate.bat\" && api start_celery_beat",
+            "command": "ergoms start-beat",
             "windows": {
                 "options": {
                     "cwd": "${workspaceFolder}",
                     "shell": {
                         "executable": "cmd.exe",
-                        "args": ["/d", "/c"]
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
                     }
                 },
-                "command": "\"${workspaceFolder}\\virtual_env\\python\\Scripts\\activate.bat\" && api start_celery_beat"
+                "command": "ergoms start-beat"
             },
             "linux": {
                 "options": {
                     "cwd": "${workspaceFolder}",
                     "shell": {
                         "executable": "/bin/bash",
-                        "args": ["-lc"]
+                        "args": [
+                            "-lc"
+                        ]
                     }
                 },
-                "command": "source \"${workspaceFolder}/virtual_env/python/bin/activate\" && api start_celery_beat"
-            },
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "new",
-                "showReuseMessage": true,
-                "clear": false
-            },
-            "problemMatcher": []
-        },
-        {
-            "label": "Install Video Analysis Dependencies",
-            "type": "shell",
-            "options": {
-                "cwd": "${workspaceFolder}",
-                "shell": {
-                    "executable": "cmd.exe",
-                    "args": ["/d", "/c"]
-                }
-            },
-            "command": "\"${workspaceFolder}\\virtual_env\\python\\Scripts\\activate.bat\" && api install_ffmpeg && api install_opus_mt && api install_vosk_model && api install_silero_repo && api install_tts_model --language fr --speaker v3_fr",
-            "windows": {
-                "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "cmd.exe",
-                        "args": ["/d", "/c"]
-                    }
-                },
-                "command": "\"${workspaceFolder}\\virtual_env\\python\\Scripts\\activate.bat\" && api install_ffmpeg && api install_opus_mt && api install_vosk_model && api install_silero_repo && api install_tts_model --language fr --speaker v3_fr"
-            },
-            "linux": {
-                "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "/bin/bash",
-                        "args": ["-lc"]
-                    }
-                },
-                "command": "source \"${workspaceFolder}/virtual_env/python/bin/activate\" && api install_ffmpeg && api install_opus_mt && api install_vosk_model && api install_silero_repo && api install_tts_model --language fr --speaker v3_fr"
-            },
-            "group": {
-                "kind": "build"
+                "command": "ergoms start-beat"
             },
             "presentation": {
                 "echo": true,
@@ -282,29 +330,40 @@
             "label": "Logs: ergo-api-dev",
             "type": "shell",
             "options": {
+                "cwd": "${workspaceFolder}",
                 "shell": {
-                    "executable": "powershell.exe",
-                    "args": ["-Command"]
+                    "executable": "cmd.exe",
+                    "args": [
+                        "/d",
+                        "/c"
+                    ]
                 }
             },
-            "command": "Get-Content -Path \"$env:ProgramData\\ergo_ms\\logs\\ergo-api-dev.log\" -Wait -Tail 500",
+            "command": "ergoms logs ergo-api-dev 500",
             "windows": {
-                "command": "Get-Content -Path \"$env:ProgramData\\ergo_ms\\logs\\ergo-api-dev.log\" -Wait -Tail 500",
                 "options": {
+                    "cwd": "${workspaceFolder}",
                     "shell": {
-                        "executable": "powershell.exe",
-                        "args": ["-Command"]
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
                     }
-                }
+                },
+                "command": "ergoms logs ergo-api-dev 500"
             },
             "linux": {
-                "command": "journalctl -u ergo-api-dev -n 500 -f | cat",
                 "options": {
+                    "cwd": "${workspaceFolder}",
                     "shell": {
                         "executable": "/bin/bash",
-                        "args": ["-lc"]
+                        "args": [
+                            "-lc"
+                        ]
                     }
-                }
+                },
+                "command": "ergoms logs ergo-api-dev 500"
             },
             "presentation": {
                 "reveal": "always",
@@ -319,29 +378,40 @@
             "label": "Logs: ergo-client-dev",
             "type": "shell",
             "options": {
+                "cwd": "${workspaceFolder}",
                 "shell": {
-                    "executable": "powershell.exe",
-                    "args": ["-Command"]
+                    "executable": "cmd.exe",
+                    "args": [
+                        "/d",
+                        "/c"
+                    ]
                 }
             },
-            "command": "Get-Content -Path \"$env:ProgramData\\ergo_ms\\logs\\ergo-client-dev.log\" -Wait -Tail 500",
+            "command": "ergoms logs ergo-client-dev 500",
             "windows": {
-                "command": "Get-Content -Path \"$env:ProgramData\\ergo_ms\\logs\\ergo-client-dev.log\" -Wait -Tail 500",
                 "options": {
+                    "cwd": "${workspaceFolder}",
                     "shell": {
-                        "executable": "powershell.exe",
-                        "args": ["-Command"]
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
                     }
-                }
+                },
+                "command": "ergoms logs ergo-client-dev 500"
             },
             "linux": {
-                "command": "journalctl -u ergo-client-dev -n 500 -f | cat",
                 "options": {
+                    "cwd": "${workspaceFolder}",
                     "shell": {
                         "executable": "/bin/bash",
-                        "args": ["-lc"]
+                        "args": [
+                            "-lc"
+                        ]
                     }
-                }
+                },
+                "command": "ergoms logs ergo-client-dev 500"
             },
             "presentation": {
                 "reveal": "always",
@@ -356,29 +426,40 @@
             "label": "Logs: ergo-celery-worker",
             "type": "shell",
             "options": {
+                "cwd": "${workspaceFolder}",
                 "shell": {
-                    "executable": "powershell.exe",
-                    "args": ["-Command"]
+                    "executable": "cmd.exe",
+                    "args": [
+                        "/d",
+                        "/c"
+                    ]
                 }
             },
-            "command": "Get-Content -Path \"$env:ProgramData\\ergo_ms\\logs\\ergo-celery-worker.log\" -Wait -Tail 500",
+            "command": "ergoms logs ergo-celery-worker 500",
             "windows": {
-                "command": "Get-Content -Path \"$env:ProgramData\\ergo_ms\\logs\\ergo-celery-worker.log\" -Wait -Tail 500",
                 "options": {
+                    "cwd": "${workspaceFolder}",
                     "shell": {
-                        "executable": "powershell.exe",
-                        "args": ["-Command"]
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
                     }
-                }
+                },
+                "command": "ergoms logs ergo-celery-worker 500"
             },
             "linux": {
-                "command": "journalctl -u ergo-celery-worker -n 500 -f | cat",
                 "options": {
+                    "cwd": "${workspaceFolder}",
                     "shell": {
                         "executable": "/bin/bash",
-                        "args": ["-lc"]
+                        "args": [
+                            "-lc"
+                        ]
                     }
-                }
+                },
+                "command": "ergoms logs ergo-celery-worker 500"
             },
             "presentation": {
                 "reveal": "always",
@@ -393,29 +474,40 @@
             "label": "Logs: ergo-celery-beat",
             "type": "shell",
             "options": {
+                "cwd": "${workspaceFolder}",
                 "shell": {
-                    "executable": "powershell.exe",
-                    "args": ["-Command"]
+                    "executable": "cmd.exe",
+                    "args": [
+                        "/d",
+                        "/c"
+                    ]
                 }
             },
-            "command": "Get-Content -Path \"$env:ProgramData\\ergo_ms\\logs\\ergo-celery-beat.log\" -Wait -Tail 500",
+            "command": "ergoms logs ergo-celery-beat 500",
             "windows": {
-                "command": "Get-Content -Path \"$env:ProgramData\\ergo_ms\\logs\\ergo-celery-beat.log\" -Wait -Tail 500",
                 "options": {
+                    "cwd": "${workspaceFolder}",
                     "shell": {
-                        "executable": "powershell.exe",
-                        "args": ["-Command"]
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
                     }
-                }
+                },
+                "command": "ergoms logs ergo-celery-beat 500"
             },
             "linux": {
-                "command": "journalctl -u ergo-celery-beat -n 500 -f | cat",
                 "options": {
+                    "cwd": "${workspaceFolder}",
                     "shell": {
                         "executable": "/bin/bash",
-                        "args": ["-lc"]
+                        "args": [
+                            "-lc"
+                        ]
                     }
-                }
+                },
+                "command": "ergoms logs ergo-celery-beat 500"
             },
             "presentation": {
                 "reveal": "always",
