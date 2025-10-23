@@ -49,11 +49,6 @@ load_custom_commands() {
               # Add module prefix to command name
               local prefixed_name="${module_name}:${key}"
               CUSTOM_COMMANDS["$prefixed_name"]="$value"
-              
-              # Also add without prefix if no conflict
-              if [[ ! -v "CUSTOM_COMMANDS[$key]" ]]; then
-                CUSTOM_COMMANDS["$key"]="$value"
-              fi
             fi
           done < "$module_config"
         fi

@@ -41,11 +41,6 @@ function Get-CustomCommands {
                             # Add module prefix to command name
                             $prefixedName = "$moduleName`:$cmdName"
                             $commands[$prefixedName] = $cmdValue
-                            
-                            # Also add without prefix if no conflict
-                            if (-not $commands.ContainsKey($cmdName)) {
-                                $commands[$cmdName] = $cmdValue
-                            }
                         }
                     }
                 }
