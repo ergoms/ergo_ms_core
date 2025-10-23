@@ -265,5 +265,5 @@ function Uninstall-AllServices {
     Write-ColorOutput "[OK] Uninstall complete" Green
 }
 
-Export-ModuleMember -Function *
+# Export-ModuleMember -Function *  # Удалено, так как это не модуль
 

@@ -94,5 +94,5 @@ function Get-CliPath {
     return $script:CliPath
 }
 
-Export-ModuleMember -Function *
+# Export-ModuleMember -Function *  # Удалено, так как это не модуль
 

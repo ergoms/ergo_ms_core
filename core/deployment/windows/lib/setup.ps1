@@ -108,19 +108,26 @@ function Setup-FullSystem {
     }
     
     if ($needsRecreation) {
-        # Remove existing virtual environment if it exists and is not empty
+        # Check if directory exists and what's in it
         if (Test-Path $venvPath) {
             $dirContents = Get-ChildItem -Path $venvPath -Force -ErrorAction SilentlyContinue
             $isEmpty = $dirContents -eq $null -or $dirContents.Count -eq 0
             $onlyGitkeep = $dirContents -and $dirContents.Count -eq 1 -and $dirContents[0].Name -eq '.gitkeep'
             
             if (-not $isEmpty -and -not $onlyGitkeep) {
+                # Directory has content other than .gitkeep, remove it
                 Write-ColorOutput "  Removing corrupted virtual environment..." Yellow
                 Remove-Item $venvPath -Recurse -Force
             }
             else {
-                Write-ColorOutput "  Directory is empty, will create virtual environment in existing directory..." Gray
+                # Directory is empty or only has .gitkeep, create venv in existing directory
+                Write-ColorOutput "  Directory exists but is empty, will create virtual environment in existing directory..." Gray
             }
+        }
+        else {
+            # Directory doesn't exist, create it
+            Write-ColorOutput "  Creating directory and virtual environment..." Gray
+            New-Item -ItemType Directory -Path $venvPath -Force | Out-Null
         }
         
         try {
@@ -246,5 +253,5 @@ function Setup-FullSystem {
     Write-ColorOutput "You can now use 'ergoms' commands to manage your system." Cyan
 }
 
-Export-ModuleMember -Function *
+# Export-ModuleMember -Function *  # Удалено, так как это не модуль
 

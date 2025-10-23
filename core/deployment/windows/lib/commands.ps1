@@ -270,5 +270,5 @@ function Invoke-NpmCommand {
     }
 }
 
-Export-ModuleMember -Function *
+# Export-ModuleMember -Function *  # Удалено, так как это не модуль
 
