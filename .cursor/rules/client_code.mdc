@@ -22,3 +22,7 @@ import { apiClient } from '@/js/api/manager'
 import { endpoints } from '@/js/api/endpoints'
 
 Если ты используешь внутримодульные зависимости (modules/<имя_модуля>), то пиши пути используя относительные импорты.
+
+
+# defineProps и defineEmits
+В vue.js не делай данные импорты, потому что - [@vue/compiler-sfc] `defineProps` is a compiler macro and no longer needs to be imported.
