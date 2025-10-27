@@ -6,7 +6,31 @@ databases:
     password: "admin"
     host: "localhost"
     port: 5432
+
+  celery:
+    engine: "postgresql"
+    name: "ergo_ms_celery"
+    user: "celery_user"
+    password: "celery_password"
+    host: "localhost"
+    port: 5432
   
+  celery_worker:
+    engine: "postgresql"
+    name: "ergo_ms_celery_worker"
+    user: "celery_worker_user"
+    password: "worker_password"
+    host: "localhost"
+    port: 5432
+  
+  celery_beat:
+    engine: "postgresql"
+    name: "ergo_ms_celery_beat"
+    user: "celery_beat_user"
+    password: "beat_password"
+    host: "localhost"
+    port: 5432
+
   analytics:
     engine: "mysql"
     name: "world"
