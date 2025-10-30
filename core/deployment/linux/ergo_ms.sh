@@ -53,7 +53,7 @@ main() {
   if (( $# > 0 )); then
     command="$1"
     case "$command" in
-      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|start|stop|restart|status|uninstall|install-cli|uninstall-cli|logs|setup-full|poetry|api|npm)
+      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|poetry|api|npm)
         shift ;;
       -h|--help)
         print_usage "$detected_root"; exit 0 ;;
@@ -214,7 +214,7 @@ main() {
     stop)     stop_all; exit 0 ;;
     restart)  restart_all; exit 0 ;;
     status)   status_all; exit 0 ;;
-    uninstall) uninstall_all "$purge"; exit 0 ;;
+    uninstall-services) uninstall_all "$purge"; exit 0 ;;
     install-cli) create_cli_wrapper "$SELF_SCRIPT"; exit 0 ;;
     uninstall-cli) remove_cli_wrapper; exit 0 ;;
     setup-full)
@@ -297,7 +297,7 @@ main() {
 
       if [[ "$no_cli" == false ]]; then
         create_cli_wrapper "$SELF_SCRIPT"
-        echo "You can now run: $(cli_name) start|stop|restart|status|uninstall [--purge]"
+        echo "You can now run: $(cli_name) start|stop|restart|status|uninstall-services [--purge]"
       else
         echo "CLI wrapper install skipped (--no-cli)."
       fi

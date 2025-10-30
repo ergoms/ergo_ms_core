@@ -8,7 +8,7 @@
     It uses NSSM to create Windows services from batch/powershell scripts.
 
 .PARAMETER Command
-    Command to execute: install, start, stop, restart, status, uninstall, install-cli, uninstall-cli
+    Command to execute: install, start, stop, restart, status, uninstall-services, install-cli, uninstall-cli
 
 .PARAMETER Root
     Absolute path to project root (auto-detected if not provided)
@@ -60,7 +60,7 @@ function Main {
     $isProxyCommand = $proxyCommands -contains $Command.ToLower()
     
     # Commands that require admin
-    $adminCommands = @('install', 'install-services', 'install-api-service', 'install-client-service', 'install-worker-service', 'install-beat-service', 'start', 'stop', 'restart', 'status', 'uninstall', 'install-cli', 'uninstall-cli', 'setup-full')
+    $adminCommands = @('install', 'install-services', 'install-api-service', 'install-client-service', 'install-worker-service', 'install-beat-service', 'start', 'stop', 'restart', 'status', 'uninstall-services', 'install-cli', 'uninstall-cli', 'setup-full')
     $requiresAdmin = $adminCommands -contains $Command.ToLower()
     
     # Commands that don't require admin
@@ -210,7 +210,7 @@ function Main {
         'status' {
             Show-ServicesStatus
         }
-        'uninstall' {
+        'uninstall-services' {
             Uninstall-AllServices -PurgeData $Purge
         }
         'install-cli' {

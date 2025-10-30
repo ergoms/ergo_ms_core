@@ -33,7 +33,7 @@ Service Management Commands:
   stop       Stop all services
   restart    Restart all services
   status     Show status for all services
-  uninstall  Stop, disable, remove units; with --purge also removes /etc/default/ergo_ms
+  uninstall-services  Stop, disable, remove units; with --purge also removes /etc/default/ergo_ms
   install-cli    Install CLI wrapper /usr/local/bin/ergoms
   uninstall-cli  Remove CLI wrapper
   logs       Show logs for a service (usage: logs <service-name> [lines])
@@ -112,7 +112,7 @@ Examples:
     sudo bash ergo_ms.sh install
     sudo bash ergo_ms.sh install --root /projects/ergo_ms
     sudo bash ergo_ms.sh status
-    sudo bash ergo_ms.sh uninstall --purge
+    sudo bash ergo_ms.sh uninstall-services --purge
     ergoms start
     ergoms stop
     ergoms restart

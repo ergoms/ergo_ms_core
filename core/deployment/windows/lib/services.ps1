@@ -37,8 +37,12 @@ function Install-Service {
     & $NssmExe set $ServiceName Description "Ergo Management System - $ServiceName"
     & $NssmExe set $ServiceName AppDirectory (Join-Path $Root "core")
     $logsDir = Get-ProjectLogsDir -ProjectRoot $Root
-    & $NssmExe set $ServiceName AppStdout (Join-Path $logsDir "${ServiceName}.log")
-    & $NssmExe set $ServiceName AppStderr (Join-Path $logsDir "${ServiceName}-error.log")
+    # Redirect both stdout and stderr to the same file (single log per service)
+    $singleLog = Join-Path $logsDir "${ServiceName}.log"
+    & $NssmExe set $ServiceName AppStdout $singleLog
+    & $NssmExe set $ServiceName AppStderr $singleLog
+    # Ensure UTF-8 for Python output under Windows services
+    & $NssmExe set $ServiceName AppEnvironmentExtra "PYTHONIOENCODING=UTF-8" "PYTHONUTF8=1"
     
     # Set service to auto-start
     & $NssmExe set $ServiceName Start SERVICE_AUTO_START
@@ -175,6 +179,12 @@ function Show-ServiceLogs {
         [string]$ProjectRoot = ""
     )
     
+    # Ensure console outputs UTF-8 so special symbols display correctly
+    try {
+        $OutputEncoding = [System.Text.Encoding]::UTF8
+        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    } catch {}
+
     if (-not $ProjectRoot) {
         $ProjectRoot = Get-ProjectRoot
     }
@@ -191,7 +201,8 @@ function Show-ServiceLogs {
     Write-ColorOutput "   Log file: $logPath" Gray
     Write-ColorOutput ""
     
-    Get-Content -Path $logPath -Tail $Lines -Wait
+    # Read log as UTF-8 to display special symbols correctly in Windows PowerShell
+    Get-Content -Path $logPath -Tail $Lines -Wait -Encoding UTF8
 }
 
 function Uninstall-AllServices {

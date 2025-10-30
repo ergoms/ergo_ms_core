@@ -35,7 +35,7 @@ Service Management Commands:
     stop           Stop all services
     restart        Restart all services
     status         Show status of all services
-    uninstall      Uninstall all services (use -Purge to remove data)
+    uninstall-services Uninstall all services (use -Purge to remove data)
     install-cli    Install CLI wrapper (ergoms command)
     uninstall-cli  Remove CLI wrapper
     logs           Show logs for a service (usage: logs <service-name> [lines])
@@ -125,7 +125,7 @@ Examples:
         .\ergo_ms.ps1 install-beat-service
         .\ergo_ms.ps1 install -Root "C:\projects\ergo_ms"
         .\ergo_ms.ps1 status
-        .\ergo_ms.ps1 uninstall -Purge
+        .\ergo_ms.ps1 uninstall-services -Purge
         ergoms start
         ergoms stop
         ergoms restart

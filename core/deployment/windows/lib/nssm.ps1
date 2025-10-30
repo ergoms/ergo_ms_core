@@ -72,6 +72,9 @@ function New-ServiceWrapper {
             $wrapperPath = Join-Path $wrapperDir "start_api.bat"
             $content = @(
                 '@echo off',
+                'chcp 65001 >nul',
+                'set PYTHONIOENCODING=utf-8',
+                'set PYTHONUTF8=1',
                 "cd /d `"$corePath`"",
                 "call `"$venvActivate`"",
                 'api dev'
@@ -81,6 +84,10 @@ function New-ServiceWrapper {
             $wrapperPath = Join-Path $wrapperDir "start_client.bat"
             $content = @(
                 '@echo off',
+                'chcp 65001 >nul',
+                'set NO_COLOR=1',
+                'set FORCE_COLOR=0',
+                'set npm_config_color=false',
                 "cd /d `"$corePath`"",
                 'npm run dev'
             ) -join "`r`n"
@@ -89,6 +96,9 @@ function New-ServiceWrapper {
             $wrapperPath = Join-Path $wrapperDir "start_celery_worker.bat"
             $content = @(
                 '@echo off',
+                'chcp 65001 >nul',
+                'set PYTHONIOENCODING=utf-8',
+                'set PYTHONUTF8=1',
                 "cd /d `"$corePath`"",
                 "call `"$venvActivate`"",
                 'api start_celery_worker'
@@ -98,6 +108,9 @@ function New-ServiceWrapper {
             $wrapperPath = Join-Path $wrapperDir "start_celery_beat.bat"
             $content = @(
                 '@echo off',
+                'chcp 65001 >nul',
+                'set PYTHONIOENCODING=utf-8',
+                'set PYTHONUTF8=1',
                 "cd /d `"$corePath`"",
                 "call `"$venvActivate`"",
                 'api start_celery_beat'
@@ -105,6 +118,7 @@ function New-ServiceWrapper {
         }
     }
 
+    # Write without BOM to avoid '﻿@echo' issues in logs
     Set-Content -Path $wrapperPath -Value $content -Encoding ASCII
     return $wrapperPath
 }

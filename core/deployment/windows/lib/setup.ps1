@@ -180,7 +180,7 @@ function Setup-FullSystem {
     Write-ColorOutput "-> Step 4/7: Installing ErgoMS CLI..." Yellow
     Install-CliWrapper
     
-    # Step 5: Run setup (poetry install && npm install && api migrate)
+    # Step 5: Run setup (poetry install && npm install && npm run build && api migrate)
     Write-ColorOutput "-> Step 5/7: Running ergoms setup..." Yellow
     Push-Location $Root
     try {
@@ -195,6 +195,9 @@ function Setup-FullSystem {
             
             & npm install
             if ($LASTEXITCODE -ne 0) { throw "NPM install failed" }
+            
+            & npm run build
+            if ($LASTEXITCODE -ne 0) { throw "NPM run build failed" }
             
             & api migrate
             if ($LASTEXITCODE -ne 0) { throw "API migrate failed" }

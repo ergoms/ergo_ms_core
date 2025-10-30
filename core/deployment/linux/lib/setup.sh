@@ -75,7 +75,7 @@ setup_full_system() {
   fi
   create_cli_wrapper "$target_script"
   
-  # Step 5: Run setup (poetry install && npm install && api migrate)
+  # Step 5: Run setup (poetry install && npm install && npm run build && api migrate)
   echo "-> Step 5/7: Running ergoms setup..."
   cd "$root/core" || exit 1
   if ! poetry install; then
@@ -84,6 +84,10 @@ setup_full_system() {
   fi
   if ! npm install; then
     echo "[ERROR] npm install failed" >&2
+    exit 1
+  fi
+  if ! npm run build; then
+    echo "[ERROR] npm run build failed" >&2
     exit 1
   fi
   if ! api migrate; then
