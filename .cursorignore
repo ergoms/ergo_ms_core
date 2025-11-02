@@ -11,3 +11,5 @@
 *.heif
 *.heif-srgb
 *.heif-srgb-alpha
+
+databases.yaml
