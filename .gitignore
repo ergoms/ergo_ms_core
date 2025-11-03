@@ -40,3 +40,5 @@ __pycache__/
 
 /core/deployment/wrappers/*
 !/core/deployment/wrappers/.gitkeep
+
+/menu-order-config.json

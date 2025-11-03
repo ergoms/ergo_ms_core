@@ -1,0 +1,13 @@
+{
+  "menuOrder": [
+    "User",
+    "Settings",
+
+    "BI"
+  ],
+  
+  "separators": {
+    "0": "Настройки",
+    "2": "Модули"
+  }
+}
