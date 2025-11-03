@@ -106,3 +106,31 @@
 	branch = dev
 	update = merge
 	ignore = all
+
+[submodule "modules/organizations"]
+	path = modules/organizations
+	url = https://github.com/SKB-AI/ergo_ms_organizations.git
+	branch = dev
+	update = merge
+	ignore = all
+
+[submodule "modules/crm_remastered"]
+	path = modules/crm_remastered
+	url = https://github.com/SKB-AI/crm_remastered.git
+	branch = dev
+	update = merge
+	ignore = all
+
+[submodule "modules/students"]
+	path = modules/students
+	url = https://github.com/SKB-AI/ergo_ms_students.git
+	branch = dev
+	update = merge
+	ignore = all
+
+[submodule "modules/workers"]
+	path = modules/workers
+	url = https://github.com/SKB-AI/ergo_ms_workers.git
+	branch = dev
+	update = merge
+	ignore = all
