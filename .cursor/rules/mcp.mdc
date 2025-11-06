@@ -1,0 +1,6 @@
+---
+alwaysApply: true
+---
+Для работы с базой данных используй MCP сервер встроенный в cursor - ergo-database-postgres.
+Для работы с API используй MCP сервер встроенный в cursor - ergo-api.
+Для работы с файловой системой можешь использовать MCP сервер встроенный в cursor - ergo-filesystem.

@@ -1,0 +1,25 @@
+{
+    "mcpServers": {
+        "ergo-filesystem": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@modelcontextprotocol/server-filesystem",
+                "/projects/ergo_ms"
+            ]
+        },
+        "ergo-database-postgres": {
+            "command": "/projects/ergo_ms/virtual_env/python/bin/python3",
+            "args": [
+                "/projects/ergo_ms/.cursor/mcp_database_wrapper.py",
+                "default"
+            ]
+        },
+        "ergo-api": {
+            "command": "/projects/ergo_ms/virtual_env/python/bin/python3",
+            "args": [
+                "/projects/ergo_ms/.cursor/mcp_api_server.py"
+            ]
+        }
+    }
+}
