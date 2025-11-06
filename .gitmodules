@@ -14,6 +14,20 @@
 	update = merge
 	ignore = all
 
+[submodule "core/media_api"]
+	path = core/media_api
+	url = https://github.com/SKB-AI/ergo_ms_core_media_api.git
+	branch = dev
+	update = merge
+	ignore = all
+
+[submodule "core/django"]
+	path = core/django
+	url = https://github.com/SKB-AI/ergo_ms_core_django.git
+	branch = dev
+	update = merge
+	ignore = all
+
 # Modules
 
 [submodule "assets_analysis"]

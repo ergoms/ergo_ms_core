@@ -1,79 +1,8 @@
-[project]
+[tool.poetry]
 name = "ergo_ms_api"
 version = "0.1.0"
 description = "Ergo MS API"
-authors = [
-    {name = "Eugene Sergeevich Muzalevsky", email = "muzalevskij.evgenij@mail.ru"},
-]
-
-dependencies = [
-    "django>=5.2.4",
-    "djangorestframework>=3.16.0",
-    "django-cors-headers>=4.7.0",
-    "djangorestframework-simplejwt>=5.5.0",
-    "drf-yasg>=1.21.10",
-    "numpy>=2.1.3",
-    "pandas>=2.3.1",
-    "setuptools>=80.9.0",
-    "wheel>=0.45.1",
-    "daphne>=4.2.1",
-    "whitenoise>=6.9.0",
-    "psycopg2>=2.9.10",
-    "psutil>=7.0.0",
-    "transformers>=4.53.2",
-    "django-environ>=0.12.0",
-    "matplotlib>=3.10.3",
-    "scikit-learn>=1.7.0",
-    "pyyaml>=6.0.2",
-    "sqlalchemy>=2.0.41",
-    "sshtunnel>=0.4.0",
-    "pyodbc>=5.2.0",
-    "mysql-connector-python>=9.3.0",
-    "celery>=5.5.3",
-    "mysqlclient>=2.2.7",
-    "django-celery-beat>=2.8.1",
-    "channels>=4.2.2",
-    "ipykernel>=6.29.5",
-    "torch (==2.7.1+cu128)",
-    "tensorflow>=2.19.0",
-    "pymssql>=2.3.7",
-    "clickhouse-connect>=0.8.18",
-    "openpyxl>=3.1.5",
-    "django-filter>=25.1",
-    "yfinance>=0.2.65",
-    "feedparser>=6.0.11",
-    "python-slugify>=8.0.4",
-    "faker>=37.4.2",
-    "opencv-python>=4.12.0.88",
-    "scikit-image>=0.25.2",
-    "reportlab (>=4.4.2,<5.0.0)",
-    "xlsxwriter (>=3.2.5,<4.0.0)",
-    "docx (>=0.2.4,<0.3.0)",
-    "python-docx (>=1.2.0,<2.0.0)",
-    "unoconv (>=0.9.0,<1.0.0)",
-    "ollama (>=0.5.1,<0.6.0)",
-    "vosk (>=0.3.45,<0.4.0)",
-    "moviepy==1.0.3",
-    "sentencepiece (>=0.2.0,<0.3.0)",
-    "sacremoses (>=0.1.1,<0.2.0)",
-    "django-extensions (>=4.1,<5.0)",
-    "notebook (>=7.4.4,<8.0.0)",
-    "jupyterlab (>=4.4.5,<5.0.0)",
-    "requests (>=2.31.0,<3.0.0)",
-    "torchvision (==0.22.1+cu128)",
-    "torchaudio (==2.7.1+cu128)",
-    "silero (>=0.4.1,<0.5.0)",
-    "soundfile (>=0.13.1,<0.14.0)",
-    "pydub (>=0.25.1,<0.26.0)",
-    "accelerate (>=1.10.1,<2.0.0)",
-    "duckdb (>=1.4.1,<2.0.0)",
-    "sqlparse (>=0.5.3,<0.6.0)",
-    "llama-index-llms-ollama (>=0.9.0,<0.10.0)",
-]
-
-requires-python = ">=3.12,<3.13"
-
-[tool.poetry]
+authors = ["Eugene Sergeevich Muzalevsky <muzalevskij.evgenij@mail.ru>"]
 packages = [
     {include = "src", from = "core/api"},
     {include = "modules", from = ""},
@@ -85,15 +14,74 @@ name = "pytorch-cu128"
 url = "https://download.pytorch.org/whl/cu128"
 priority = "explicit"
 
-[virtualenvs]
-path = "virtual_env/python"
-
 [tool.poetry.dependencies]
-torch = {source = "pytorch-cu128"}
-torchvision = {source = "pytorch-cu128"}
-torchaudio = {source = "pytorch-cu128"}
+python = ">=3.12,<3.13"
+django = {path = "core/django", develop = true}
+djangorestframework = ">=3.16.0"
+django-cors-headers = ">=4.7.0"
+djangorestframework-simplejwt = ">=5.5.0"
+drf-yasg = ">=1.21.10"
+numpy = ">=2.1.3"
+pandas = ">=2.3.1"
+setuptools = ">=80.9.0"
+wheel = ">=0.45.1"
+daphne = ">=4.2.1"
+whitenoise = ">=6.9.0"
+psycopg2 = ">=2.9.10"
+psutil = ">=7.0.0"
+transformers = ">=4.53.2"
+django-environ = ">=0.12.0"
+matplotlib = ">=3.10.3"
+scikit-learn = ">=1.7.0"
+pyyaml = ">=6.0.2"
+sqlalchemy = ">=2.0.41"
+sshtunnel = ">=0.4.0"
+pyodbc = ">=5.2.0"
+mysql-connector-python = ">=9.3.0"
+celery = ">=5.5.3"
+mysqlclient = ">=2.2.7"
+django-celery-beat = ">=2.8.1"
+channels = ">=4.2.2"
+ipykernel = ">=6.29.5"
+torch = {version = "==2.7.1+cu128", source = "pytorch-cu128"}
+tensorflow = ">=2.19.0"
+pymssql = ">=2.3.7"
+clickhouse-connect = ">=0.8.18"
+openpyxl = ">=3.1.5"
+django-filter = ">=25.1"
+yfinance = ">=0.2.65"
+feedparser = ">=6.0.11"
+python-slugify = ">=8.0.4"
+faker = ">=37.4.2"
+opencv-python = ">=4.12.0.88"
+scikit-image = ">=0.25.2"
+reportlab = ">=4.4.2,<5.0.0"
+xlsxwriter = ">=3.2.5,<4.0.0"
+docx = ">=0.2.4,<0.3.0"
+python-docx = ">=1.2.0,<2.0.0"
+unoconv = ">=0.9.0,<1.0.0"
+ollama = ">=0.5.1,<0.6.0"
+vosk = ">=0.3.45,<0.4.0"
+moviepy = "==1.0.3"
+sentencepiece = ">=0.2.0,<0.3.0"
+sacremoses = ">=0.1.1,<0.2.0"
+django-extensions = ">=4.1,<5.0"
+notebook = ">=7.4.4,<8.0.0"
+jupyterlab = ">=4.4.5,<5.0.0"
+requests = ">=2.31.0,<3.0.0"
+torchvision = {version = "==0.22.1+cu128", source = "pytorch-cu128"}
+torchaudio = {version = "==2.7.1+cu128", source = "pytorch-cu128"}
+silero = ">=0.4.1,<0.5.0"
+soundfile = ">=0.13.1,<0.14.0"
+pydub = ">=0.25.1,<0.26.0"
+accelerate = ">=1.10.1,<2.0.0"
+duckdb = ">=1.4.1,<2.0.0"
+sqlparse = ">=0.5.3,<0.6.0"
+llama-index-llms-ollama = ">=0.9.0,<0.10.0"
+mcp = "^1.20.0"
+httpx = ">=0.27.0,<1.0.0"
 
-[project.scripts]
+[tool.poetry.scripts]
 api = "commands.__main__:main"
 
 [build-system]
