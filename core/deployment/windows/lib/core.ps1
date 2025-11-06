@@ -73,9 +73,13 @@ function Test-ProjectStructure {
     $clientPath = Join-Path $Root "core\client"
 
     if (-not (Test-Path $apiPath)) {
+        Write-ColorOutput "[ERROR] Invalid project root: $apiPath not found" Red
+        Write-ColorOutput "Run 'ergoms setup' to initialize all submodules." Yellow
         throw "Invalid project root: $apiPath not found"
     }
     if (-not (Test-Path $clientPath)) {
+        Write-ColorOutput "[ERROR] Invalid project root: $clientPath not found" Red
+        Write-ColorOutput "Run 'ergoms setup' to initialize all submodules." Yellow
         throw "Invalid project root: $clientPath not found"
     }
 

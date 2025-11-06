@@ -64,7 +64,7 @@ function Main {
     $requiresAdmin = $adminCommands -contains $Command.ToLower()
     
     # Commands that don't require admin
-    $noAdminCommands = @('logs', 'help')
+    $noAdminCommands = @('logs', 'help', 'clean-project')
     
     # Check if it's a custom command
     $projectRoot = $null
@@ -248,6 +248,10 @@ function Main {
         'setup-full' {
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
             Setup-FullSystem -Root $projectRoot -RecreateVenv $RecreateVenv
+        }
+        'clean' {
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+            Clear-ProjectDependencies -Root $projectRoot
         }
         'help' {
             try {

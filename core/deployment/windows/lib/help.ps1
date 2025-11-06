@@ -40,6 +40,7 @@ Service Management Commands:
     uninstall-cli  Remove CLI wrapper
     logs           Show logs for a service (usage: logs <service-name> [lines])
     setup-full     Full system setup (git, venv, poetry, npm) - no services
+    clean-project  Clean all dependencies (node_modules, venv, static) - keep media
     help           Show this help
 
 Deployment Commands (no admin required):
@@ -109,12 +110,15 @@ Options:
     -RecreateVenv  Force recreation of virtual environment
 
 Examples:
-    Full System Setup:
+    Full System Setup (first time or after clean):
         .\ergo_ms.ps1 setup-full
         .\ergo_ms.ps1 setup-full -Root "C:\projects\ergo_ms"
         .\ergo_ms.ps1 setup-full -RecreateVenv
-        ergoms setup-full
+        ergoms setup
         ergoms install-services
+    
+    Quick Dependencies Install (when venv already exists):
+        ergoms install-deps
 
     Service Management:
         .\ergo_ms.ps1 install
@@ -143,8 +147,10 @@ Examples:
 
     Custom Commands:
         ergoms python-install       (alias for: poetry install)
-        ergoms setup                (runs: poetry install && npm install && api migrate)
+        ergoms setup                (full system setup: git, venv, poetry, npm, migrate, static)
+        ergoms install-deps         (quick install: poetry install && npm install && api migrate)
         ergoms db-migrate           (alias for: api migrate)
+        ergoms clean                (removes all dependencies - works on both Windows and Linux)
 
     Deployment Commands:
         ergoms deploy-api           (deploy API only)

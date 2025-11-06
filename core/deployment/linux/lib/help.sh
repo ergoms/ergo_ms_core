@@ -38,6 +38,7 @@ Service Management Commands:
   uninstall-cli  Remove CLI wrapper
   logs       Show logs for a service (usage: logs <service-name> [lines])
   setup-full     Full system setup (git, venv, poetry, npm) - no services
+  clean-project  Clean all dependencies (node_modules, venv, static) - keep media
 
 Deployment Commands (no root required):
   deploy-api     Deploy API only (install deps, migrate, collect static)
@@ -103,10 +104,13 @@ Options:
   --no-cli       Skip CLI wrapper installation
 
 Examples:
-  Full System Setup:
+  Full System Setup (first time or after clean):
     sudo bash ergo_ms.sh setup-full
     sudo bash ergo_ms.sh setup-full --root /projects/ergo_ms
-    sudo ergoms setup-full
+    sudo ergoms setup
+  
+  Quick Dependencies Install (when venv already exists):
+    ergoms install-deps
 
   Service Management:
     sudo bash ergo_ms.sh install
@@ -130,8 +134,10 @@ Examples:
 
   Custom Commands:
     ergoms python-install       (alias for: poetry install)
-    ergoms setup                (runs: poetry install && npm install && api migrate)
+    ergoms setup                (full system setup: git, venv, poetry, npm, migrate, static)
+    ergoms install-deps         (quick install: poetry install && npm install && api migrate)
     ergoms db-migrate           (alias for: api migrate)
+    ergoms clean                (removes all dependencies - works on both Windows and Linux)
 
   Deployment Commands:
     ergoms deploy-api           (deploy API only)

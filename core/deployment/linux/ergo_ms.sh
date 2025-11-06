@@ -53,7 +53,7 @@ main() {
   if (( $# > 0 )); then
     command="$1"
     case "$command" in
-      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|poetry|api|npm)
+      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|clean|poetry|api|npm)
         shift ;;
       -h|--help)
         print_usage "$detected_root"; exit 0 ;;
@@ -101,9 +101,15 @@ main() {
     deploy-api|deploy-client|deploy-api-dev|deploy-client-dev|deploy-all)
       is_deploy_command=true ;;
   esac
+  
+  # Check if it's a clean command (doesn't require root)
+  local is_clean_command=false
+  if [[ "$command" == "clean" ]]; then
+    is_clean_command=true
+  fi
 
-  # Parse flags/positional root for proxy, custom, logs, and deploy commands
-  if [[ "$is_proxy_command" == true ]] || [[ "$is_custom_command" == true ]] || [[ "$is_logs_command" == true ]] || [[ "$is_deploy_command" == true ]]; then
+  # Parse flags/positional root for proxy, custom, logs, deploy, and clean commands
+  if [[ "$is_proxy_command" == true ]] || [[ "$is_custom_command" == true ]] || [[ "$is_logs_command" == true ]] || [[ "$is_deploy_command" == true ]] || [[ "$is_clean_command" == true ]]; then
     while (( "$#" )); do
       case "$1" in
         --root)
@@ -138,6 +144,12 @@ main() {
     # Execute deploy command
     if [[ "$is_deploy_command" == true ]]; then
       invoke_custom_command "$ERGO_ROOT" "$command" "$@"
+      exit 0
+    fi
+    
+    # Execute clean command
+    if [[ "$is_clean_command" == true ]]; then
+      clear_project_dependencies "$ERGO_ROOT"
       exit 0
     fi
     
@@ -254,6 +266,7 @@ main() {
   # Basic sanity checks for expected structure
   if [[ ! -d "$ERGO_ROOT/core/api" ]] || [[ ! -d "$ERGO_ROOT/core/client" ]]; then
     echo "Detected root $ERGO_ROOT doesn't look like an ergo_ms project (missing core/api/ or core/client/)." >&2
+    echo "Run 'ergoms setup' to initialize all submodules." >&2
     exit 1
   fi
 
