@@ -7,6 +7,7 @@ packages = [
     {include = "src", from = "core/api"},
     {include = "modules", from = ""},
     {include = "commands", from = "core/api"},
+    {include = ".cursor", from = ""},
 ]
 
 [[tool.poetry.source]]
