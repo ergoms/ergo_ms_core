@@ -56,6 +56,10 @@
         {
             "label": "Setup Full System",
             "type": "shell",
+            "dependsOn": [
+                "Install ErgoMS CLI"
+            ],
+            "dependsOrder": "sequence",
             "options": {
                 "cwd": "${workspaceFolder}",
                 "shell": {
@@ -66,7 +70,7 @@
                     ]
                 }
             },
-            "command": "powershell.exe -ExecutionPolicy Bypass -NoProfile -File \"${workspaceFolder}\\core\\deployment\\windows\\ergo_ms.ps1\" setup-full -Root \"${workspaceFolder}\"",
+            "command": "ergoms setup-full -Root \"${workspaceFolder}\"",
             "windows": {
                 "options": {
                     "cwd": "${workspaceFolder}",
@@ -78,7 +82,7 @@
                         ]
                     }
                 },
-                "command": "powershell.exe -ExecutionPolicy Bypass -NoProfile -File \"${workspaceFolder}\\core\\deployment\\windows\\ergo_ms.ps1\" setup-full -Root \"${workspaceFolder}\""
+                "command": "ergoms setup-full -Root \"${workspaceFolder}\""
             },
             "linux": {
                 "options": {
@@ -90,7 +94,7 @@
                         ]
                     }
                 },
-                "command": "sudo /bin/bash \"${workspaceFolder}/core/deployment/linux/ergo_ms.sh\" setup-full --root \"${workspaceFolder}\""
+                "command": "sudo ergoms setup-full --root \"${workspaceFolder}\""
             },
             "presentation": {
                 "echo": true,
