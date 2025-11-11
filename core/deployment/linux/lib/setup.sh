@@ -12,7 +12,7 @@ setup_full_system() {
   # Step 1: Git submodules
   echo "-> Step 1/7: Updating git submodules..."
   cd "$root" || exit 1
-  if ! git submodule update --init --remote core/api core/client core/django core/media_api; then
+  if ! git submodule update --init --remote core/api core/client core/django core/django_rest_framework core/media_api; then
     echo "[ERROR] Failed to update git submodules" >&2
     exit 1
   fi
@@ -32,6 +32,12 @@ setup_full_system() {
   cd "$root/core/django" || exit 1
   if ! git checkout dev; then
     echo "[ERROR] Failed to checkout dev branch in core/django" >&2
+    exit 1
+  fi
+
+  cd "$root/core/django_rest_framework" || exit 1
+  if ! git checkout dev; then
+    echo "[ERROR] Failed to checkout dev branch in core/django_rest_framework" >&2
     exit 1
   fi
   

@@ -28,6 +28,13 @@
 	update = merge
 	ignore = all
 
+[submodule "core/django_rest_framework"]
+	path = core/django_rest_framework
+	url = https://github.com/SKB-AI/ergo_ms_django_rest_framework
+	branch = dev
+	update = merge
+	ignore = all
+
 # Modules
 
 [submodule "assets_analysis"]

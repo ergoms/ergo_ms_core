@@ -14,7 +14,7 @@ function Setup-FullSystem {
     Write-ColorOutput "-> Step 1/7: Updating git submodules..." Yellow
     Push-Location $Root
     try {
-        & git submodule update --init --remote core/api core/client core/django core/media_api
+        & git submodule update --init --remote core/api core/client core/django core/django_rest_framework core/media_api
         if ($LASTEXITCODE -ne 0) { throw "Git submodule update failed" }
         
         Push-Location "core\api"
@@ -26,6 +26,10 @@ function Setup-FullSystem {
         Pop-Location
         
         Push-Location "core\django"
+        & git checkout dev
+        Pop-Location
+
+        Push-Location "core\django_rest_framework"
         & git checkout dev
         Pop-Location
         

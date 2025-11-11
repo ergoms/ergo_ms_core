@@ -18,7 +18,7 @@ priority = "explicit"
 [tool.poetry.dependencies]
 python = ">=3.12,<3.13"
 django = {path = "core/django", develop = true}
-djangorestframework = ">=3.16.0"
+djangorestframework = {path = "core/django_rest_framework", develop = true}
 django-cors-headers = ">=4.7.0"
 djangorestframework-simplejwt = ">=5.5.0"
 drf-yasg = ">=1.21.10"

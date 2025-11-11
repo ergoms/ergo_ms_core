@@ -1673,15 +1673,17 @@ name = "djangorestframework"
 version = "3.16.1"
 description = "Web APIs for Django, made easy."
 optional = false
-python-versions = ">=3.9"
+python-versions = ">=3.10"
 groups = ["main"]
-files = [
-    {file = "djangorestframework-3.16.1-py3-none-any.whl", hash = "sha256:33a59f47fb9c85ede792cbf88bde71893bcda0667bc573f784649521f1102cec"},
-    {file = "djangorestframework-3.16.1.tar.gz", hash = "sha256:166809528b1aced0a17dc66c24492af18049f2c9420dbd0be29422029cfc3ff7"},
-]
+files = []
+develop = true
 
 [package.dependencies]
 django = ">=4.2"
+
+[package.source]
+type = "directory"
+url = "core/django_rest_framework"
 
 [[package]]
 name = "djangorestframework-simplejwt"
@@ -8984,4 +8986,4 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<3.13"
-content-hash = "511dab2a06cd0fa01bfb9ee988e21475654f06edab121c9e6d5ae15706f3ea52"
+content-hash = "3528752c8bc9a52124f85007b5b74cbc986acb704be13ab5fd29e41346628cd1"
