@@ -54,7 +54,7 @@ function Get-CustomCommands {
 function Invoke-CustomCommand {
     param(
         [string]$CommandName,
-        [string[]]$Args,
+        [string[]]$CommandArgs,
         [string]$ProjectRoot
     )
     
@@ -76,7 +76,7 @@ function Invoke-CustomCommand {
         
         foreach ($subCmd in $subCommands) {
             Write-ColorOutput "   -> $subCmd" Yellow
-            Execute-CommandString -CommandString $subCmd -ProjectRoot $ProjectRoot -Args $Args
+            Execute-CommandString -CommandString $subCmd -ProjectRoot $ProjectRoot -UserArgs $CommandArgs
             if ($LASTEXITCODE -ne 0) {
                 Write-ColorOutput "[ERROR] Command failed: $subCmd" Red
                 exit $LASTEXITCODE
@@ -84,7 +84,7 @@ function Invoke-CustomCommand {
         }
     }
     else {
-        Execute-CommandString -CommandString $commandDef -ProjectRoot $ProjectRoot -Args $Args
+        Execute-CommandString -CommandString $commandDef -ProjectRoot $ProjectRoot -UserArgs $CommandArgs
     }
 }
 
@@ -92,7 +92,7 @@ function Execute-CommandString {
     param(
         [string]$CommandString,
         [string]$ProjectRoot,
-        [string[]]$Args
+        [string[]]$UserArgs
     )
     
     # Parse command type (poetry:, api:, npm:, shell:, win:, linux:)
@@ -107,7 +107,7 @@ function Execute-CommandString {
         }
         
         # Split command arguments and add user arguments
-        $allArgs = ($cmdArgs -split '\s+') + $Args
+        $allArgs = ($cmdArgs -split '\s+') + $UserArgs
         
         switch ($cmdType) {
             'poetry' {
@@ -131,8 +131,7 @@ function Execute-CommandString {
                     $env:VIRTUAL_ENV = $venvPath
                     $env:PATH = "$venvPath\Scripts;$env:PATH"
                     
-                    $argsString = $allArgs -join ' '
-                    & api $argsString
+                    & api $allArgs
                 }
                 finally {
                     Pop-Location
@@ -169,8 +168,8 @@ function Execute-CommandString {
                 try {
                     # Execute shell command as-is
                     $fullCommand = $cmdArgs
-                    if ($Args.Count -gt 0) {
-                        $fullCommand += " " + ($Args -join ' ')
+                    if ($UserArgs.Count -gt 0) {
+                        $fullCommand += " " + ($UserArgs -join ' ')
                     }
                     & cmd /c $fullCommand
                 }
@@ -183,8 +182,8 @@ function Execute-CommandString {
                 try {
                     # Execute Windows-specific command
                     $fullCommand = $cmdArgs
-                    if ($Args.Count -gt 0) {
-                        $fullCommand += " " + ($Args -join ' ')
+                    if ($UserArgs.Count -gt 0) {
+                        $fullCommand += " " + ($UserArgs -join ' ')
                     }
                     & cmd /c $fullCommand
                 }
@@ -198,7 +197,7 @@ function Execute-CommandString {
         # Execute as shell command (backward compatibility)
         Push-Location $ProjectRoot
         try {
-            $allArgs = ($CommandString -split '\s+') + $Args
+            $allArgs = ($CommandString -split '\s+') + $UserArgs
             $mainCmd = $allArgs[0]
             $cmdArgs = $allArgs[1..($allArgs.Length-1)]
             & $mainCmd $cmdArgs
@@ -210,7 +209,7 @@ function Execute-CommandString {
 }
 
 function Invoke-PoetryCommand {
-    param([string[]]$Args, [string]$Root)
+    param([string[]]$CommandArgs, [string]$Root)
     
     # Activate virtual environment if it exists
     $venvPath = Join-Path $Root "virtual_env\python"
@@ -221,7 +220,7 @@ function Invoke-PoetryCommand {
     
     Push-Location $Root
     try {
-        & poetry $Args
+        & poetry $CommandArgs
     }
     finally {
         Pop-Location
@@ -229,7 +228,7 @@ function Invoke-PoetryCommand {
 }
 
 function Invoke-ApiCommand {
-    param([string[]]$Args, [string]$Root)
+    param([string[]]$CommandArgs, [string]$Root)
     
     $venvPath = Join-Path $Root "virtual_env\python"
     
@@ -245,7 +244,7 @@ function Invoke-ApiCommand {
         $env:VIRTUAL_ENV = $venvPath
         $env:PATH = "$venvPath\Scripts;$env:PATH"
         
-        & api $($Args -join ' ')
+        & api $CommandArgs
     }
     finally {
         Pop-Location
@@ -253,11 +252,11 @@ function Invoke-ApiCommand {
 }
 
 function Invoke-NpmCommand {
-    param([string[]]$Args, [string]$Root)
+    param([string[]]$CommandArgs, [string]$Root)
     
     Push-Location $Root
     try {
-        $npmCommand = "npm " + ($Args -join ' ')
+        $npmCommand = "npm " + ($CommandArgs -join ' ')
         Invoke-Expression $npmCommand
     }
     finally {

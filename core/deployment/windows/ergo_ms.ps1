@@ -91,7 +91,7 @@ function Main {
 
     # Handle custom commands (no admin required)
     if ($isCustomCommand) {
-        Invoke-CustomCommand -CommandName $Command -Args $RemainingArgs -ProjectRoot $projectRoot
+        Invoke-CustomCommand -CommandName $Command -CommandArgs $RemainingArgs -ProjectRoot $projectRoot
         return
     }
 
@@ -100,15 +100,15 @@ function Main {
         $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
         switch ($Command.ToLower()) {
             'poetry' {
-                Invoke-PoetryCommand -Args $RemainingArgs -Root $projectRoot
+                Invoke-PoetryCommand -CommandArgs $RemainingArgs -Root $projectRoot
                 return
             }
             'api' {
-                Invoke-ApiCommand -Args $RemainingArgs -Root $projectRoot
+                Invoke-ApiCommand -CommandArgs $RemainingArgs -Root $projectRoot
                 return
             }
             'npm' {
-                Invoke-NpmCommand -Args $RemainingArgs -Root $projectRoot
+                Invoke-NpmCommand -CommandArgs $RemainingArgs -Root $projectRoot
                 return
             }
         }
@@ -170,29 +170,29 @@ function Main {
         'deploy-api' {
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
             Write-ColorOutput "-> Deploying API only for: $projectRoot" Cyan
-            Invoke-CustomCommand -CommandName "deploy-api" -ProjectRoot $projectRoot -Args $RemainingArgs
+            Invoke-CustomCommand -CommandName "deploy-api" -ProjectRoot $projectRoot -CommandArgs $RemainingArgs
             Write-ColorOutput "`n[OK] API deployment complete!" Green
         }
         'deploy-client' {
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
             Write-ColorOutput "-> Deploying Client only for: $projectRoot" Cyan
-            Invoke-CustomCommand -CommandName "deploy-client" -ProjectRoot $projectRoot -Args $RemainingArgs
+            Invoke-CustomCommand -CommandName "deploy-client" -ProjectRoot $projectRoot -CommandArgs $RemainingArgs
             Write-ColorOutput "`n[OK] Client deployment complete!" Green
         }
         'deploy-api-dev' {
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
             Write-ColorOutput "-> Deploying and starting API in dev mode for: $projectRoot" Cyan
-            Invoke-CustomCommand -CommandName "deploy-api-dev" -ProjectRoot $projectRoot -Args $RemainingArgs
+            Invoke-CustomCommand -CommandName "deploy-api-dev" -ProjectRoot $projectRoot -CommandArgs $RemainingArgs
         }
         'deploy-client-dev' {
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
             Write-ColorOutput "-> Deploying and starting Client in dev mode for: $projectRoot" Cyan
-            Invoke-CustomCommand -CommandName "deploy-client-dev" -ProjectRoot $projectRoot -Args $RemainingArgs
+            Invoke-CustomCommand -CommandName "deploy-client-dev" -ProjectRoot $projectRoot -CommandArgs $RemainingArgs
         }
         'deploy-all' {
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
             Write-ColorOutput "-> Deploying all components for: $projectRoot" Cyan
-            Invoke-CustomCommand -CommandName "deploy-all" -ProjectRoot $projectRoot -Args $RemainingArgs
+            Invoke-CustomCommand -CommandName "deploy-all" -ProjectRoot $projectRoot -CommandArgs $RemainingArgs
             Write-ColorOutput "`n[OK] Full deployment complete!" Green
         }
         'start' {
