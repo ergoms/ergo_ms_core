@@ -1,0 +1,7 @@
+{
+    "include": ["core/api/src", "modules"],
+    "extraPaths": [
+      "./core/django",
+      "./core/django_rest_framework"
+    ]
+}

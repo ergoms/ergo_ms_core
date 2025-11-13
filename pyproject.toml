@@ -7,6 +7,8 @@ packages = [
     {include = "src", from = "core/api"},
     {include = "modules", from = ""},
     {include = "commands", from = "core/api"},
+    {include = "rest_framework", from = "core/django_rest_framework"},
+    {include = "django", from = "core/django"},
     {include = ".cursor", from = ""},
 ]
 
