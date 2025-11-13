@@ -1,7 +1,9 @@
 {
-    "include": ["core/api/src", "modules"],
-    "extraPaths": [
+  "include": ["core/api/src", "modules"],
+  "extraPaths": [
       "./core/django",
       "./core/django_rest_framework"
-    ]
+  ],
+  "venvPath": "virtual_env/",
+  "venv": "python"
 }
