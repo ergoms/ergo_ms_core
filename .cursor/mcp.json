@@ -5,20 +5,22 @@
             "args": [
                 "-y",
                 "@modelcontextprotocol/server-filesystem",
-                "/projects/ergo_ms"
+                "."
             ]
         },
         "ergo-database-postgres": {
-            "command": "/projects/ergo_ms/virtual_env/python/bin/python3",
+            "command": "python",
             "args": [
-                "/projects/ergo_ms/.cursor/mcp_database_wrapper.py",
+                ".cursor/mcp_python_wrapper.py",
+                ".cursor/mcp_database_wrapper.py",
                 "default"
             ]
         },
         "ergo-api": {
-            "command": "/projects/ergo_ms/virtual_env/python/bin/python3",
+            "command": "python",
             "args": [
-                "/projects/ergo_ms/.cursor/mcp_api_server.py"
+                ".cursor/mcp_python_wrapper.py",
+                ".cursor/mcp_api_server.py"
             ]
         }
     }
