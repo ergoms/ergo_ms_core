@@ -1,0 +1,5 @@
+{
+    "git.detectSubmodules": true,
+    "git.autoRepositoryDetection": true,
+    "git.detectSubmodulesLimit": 100
+}
