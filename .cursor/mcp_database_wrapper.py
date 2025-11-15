@@ -4,6 +4,7 @@
 
 import sys
 import subprocess
+import shutil
 from pathlib import Path
 import yaml
 
@@ -63,11 +64,18 @@ def main():
     # Загружаем строку подключения
     connection_string = load_db_config(db_name)
     
+    # Определяем исполняемый файл npx (учитываем Windows, где нужен npx.cmd)
+    windows_prefix: str = 'win'
+    npx_executable = shutil.which('npx.cmd') if sys.platform.startswith(windows_prefix) else shutil.which('npx')
+    if not npx_executable:
+        print("ОШИБКА: npx не найден в PATH. Установите Node.js и перезапустите терминал.", file=sys.stderr)
+        sys.exit(1)
+
     # Запускаем MCP сервер PostgreSQL с полученной строкой подключения
     try:
         subprocess.run(
             [
-                'npx',
+                npx_executable,
                 '-y',
                 '@modelcontextprotocol/server-postgres',
                 connection_string
