@@ -24,11 +24,62 @@ databases:
   # ---------------------------------------------------------------------------
   # Используется Celery для хранения метаданных о задачах, результатах
   # и состоянии очереди асинхронных задач
+  #
+  # ВАЖНО: ЛОГИКА РАБОТЫ С ПОЛЬЗОВАТЕЛЯМИ БД ДЛЯ CELERY
+  # ---------------------------------------------------------------------------
+  # Система Celery использует приоритетную систему выбора конфигурации:
+  # 1. Для Celery Beat: сначала ищет секцию 'celery_beat', затем 'celery', 
+  #    затем использует локальный SQLite
+  # 2. Для Celery Worker: сначала ищет секцию 'celery_worker', затем 'celery',
+  #    затем использует локальный SQLite
+  #
+  # ВАРИАНТЫ НАСТРОЙКИ ПОЛЬЗОВАТЕЛЕЙ:
+  # ---------------------------------------------------------------------------
+  # Вариант 1 (РЕКОМЕНДУЕТСЯ для разработки):
+  #   Использовать одного пользователя для всех компонентов Celery.
+  #   Например, можно использовать существующего пользователя 'postgres':
+  #     user: "postgres"
+  #     password: "ваш_пароль_postgres"
+  #   Это упрощает настройку и не требует создания дополнительных пользователей.
+  #
+  # Вариант 2 (РЕКОМЕНДУЕТСЯ для продакшена):
+  #   Создать отдельных пользователей для каждого компонента:
+  #   - celery_user - для общей очереди задач
+  #   - celery_worker_user - для воркеров
+  #   - celery_beat_user - для планировщика
+  #   Это обеспечивает лучшую изоляцию и безопасность.
+  #
+  # СОЗДАНИЕ ПОЛЬЗОВАТЕЛЕЙ В POSTGRESQL:
+  # ---------------------------------------------------------------------------
+  # Если вы выбрали вариант 2, создайте пользователей в PostgreSQL:
+  #   CREATE USER celery_user WITH PASSWORD 'celery_password';
+  #   CREATE USER celery_worker_user WITH PASSWORD 'worker_password';
+  #   CREATE USER celery_beat_user WITH PASSWORD 'beat_password';
+  #
+  #   Создайте базы данных:
+  #   CREATE DATABASE ergo_ms_celery OWNER celery_user;
+  #   CREATE DATABASE ergo_ms_celery_worker OWNER celery_worker_user;
+  #   CREATE DATABASE ergo_ms_celery_beat OWNER celery_beat_user;
+  #
+  #   Предоставьте права:
+  #   GRANT ALL PRIVILEGES ON DATABASE ergo_ms_celery TO celery_user;
+  #   GRANT ALL PRIVILEGES ON DATABASE ergo_ms_celery_worker TO celery_worker_user;
+  #   GRANT ALL PRIVILEGES ON DATABASE ergo_ms_celery_beat TO celery_beat_user;
+  #
+  # ЕСЛИ ПОЛЬЗОВАТЕЛИ НЕ СОЗДАНЫ:
+  # ---------------------------------------------------------------------------
+  # Если указанные пользователи не существуют в PostgreSQL, система выдаст
+  # ошибку аутентификации. В этом случае:
+  # 1. Либо создайте пользователей (см. выше)
+  # 2. Либо используйте существующего пользователя (например, 'postgres')
+  # 3. Либо установите переменную окружения CELERY_USE_LOCAL=true для
+  #    использования локального SQLite (данные будут храниться в файлах)
+  # ---------------------------------------------------------------------------
   celery:
     engine: "postgresql"
     name: "ergo_ms_celery"
-    user: "celery_user"
-    password: "celery_password"
+    user: "celery_user"  # Можно заменить на "postgres" для упрощения
+    password: "celery_password"  # Укажите реальный пароль
     host: "localhost"
     port: 5432
   
@@ -37,11 +88,19 @@ databases:
   # ---------------------------------------------------------------------------
   # Используется воркерами Celery для хранения состояния выполнения задач
   # и промежуточных результатов
+  #
+  # ПРИОРИТЕТ: celery_worker -> celery -> локальный SQLite
+  # Если эта секция не найдена, система попытается использовать секцию 'celery',
+  # а если и её нет - переключится на локальный SQLite
+  #
+  # МОЖНО ИСПОЛЬЗОВАТЬ ТОГО ЖЕ ПОЛЬЗОВАТЕЛЯ, ЧТО И В СЕКЦИИ 'celery':
+  #   user: "celery_user"  # или "postgres" для упрощения
+  #   password: "celery_password"  # тот же пароль
   celery_worker:
     engine: "postgresql"
     name: "ergo_ms_celery_worker"
-    user: "celery_worker_user"
-    password: "worker_password"
+    user: "celery_worker_user"  # Можно заменить на "celery_user" или "postgres"
+    password: "worker_password"  # Укажите реальный пароль
     host: "localhost"
     port: 5432
   
@@ -50,11 +109,25 @@ databases:
   # ---------------------------------------------------------------------------
   # Используется Celery Beat для хранения расписания периодических задач
   # и информации о выполнении запланированных операций
+  #
+  # ПРИОРИТЕТ: celery_beat -> celery -> локальный SQLite
+  # Если эта секция не найдена, система попытается использовать секцию 'celery',
+  # а если и её нет - переключится на локальный SQLite
+  #
+  # МОЖНО ИСПОЛЬЗОВАТЬ ТОГО ЖЕ ПОЛЬЗОВАТЕЛЯ, ЧТО И В СЕКЦИИ 'celery':
+  #   user: "celery_user"  # или "postgres" для упрощения
+  #   password: "celery_password"  # тот же пароль
+  #
+  # ВАЖНО: Если указанный пользователь не существует в PostgreSQL, Celery Beat
+  # не сможет запуститься и выдаст ошибку аутентификации. В этом случае:
+  # 1. Создайте пользователя в PostgreSQL (см. комментарии к секции 'celery')
+  # 2. Или используйте существующего пользователя (например, 'postgres')
+  # 3. Или установите CELERY_USE_LOCAL=true для использования локального SQLite
   celery_beat:
     engine: "postgresql"
     name: "ergo_ms_celery_beat"
-    user: "celery_beat_user"
-    password: "beat_password"
+    user: "celery_beat_user"  # Можно заменить на "celery_user" или "postgres"
+    password: "beat_password"  # Укажите реальный пароль
     host: "localhost"
     port: 5432
 
