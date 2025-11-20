@@ -1,4 +1,4 @@
-# Core
+# Репозитории ядра системы
 
 [submodule "core/api"]
 	path = core/api
@@ -35,7 +35,7 @@
 	update = merge
 	ignore = all
 
-# Modules
+# Репозитории сторонних модулей
 
 [submodule "assets_analysis"]
 	path = modules/assets_analysis

@@ -200,17 +200,67 @@ function Setup-FullSystem {
         $env:VIRTUAL_ENV = $venvPath
         $env:PATH = "$venvPath\Scripts;$env:PATH"
         
+        # Poetry install should be run from core directory
         Push-Location "core"
         try {
             & poetry install
             if ($LASTEXITCODE -ne 0) { throw "Poetry install failed" }
+        }
+        finally {
+            Pop-Location
+        }
+        
+        # npm commands should be run from project root (where package.json is)
+        # Verify package.json exists in root
+        $packageJsonPath = Join-Path $Root "package.json"
+        if (-not (Test-Path $packageJsonPath)) {
+            throw "package.json not found in project root: $Root"
+        }
+        
+        # Find npm executable - try npm.cmd first (Windows batch file)
+        $npmExe = $null
+        try {
+            $npmCmd = Get-Command npm.cmd -ErrorAction Stop
+            $npmExe = $npmCmd.Source
+            Write-ColorOutput "  Found npm: $npmExe" Gray
+        }
+        catch {
+            try {
+                $npmCmd = Get-Command npm -ErrorAction Stop
+                $npmExe = $npmCmd.Source
+                Write-ColorOutput "  Found npm: $npmExe" Gray
+            }
+            catch {
+                throw "npm is not available or not working. Please install Node.js and npm, and ensure it's in your PATH."
+            }
+        }
+        
+        # Change to root directory for npm commands
+        Push-Location $Root
+        try {
+            Write-ColorOutput "  Running: npm install (from: $(Get-Location))" Gray
+            # Call npm directly using full path with argument array to avoid command truncation
+            # Using argument array prevents PowerShell from interpreting the command incorrectly
+            & $npmExe install
+            $exitCode = $LASTEXITCODE
+            if ($exitCode -ne 0) { 
+                throw "NPM install failed with exit code: $exitCode" 
+            }
             
-            & npm install
-            if ($LASTEXITCODE -ne 0) { throw "NPM install failed" }
-            
-            & npm run build
-            if ($LASTEXITCODE -ne 0) { throw "NPM run build failed" }
-            
+            Write-ColorOutput "  Running: npm run build (from: $(Get-Location))" Gray
+            & $npmExe run build
+            $exitCode = $LASTEXITCODE
+            if ($exitCode -ne 0) { 
+                throw "NPM run build failed with exit code: $exitCode" 
+            }
+        }
+        finally {
+            Pop-Location
+        }
+        
+        # api migrate should be run from core directory
+        Push-Location "core"
+        try {
             & api migrate
             if ($LASTEXITCODE -ne 0) { throw "API migrate failed" }
         }
