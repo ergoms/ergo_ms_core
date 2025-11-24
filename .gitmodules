@@ -169,3 +169,10 @@
 	branch = dev
 	update = merge
 	ignore = all
+	
+[submodule "modules/competence_core"]
+	path = modules/competence_core
+	url = https://github.com/Wyaro/ergo_ms_competence_core
+	branch = dev
+	update = merge
+	ignore = all
