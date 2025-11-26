@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "dev": "cd core/client && npm run dev",
+    "stop-dev": "cd core/client && npm run stop-dev",
     "build": "cd core/client && npm run build",
     "preview": "cd core/client && npm run preview",
     "lint": "cd core/client && npm run lint",
@@ -18,6 +19,7 @@
   },
   "script_comments": {
     "dev": "Запуск сервера разработки",
+    "stop-dev": "Остановка сервера разработки",
     "build": "Сборка проекта",
     "preview": "Предварительный просмотр сборки",
     "lint": "Проверка и исправление кода с помощью ESLint",
