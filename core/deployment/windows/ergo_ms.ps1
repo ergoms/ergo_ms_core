@@ -64,7 +64,7 @@ function Main {
     $requiresAdmin = $adminCommands -contains $Command.ToLower()
     
     # Commands that don't require admin
-    $noAdminCommands = @('logs', 'help', 'clean-project')
+    $noAdminCommands = @('logs', 'help', 'clean', 'update-submodules')
     
     # Check if it's a custom command
     $projectRoot = $null
@@ -252,6 +252,10 @@ function Main {
         'clean' {
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
             Clear-ProjectDependencies -Root $projectRoot
+        }
+        'update-submodules' {
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+            Update-Submodules -Root $projectRoot
         }
         'help' {
             try {

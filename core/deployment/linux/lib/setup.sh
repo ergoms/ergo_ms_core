@@ -2,6 +2,51 @@
 # Full system setup
 # Полная настройка системы
 
+update_submodules() {
+  local root="$1"
+  
+  echo ""
+  echo "=== Updating Git Submodules ==="
+  echo ""
+  
+  cd "$root" || exit 1
+  echo "-> Updating git submodules..."
+  if ! git submodule update --init --remote core/api core/client core/django core/django_rest_framework core/media_api; then
+    echo "[ERROR] Failed to update git submodules" >&2
+    exit 1
+  fi
+  
+  echo "-> Switching submodules to dev branch..."
+  
+  cd "$root/core/api" || exit 1
+  if ! git checkout dev; then
+    echo "[WARNING] Failed to checkout dev branch in core/api" >&2
+  fi
+  
+  cd "$root/core/client" || exit 1
+  if ! git checkout dev; then
+    echo "[WARNING] Failed to checkout dev branch in core/client" >&2
+  fi
+  
+  cd "$root/core/django" || exit 1
+  if ! git checkout dev; then
+    echo "[WARNING] Failed to checkout dev branch in core/django" >&2
+  fi
+
+  cd "$root/core/django_rest_framework" || exit 1
+  if ! git checkout dev; then
+    echo "[WARNING] Failed to checkout dev branch in core/django_rest_framework" >&2
+  fi
+  
+  cd "$root/core/media_api" || exit 1
+  if ! git checkout dev; then
+    echo "[WARNING] Failed to checkout dev branch in core/media_api" >&2
+  fi
+  
+  cd "$root" || exit 1
+  echo "[OK] Git submodules updated"
+}
+
 setup_full_system() {
   local root="$1"
   
@@ -11,44 +56,7 @@ setup_full_system() {
   
   # Step 1: Git submodules
   echo "-> Step 1/7: Updating git submodules..."
-  cd "$root" || exit 1
-  if ! git submodule update --init --remote core/api core/client core/django core/django_rest_framework core/media_api; then
-    echo "[ERROR] Failed to update git submodules" >&2
-    exit 1
-  fi
-  
-  cd "$root/core/api" || exit 1
-  if ! git checkout dev; then
-    echo "[ERROR] Failed to checkout dev branch in core/api" >&2
-    exit 1
-  fi
-  
-  cd "$root/core/client" || exit 1
-  if ! git checkout dev; then
-    echo "[ERROR] Failed to checkout dev branch in core/client" >&2
-    exit 1
-  fi
-  
-  cd "$root/core/django" || exit 1
-  if ! git checkout dev; then
-    echo "[ERROR] Failed to checkout dev branch in core/django" >&2
-    exit 1
-  fi
-
-  cd "$root/core/django_rest_framework" || exit 1
-  if ! git checkout dev; then
-    echo "[ERROR] Failed to checkout dev branch in core/django_rest_framework" >&2
-    exit 1
-  fi
-  
-  cd "$root/core/media_api" || exit 1
-  if ! git checkout dev; then
-    echo "[ERROR] Failed to checkout dev branch in core/media_api" >&2
-    exit 1
-  fi
-  
-  cd "$root" || exit 1
-  echo "[OK] Git submodules updated"
+  update_submodules "$root"
   
   # Step 2: Create virtual environment
   echo "-> Step 2/7: Creating Python virtual environment..."
@@ -387,5 +395,6 @@ clear_project_dependencies() {
 }
 
 export -f setup_full_system
+export -f update_submodules
 export -f clear_project_dependencies
 

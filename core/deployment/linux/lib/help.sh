@@ -38,6 +38,7 @@ Service Management Commands:
   uninstall-cli  Remove CLI wrapper
   logs       Show logs for a service (usage: logs <service-name> [lines])
   setup-full     Full system setup (git, venv, poetry, npm) - no services
+  update-submodules Update all git submodules and switch to dev branch
   clean-project  Clean all dependencies (node_modules, venv, static) - keep media
 
 Deployment Commands (no root required):
@@ -137,6 +138,7 @@ Examples:
     ergoms setup                (full system setup: git, venv, poetry, npm, migrate, static)
     ergoms install-deps         (quick install: poetry install && npm install && api migrate)
     ergoms db-migrate           (alias for: api migrate)
+    ergoms update-submodules    (update all git submodules and switch to dev branch)
     ergoms clean                (removes all dependencies - works on both Windows and Linux)
 
   Deployment Commands:

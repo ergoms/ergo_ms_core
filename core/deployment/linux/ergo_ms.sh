@@ -53,7 +53,7 @@ main() {
   if (( $# > 0 )); then
     command="$1"
     case "$command" in
-      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|clean|poetry|api|npm)
+      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|update-submodules|clean|poetry|api|npm)
         shift ;;
       -h|--help)
         print_usage "$detected_root"; exit 0 ;;
@@ -108,8 +108,14 @@ main() {
     is_clean_command=true
   fi
 
-  # Parse flags/positional root for proxy, custom, logs, deploy, and clean commands
-  if [[ "$is_proxy_command" == true ]] || [[ "$is_custom_command" == true ]] || [[ "$is_logs_command" == true ]] || [[ "$is_deploy_command" == true ]] || [[ "$is_clean_command" == true ]]; then
+  # Check if it's an update-submodules command (doesn't require root)
+  local is_update_submodules_command=false
+  if [[ "$command" == "update-submodules" ]]; then
+    is_update_submodules_command=true
+  fi
+
+  # Parse flags/positional root for proxy, custom, logs, deploy, clean, and update-submodules commands
+  if [[ "$is_proxy_command" == true ]] || [[ "$is_custom_command" == true ]] || [[ "$is_logs_command" == true ]] || [[ "$is_deploy_command" == true ]] || [[ "$is_clean_command" == true ]] || [[ "$is_update_submodules_command" == true ]]; then
     while (( "$#" )); do
       case "$1" in
         --root)
@@ -150,6 +156,12 @@ main() {
     # Execute clean command
     if [[ "$is_clean_command" == true ]]; then
       clear_project_dependencies "$ERGO_ROOT"
+      exit 0
+    fi
+
+    # Execute update-submodules command
+    if [[ "$is_update_submodules_command" == true ]]; then
+      update_submodules "$ERGO_ROOT"
       exit 0
     fi
     
