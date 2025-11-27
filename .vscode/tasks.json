@@ -110,6 +110,58 @@
             "problemMatcher": []
         },
         {
+            "label": "Update Submodules",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": [
+                        "/d",
+                        "/c"
+                    ]
+                }
+            },
+            "command": "ergoms update-submodules --root \"${workspaceFolder}\"",
+            "windows": {
+                "options": {
+                    "cwd": "${workspaceFolder}",
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
+                    }
+                },
+                "command": "ergoms update-submodules --root \"${workspaceFolder}\""
+            },
+            "linux": {
+                "options": {
+                    "cwd": "${workspaceFolder}",
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": [
+                            "-lc"
+                        ]
+                    }
+                },
+                "command": "ergoms update-submodules --root \"${workspaceFolder}\""
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "group": {
+                "kind": "build"
+            },
+            "problemMatcher": []
+        },
+        {
             "label": "Start All Services",
             "dependsOrder": "parallel",
             "dependsOn": [
