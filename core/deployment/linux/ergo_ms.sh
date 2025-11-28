@@ -53,7 +53,7 @@ main() {
   if (( $# > 0 )); then
     command="$1"
     case "$command" in
-      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|update-submodules|clean|poetry|api|npm)
+      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-ollama-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|update-submodules|clean|poetry|api|npm)
         shift ;;
       -h|--help)
         print_usage "$detected_root"; exit 0 ;;
@@ -261,6 +261,7 @@ main() {
     install-client-service)  ;; # Continue to install flow
     install-worker-service)  ;; # Continue to install flow
     install-beat-service)  ;; # Continue to install flow
+    install-ollama-service)  ;; # Continue to install flow
     *)        echo "Unknown command: $command" >&2; print_usage "$detected_root"; exit 1 ;;
   esac
 
@@ -299,6 +300,9 @@ main() {
     install-beat-service)
       install_single_service "beat" "$ERGO_ROOT"
       ;;
+    install-ollama-service)
+      install_single_service "ollama" "$ERGO_ROOT"
+      ;;
     install)
       write_env_file "$ERGO_ROOT"
       
@@ -309,6 +313,7 @@ main() {
       install_unit "ergo-client-dev"     "$CLIENT_UNIT"
       install_unit "ergo-celery-worker"  "$CELERY_WORKER_UNIT"
       install_unit "ergo-celery-beat"    "$CELERY_BEAT_UNIT"
+      install_unit "ergo-ollama"         "$OLLAMA_UNIT"
 
       daemon_reload
 
@@ -316,6 +321,7 @@ main() {
       enable_and_start ergo-client-dev.service
       enable_and_start ergo-celery-worker.service
       enable_and_start ergo-celery-beat.service
+      enable_and_start ergo-ollama.service
 
       echo "All services installed and started."
       echo "View logs: journalctl -u ergo-api-dev -n 500 -f"

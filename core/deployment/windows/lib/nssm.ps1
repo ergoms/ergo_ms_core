@@ -116,6 +116,16 @@ function New-ServiceWrapper {
                 'api start_celery_beat'
             ) -join "`r`n"
         }
+        'ergo-ollama' {
+            $wrapperPath = Join-Path $wrapperDir "start_ollama.bat"
+            $content = @(
+                '@echo off',
+                'chcp 65001 >nul',
+                "cd /d `"$corePath`"",
+                "call `"$venvActivate`"",
+                'api start_ollama'
+            ) -join "`r`n"
+        }
     }
 
     # Write without BOM to avoid '﻿@echo' issues in logs

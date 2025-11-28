@@ -168,7 +168,8 @@
                 "Client",
                 "API",
                 "Celery Worker",
-                "Celery Beat"
+                "Celery Beat",
+                "Ollama"
             ],
             "group": {
                 "kind": "build",
@@ -372,13 +373,63 @@
             "problemMatcher": []
         },
         {
+            "label": "Ollama",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": [
+                        "/d",
+                        "/c"
+                    ]
+                }
+            },
+            "command": "ergoms start-ollama",
+            "windows": {
+                "options": {
+                    "cwd": "${workspaceFolder}",
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
+                    }
+                },
+                "command": "ergoms start-ollama"
+            },
+            "linux": {
+                "options": {
+                    "cwd": "${workspaceFolder}",
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": [
+                            "-lc"
+                        ]
+                    }
+                },
+                "command": "ergoms start-ollama"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
             "label": "Logs: All services",
             "dependsOrder": "parallel",
             "dependsOn": [
                 "Logs: ergo-api-dev",
                 "Logs: ergo-client-dev",
                 "Logs: ergo-celery-worker",
-                "Logs: ergo-celery-beat"
+                "Logs: ergo-celery-beat",
+                "Logs: ergo-ollama"
             ],
             "problemMatcher": []
         },
@@ -569,6 +620,54 @@
                 "reveal": "always",
                 "panel": "dedicated",
                 "group": "ergo-celery-beat",
+                "clear": false
+            },
+            "isBackground": false,
+            "problemMatcher": []
+        },
+        {
+            "label": "Logs: ergo-ollama",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": [
+                        "/d",
+                        "/c"
+                    ]
+                }
+            },
+            "command": "ergoms logs ergo-ollama 500",
+            "windows": {
+                "options": {
+                    "cwd": "${workspaceFolder}",
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
+                    }
+                },
+                "command": "ergoms logs ergo-ollama 500"
+            },
+            "linux": {
+                "options": {
+                    "cwd": "${workspaceFolder}",
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": [
+                            "-lc"
+                        ]
+                    }
+                },
+                "command": "ergoms logs ergo-ollama 500"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "group": "ergo-ollama",
                 "clear": false
             },
             "isBackground": false,

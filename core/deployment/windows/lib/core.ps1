@@ -6,7 +6,8 @@ $script:ServiceNames = @(
     'ergo-api-dev',
     'ergo-client-dev',
     'ergo-celery-worker',
-    'ergo-celery-beat'
+    'ergo-celery-beat',
+    'ergo-ollama'
 )
 
 $script:CliName = 'ergoms'

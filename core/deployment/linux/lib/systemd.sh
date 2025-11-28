@@ -124,10 +124,29 @@ WantedBy=multi-user.target
 UNIT
 )
 
+  OLLAMA_UNIT=$(cat <<'UNIT'
+[Unit]
+Description=Ergo Ollama Server
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/default/ergo_ms
+ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && api start_ollama'
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+)
+
   export API_UNIT
   export CLIENT_UNIT
   export CELERY_WORKER_UNIT
   export CELERY_BEAT_UNIT
+  export OLLAMA_UNIT
 }
 
 export -f write_env_file
