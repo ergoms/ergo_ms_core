@@ -53,7 +53,7 @@ main() {
   if (( $# > 0 )); then
     command="$1"
     case "$command" in
-      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|clean|poetry|api|npm)
+      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-ollama-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|update-submodules|clean|poetry|api|npm)
         shift ;;
       -h|--help)
         print_usage "$detected_root"; exit 0 ;;
@@ -108,8 +108,14 @@ main() {
     is_clean_command=true
   fi
 
-  # Parse flags/positional root for proxy, custom, logs, deploy, and clean commands
-  if [[ "$is_proxy_command" == true ]] || [[ "$is_custom_command" == true ]] || [[ "$is_logs_command" == true ]] || [[ "$is_deploy_command" == true ]] || [[ "$is_clean_command" == true ]]; then
+  # Check if it's an update-submodules command (doesn't require root)
+  local is_update_submodules_command=false
+  if [[ "$command" == "update-submodules" ]]; then
+    is_update_submodules_command=true
+  fi
+
+  # Parse flags/positional root for proxy, custom, logs, deploy, clean, and update-submodules commands
+  if [[ "$is_proxy_command" == true ]] || [[ "$is_custom_command" == true ]] || [[ "$is_logs_command" == true ]] || [[ "$is_deploy_command" == true ]] || [[ "$is_clean_command" == true ]] || [[ "$is_update_submodules_command" == true ]]; then
     while (( "$#" )); do
       case "$1" in
         --root)
@@ -150,6 +156,12 @@ main() {
     # Execute clean command
     if [[ "$is_clean_command" == true ]]; then
       clear_project_dependencies "$ERGO_ROOT"
+      exit 0
+    fi
+
+    # Execute update-submodules command
+    if [[ "$is_update_submodules_command" == true ]]; then
+      update_submodules "$ERGO_ROOT"
       exit 0
     fi
     
@@ -254,6 +266,7 @@ main() {
     install-client-service)  ;; # Continue to install flow
     install-worker-service)  ;; # Continue to install flow
     install-beat-service)  ;; # Continue to install flow
+    install-ollama-service)  ;; # Continue to install flow
     *)        echo "Unknown command: $command" >&2; print_usage "$detected_root"; exit 1 ;;
   esac
 
@@ -282,6 +295,9 @@ main() {
     install-beat-service)
       install_single_service "beat" "$ERGO_ROOT"
       ;;
+    install-ollama-service)
+      install_single_service "ollama" "$ERGO_ROOT"
+      ;;
     install)
       write_env_file "$ERGO_ROOT"
       
@@ -292,6 +308,7 @@ main() {
       install_unit "ergo-api-dev"        "$API_UNIT"
       install_unit "ergo-client-dev"     "$CLIENT_UNIT"
       install_unit "ergo-celery-beat"    "$CELERY_BEAT_UNIT"
+      install_unit "ergo-ollama"         "$OLLAMA_UNIT"
       
       # Устанавливаем воркеры из конфигурации
       install_worker_units "$ERGO_ROOT"
@@ -302,6 +319,7 @@ main() {
       enable_and_start ergo-api-dev.service
       enable_and_start ergo-client-dev.service
       enable_and_start ergo-celery-beat.service
+      enable_and_start ergo-ollama.service
       
       # Включаем и запускаем воркеры
       enable_and_start_workers "$ERGO_ROOT"

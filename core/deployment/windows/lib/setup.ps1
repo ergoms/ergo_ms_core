@@ -1,40 +1,45 @@
 # Full system setup
 # Полная настройка системы
 
-function Setup-FullSystem {
+function Update-Submodules {
     param(
-        [string]$Root,
-        [bool]$RecreateVenv = $false
+        [string]$Root
     )
     
-    Write-ColorOutput "`n=== Full System Setup ===" Cyan
+    Write-ColorOutput "`n=== Updating Git Submodules ===" Cyan
     Write-ColorOutput ""
     
-    # Step 1: Git submodules
-    Write-ColorOutput "-> Step 1/7: Updating git submodules..." Yellow
     Push-Location $Root
     try {
+        Write-ColorOutput "-> Updating git submodules..." Yellow
         & git submodule update --init --remote core/api core/client core/django core/django_rest_framework core/media_api
         if ($LASTEXITCODE -ne 0) { throw "Git submodule update failed" }
         
+        Write-ColorOutput "-> Switching submodules to dev branch..." Yellow
+        
         Push-Location "core\api"
         & git checkout dev
+        if ($LASTEXITCODE -ne 0) { Write-ColorOutput "[WARNING] Failed to checkout dev branch in core/api" Yellow }
         Pop-Location
         
         Push-Location "core\client"
         & git checkout dev
+        if ($LASTEXITCODE -ne 0) { Write-ColorOutput "[WARNING] Failed to checkout dev branch in core/client" Yellow }
         Pop-Location
         
         Push-Location "core\django"
         & git checkout dev
+        if ($LASTEXITCODE -ne 0) { Write-ColorOutput "[WARNING] Failed to checkout dev branch in core/django" Yellow }
         Pop-Location
 
         Push-Location "core\django_rest_framework"
         & git checkout dev
+        if ($LASTEXITCODE -ne 0) { Write-ColorOutput "[WARNING] Failed to checkout dev branch in core/django_rest_framework" Yellow }
         Pop-Location
         
         Push-Location "core\media_api"
         & git checkout dev
+        if ($LASTEXITCODE -ne 0) { Write-ColorOutput "[WARNING] Failed to checkout dev branch in core/media_api" Yellow }
         Pop-Location
         
         Write-ColorOutput "[OK] Git submodules updated" Green
@@ -47,6 +52,20 @@ function Setup-FullSystem {
     finally {
         Pop-Location
     }
+}
+
+function Setup-FullSystem {
+    param(
+        [string]$Root,
+        [bool]$RecreateVenv = $false
+    )
+    
+    Write-ColorOutput "`n=== Full System Setup ===" Cyan
+    Write-ColorOutput ""
+    
+    # Step 1: Git submodules
+    Write-ColorOutput "-> Step 1/7: Updating git submodules..." Yellow
+    Update-Submodules -Root $Root
     
     # Step 2: Create virtual environment
     Write-ColorOutput "-> Step 2/7: Creating Python virtual environment..." Yellow

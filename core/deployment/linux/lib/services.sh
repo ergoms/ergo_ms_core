@@ -181,6 +181,10 @@ install_single_service() {
       unit_name="ergo-celery-beat"
       install_unit "$unit_name" "$CELERY_BEAT_UNIT"
       ;;
+    "ollama")
+      local unit_name="ergo-ollama"
+      install_unit "$unit_name" "$OLLAMA_UNIT"
+      ;;
     *)
       echo "Unknown service: $service_name" >&2
       exit 1
