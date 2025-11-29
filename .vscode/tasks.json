@@ -20,11 +20,11 @@
             "terminals": [
                 {
                     "name": "Install ErgoMS CLI",
-                    "command": "if [ -f \"core/deployment/linux/ergo_ms.sh\" ]; then sudo bash core/deployment/linux/ergo_ms.sh install-cli; elif [ -f \"core/deployment/windows/ergo_ms.ps1\" ]; then powershell.exe -ExecutionPolicy Bypass -NoProfile -File core\\deployment\\windows\\ergo_ms.ps1 install-cli; fi"
+                    "command": "ergoms install-cli"
                 },
                 {
                     "name": "Setup Full",
-                    "command": "if [ -f \"core/deployment/linux/ergo_ms.sh\" ]; then sudo ergoms setup-full; elif [ -f \"core/deployment/windows/ergo_ms.ps1\" ]; then ergoms setup-full; fi"
+                    "command": "ergoms setup"
                 }
             ],
             "group": "setup",
@@ -92,7 +92,6 @@
                 "API",
                 "Celery Worker",
                 "Celery Beat",
-                "Ollama"
             ],
             "group": {
                 "kind": "build",

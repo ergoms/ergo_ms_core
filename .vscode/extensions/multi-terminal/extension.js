@@ -161,28 +161,66 @@ async function runTask(name, command, cwd, group) {
     let execution;
     
     if (isWindows()) {
-        // Windows: ShellExecution с cmd.exe
-        const shellExecution = new vscode.ShellExecution(command, { cwd: cwd });
+        // Windows: ProcessExecution с cmd.exe для bat-файлов (ergoms)
+        // PowerShell для прямых вызовов .ps1 скриптов
+        const usePowerShell = (command.includes('.ps1') && command.includes('powershell')) || 
+                              (command.startsWith('powershell') && command.includes('.ps1'));
         
-        const task = new vscode.Task(
-            taskDefinition,
-            vscode.TaskScope.Workspace,
-            name,
-            'Celery',
-            shellExecution,
-            []
-        );
-        
-        task.presentationOptions = {
-            reveal: vscode.TaskRevealKind.Always,
-            panel: vscode.TaskPanelKind.New,
-            focus: false,
-            echo: true,
-            showReuseMessage: false,
-            clear: false
-        };
-        
-        execution = await vscode.tasks.executeTask(task);
+        if (usePowerShell) {
+            // Для PowerShell скриптов
+            const processExecution = new vscode.ProcessExecution('powershell.exe', [
+                '-NoProfile',
+                '-ExecutionPolicy', 'Bypass',
+                '-Command', command
+            ], {
+                cwd: cwd
+            });
+            
+            const task = new vscode.Task(
+                taskDefinition,
+                vscode.TaskScope.Workspace,
+                name,
+                'multi-terminal',
+                processExecution,
+                []
+            );
+            
+            task.presentationOptions = {
+                reveal: vscode.TaskRevealKind.Always,
+                panel: vscode.TaskPanelKind.New,
+                focus: false,
+                echo: true,
+                showReuseMessage: false,
+                clear: false
+            };
+            
+            execution = await vscode.tasks.executeTask(task);
+        } else {
+            // Для обычных команд (ergoms и т.д.) используем cmd.exe
+            const processExecution = new vscode.ProcessExecution('cmd.exe', ['/d', '/c', command], {
+                cwd: cwd
+            });
+            
+            const task = new vscode.Task(
+                taskDefinition,
+                vscode.TaskScope.Workspace,
+                name,
+                'multi-terminal',
+                processExecution,
+                []
+            );
+            
+            task.presentationOptions = {
+                reveal: vscode.TaskRevealKind.Always,
+                panel: vscode.TaskPanelKind.New,
+                focus: false,
+                echo: true,
+                showReuseMessage: false,
+                clear: false
+            };
+            
+            execution = await vscode.tasks.executeTask(task);
+        }
     } else {
         // Linux/macOS: ProcessExecution с bash
         const processExecution = new vscode.ProcessExecution('/bin/bash', ['-l', '-c', command], {
@@ -193,7 +231,7 @@ async function runTask(name, command, cwd, group) {
             taskDefinition,
             vscode.TaskScope.Workspace,
             name,
-            'Celery',
+            'multi-terminal',
             processExecution,
             []
         );
