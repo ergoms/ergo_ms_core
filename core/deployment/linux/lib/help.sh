@@ -27,18 +27,18 @@ Service Management Commands:
   install-services Install and start services only
   install-api-service     Install and start API service only
   install-client-service  Install and start Client service only
-  install-worker-service  Install and start Worker service only
+  install-worker-service  Install and start all Worker services from celery_workers.yaml
   install-beat-service    Install and start Beat service only
-  start      Start all services
-  stop       Stop all services
-  restart    Restart all services
-  status     Show status for all services
-  uninstall-services  Stop, disable, remove units; with --purge also removes /etc/default/ergo_ms
+  start      Start all services (including all workers from config)
+  stop       Stop all services (including all workers from config)
+  restart    Restart all services (including all workers from config)
+  status     Show status for all services (including all workers from config)
+  uninstall-services  Stop, disable, remove all units; with --purge also removes /etc/default/ergo_ms
   install-cli    Install CLI wrapper /usr/local/bin/ergoms
   uninstall-cli  Remove CLI wrapper
   logs       Show logs for a service (usage: logs <service-name> [lines])
-  setup-full     Full system setup (git, venv, poetry, npm) - no services
-  clean-project  Clean all dependencies (node_modules, venv, static) - keep media
+  setup-full     Full system setup (git, venv, poetry, npm, extensions) - no services
+  clean-project  Clean all dependencies (node_modules, venv, static, extensions) - keep media
 
 Deployment Commands (no root required):
   deploy-api     Deploy API only (install deps, migrate, collect static)
@@ -117,12 +117,11 @@ Examples:
     sudo bash ergo_ms.sh install --root /projects/ergo_ms
     sudo bash ergo_ms.sh status
     sudo bash ergo_ms.sh uninstall-services --purge
-    ergoms start
-    ergoms stop
-    ergoms restart
-    ergoms status
+    ergoms start            (starts all services including all workers)
+    ergoms stop             (stops all services including all workers)
+    ergoms restart          (restarts all services including all workers)
+    ergoms status           (shows status of all services)
     ergoms logs ergo-api-dev
-    ergoms logs ergo-client-dev 1000
 
   Proxy Commands:
     ergoms poetry install
@@ -134,10 +133,10 @@ Examples:
 
   Custom Commands:
     ergoms python-install       (alias for: poetry install)
-    ergoms setup                (full system setup: git, venv, poetry, npm, migrate, static)
+    ergoms setup                (full system setup: git, venv, poetry, npm, migrate, static, extensions)
     ergoms install-deps         (quick install: poetry install && npm install && api migrate)
     ergoms db-migrate           (alias for: api migrate)
-    ergoms clean                (removes all dependencies - works on both Windows and Linux)
+    ergoms clean                (removes all dependencies and extensions - works on both Windows and Linux)
 
   Deployment Commands:
     ergoms deploy-api           (deploy API only)
@@ -149,15 +148,16 @@ Examples:
 Configuration:
   Core commands: core/deployment/commands.conf
   Module commands: modules/*/ergoms.conf
+  Worker config: celery_workers.yaml
   Edit these files to add your own command aliases and composite commands.
 
 Notes:
   - Service management requires root or sudo
   - Proxy and custom commands do not require root privileges
   - For install you may pass --root
+  - Worker services are created dynamically based on celery_workers.yaml
 
 USAGE
 }
 
 export -f print_usage
-

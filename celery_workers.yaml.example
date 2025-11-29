@@ -1,0 +1,11 @@
+workers:
+  all:
+    description: "Worker для всех очередей (режим разработки)"
+    hostname: "all_worker"
+    queues: all
+    concurrency: 8
+
+defaults:
+  pool: threads
+  loglevel: info
+  events: true

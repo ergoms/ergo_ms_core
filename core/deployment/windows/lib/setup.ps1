@@ -336,6 +336,7 @@ function Clear-ProjectDependencies {
     Write-ColorOutput "  - virtual_env/packages/*" Gray
     Write-ColorOutput "  - virtual_env/resources/*" Gray
     Write-ColorOutput "  - virtual_env/trained_models/*" Gray
+    Write-ColorOutput "  - Project extensions (VS Code/Cursor)" Gray
     Write-ColorOutput ""
     Write-ColorOutput "Media folder will NOT be deleted." Green
     Write-ColorOutput ""

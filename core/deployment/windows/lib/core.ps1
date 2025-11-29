@@ -1,16 +1,19 @@
 # Core utilities for ErgoMS deployment
 # Базовые утилиты для развертывания ErgoMS
 
-# Константы
-$script:ServiceNames = @(
+# Константы (базовые службы)
+$script:BaseServices = @(
     'ergo-api-dev',
     'ergo-client-dev',
-    'ergo-celery-worker',
     'ergo-celery-beat'
 )
 
 $script:CliName = 'ergoms'
 $script:CliPath = "$env:SystemRoot\System32\$script:CliName.bat"
+
+# Кэш для списка служб
+$script:CachedServiceNames = $null
+$script:CachedProjectRoot = $null
 
 function Write-ColorOutput {
     param([string]$Message, [string]$Color = 'White')
@@ -86,8 +89,123 @@ function Test-ProjectStructure {
     Write-ColorOutput "[OK] Project structure validated" Green
 }
 
+# Парсинг YAML файла для получения имён воркеров
+# Простой парсер без внешних зависимостей (PowerShell-yaml не установлен по умолчанию)
+function Get-CeleryWorkersFromYaml {
+    param([string]$YamlFile)
+    
+    if (-not (Test-Path $YamlFile)) {
+        return @()
+    }
+    
+    $workers = @()
+    $inWorkers = $false
+    
+    $lines = Get-Content $YamlFile -Encoding UTF8
+    
+    foreach ($line in $lines) {
+        # Пропускаем комментарии и пустые строки
+        if ($line -match '^\s*#' -or [string]::IsNullOrWhiteSpace($line)) {
+            continue
+        }
+        
+        # Проверяем начало секции workers:
+        if ($line -match '^workers:\s*$') {
+            $inWorkers = $true
+            continue
+        }
+        
+        # Если мы в секции workers
+        if ($inWorkers) {
+            # Проверяем, не началась ли новая секция верхнего уровня
+            if ($line -match '^[a-z_]+:\s*$' -and $line -notmatch '^\s') {
+                $inWorkers = $false
+                continue
+            }
+            
+            # Ищем имена воркеров (строки с отступом в 2 пробела и двоеточием)
+            if ($line -match '^\s{2}([a-z_]+):\s*$') {
+                $workerName = $Matches[1]
+                $workers += $workerName
+            }
+        }
+    }
+    
+    return $workers
+}
+
+# Получение списка воркеров из celery_workers.yaml
+function Get-CeleryWorkers {
+    param([string]$ProjectRoot)
+    
+    if (-not $ProjectRoot) {
+        try {
+            $ProjectRoot = Get-ProjectRoot
+        }
+        catch {
+            return @()
+        }
+    }
+    
+    $workersConfig = Join-Path $ProjectRoot "celery_workers.yaml"
+    return Get-CeleryWorkersFromYaml -YamlFile $workersConfig
+}
+
+# Генерация списка служб на основе конфигурации воркеров
 function Get-ServiceNames {
-    return $script:ServiceNames
+    param([string]$ProjectRoot)
+    
+    # Используем кэш если проект тот же
+    if ($script:CachedServiceNames -and $script:CachedProjectRoot -eq $ProjectRoot) {
+        return $script:CachedServiceNames
+    }
+    
+    $services = @() + $script:BaseServices
+    
+    $workers = Get-CeleryWorkers -ProjectRoot $ProjectRoot
+    
+    if ($workers.Count -gt 0) {
+        # Добавляем службы для каждого воркера из конфига
+        foreach ($worker in $workers) {
+            $services += "ergo-celery-worker-$worker"
+        }
+    }
+    else {
+        # Если конфиг не найден, используем один общий воркер
+        $services += "ergo-celery-worker"
+    }
+    
+    # Кэшируем результат
+    $script:CachedServiceNames = $services
+    $script:CachedProjectRoot = $ProjectRoot
+    
+    return $services
+}
+
+# Получение только имён воркеров (службы celery-worker-*)
+function Get-WorkerServiceNames {
+    param([string]$ProjectRoot)
+    
+    $services = @()
+    
+    $workers = Get-CeleryWorkers -ProjectRoot $ProjectRoot
+    
+    if ($workers.Count -gt 0) {
+        foreach ($worker in $workers) {
+            $services += "ergo-celery-worker-$worker"
+        }
+    }
+    else {
+        $services += "ergo-celery-worker"
+    }
+    
+    return $services
+}
+
+# Сброс кэша списка служб
+function Reset-ServiceNamesCache {
+    $script:CachedServiceNames = $null
+    $script:CachedProjectRoot = $null
 }
 
 function Get-CliName {
@@ -99,4 +217,3 @@ function Get-CliPath {
 }
 
 # Export-ModuleMember -Function *  # Удалено, так как это не модуль
-

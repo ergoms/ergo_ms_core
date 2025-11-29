@@ -157,7 +157,7 @@ main() {
     if [[ "$is_logs_command" == true ]]; then
       if [[ $# -eq 0 ]]; then
         echo "[ERROR] Please specify a service name" >&2
-        echo "Available services: $(units_list | tr ' ' ',')" >&2
+        echo "Available services: $(units_list "$ERGO_ROOT" | tr ' ' ',')" >&2
         echo "Usage: ergoms logs <service-name> [lines]" >&2
         exit 1
       fi
@@ -167,7 +167,7 @@ main() {
       
       # Check if service exists
       local valid=false
-      for u in $(units_list); do
+      for u in $(units_list "$ERGO_ROOT"); do
         if [[ "$u" == "$service_name" || "$u" == "${service_name}.service" ]]; then
           valid=true
           service_name="$u"
@@ -177,7 +177,7 @@ main() {
       
       if [[ "$valid" == false ]]; then
         echo "[ERROR] Unknown service: $service_name" >&2
-        echo "Available services: $(units_list | tr '\n' ' ')" >&2
+        echo "Available services: $(units_list "$ERGO_ROOT" | tr '\n' ' ')" >&2
         exit 1
       fi
       
@@ -220,6 +220,21 @@ main() {
     esac
   done
 
+  # Detect project root for service commands
+  if [[ -n "$arg_root" ]]; then
+    if [[ -d "$arg_root" ]]; then
+      if command -v readlink >/dev/null 2>&1; then ERGO_ROOT="$(readlink -f "$arg_root")"; else ERGO_ROOT="$(cd "$arg_root" && pwd)"; fi
+    else
+      echo "Provided --root path does not exist or is not a directory: $arg_root" >&2
+      exit 1
+    fi
+  else
+    ERGO_ROOT="$(detect_project_root)"
+  fi
+
+  # Устанавливаем корень проекта для функций служб
+  set_service_project_root "$ERGO_ROOT"
+
   # Fast-path commands that don't need install
   case "$command" in
     start)    start_all; exit 0 ;;
@@ -230,16 +245,6 @@ main() {
     install-cli) create_cli_wrapper "$SELF_SCRIPT"; exit 0 ;;
     uninstall-cli) remove_cli_wrapper; exit 0 ;;
     setup-full)
-      if [[ -n "$arg_root" ]]; then
-        if [[ -d "$arg_root" ]]; then
-          if command -v readlink >/dev/null 2>&1; then ERGO_ROOT="$(readlink -f "$arg_root")"; else ERGO_ROOT="$(cd "$arg_root" && pwd)"; fi
-        else
-          echo "Provided --root path does not exist or is not a directory: $arg_root" >&2
-          exit 1
-        fi
-      else
-        ERGO_ROOT="$(detect_project_root)"
-      fi
       setup_full_system "$ERGO_ROOT"
       exit 0
       ;;
@@ -253,16 +258,6 @@ main() {
   esac
 
   # INSTALL flow
-  if [[ -n "$arg_root" ]]; then
-    if [[ -d "$arg_root" ]]; then
-      if command -v readlink >/dev/null 2>&1; then ERGO_ROOT="$(readlink -f "$arg_root")"; else ERGO_ROOT="$(cd "$arg_root" && pwd)"; fi
-    else
-      echo "Provided --root path does not exist or is not a directory: $arg_root" >&2; exit 1
-    fi
-  else
-    ERGO_ROOT="$(detect_project_root)"
-  fi
-
   # Basic sanity checks for expected structure
   if [[ ! -d "$ERGO_ROOT/core/api" ]] || [[ ! -d "$ERGO_ROOT/core/client" ]]; then
     echo "Detected root $ERGO_ROOT doesn't look like an ergo_ms project (missing core/api/ or core/client/)." >&2
@@ -290,20 +285,26 @@ main() {
     install)
       write_env_file "$ERGO_ROOT"
       
-      # Get unit definitions
-      get_unit_definitions
+      # Получаем базовые unit definitions
+      get_base_unit_definitions
       
+      # Устанавливаем базовые службы
       install_unit "ergo-api-dev"        "$API_UNIT"
       install_unit "ergo-client-dev"     "$CLIENT_UNIT"
-      install_unit "ergo-celery-worker"  "$CELERY_WORKER_UNIT"
       install_unit "ergo-celery-beat"    "$CELERY_BEAT_UNIT"
+      
+      # Устанавливаем воркеры из конфигурации
+      install_worker_units "$ERGO_ROOT"
 
       daemon_reload
 
+      # Включаем и запускаем базовые службы
       enable_and_start ergo-api-dev.service
       enable_and_start ergo-client-dev.service
-      enable_and_start ergo-celery-worker.service
       enable_and_start ergo-celery-beat.service
+      
+      # Включаем и запускаем воркеры
+      enable_and_start_workers "$ERGO_ROOT"
 
       echo "All services installed and started."
       echo "View logs: journalctl -u ergo-api-dev -n 500 -f"
@@ -319,4 +320,3 @@ main() {
 }
 
 main "$@"
-
