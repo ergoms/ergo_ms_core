@@ -1,5 +1,7 @@
 databases.yaml
 
+celery_workers.yaml
+
 .env
 .venv
 
