@@ -3,7 +3,7 @@
 # Базовые утилиты для развертывания ErgoMS
 
 # Константы
-UNITS_LIST="ergo-api-dev.service ergo-client-dev.service ergo-celery-worker.service ergo-celery-beat.service ergo-ollama.service"
+UNITS_LIST="ergo-api-dev.service ergo-client-dev.service ergo-celery-worker.service ergo-celery-beat.service"
 CLI_NAME="ergoms"
 
 require_root_or_sudo() {

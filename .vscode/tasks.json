@@ -168,8 +168,7 @@
                 "Client",
                 "API",
                 "Celery Worker",
-                "Celery Beat",
-                "Ollama"
+                "Celery Beat"
             ],
             "group": {
                 "kind": "build",
@@ -385,7 +384,7 @@
                     ]
                 }
             },
-            "command": "ergoms start-ollama",
+            "command": "ergoms ollama",
             "windows": {
                 "options": {
                     "cwd": "${workspaceFolder}",
@@ -397,7 +396,7 @@
                         ]
                     }
                 },
-                "command": "ergoms start-ollama"
+                "command": "ergoms ollama"
             },
             "linux": {
                 "options": {
@@ -409,7 +408,7 @@
                         ]
                     }
                 },
-                "command": "ergoms start-ollama"
+                "command": "ergoms ollama"
             },
             "presentation": {
                 "echo": true,

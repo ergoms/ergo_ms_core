@@ -82,7 +82,6 @@ install_services() {
   install_unit "ergo-client-dev"     "$CLIENT_UNIT"
   install_unit "ergo-celery-worker"  "$CELERY_WORKER_UNIT"
   install_unit "ergo-celery-beat"    "$CELERY_BEAT_UNIT"
-  install_unit "ergo-ollama"         "$OLLAMA_UNIT"
 
   daemon_reload
 
@@ -90,7 +89,6 @@ install_services() {
   enable_and_start ergo-client-dev.service
   enable_and_start ergo-celery-worker.service
   enable_and_start ergo-celery-beat.service
-  enable_and_start ergo-ollama.service
 
   echo ""
   echo "=== Services Installed and Started ==="
