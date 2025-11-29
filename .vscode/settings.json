@@ -60,5 +60,8 @@
     "terminal.integrated.env.windows": {
         "ERGO_PYTHON_INTERPRETER": "${workspaceFolder}\\virtual_env\\python\\Scripts\\python.exe"
     },
-    "python.terminal.activateEnvironment": true
+    "python.terminal.activateEnvironment": true,
+    "git.detectSubmodules": true,
+    "git.autoRepositoryDetection": true,
+    "git.detectSubmodulesLimit": 100
 }

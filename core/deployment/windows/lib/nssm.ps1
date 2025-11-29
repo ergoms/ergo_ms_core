@@ -55,7 +55,8 @@ function Install-NSSM {
     return $nssmExe
 }
 
-function New-ServiceWrapper {
+# Создание wrapper'а для базовых служб (API, Client, Beat)
+function New-BaseServiceWrapper {
     param(
         [string]$ServiceName,
         [string]$Root
@@ -92,18 +93,6 @@ function New-ServiceWrapper {
                 'npm run dev'
             ) -join "`r`n"
         }
-        'ergo-celery-worker' {
-            $wrapperPath = Join-Path $wrapperDir "start_celery_worker.bat"
-            $content = @(
-                '@echo off',
-                'chcp 65001 >nul',
-                'set PYTHONIOENCODING=utf-8',
-                'set PYTHONUTF8=1',
-                "cd /d `"$corePath`"",
-                "call `"$venvActivate`"",
-                'api start_celery_worker'
-            ) -join "`r`n"
-        }
         'ergo-celery-beat' {
             $wrapperPath = Join-Path $wrapperDir "start_celery_beat.bat"
             $content = @(
@@ -126,12 +115,93 @@ function New-ServiceWrapper {
                 'api start_ollama'
             ) -join "`r`n"
         }
+        default {
+            throw "Unknown base service: $ServiceName"
+        }
     }
 
-    # Write without BOM to avoid '﻿@echo' issues in logs
+    # Write without BOM to avoid issues in logs
     Set-Content -Path $wrapperPath -Value $content -Encoding ASCII
     return $wrapperPath
 }
 
-# Export-ModuleMember -Function *  # Удалено, так как это не модуль
+# Создание wrapper'а для конкретного Celery worker'а
+function New-WorkerServiceWrapper {
+    param(
+        [string]$WorkerName,
+        [string]$Root
+    )
 
+    $corePath = Join-Path $Root "core"
+    $venvActivate = Join-Path $Root "virtual_env\python\Scripts\activate.bat"
+    $wrapperDir = Get-ProjectWrappersDir -ProjectRoot $Root
+    
+    New-Item -ItemType Directory -Path $wrapperDir -Force | Out-Null
+
+    $wrapperPath = Join-Path $wrapperDir "start_celery_worker_${WorkerName}.bat"
+    $content = @(
+        '@echo off',
+        'chcp 65001 >nul',
+        'set PYTHONIOENCODING=utf-8',
+        'set PYTHONUTF8=1',
+        "cd /d `"$corePath`"",
+        "call `"$venvActivate`"",
+        "api start_celery_worker --worker=$WorkerName"
+    ) -join "`r`n"
+
+    # Write without BOM to avoid issues in logs
+    Set-Content -Path $wrapperPath -Value $content -Encoding ASCII
+    return $wrapperPath
+}
+
+# Создание wrapper'а для единственного worker'а (без конфига)
+function New-DefaultWorkerServiceWrapper {
+    param(
+        [string]$Root
+    )
+
+    $corePath = Join-Path $Root "core"
+    $venvActivate = Join-Path $Root "virtual_env\python\Scripts\activate.bat"
+    $wrapperDir = Get-ProjectWrappersDir -ProjectRoot $Root
+    
+    New-Item -ItemType Directory -Path $wrapperDir -Force | Out-Null
+
+    $wrapperPath = Join-Path $wrapperDir "start_celery_worker.bat"
+    $content = @(
+        '@echo off',
+        'chcp 65001 >nul',
+        'set PYTHONIOENCODING=utf-8',
+        'set PYTHONUTF8=1',
+        "cd /d `"$corePath`"",
+        "call `"$venvActivate`"",
+        'api start_celery_worker'
+    ) -join "`r`n"
+
+    # Write without BOM to avoid issues in logs
+    Set-Content -Path $wrapperPath -Value $content -Encoding ASCII
+    return $wrapperPath
+}
+
+# Основная функция создания wrapper'а для любой службы
+function New-ServiceWrapper {
+    param(
+        [string]$ServiceName,
+        [string]$Root
+    )
+
+    # Проверяем, является ли это воркером с именем
+    if ($ServiceName -match '^ergo-celery-worker-(.+)$') {
+        $workerName = $Matches[1]
+        return New-WorkerServiceWrapper -WorkerName $workerName -Root $Root
+    }
+    
+    # Проверяем, является ли это дефолтным воркером
+    if ($ServiceName -eq 'ergo-celery-worker') {
+        return New-DefaultWorkerServiceWrapper -Root $Root
+    }
+    
+    # Базовые службы
+    return New-BaseServiceWrapper -ServiceName $ServiceName -Root $Root
+}
+
+# Export-ModuleMember -Function *  # Удалено, так как это не модуль

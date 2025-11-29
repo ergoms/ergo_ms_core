@@ -66,8 +66,11 @@ function Install-AllServices {
     # Install NSSM
     $nssmExe = Install-NSSM
 
-    # Install each service
-    $serviceNames = Get-ServiceNames
+    # Get service names dynamically based on config
+    $serviceNames = Get-ServiceNames -ProjectRoot $Root
+    
+    Write-ColorOutput "Installing services: $($serviceNames -join ', ')" Cyan
+    
     foreach ($serviceName in $serviceNames) {
         Install-Service -ServiceName $serviceName -Root $Root -NssmExe $nssmExe
     }
@@ -98,13 +101,46 @@ function Install-SingleService {
     Write-ColorOutput "Logs directory: $logsDir" Cyan
 }
 
+# Установка всех воркеров из конфигурации
+function Install-WorkerServices {
+    param([string]$Root)
+
+    Test-ProjectStructure -Root $Root
+    
+    # Create logs directory
+    $logsDir = Get-ProjectLogsDir -ProjectRoot $Root
+    New-Item -ItemType Directory -Path $logsDir -Force | Out-Null
+
+    # Install NSSM
+    $nssmExe = Install-NSSM
+
+    # Get worker service names
+    $workerServices = Get-WorkerServiceNames -ProjectRoot $Root
+    
+    Write-ColorOutput "Installing worker services: $($workerServices -join ', ')" Cyan
+    
+    foreach ($serviceName in $workerServices) {
+        Install-Service -ServiceName $serviceName -Root $Root -NssmExe $nssmExe
+    }
+
+    Write-ColorOutput "`n[OK] All worker services installed successfully" Green
+}
+
 function Start-AllServices {
+    param([string]$ProjectRoot)
+    
     Write-ColorOutput "-> Starting all services..." Cyan
-    $serviceNames = Get-ServiceNames
+    $serviceNames = Get-ServiceNames -ProjectRoot $ProjectRoot
     foreach ($serviceName in $serviceNames) {
         try {
-            Start-Service -Name $serviceName
-            Write-ColorOutput "[OK] Started: $serviceName" Green
+            $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+            if ($service) {
+                Start-Service -Name $serviceName
+                Write-ColorOutput "[OK] Started: $serviceName" Green
+            }
+            else {
+                Write-ColorOutput "- Not installed: $serviceName" Gray
+            }
         }
         catch {
             Write-ColorOutput "[ERROR] Failed to start: $serviceName - $($_.Exception.Message)" Red
@@ -113,8 +149,10 @@ function Start-AllServices {
 }
 
 function Stop-AllServices {
+    param([string]$ProjectRoot)
+    
     Write-ColorOutput "-> Stopping all services..." Cyan
-    $serviceNames = Get-ServiceNames
+    $serviceNames = Get-ServiceNames -ProjectRoot $ProjectRoot
     foreach ($serviceName in $serviceNames) {
         try {
             $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
@@ -123,7 +161,7 @@ function Stop-AllServices {
                 Write-ColorOutput "[OK] Stopped: $serviceName" Green
             }
             else {
-                Write-ColorOutput "- Already stopped: $serviceName" Gray
+                Write-ColorOutput "- Already stopped or not installed: $serviceName" Gray
             }
         }
         catch {
@@ -133,12 +171,20 @@ function Stop-AllServices {
 }
 
 function Restart-AllServices {
+    param([string]$ProjectRoot)
+    
     Write-ColorOutput "-> Restarting all services..." Cyan
-    $serviceNames = Get-ServiceNames
+    $serviceNames = Get-ServiceNames -ProjectRoot $ProjectRoot
     foreach ($serviceName in $serviceNames) {
         try {
-            Restart-Service -Name $serviceName -Force
-            Write-ColorOutput "[OK] Restarted: $serviceName" Green
+            $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+            if ($service) {
+                Restart-Service -Name $serviceName -Force
+                Write-ColorOutput "[OK] Restarted: $serviceName" Green
+            }
+            else {
+                Write-ColorOutput "- Not installed: $serviceName" Gray
+            }
         }
         catch {
             Write-ColorOutput "[ERROR] Failed to restart: $serviceName - $($_.Exception.Message)" Red
@@ -146,11 +192,36 @@ function Restart-AllServices {
     }
 }
 
+# Внутренняя функция для запуска воркеров (используется при install-worker-service)
+function Start-WorkerServices {
+    param([string]$ProjectRoot)
+    
+    Write-ColorOutput "-> Starting worker services..." Cyan
+    $workerServices = Get-WorkerServiceNames -ProjectRoot $ProjectRoot
+    foreach ($serviceName in $workerServices) {
+        try {
+            $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+            if ($service) {
+                Start-Service -Name $serviceName
+                Write-ColorOutput "[OK] Started: $serviceName" Green
+            }
+            else {
+                Write-ColorOutput "- Not installed: $serviceName" Gray
+            }
+        }
+        catch {
+            Write-ColorOutput "[ERROR] Failed to start: $serviceName - $($_.Exception.Message)" Red
+        }
+    }
+}
+
 function Show-ServicesStatus {
+    param([string]$ProjectRoot)
+    
     Write-ColorOutput "`n=== Ergo MS Services Status ===" Cyan
     Write-ColorOutput ""
     
-    $serviceNames = Get-ServiceNames
+    $serviceNames = Get-ServiceNames -ProjectRoot $ProjectRoot
     foreach ($serviceName in $serviceNames) {
         $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
         if ($service) {
@@ -206,14 +277,21 @@ function Show-ServiceLogs {
 }
 
 function Uninstall-AllServices {
-    param([bool]$PurgeData)
+    param(
+        [bool]$PurgeData,
+        [string]$ProjectRoot
+    )
 
     Write-ColorOutput "-> Uninstalling all services..." Yellow
     
     $nssmDir = Get-NssmDir
     $nssmExe = Join-Path $nssmDir "nssm.exe"
     
-    $serviceNames = Get-ServiceNames
+    $serviceNames = Get-ServiceNames -ProjectRoot $ProjectRoot
+    
+    # Также добавляем legacy службу воркера (если была)
+    $serviceNames += "ergo-celery-worker"
+    
     foreach ($serviceName in $serviceNames) {
         $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
         if ($service) {
@@ -265,11 +343,12 @@ function Uninstall-AllServices {
         }
         
         # Also remove project logs and wrappers if they exist
-        $projectRoot = Get-ProjectRoot
-        $projectLogsDir = Get-ProjectLogsDir -ProjectRoot $projectRoot
-        if (Test-Path $projectLogsDir) {
-            Remove-Item $projectLogsDir -Recurse -Force
-            Write-ColorOutput "[OK] Removed project logs: $projectLogsDir" Green
+        if ($ProjectRoot) {
+            $projectLogsDir = Get-ProjectLogsDir -ProjectRoot $ProjectRoot
+            if (Test-Path $projectLogsDir) {
+                Remove-Item $projectLogsDir -Recurse -Force
+                Write-ColorOutput "[OK] Removed project logs: $projectLogsDir" Green
+            }
         }
     }
 
@@ -277,4 +356,3 @@ function Uninstall-AllServices {
 }
 
 # Export-ModuleMember -Function *  # Удалено, так как это не модуль
-

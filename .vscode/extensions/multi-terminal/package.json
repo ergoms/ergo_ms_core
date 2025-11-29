@@ -1,0 +1,128 @@
+{
+  "name": "ergo-ms-multi-terminal",
+  "displayName": "ERGO MS Multi-Terminal",
+  "description": "Запуск нескольких терминалов из одной задачи. Поддерживает статические списки и динамическое чтение из YAML/JSON.",
+  "version": "1.2.0",
+  "publisher": "ergo-ms",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onTaskType:multi-terminal",
+    "onCommand:workbench.action.tasks.runTask",
+    "onCommand:ergo-ms-multi-terminal.run",
+    "onCommand:ergo-ms-multi-terminal.runFromFile",
+    "onCommand:ergo-ms-multi-terminal.stopAll"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ergo-ms-multi-terminal.run",
+        "title": "ERGO MS: Run Multi-Terminal"
+      },
+      {
+        "command": "ergo-ms-multi-terminal.runFromFile",
+        "title": "ERGO MS: Run Multi-Terminal from File"
+      },
+      {
+        "command": "ergo-ms-multi-terminal.stopAll",
+        "title": "ERGO MS: Stop All Terminals"
+      }
+    ],
+    "taskDefinitions": [
+      {
+        "type": "multi-terminal",
+        "required": [],
+        "properties": {
+          "terminals": {
+            "type": "array",
+            "description": "Список терминалов для запуска",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Имя терминала"
+                },
+                "command": {
+                  "type": "string",
+                  "description": "Команда для выполнения"
+                },
+                "cwd": {
+                  "type": "string",
+                  "description": "Рабочая директория"
+                }
+              }
+            }
+          },
+          "source": {
+            "type": "object",
+            "description": "Источник данных (файл yaml/json) - один источник",
+            "properties": {
+              "file": {
+                "type": "string",
+                "description": "Путь к файлу"
+              },
+              "path": {
+                "type": "string",
+                "description": "Путь к списку в файле (например: workers)"
+              }
+            }
+          },
+          "sources": {
+            "type": "array",
+            "description": "Несколько источников данных с разными шаблонами",
+            "items": {
+              "type": "object",
+              "properties": {
+                "file": {
+                  "type": "string",
+                  "description": "Путь к файлу"
+                },
+                "path": {
+                  "type": "string",
+                  "description": "Путь к списку в файле"
+                },
+                "commandTemplate": {
+                  "type": "string",
+                  "description": "Шаблон команды для этого источника"
+                },
+                "nameTemplate": {
+                  "type": "string",
+                  "description": "Шаблон имени для этого источника"
+                }
+              }
+            }
+          },
+          "commandTemplate": {
+            "type": "string",
+            "description": "Шаблон команды (${key} заменяется на ключ из source)"
+          },
+          "nameTemplate": {
+            "type": "string",
+            "description": "Шаблон имени терминала"
+          },
+          "group": {
+            "type": "string",
+            "description": "Группа терминалов для управления"
+          },
+          "delay": {
+            "type": "number",
+            "description": "Задержка между запусками (мс)",
+            "default": 300
+          },
+          "hideControlTerminal": {
+            "type": "boolean",
+            "description": "Скрыть управляющий терминал после запуска дочерних терминалов",
+            "default": false
+          }
+        }
+      }
+    ]
+  }
+}

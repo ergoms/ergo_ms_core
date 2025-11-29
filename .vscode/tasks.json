@@ -2,111 +2,34 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Install ErgoMS CLI",
-            "type": "shell",
-            "options": {
-                "cwd": "${workspaceFolder}",
-                "shell": {
-                    "executable": "cmd.exe",
-                    "args": [
-                        "/d",
-                        "/c"
-                    ]
-                }
+            "label": "Celery Worker",
+            "type": "multi-terminal",
+            "source": {
+                "file": "celery_workers.yaml",
+                "path": "workers"
             },
-            "command": "powershell.exe -ExecutionPolicy Bypass -NoProfile -File \"${workspaceFolder}\\core\\deployment\\windows\\ergo_ms.ps1\" install-cli",
-            "windows": {
-                "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "cmd.exe",
-                        "args": [
-                            "/d",
-                            "/c"
-                        ]
-                    }
-                },
-                "command": "powershell.exe -ExecutionPolicy Bypass -NoProfile -File \"${workspaceFolder}\\core\\deployment\\windows\\ergo_ms.ps1\" install-cli"
-            },
-            "linux": {
-                "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "/bin/bash",
-                        "args": [
-                            "-lc"
-                        ]
-                    }
-                },
-                "command": "sudo /bin/bash \"${workspaceFolder}/core/deployment/linux/ergo_ms.sh\" install-cli"
-            },
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": true,
-                "panel": "new",
-                "showReuseMessage": true,
-                "clear": false
-            },
-            "group": {
-                "kind": "build"
-            },
-            "problemMatcher": []
+            "commandTemplate": "ergoms start-worker --worker=${key}",
+            "nameTemplate": "Celery Worker: ${key}",
+            "group": "celery-workers",
+            "delay": 500,
+            "hideControlTerminal": true
         },
         {
             "label": "Setup Full System",
-            "type": "shell",
-            "dependsOn": [
-                "Install ErgoMS CLI"
-            ],
-            "dependsOrder": "sequence",
-            "options": {
-                "cwd": "${workspaceFolder}",
-                "shell": {
-                    "executable": "cmd.exe",
-                    "args": [
-                        "/d",
-                        "/c"
-                    ]
+            "type": "multi-terminal",
+            "terminals": [
+                {
+                    "name": "Install ErgoMS CLI",
+                    "command": "ergoms install-cli"
+                },
+                {
+                    "name": "Setup Full",
+                    "command": "ergoms setup"
                 }
-            },
-            "command": "ergoms setup-full -Root \"${workspaceFolder}\"",
-            "windows": {
-                "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "cmd.exe",
-                        "args": [
-                            "/d",
-                            "/c"
-                        ]
-                    }
-                },
-                "command": "ergoms setup-full -Root \"${workspaceFolder}\""
-            },
-            "linux": {
-                "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "/bin/bash",
-                        "args": [
-                            "-lc"
-                        ]
-                    }
-                },
-                "command": "sudo ergoms setup-full --root \"${workspaceFolder}\""
-            },
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": true,
-                "panel": "new",
-                "showReuseMessage": true,
-                "clear": false
-            },
-            "group": {
-                "kind": "build"
-            },
+            ],
+            "group": "setup",
+            "delay": 2000,
+            "hideControlTerminal": true,
             "problemMatcher": []
         },
         {
@@ -168,11 +91,17 @@
                 "Client",
                 "API",
                 "Celery Worker",
-                "Celery Beat"
+                "Celery Beat",
             ],
             "group": {
                 "kind": "build",
                 "isDefault": true
+            },
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared",
+                "showReuseMessage": false,
+                "close": true
             }
         },
         {
@@ -262,55 +191,6 @@
                     }
                 },
                 "command": "ergoms dev"
-            },
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "new",
-                "showReuseMessage": true,
-                "clear": false
-            },
-            "problemMatcher": []
-        },
-        {
-            "label": "Celery Worker",
-            "type": "shell",
-            "options": {
-                "cwd": "${workspaceFolder}",
-                "shell": {
-                    "executable": "cmd.exe",
-                    "args": [
-                        "/d",
-                        "/c"
-                    ]
-                }
-            },
-            "command": "ergoms start-worker",
-            "windows": {
-                "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "cmd.exe",
-                        "args": [
-                            "/d",
-                            "/c"
-                        ]
-                    }
-                },
-                "command": "ergoms start-worker"
-            },
-            "linux": {
-                "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "/bin/bash",
-                        "args": [
-                            "-lc"
-                        ]
-                    }
-                },
-                "command": "ergoms start-worker"
             },
             "presentation": {
                 "echo": true,
@@ -421,256 +301,26 @@
             "problemMatcher": []
         },
         {
-            "label": "Logs: All services",
-            "dependsOrder": "parallel",
-            "dependsOn": [
-                "Logs: ergo-api-dev",
-                "Logs: ergo-client-dev",
-                "Logs: ergo-celery-worker",
-                "Logs: ergo-celery-beat",
-                "Logs: ergo-ollama"
+            "label": "Logs: All Services",
+            "type": "multi-terminal",
+            "sources": [
+                {
+                    "file": ".vscode/logs-services.yaml",
+                    "path": "services",
+                    "commandTemplate": "ergoms logs ${key} 500",
+                    "nameTemplate": "Logs: ${key}"
+                },
+                {
+                    "file": "celery_workers.yaml",
+                    "path": "workers",
+                    "commandTemplate": "ergoms logs ergo-celery-worker-${key} 500",
+                    "nameTemplate": "Logs: Celery Worker-${key}"
+                }
             ],
+            "group": "logs",
+            "delay": 300,
+            "hideControlTerminal": true,
             "problemMatcher": []
         },
-        {
-            "label": "Logs: ergo-api-dev",
-            "type": "shell",
-            "options": {
-                "cwd": "${workspaceFolder}",
-                "shell": {
-                    "executable": "cmd.exe",
-                    "args": [
-                        "/d",
-                        "/c"
-                    ]
-                }
-            },
-            "command": "ergoms logs ergo-api-dev 500",
-            "windows": {
-                "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "cmd.exe",
-                        "args": [
-                            "/d",
-                            "/c"
-                        ]
-                    }
-                },
-                "command": "ergoms logs ergo-api-dev 500"
-            },
-            "linux": {
-                "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "/bin/bash",
-                        "args": [
-                            "-lc"
-                        ]
-                    }
-                },
-                "command": "ergoms logs ergo-api-dev 500"
-            },
-            "presentation": {
-                "reveal": "always",
-                "panel": "dedicated",
-                "group": "ergo-api-dev",
-                "clear": false
-            },
-            "isBackground": false,
-            "problemMatcher": []
-        },
-        {
-            "label": "Logs: ergo-client-dev",
-            "type": "shell",
-            "options": {
-                "cwd": "${workspaceFolder}",
-                "shell": {
-                    "executable": "cmd.exe",
-                    "args": [
-                        "/d",
-                        "/c"
-                    ]
-                }
-            },
-            "command": "ergoms logs ergo-client-dev 500",
-            "windows": {
-                "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "cmd.exe",
-                        "args": [
-                            "/d",
-                            "/c"
-                        ]
-                    }
-                },
-                "command": "ergoms logs ergo-client-dev 500"
-            },
-            "linux": {
-                "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "/bin/bash",
-                        "args": [
-                            "-lc"
-                        ]
-                    }
-                },
-                "command": "ergoms logs ergo-client-dev 500"
-            },
-            "presentation": {
-                "reveal": "always",
-                "panel": "dedicated",
-                "group": "ergo-client-dev",
-                "clear": false
-            },
-            "isBackground": false,
-            "problemMatcher": []
-        },
-        {
-            "label": "Logs: ergo-celery-worker",
-            "type": "shell",
-            "options": {
-                "cwd": "${workspaceFolder}",
-                "shell": {
-                    "executable": "cmd.exe",
-                    "args": [
-                        "/d",
-                        "/c"
-                    ]
-                }
-            },
-            "command": "ergoms logs ergo-celery-worker 500",
-            "windows": {
-                "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "cmd.exe",
-                        "args": [
-                            "/d",
-                            "/c"
-                        ]
-                    }
-                },
-                "command": "ergoms logs ergo-celery-worker 500"
-            },
-            "linux": {
-                "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "/bin/bash",
-                        "args": [
-                            "-lc"
-                        ]
-                    }
-                },
-                "command": "ergoms logs ergo-celery-worker 500"
-            },
-            "presentation": {
-                "reveal": "always",
-                "panel": "dedicated",
-                "group": "ergo-celery-worker",
-                "clear": false
-            },
-            "isBackground": false,
-            "problemMatcher": []
-        },
-        {
-            "label": "Logs: ergo-celery-beat",
-            "type": "shell",
-            "options": {
-                "cwd": "${workspaceFolder}",
-                "shell": {
-                    "executable": "cmd.exe",
-                    "args": [
-                        "/d",
-                        "/c"
-                    ]
-                }
-            },
-            "command": "ergoms logs ergo-celery-beat 500",
-            "windows": {
-                "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "cmd.exe",
-                        "args": [
-                            "/d",
-                            "/c"
-                        ]
-                    }
-                },
-                "command": "ergoms logs ergo-celery-beat 500"
-            },
-            "linux": {
-                "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "/bin/bash",
-                        "args": [
-                            "-lc"
-                        ]
-                    }
-                },
-                "command": "ergoms logs ergo-celery-beat 500"
-            },
-            "presentation": {
-                "reveal": "always",
-                "panel": "dedicated",
-                "group": "ergo-celery-beat",
-                "clear": false
-            },
-            "isBackground": false,
-            "problemMatcher": []
-        },
-        {
-            "label": "Logs: ergo-ollama",
-            "type": "shell",
-            "options": {
-                "cwd": "${workspaceFolder}",
-                "shell": {
-                    "executable": "cmd.exe",
-                    "args": [
-                        "/d",
-                        "/c"
-                    ]
-                }
-            },
-            "command": "ergoms logs ergo-ollama 500",
-            "windows": {
-                "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "cmd.exe",
-                        "args": [
-                            "/d",
-                            "/c"
-                        ]
-                    }
-                },
-                "command": "ergoms logs ergo-ollama 500"
-            },
-            "linux": {
-                "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "/bin/bash",
-                        "args": [
-                            "-lc"
-                        ]
-                    }
-                },
-                "command": "ergoms logs ergo-ollama 500"
-            },
-            "presentation": {
-                "reveal": "always",
-                "panel": "dedicated",
-                "group": "ergo-ollama",
-                "clear": false
-            },
-            "isBackground": false,
-            "problemMatcher": []
-        }
     ]
-} 
+}

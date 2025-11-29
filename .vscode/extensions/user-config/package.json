@@ -1,0 +1,49 @@
+{
+  "name": "ergo-ms-user-config",
+  "displayName": "ERGO MS User Config",
+  "description": "Applies project-specific settings and keybindings from user_settings.json and user_keybindings.json",
+  "version": "1.2.0",
+  "publisher": "ergo-ms",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "extensionKind": ["ui", "workspace"],
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "workspaceContains:.vscode/user_settings.json",
+    "workspaceContains:.vscode/user_keybindings.json"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ergo-ms-user-config.applySettings",
+        "title": "ERGO MS: Apply User Settings"
+      },
+      {
+        "command": "ergo-ms-user-config.applyKeybindings",
+        "title": "ERGO MS: Apply User Keybindings"
+      },
+      {
+        "command": "ergo-ms-user-config.applyAll",
+        "title": "ERGO MS: Apply All User Config"
+      },
+      {
+        "command": "ergo-ms-user-config.removeKeybindings",
+        "title": "ERGO MS: Remove User Keybindings"
+      },
+      {
+        "command": "ergo-ms-user-config.removeSettings",
+        "title": "ERGO MS: Remove User Settings"
+      },
+      {
+        "command": "ergo-ms-user-config.installLocal",
+        "title": "ERGO MS: Install Extension Locally (for Remote mode)"
+      }
+    ]
+  }
+}
+

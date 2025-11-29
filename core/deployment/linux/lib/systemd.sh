@@ -49,7 +49,8 @@ enable_and_start() {
   fi
 }
 
-get_unit_definitions() {
+# Получение базовых unit definitions (API, Client, Beat)
+get_base_unit_definitions() {
   API_UNIT=$(cat <<'UNIT'
 [Unit]
 Description=Ergo API (dev)
@@ -80,25 +81,6 @@ ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && npm run dev'
 Restart=always
 RestartSec=5
 Environment=NODE_ENV=development
-
-[Install]
-WantedBy=multi-user.target
-UNIT
-)
-
-  CELERY_WORKER_UNIT=$(cat <<'UNIT'
-[Unit]
-Description=Ergo Celery Worker
-After=network.target
-Requires=ergo-api-dev.service
-
-[Service]
-Type=simple
-EnvironmentFile=/etc/default/ergo_ms
-ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && api start_celery_worker'
-Restart=always
-RestartSec=5
-Environment=PYTHONUNBUFFERED=1
 
 [Install]
 WantedBy=multi-user.target
@@ -144,13 +126,106 @@ UNIT
 
   export API_UNIT
   export CLIENT_UNIT
-  export CELERY_WORKER_UNIT
   export CELERY_BEAT_UNIT
   export OLLAMA_UNIT
+}
+
+# Генерация unit для конкретного Celery worker'а
+generate_worker_unit() {
+  local worker_name="$1"
+  
+  cat <<UNIT
+[Unit]
+Description=Ergo Celery Worker ($worker_name)
+After=network.target
+Requires=ergo-api-dev.service
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/default/ergo_ms
+ExecStart=/bin/bash -lc 'cd "\$ERGO_ROOT/core" && . "\$ERGO_ROOT/virtual_env/python/bin/activate" && api start_celery_worker --worker=$worker_name'
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+}
+
+# Генерация unit для единственного worker'а (без конфига)
+generate_default_worker_unit() {
+  cat <<'UNIT'
+[Unit]
+Description=Ergo Celery Worker
+After=network.target
+Requires=ergo-api-dev.service
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/default/ergo_ms
+ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && api start_celery_worker'
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+}
+
+# Устаревшая функция для обратной совместимости
+# Используется только если вызывается напрямую
+get_unit_definitions() {
+  get_base_unit_definitions
+  
+  # Для обратной совместимости генерируем default worker unit
+  CELERY_WORKER_UNIT="$(generate_default_worker_unit)"
+  export CELERY_WORKER_UNIT
+}
+
+# Установка всех воркеров из конфигурации
+install_worker_units() {
+  local root="$1"
+  local workers
+  workers="$(get_celery_workers "$root")"
+  
+  if [[ -n "$workers" ]]; then
+    echo "Найдены воркеры в celery_workers.yaml: $workers"
+    for worker in $workers; do
+      local unit_content
+      unit_content="$(generate_worker_unit "$worker")"
+      install_unit "ergo-celery-worker-${worker}" "$unit_content"
+    done
+  else
+    echo "Конфиг celery_workers.yaml не найден, устанавливаем один общий воркер"
+    local unit_content
+    unit_content="$(generate_default_worker_unit)"
+    install_unit "ergo-celery-worker" "$unit_content"
+  fi
+}
+
+# Включение и запуск всех воркеров
+enable_and_start_workers() {
+  local root="$1"
+  local workers
+  workers="$(get_celery_workers "$root")"
+  
+  if [[ -n "$workers" ]]; then
+    for worker in $workers; do
+      enable_and_start "ergo-celery-worker-${worker}.service"
+    done
+  else
+    enable_and_start "ergo-celery-worker.service"
+  fi
 }
 
 export -f write_env_file
 export -f install_unit
 export -f enable_and_start
+export -f get_base_unit_definitions
+export -f generate_worker_unit
+export -f generate_default_worker_unit
 export -f get_unit_definitions
-
+export -f install_worker_units
+export -f enable_and_start_workers

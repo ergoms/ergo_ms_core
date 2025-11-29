@@ -102,7 +102,6 @@ function Execute-CommandString {
         
         # Skip linux commands on Windows
         if ($cmdType -eq 'linux') {
-            Write-ColorOutput "[INFO] Skipping Linux-only command on Windows: $cmdArgs" Gray
             return
         }
         

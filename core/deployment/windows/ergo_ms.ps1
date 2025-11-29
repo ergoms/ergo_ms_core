@@ -60,11 +60,16 @@ function Main {
     $isProxyCommand = $proxyCommands -contains $Command.ToLower()
     
     # Commands that require admin
-    $adminCommands = @('install', 'install-services', 'install-api-service', 'install-client-service', 'install-worker-service', 'install-beat-service', 'start', 'stop', 'restart', 'status', 'uninstall-services', 'install-cli', 'uninstall-cli', 'setup-full')
+    $adminCommands = @(
+        'install', 'install-services', 'install-api-service', 'install-client-service', 
+        'install-worker-service', 'install-beat-service', 
+        'start', 'stop', 'restart', 'status', 
+        'uninstall-services', 'install-cli', 'uninstall-cli', 'setup-full'
+    )
     $requiresAdmin = $adminCommands -contains $Command.ToLower()
     
     # Commands that don't require admin
-    $noAdminCommands = @('logs', 'help', 'clean', 'update-submodules')
+    $noAdminCommands = @('logs', 'help', 'clean', 'clean-project', 'update-submodules')
     
     # Check if it's a custom command
     $projectRoot = $null
@@ -120,20 +125,20 @@ function Main {
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
             Write-ColorOutput "-> Installing services for: $projectRoot" Cyan
             Install-AllServices -Root $projectRoot
-            Start-AllServices
+            Start-AllServices -ProjectRoot $projectRoot
             if (-not $NoCli) {
                 Install-CliWrapper
             }
             Write-ColorOutput "`n[OK] Installation complete!" Green
-            Show-ServicesStatus
+            Show-ServicesStatus -ProjectRoot $projectRoot
         }
         'install-services' {
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
             Write-ColorOutput "-> Installing services for: $projectRoot" Cyan
             Install-AllServices -Root $projectRoot
-            Start-AllServices
+            Start-AllServices -ProjectRoot $projectRoot
             Write-ColorOutput "`n[OK] Services installed and started!" Green
-            Show-ServicesStatus
+            Show-ServicesStatus -ProjectRoot $projectRoot
         }
         'install-api-service' {
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
@@ -141,7 +146,7 @@ function Main {
             Install-SingleService -ServiceName "ergo-api-dev" -Root $projectRoot
             Start-Service -Name "ergo-api-dev"
             Write-ColorOutput "`n[OK] API service installed and started!" Green
-            Show-ServicesStatus
+            Show-ServicesStatus -ProjectRoot $projectRoot
         }
         'install-client-service' {
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
@@ -149,15 +154,15 @@ function Main {
             Install-SingleService -ServiceName "ergo-client-dev" -Root $projectRoot
             Start-Service -Name "ergo-client-dev"
             Write-ColorOutput "`n[OK] Client service installed and started!" Green
-            Show-ServicesStatus
+            Show-ServicesStatus -ProjectRoot $projectRoot
         }
         'install-worker-service' {
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
-            Write-ColorOutput "-> Installing Worker service for: $projectRoot" Cyan
-            Install-SingleService -ServiceName "ergo-celery-worker" -Root $projectRoot
-            Start-Service -Name "ergo-celery-worker"
-            Write-ColorOutput "`n[OK] Worker service installed and started!" Green
-            Show-ServicesStatus
+            Write-ColorOutput "-> Installing Worker services for: $projectRoot" Cyan
+            Install-WorkerServices -Root $projectRoot
+            Start-WorkerServices -ProjectRoot $projectRoot
+            Write-ColorOutput "`n[OK] Worker services installed and started!" Green
+            Show-ServicesStatus -ProjectRoot $projectRoot
         }
         'install-beat-service' {
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
@@ -165,7 +170,7 @@ function Main {
             Install-SingleService -ServiceName "ergo-celery-beat" -Root $projectRoot
             Start-Service -Name "ergo-celery-beat"
             Write-ColorOutput "`n[OK] Beat service installed and started!" Green
-            Show-ServicesStatus
+            Show-ServicesStatus -ProjectRoot $projectRoot
         }
         'install-ollama-service' {
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
@@ -204,22 +209,27 @@ function Main {
             Write-ColorOutput "`n[OK] Full deployment complete!" Green
         }
         'start' {
-            Start-AllServices
-            Show-ServicesStatus
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+            Start-AllServices -ProjectRoot $projectRoot
+            Show-ServicesStatus -ProjectRoot $projectRoot
         }
         'stop' {
-            Stop-AllServices
-            Show-ServicesStatus
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+            Stop-AllServices -ProjectRoot $projectRoot
+            Show-ServicesStatus -ProjectRoot $projectRoot
         }
         'restart' {
-            Restart-AllServices
-            Show-ServicesStatus
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+            Restart-AllServices -ProjectRoot $projectRoot
+            Show-ServicesStatus -ProjectRoot $projectRoot
         }
         'status' {
-            Show-ServicesStatus
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+            Show-ServicesStatus -ProjectRoot $projectRoot
         }
         'uninstall-services' {
-            Uninstall-AllServices -PurgeData $Purge
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+            Uninstall-AllServices -PurgeData $Purge -ProjectRoot $projectRoot
         }
         'install-cli' {
             Install-CliWrapper
@@ -230,7 +240,8 @@ function Main {
         'logs' {
             if ($RemainingArgs.Count -eq 0) {
                 Write-ColorOutput "[ERROR] Please specify a service name" Red
-                $serviceNames = Get-ServiceNames
+                $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+                $serviceNames = Get-ServiceNames -ProjectRoot $projectRoot
                 Write-ColorOutput "Available services: $($serviceNames -join ', ')" Yellow
                 Write-ColorOutput "Usage: ergoms logs <service-name> [lines]" Cyan
                 exit 1
@@ -243,14 +254,14 @@ function Main {
                 $lines = [int]$RemainingArgs[1]
             }
             
-            $serviceNames = Get-ServiceNames
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+            $serviceNames = Get-ServiceNames -ProjectRoot $projectRoot
             if ($serviceNames -notcontains $serviceName) {
                 Write-ColorOutput "[ERROR] Unknown service: $serviceName" Red
                 Write-ColorOutput "Available services: $($serviceNames -join ', ')" Yellow
                 exit 1
             }
             
-            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
             Show-ServiceLogs -ServiceName $serviceName -Lines $lines -ProjectRoot $projectRoot
         }
         'setup-full' {
@@ -258,6 +269,10 @@ function Main {
             Setup-FullSystem -Root $projectRoot -RecreateVenv $RecreateVenv
         }
         'clean' {
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+            Clear-ProjectDependencies -Root $projectRoot
+        }
+        'clean-project' {
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
             Clear-ProjectDependencies -Root $projectRoot
         }
@@ -283,4 +298,3 @@ function Main {
 }
 
 Main
-

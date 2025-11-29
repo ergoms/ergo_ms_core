@@ -70,7 +70,6 @@ execute_command_string() {
     
     # Skip Windows commands on Linux
     if [[ "$cmd_type" == "win" ]]; then
-      echo "[INFO] Skipping Windows-only command on Linux: $cmd_args"
       return 0
     fi
     
