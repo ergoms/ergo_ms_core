@@ -9,3 +9,5 @@ services:
     description: "Vue.js client dev server"
   ergo-celery-beat:
     description: "Celery Beat scheduler"
+  ergo-ollama:
+    description: "Ollama server"

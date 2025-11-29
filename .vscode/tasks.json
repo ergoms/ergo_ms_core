@@ -91,7 +91,8 @@
                 "Client",
                 "API",
                 "Celery Worker",
-                "Celery Beat"
+                "Celery Beat",
+                "Ollama"
             ],
             "group": {
                 "kind": "build",
@@ -240,6 +241,55 @@
                     }
                 },
                 "command": "ergoms start-beat"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Ollama",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": [
+                        "/d",
+                        "/c"
+                    ]
+                }
+            },
+            "command": "ergoms ollama",
+            "windows": {
+                "options": {
+                    "cwd": "${workspaceFolder}",
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
+                    }
+                },
+                "command": "ergoms ollama"
+            },
+            "linux": {
+                "options": {
+                    "cwd": "${workspaceFolder}",
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": [
+                            "-lc"
+                        ]
+                    }
+                },
+                "command": "ergoms ollama"
             },
             "presentation": {
                 "echo": true,
