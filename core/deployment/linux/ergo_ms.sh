@@ -53,7 +53,7 @@ main() {
   if (( $# > 0 )); then
     command="$1"
     case "$command" in
-      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-ollama-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|update-submodules|clean|poetry|api|npm)
+      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-ollama-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|update-submodules|clean|clean-project|poetry|api|npm)
         shift ;;
       -h|--help)
         print_usage "$detected_root"; exit 0 ;;
@@ -104,7 +104,7 @@ main() {
   
   # Check if it's a clean command (doesn't require root)
   local is_clean_command=false
-  if [[ "$command" == "clean" ]]; then
+  if [[ "$command" == "clean" ]] || [[ "$command" == "clean-project" ]]; then
     is_clean_command=true
   fi
 

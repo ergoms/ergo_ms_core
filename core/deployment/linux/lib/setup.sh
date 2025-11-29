@@ -159,7 +159,6 @@ clear_project_dependencies() {
   echo "  - virtual_env/packages/*"
   echo "  - virtual_env/resources/*"
   echo "  - virtual_env/trained_models/*"
-  echo "  - Project extensions (VS Code/Cursor)"
   echo ""
   echo "Media folder will NOT be deleted."
   echo ""
