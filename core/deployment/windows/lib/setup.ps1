@@ -67,6 +67,61 @@ function Setup-FullSystem {
     Write-ColorOutput "-> Step 1/7: Updating git submodules..." Yellow
     Update-Submodules -Root $Root
     
+    # Create configuration files from examples if they don't exist
+    Write-ColorOutput "  Creating configuration files from examples..." Gray
+    
+    # Special handling for databases.yaml - only first 8 lines
+    $databasesSourcePath = Join-Path $Root "databases.yaml.example"
+    $databasesTargetPath = Join-Path $Root "databases.yaml"
+    if (Test-Path $databasesSourcePath) {
+        if (-not (Test-Path $databasesTargetPath)) {
+            try {
+                $content = Get-Content $databasesSourcePath -TotalCount 8
+                $content | Set-Content $databasesTargetPath
+                Write-ColorOutput "    Created databases.yaml (first 8 lines)" Green
+            }
+            catch {
+                Write-ColorOutput "    [WARNING] Failed to create databases.yaml: $($_.Exception.Message)" Yellow
+            }
+        }
+        else {
+            Write-ColorOutput "    databases.yaml already exists, skipping" Gray
+        }
+    }
+    else {
+        Write-ColorOutput "    [WARNING] Example file databases.yaml.example not found" Yellow
+    }
+    
+    # Other configuration files - full copy
+    $configFiles = @(
+        @{Source = "menu-order-config.json.example"; Target = "menu-order-config.json"},
+        @{Source = "celery_workers.yaml.example"; Target = "celery_workers.yaml"},
+        @{Source = ".env.example"; Target = ".env"}
+    )
+    
+    foreach ($config in $configFiles) {
+        $sourcePath = Join-Path $Root $config.Source
+        $targetPath = Join-Path $Root $config.Target
+        
+        if (Test-Path $sourcePath) {
+            if (-not (Test-Path $targetPath)) {
+                try {
+                    Copy-Item -Path $sourcePath -Destination $targetPath -Force
+                    Write-ColorOutput "    Created $($config.Target)" Green
+                }
+                catch {
+                    Write-ColorOutput "    [WARNING] Failed to create $($config.Target): $($_.Exception.Message)" Yellow
+                }
+            }
+            else {
+                Write-ColorOutput "    $($config.Target) already exists, skipping" Gray
+            }
+        }
+        else {
+            Write-ColorOutput "    [WARNING] Example file $($config.Source) not found" Yellow
+        }
+    }
+    
     # Step 2: Create virtual environment
     Write-ColorOutput "-> Step 2/7: Creating Python virtual environment..." Yellow
     $venvPath = Join-Path $Root "virtual_env\python"
