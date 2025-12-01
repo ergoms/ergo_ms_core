@@ -15,7 +15,11 @@
     "preview": "cd core/client && npm run preview",
     "lint": "cd core/client && npm run lint",
     "format": "cd core/client && npm run format",
-    "install:all": "npm install && npm install --workspaces"
+    "install:all": "npm install && npm install --workspaces",
+    "setup": "npm run install-extensions",
+    "install-extensions": "node .vscode/scripts/install-extensions.js",
+    "update-vsix": "node .vscode/scripts/update-vsix.js",
+    "uninstall-extensions": "node .vscode/scripts/uninstall-extensions.js"
   },
   "script_comments": {
     "dev": "Запуск сервера разработки",
@@ -24,6 +28,10 @@
     "preview": "Предварительный просмотр сборки",
     "lint": "Проверка и исправление кода с помощью ESLint",
     "format": "Форматирование кода с помощью Prettier",
-    "install:all": "Установка всех зависимостей для всех workspace"
+    "install:all": "Установка всех зависимостей для всех workspace",
+    "setup": "Установка локальных VS Code расширений из папки local-extensions",
+    "install-extensions": "Установка всех VSIX расширений из папки local-extensions",
+    "update-vsix": "Обновление VSIX файлов из исходных расширений в .vscode/extensions/",
+    "uninstall-extensions": "Удаление всех установленных расширений из VSIX файлов"
   }
 }

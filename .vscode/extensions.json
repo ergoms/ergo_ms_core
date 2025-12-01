@@ -1,6 +1,8 @@
 {
   "recommendations": [
     "Vue.volar",
-    "dbaeumer.vscode-eslint"
+    "dbaeumer.vscode-eslint",
+    "ergo-ms.ergo-ms-multi-terminal",
+    "ergo-ms.ergo-ms-user-config",
   ],
 }

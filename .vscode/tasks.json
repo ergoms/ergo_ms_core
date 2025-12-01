@@ -16,20 +16,55 @@
         },
         {
             "label": "Setup Full System",
-            "type": "multi-terminal",
-            "terminals": [
-                {
-                    "name": "Install ErgoMS CLI",
-                    "command": "ergoms install-cli"
-                },
-                {
-                    "name": "Setup Full",
-                    "command": "ergoms setup"
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": [
+                        "/d",
+                        "/c"
+                    ]
                 }
-            ],
-            "group": "setup",
-            "delay": 2000,
-            "hideControlTerminal": true,
+            },
+            "command": "ergoms install-cli && ergoms setup && npm run install-extensions",
+            "windows": {
+                "options": {
+                    "cwd": "${workspaceFolder}",
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
+                    }
+                },
+                "command": "ergoms install-cli && ergoms setup && npm run install-extensions"
+            },
+            "linux": {
+                "options": {
+                    "cwd": "${workspaceFolder}",
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": [
+                            "-lc"
+                        ]
+                    }
+                },
+                "command": "ergoms install-cli && ergoms setup && npm run install-extensions"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
             "problemMatcher": []
         },
         {
