@@ -333,8 +333,6 @@ async function executeMultiTerminalTask(task) {
         taskGroups.set(group, []);
     }
     
-    vscode.window.showInformationMessage(`Запуск ${tasks.length} задач(и)...`);
-    
     // Запускаем задачи
     for (const t of tasks) {
         await runTask(t.name, t.command, t.cwd, group);
