@@ -27,7 +27,7 @@
                     ]
                 }
             },
-            "command": "ergoms install-cli && ergoms setup && npm run install-extensions",
+            "command": "powershell -ExecutionPolicy Bypass -File core/deployment/windows/ergo_ms.ps1 setup-full && npm run install-extensions",
             "windows": {
                 "options": {
                     "cwd": "${workspaceFolder}",
@@ -39,7 +39,7 @@
                         ]
                     }
                 },
-                "command": "ergoms install-cli && ergoms setup && npm run install-extensions"
+                "command": "powershell -ExecutionPolicy Bypass -File core/deployment/windows/ergo_ms.ps1 setup-full && npm run install-extensions"
             },
             "linux": {
                 "options": {
@@ -51,7 +51,7 @@
                         ]
                     }
                 },
-                "command": "ergoms install-cli && ergoms setup && npm run install-extensions"
+                "command": "sudo bash core/deployment/linux/ergo_ms.sh setup-full && npm run install-extensions"
             },
             "presentation": {
                 "echo": true,
