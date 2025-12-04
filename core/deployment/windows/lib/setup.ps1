@@ -64,7 +64,7 @@ function Setup-FullSystem {
     Write-ColorOutput ""
     
     # Step 0: Set PowerShell execution policy
-    Write-ColorOutput "-> Step 0/7: Setting PowerShell execution policy..." Yellow
+    Write-ColorOutput "-> Step 0/8: Setting PowerShell execution policy..." Yellow
     try {
         $currentPolicy = Get-ExecutionPolicy -Scope CurrentUser -ErrorAction SilentlyContinue
         if ($currentPolicy -eq "RemoteSigned") {
@@ -83,7 +83,7 @@ function Setup-FullSystem {
     }
     
     # Step 1: Git submodules
-    Write-ColorOutput "-> Step 1/7: Updating git submodules..." Yellow
+    Write-ColorOutput "-> Step 1/8: Updating git submodules..." Yellow
     Update-Submodules -Root $Root
     
     # Create configuration files from examples if they don't exist
