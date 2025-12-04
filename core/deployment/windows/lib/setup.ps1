@@ -63,6 +63,25 @@ function Setup-FullSystem {
     Write-ColorOutput "`n=== Full System Setup ===" Cyan
     Write-ColorOutput ""
     
+    # Step 0: Set PowerShell execution policy
+    Write-ColorOutput "-> Step 0/7: Setting PowerShell execution policy..." Yellow
+    try {
+        $currentPolicy = Get-ExecutionPolicy -Scope CurrentUser -ErrorAction SilentlyContinue
+        if ($currentPolicy -eq "RemoteSigned") {
+            Write-ColorOutput "  Execution policy already set to RemoteSigned" Gray
+        }
+        else {
+            Write-ColorOutput "  Setting execution policy to RemoteSigned..." Gray
+            Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
+            Write-ColorOutput "[OK] Execution policy set to RemoteSigned" Green
+        }
+    }
+    catch {
+        Write-ColorOutput "[WARNING] Failed to set execution policy: $($_.Exception.Message)" Yellow
+        Write-ColorOutput "  You may need to run this command manually:" Gray
+        Write-ColorOutput "  Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned" Yellow
+    }
+    
     # Step 1: Git submodules
     Write-ColorOutput "-> Step 1/7: Updating git submodules..." Yellow
     Update-Submodules -Root $Root
@@ -123,7 +142,7 @@ function Setup-FullSystem {
     }
     
     # Step 2: Create virtual environment
-    Write-ColorOutput "-> Step 2/7: Creating Python virtual environment..." Yellow
+    Write-ColorOutput "-> Step 2/8: Creating Python virtual environment..." Yellow
     $venvPath = Join-Path $Root "virtual_env\python"
     $venvActivate = Join-Path $venvPath "Scripts\activate.bat"
     $pipExe = Join-Path $venvPath "Scripts\pip.exe"
@@ -231,7 +250,7 @@ function Setup-FullSystem {
     }
     
     # Step 3: Install Poetry
-    Write-ColorOutput "-> Step 3/7: Installing Poetry..." Yellow
+    Write-ColorOutput "-> Step 3/8: Installing Poetry..." Yellow
     $venvActivate = Join-Path $venvPath "Scripts\activate.bat"
     $pipExe = Join-Path $venvPath "Scripts\pip.exe"
     
@@ -263,11 +282,11 @@ function Setup-FullSystem {
     }
     
     # Step 4: Install CLI wrapper
-    Write-ColorOutput "-> Step 4/7: Installing ErgoMS CLI..." Yellow
+    Write-ColorOutput "-> Step 4/8: Installing ErgoMS CLI..." Yellow
     Install-CliWrapper
     
     # Step 5: Run setup (poetry install && npm install && npm run build && api migrate)
-    Write-ColorOutput "-> Step 5/7: Running ergoms setup..." Yellow
+    Write-ColorOutput "-> Step 5/8: Running ergoms setup..." Yellow
     Push-Location $Root
     try {
         # Activate virtual environment and run commands
@@ -354,7 +373,7 @@ function Setup-FullSystem {
     }
     
     # Step 6: Collect static
-    Write-ColorOutput "-> Step 6/7: Collecting static files..." Yellow
+    Write-ColorOutput "-> Step 6/8: Collecting static files..." Yellow
     Push-Location $Root
     try {
         # Activate virtual environment and run command
@@ -382,7 +401,7 @@ function Setup-FullSystem {
     }
     
     # Step 7: Setup complete (services not installed)
-    Write-ColorOutput "-> Step 7/7: Setup complete" Yellow
+    Write-ColorOutput "-> Step 7/8: Setup complete" Yellow
     
     Write-ColorOutput "`n=== Full System Setup Complete ===" Green
     Write-ColorOutput ""

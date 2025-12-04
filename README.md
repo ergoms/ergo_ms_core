@@ -73,6 +73,13 @@ Ctrl+Shift+P → Tasks: Run Task → Setup Full System
 ```
 
 *Вариант B: командная строка PowerShell (требует административных привилегий)*
+
+> **⚠️ Первый шаг для Windows:** перед выполнением любых команд PowerShell необходимо установить политику выполнения:
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+
+После установки политики выполните:
 ```powershell
 cd C:\path\to\ergo_ms_core
 .\core\deployment\windows\ergo_ms.ps1 install-cli
