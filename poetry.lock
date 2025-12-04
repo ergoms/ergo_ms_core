@@ -1608,7 +1608,7 @@ files = [
 
 [[package]]
 name = "Django"
-version = "5.2.8.dev20251111102124"
+version = "5.2.8.dev20251127143045"
 description = "A high-level Python web framework that encourages rapid development and clean, pragmatic design."
 optional = false
 python-versions = ">=3.10"
