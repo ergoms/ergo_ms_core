@@ -88,6 +88,7 @@ polars = "^1.35.2"
 fastexcel = "^0.17.2"
 pyarrow = "^22.0.0"
 sympy = "^1.14.0"
+docx2pdf = "^0.1.8"
 
 [tool.poetry.scripts]
 api = "commands.__main__:main"
