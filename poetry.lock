@@ -5451,6 +5451,44 @@ qa = ["flake8 (==5.0.4)", "mypy (==0.971)", "types-setuptools (==67.2.0.1)"]
 testing = ["docopt", "pytest"]
 
 [[package]]
+name = "pdfminer-six"
+version = "20251107"
+description = "PDF parser and analyzer"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "pdfminer_six-20251107-py3-none-any.whl", hash = "sha256:c09df33e4cbe6b26b2a79248a4ffcccafaa5c5d39c9fff0e6e81567f165b5401"},
+    {file = "pdfminer_six-20251107.tar.gz", hash = "sha256:5fb0c553799c591777f22c0c72b77fc2522d7d10c70654e25f4c5f1fd996e008"},
+]
+
+[package.dependencies]
+charset-normalizer = ">=2.0.0"
+cryptography = ">=36.0.0"
+
+[package.extras]
+dev = ["atheris ; python_version < \"3.12\"", "black", "mypy (==0.931)", "nox", "pytest"]
+docs = ["sphinx", "sphinx-argparse"]
+image = ["Pillow"]
+
+[[package]]
+name = "pdfplumber"
+version = "0.11.8"
+description = "Plumb a PDF for detailed information about each char, rectangle, and line."
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "pdfplumber-0.11.8-py3-none-any.whl", hash = "sha256:7dda117b8ed21bca9c8e7d7808fee2439f93c8bd6ea45989bfb1aead6dc3cad3"},
+    {file = "pdfplumber-0.11.8.tar.gz", hash = "sha256:db29b04bc8bb62f39dd444533bcf2e0ba33584bd24f5a54644f3ba30f4f22d31"},
+]
+
+[package.dependencies]
+"pdfminer.six" = "20251107"
+Pillow = ">=9.1"
+pypdfium2 = ">=4.18.0"
+
+[[package]]
 name = "peewee"
 version = "3.18.3"
 description = "a little orm"
@@ -6492,6 +6530,48 @@ files = [
 
 [package.extras]
 diagrams = ["jinja2", "railroad-diagrams"]
+
+[[package]]
+name = "pypdf2"
+version = "3.0.1"
+description = "A pure-python PDF library capable of splitting, merging, cropping, and transforming PDF files"
+optional = false
+python-versions = ">=3.6"
+groups = ["main"]
+files = [
+    {file = "PyPDF2-3.0.1.tar.gz", hash = "sha256:a74408f69ba6271f71b9352ef4ed03dc53a31aa404d29b5d31f53bfecfee1440"},
+    {file = "pypdf2-3.0.1-py3-none-any.whl", hash = "sha256:d16e4205cfee272fbdc0568b68d82be796540b1537508cef59388f839c191928"},
+]
+
+[package.extras]
+crypto = ["PyCryptodome"]
+dev = ["black", "flit", "pip-tools", "pre-commit (<2.18.0)", "pytest-cov", "wheel"]
+docs = ["myst_parser", "sphinx", "sphinx_rtd_theme"]
+full = ["Pillow", "PyCryptodome"]
+image = ["Pillow"]
+
+[[package]]
+name = "pypdfium2"
+version = "5.1.0"
+description = "Python bindings to PDFium"
+optional = false
+python-versions = ">=3.6"
+groups = ["main"]
+files = [
+    {file = "pypdfium2-5.1.0-py3-none-macosx_11_0_arm64.whl", hash = "sha256:f3dde94d320d582d3c20255b600f1e7e03261bfdea139b7064b54126fc3db4e2"},
+    {file = "pypdfium2-5.1.0-py3-none-macosx_11_0_x86_64.whl", hash = "sha256:dee09b7a3ab1860a17decc97c179a5aaba5a74b2780d53c91daa18d742945892"},
+    {file = "pypdfium2-5.1.0-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:1757d6470cbf5b8d1c825350df2ccd79fd0bfcf5753ff566fd02153a486014b1"},
+    {file = "pypdfium2-5.1.0-py3-none-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:ad18e95497423f88b33f2976cb78c27f0bd6ef4b4bf340c901f5f28a234c4f06"},
+    {file = "pypdfium2-5.1.0-py3-none-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:2faee2f4fbd5bd33dd77c07d15ccaa6687562d883a54c4beb8329ebaee615b7d"},
+    {file = "pypdfium2-5.1.0-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:d688372df169a9dad606c1e5ad34b6e0e6b820f1e0d540b4780711600a7bf8dd"},
+    {file = "pypdfium2-5.1.0-py3-none-musllinux_1_1_aarch64.whl", hash = "sha256:cfecd2b20f1c05027aaa2af6bfbcc2835b4c8f6455155b0dc2800ec6a2051965"},
+    {file = "pypdfium2-5.1.0-py3-none-musllinux_1_1_i686.whl", hash = "sha256:5698de8e6d662f1b2cdff5cb62e6f0ee79ffaaa13e282251854cbc64cf712449"},
+    {file = "pypdfium2-5.1.0-py3-none-musllinux_1_1_x86_64.whl", hash = "sha256:2cbd73093fbb1710ea1164cdf27583363e1b663b8cc22d555c84af0ee1af50c7"},
+    {file = "pypdfium2-5.1.0-py3-none-win32.whl", hash = "sha256:11d319cd2e5f71cdc3d68e8a79142b559a0edbcc16fe31d4036fcfc45f0e9ed8"},
+    {file = "pypdfium2-5.1.0-py3-none-win_amd64.whl", hash = "sha256:4725f347a8c9ff011a7035d8267ee25912ab1b946034ba0b57f3cca89de8847a"},
+    {file = "pypdfium2-5.1.0-py3-none-win_arm64.whl", hash = "sha256:47c5593f7eb6ae0f1e5a940d712d733ede580f09ca91de6c3f89611848695c0f"},
+    {file = "pypdfium2-5.1.0.tar.gz", hash = "sha256:46335ca30a1584b804a6824da84d2e846b4b954bdfc342d035b7bf15ed9a14e5"},
+]
 
 [[package]]
 name = "python-crontab"
@@ -9509,4 +9589,4 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<3.13"
-content-hash = "9fe6b7682465715417d3da7f1e8974177135252651c10d3a1b52909eff024e6e"
+content-hash = "87e45865cdaaa93b279f697adf0b15abd3caf230a7778a818ea6b69cd222ab72"
