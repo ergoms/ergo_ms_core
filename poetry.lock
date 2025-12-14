@@ -306,6 +306,31 @@ files = [
 ]
 
 [[package]]
+name = "appscript"
+version = "1.4.0"
+description = "Control AppleScriptable applications from Python."
+optional = false
+python-versions = "*"
+groups = ["main"]
+markers = "sys_platform == \"darwin\""
+files = [
+    {file = "appscript-1.4.0-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:0306c09f55f799716fc2badd072b16538a797d2acbc3ea2adc55553293d18188"},
+    {file = "appscript-1.4.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:de0b644f1b86f05d7526e5621bd2fcf36f077fc90fd328e63ba12dd3e267eb9e"},
+    {file = "appscript-1.4.0-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:48d961f83be1de6aa9286d0cfae2060d3ded4302902873d34cd45ca2757c50b3"},
+    {file = "appscript-1.4.0-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:6ab3be221cf5e798fe1a1930b93c4b791c5cae4e5fd781cb9fb6e35fb7930274"},
+    {file = "appscript-1.4.0-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:ddecaff061f829fcfe5b0452a272f9aa5ac1f61b3929fa18b6f0f100e8eaf306"},
+    {file = "appscript-1.4.0-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:8edab6b8def4862c9582e5d8f5f72c23a3749f2d059f80e4b5ae101a53805116"},
+    {file = "appscript-1.4.0-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:7710db497d279d819f487dea686866b56c6c1e557befef4631b78553c523334c"},
+    {file = "appscript-1.4.0-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:0396978b95e06c2cabba117cc172add1df188c51a1b80fc6648aad16890a84c8"},
+    {file = "appscript-1.4.0-cp314-cp314-macosx_10_13_universal2.whl", hash = "sha256:1a5747425d2a5732e2854cab0d0dc893ef077cabd7d57f7ec4caea2ac313e19f"},
+    {file = "appscript-1.4.0-cp314-cp314-macosx_10_13_x86_64.whl", hash = "sha256:5efce3302c00674b769b79938cc5f66f7791ef45c6419e850a5f1c8f9fcefcc1"},
+    {file = "appscript-1.4.0.tar.gz", hash = "sha256:b2c6fc770bf822ea45529c7084bc0ee340e67ab260016b01d28e0449ec8723be"},
+]
+
+[package.dependencies]
+lxml = ">=4.7.1"
+
+[[package]]
 name = "argon2-cffi"
 version = "25.1.0"
 description = "Argon2 for Python"
@@ -1608,7 +1633,7 @@ files = [
 
 [[package]]
 name = "Django"
-version = "5.2.8.dev20251127143045"
+version = "5.2.8"
 description = "A high-level Python web framework that encourages rapid development and clean, pragmatic design."
 optional = false
 python-versions = ">=3.10"
@@ -1786,6 +1811,23 @@ files = [
 [package.dependencies]
 lxml = "*"
 Pillow = ">=2.0"
+
+[[package]]
+name = "docx2pdf"
+version = "0.1.8"
+description = "Convert docx to pdf on Windows or macOS directly using Microsoft Word (must be installed)."
+optional = false
+python-versions = ">=3.5"
+groups = ["main"]
+files = [
+    {file = "docx2pdf-0.1.8-py3-none-any.whl", hash = "sha256:00be1401fd486640314e993423a0a1cbdbc21142186f68549d962d505b2e8a12"},
+    {file = "docx2pdf-0.1.8.tar.gz", hash = "sha256:6d2c20f9ad36eec75f4da017dc7a97622946954a6124ca0b11772875fa86fbed"},
+]
+
+[package.dependencies]
+appscript = {version = ">=1.1.0", markers = "sys_platform == \"darwin\""}
+pywin32 = {version = ">=227", markers = "sys_platform == \"win32\""}
+tqdm = ">=4.41.0"
 
 [[package]]
 name = "drf-yasg"
@@ -9589,4 +9631,4 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<3.13"
-content-hash = "87e45865cdaaa93b279f697adf0b15abd3caf230a7778a818ea6b69cd222ab72"
+content-hash = "5f1d9829b9b129e404571c2998f892e91ae7c58399104889f371f9b649cf8e2d"
