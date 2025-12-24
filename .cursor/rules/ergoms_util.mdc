@@ -1,8 +1,9 @@
 ---
 alwaysApply: true
+priority: critical
 ---
 
-# Утилита ergoms - Командная оболочка ERGO MS
+# КРИТИЧЕСКИ ВАЖНО: Утилита ergoms - Командная оболочка ERGO MS
 
 ## Общие принципы работы с ergoms
 

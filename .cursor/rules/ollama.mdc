@@ -1,8 +1,9 @@
 ---
 alwaysApply: true
+priority: critical
 ---
 
-# Правила работы с Ollama в системе ERGO MS
+# КРИТИЧЕСКИ ВАЖНО: Правила работы с Ollama в системе ERGO MS
 
 ## Общие принципы
 

@@ -1,8 +1,9 @@
 ---
 alwaysApply: true
+priority: critical
 ---
 
-# Правила работы с Celery в системе ERGO MS
+# КРИТИЧЕСКИ ВАЖНО: Правила работы с Celery в системе ERGO MS
 
 ## Как работает Celery в системе
 
