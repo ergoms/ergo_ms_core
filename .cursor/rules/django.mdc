@@ -1,4 +1,8 @@
 ---
 alwaysApply: true
+priority: critical
 ---
+
+# КРИТИЧЕСКИ ВАЖНО: Правила Django
+
 Не генерируй admin.py файлы и все что связано с админ-панелью Django, она не используется.

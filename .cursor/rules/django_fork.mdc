@@ -1,4 +1,9 @@
-## Django Fork Customizations
+---
+alwaysApply: true
+priority: critical
+---
+
+# КРИТИЧЕСКИ ВАЖНО: Django Fork Customizations
 
 - В проекте используется форк Django (директория `core/django`), поэтому встроенные модели могут отличаться от оригинальных.
 - В `core/django/django/contrib/auth/models.py` в классе `AbstractUser` переопределены поля:

@@ -1,0 +1,248 @@
+---
+alwaysApply: true
+priority: high
+---
+
+# КРИТИЧЕСКИ ВАЖНО: Система команд ERGO MS (ergoms)
+
+## Общие принципы
+
+Утилита `ergoms` является центральной командной оболочкой системы ERGO MS, обеспечивающей единый интерфейс для управления всеми компонентами системы (API, Client, Celery) и выполнения операций развёртывания.
+
+### Архитектура утилиты
+
+- **Кроссплатформенность**: `ergoms` автоматически определяет операционную систему и использует соответствующий интерпретатор (PowerShell для Windows, Bash для Linux)
+- **Модульность**: команды определяются в конфигурационных файлах `core/deployment/commands.conf` (ядро) и `modules/*/ergoms.conf` (модули)
+- **Автоматическая регистрация**: модульные команды автоматически регистрируются с префиксом имени модуля (`module_name:command_name`)
+
+## Конфигурация команд
+
+Всегда используй файл `core/deployment/commands.conf` для определения команд ядра системы. Формат команды:
+
+```
+command-name=type:command
+```
+
+### Префиксы типов команд
+
+- `poetry:` — команды Poetry (контекст выполнения: корень проекта)
+- `api:` — команды Django manage.py (контекст: `core/`, активируется виртуальное окружение)
+- `npm:` — команды npm (контекст: корень проекта)
+- `shell:` — обычные shell-команды (кроссплатформенные)
+- `win:` — команды только для Windows (игнорируются на Linux)
+- `linux:` — команды только для Linux (игнорируются на Windows)
+
+### Составные команды
+
+Используй оператор `&&` для объединения нескольких команд:
+
+```
+migrate-all=api:makemigrations && api:migrate
+```
+
+## Модульные команды
+
+При создании модуля всегда создавай файл `modules/<имя_модуля>/ergoms.conf` для определения модульных команд. Команды автоматически регистрируются с префиксом модуля:
+
+```
+# modules/video_analysis/ergoms.conf
+install=api:install_ffmpeg && api:install_opus_mt
+install-ffmpeg=api:install_ffmpeg
+```
+
+Вызов: `ergoms video_analysis:install` или `ergoms video_analysis:install-ffmpeg`
+
+## Прокси-команды
+
+Утилита поддерживает прямую переадресацию к инструментальным утилитам:
+
+- `ergoms poetry <args>` — переадресация к Poetry
+- `ergoms api <args>` — переадресация к Django manage.py
+- `ergoms npm <args>` — переадресация к npm
+
+### Передача аргументов командам
+
+Аргументы передаются автоматически после имени команды:
+
+```bash
+# Правильно: аргументы передаются автоматически
+ergoms clear-migrations settings
+ergoms clear-migrations settings --noinput
+ergoms clear-migrations settings --database=default
+
+# Правильно: через прокси-команду api
+ergoms api clear_migrations settings
+ergoms api clear_migrations settings --noinput
+
+# Неправильно: не используй подчеркивание для команд с дефисом
+ergoms clear_migrations settings  # Ошибка: команда не найдена
+```
+
+**Важно**: Имена команд в `commands.conf` могут содержать дефисы (`clear-migrations`) или подчеркивания (`clear_migrations`). При вызове через `ergoms` используй точно такое же имя, как в определении. Для удобства можно создать алиасы с обоими вариантами написания.
+
+## Контекст выполнения команд
+
+### Poetry команды (`poetry:`)
+
+- Выполняются в корне проекта
+- Автоматически активируется виртуальное окружение из `virtual_env/python/`
+
+### API команды (`api:`)
+
+- Выполняются в директории `core/`
+- Требуют наличие виртуального окружения
+- Автоматически активируется виртуальное окружение
+- Аргументы передаются напрямую в Django manage.py
+
+**Пример работы с аргументами:**
+
+```bash
+# В commands.conf:
+clear-migrations=api:clear_migrations
+
+# При вызове:
+ergoms clear-migrations settings --noinput --database=default
+
+# Реально выполняется:
+# cd core/
+# source virtual_env/python/bin/activate  # Linux
+# api clear_migrations settings --noinput --database=default
+```
+
+### NPM команды (`npm:`)
+
+- Выполняются в корне проекта
+- Требуют наличие `package.json` в корне
+
+### Shell команды (`shell:`, `win:`, `linux:`)
+
+- Выполняются в корне проекта
+- `win:` и `linux:` автоматически фильтруются по платформе
+
+## Создание новых команд
+
+### Простые команды
+
+```conf
+# core/deployment/commands.conf
+my-command=api:my_django_command
+```
+
+### Команды с аргументами
+
+Аргументы передаются автоматически после имени команды:
+
+```conf
+# core/deployment/commands.conf
+clear-migrations=api:clear_migrations
+```
+
+При вызове `ergoms clear-migrations settings --noinput` аргументы `settings --noinput` автоматически передаются в команду `api:clear_migrations`.
+
+### Составные команды
+
+```conf
+# core/deployment/commands.conf
+migrate-all=api:makemigrations && api:migrate
+setup-full=poetry:install && npm:install && api:migrate
+```
+
+### Платформо-специфичные команды
+
+```conf
+# core/deployment/commands.conf
+show-info=win:systeminfo && linux:uname -a
+```
+
+## Обработка ошибок
+
+При создании команд всегда учитывай:
+
+- Проверку наличия виртуального окружения для `api:` команд
+- Проверку наличия `package.json` для `npm:` команд
+- Корректную обработку составных команд (при ошибке в одной команде цепочка прерывается)
+
+## Примеры использования
+
+### Базовые команды
+
+```bash
+# Установка зависимостей
+ergoms install-deps
+
+# Создание и применение миграций
+ergoms migrate-all
+
+# Запуск сервера разработки
+ergoms dev
+
+# Очистка миграций приложения (оба варианта работают)
+ergoms clear-migrations settings
+ergoms clear_migrations settings
+ergoms clear-migrations settings --noinput
+```
+
+### Прокси-команды
+
+```bash
+# Прямой доступ к Poetry
+ergoms poetry install
+ergoms poetry add package-name
+
+# Прямой доступ к Django manage.py
+ergoms api migrate
+ergoms api makemigrations
+ergoms api clear_migrations settings
+
+# Прямой доступ к npm
+ergoms npm install
+ergoms npm run build
+```
+
+### Модульные команды
+
+```bash
+# Команды модуля video_analysis
+ergoms video_analysis:install
+ergoms video_analysis:install-ffmpeg
+```
+
+## Важные ограничения
+
+1. **Имена команд**: Используй kebab-case для имён команд (`clear-migrations`, `migrate-all`)
+2. **Аргументы**: Аргументы передаются автоматически, не нужно их указывать в определении команды
+3. **Составные команды**: Используй `&&` для объединения команд, при ошибке цепочка прерывается
+4. **Платформо-специфичные команды**: Используй `win:` и `linux:` для команд, специфичных для платформы
+5. **Модульные команды**: Всегда создавай `ergoms.conf` в корне модуля для модульных команд
+
+## Отладка команд
+
+Если команда не работает:
+
+1. **Проверь определение команды**: Убедись, что команда определена в `commands.conf` или `modules/*/ergoms.conf`
+2. **Проверь синтаксис**: Убедись, что используется правильный префикс типа (`api:`, `poetry:`, `npm:`, и т.д.)
+3. **Проверь имя команды**: Используй точно такое же имя при вызове, как в определении (с дефисами или подчеркиваниями)
+4. **Проверь аргументы**: Аргументы передаются автоматически, используй `ergoms api <command> <args>` для прямого вызова и проверки
+5. **Проверь загрузку команд**: Выполни `ergoms help` для просмотра всех доступных команд
+6. **Проверь логи**: При ошибках проверь вывод команды и логи выполнения
+
+### Примеры отладки
+
+```bash
+# Проверка доступных команд
+ergoms help
+
+# Прямой вызов через прокси-команду api (обходит систему команд)
+ergoms api clear_migrations settings
+
+# Проверка определения команды в commands.conf
+cat core/deployment/commands.conf | grep clear-migrations
+```
+
+## Лучшие практики
+
+1. **Именование**: Используй понятные имена команд в стиле kebab-case
+2. **Документация**: Добавляй комментарии в `commands.conf` для описания назначения команды
+3. **Модульность**: Выноси модульные команды в `modules/*/ergoms.conf`
+4. **Обработка ошибок**: Всегда проверяй наличие зависимостей перед выполнением команды
+5. **Кроссплатформенность**: Используй `win:` и `linux:` для платформо-специфичных команд
