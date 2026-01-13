@@ -156,13 +156,6 @@
 	update = merge
 	ignore = all
 
-[submodule "modules/tasks"]
-	path = modules/tasks
-	url = https://github.com/SKB-AI/ergo_ms_tasks.git
-	branch = dev
-	update = merge
-	ignore = all
-	
 [submodule "modules/competence_core"]
 	path = modules/competence_core
 	url = https://github.com/Wyaro/ergo_ms_competence_core
@@ -173,6 +166,13 @@
 [submodule "modules/projects"]
 	path = modules/projects
 	url = https://github.com/SKB-AI/ergo_ms_projects.git
+	branch = dev
+	update = merge
+	ignore = all
+	
+[submodule "modules/tasks"]
+	path = modules/tasks
+	url = https://github.com/SKB-AI/ergo_ms_tasks.git
 	branch = dev
 	update = merge
 	ignore = all
