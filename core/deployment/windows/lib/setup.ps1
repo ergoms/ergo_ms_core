@@ -113,7 +113,6 @@ function Setup-FullSystem {
     
     # Other configuration files - full copy
     $configFiles = @(
-        @{Source = "menu-order-config.json.example"; Target = "menu-order-config.json"},
         @{Source = "celery_workers.yaml.example"; Target = "celery_workers.yaml"},
         @{Source = ".env.example"; Target = ".env"}
     )

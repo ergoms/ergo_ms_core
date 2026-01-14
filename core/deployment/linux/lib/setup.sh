@@ -80,7 +80,6 @@ setup_full_system() {
   
   # Other configuration files - full copy
   local config_files=(
-    "menu-order-config.json.example:menu-order-config.json"
     "celery_workers.yaml.example:celery_workers.yaml"
     ".env.example:.env"
   )
