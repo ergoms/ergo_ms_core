@@ -1,0 +1,124 @@
+# КРИТИЧЕСКИ ВАЖНО: Правила проверки прав для маршрутов (Client)
+
+## Архитектура системы
+
+Система проверки прав для маршрутов на клиенте построена на модульном принципе:
+- Каждый модуль определяет свои правила в файле `permission-rules.js`
+- Ядро автоматически собирает все правила через `PermissionRulesManager`
+- Правила применяются в `routers.js` через `beforeEach` guard
+
+## Структура файла permission-rules.js
+
+Каждый модуль может иметь файл `modules/<имя_модуля>/client/js/permission-rules.js`:
+
+```javascript
+/**
+ * Правила проверки прав для модуля <имя_модуля>.
+ */
+export default [
+  {
+    match: (to) => 
+      to.name?.toString().startsWith('RouteName') ||
+      to.path?.startsWith('/path/prefix'),
+    module: '<имя_модуля>',
+    permissions: ['permission_key_1', 'permission_key_2'],
+    title: 'Заголовок сообщения об ограничении',
+    message: 'Текст сообщения об ограничении доступа.',
+  },
+]
+```
+
+## Обязательные поля правила
+
+- `match` (Function) - функция проверки соответствия маршрута, принимает объект `to` (Vue Router route object)
+- `module` (String) - имя модуля для проверки прав (должно совпадать с `module_name` в API permissions)
+- `permissions` (Array<String>) - массив ключей прав (достаточно одного для доступа)
+- `title` (String) - заголовок сообщения при отказе в доступе
+- `message` (String) - текст сообщения при отказе в доступе
+
+## Логика проверки
+
+1. При переходе на маршрут система проходит по всем правилам
+2. Для каждого правила вызывается функция `match(to)`
+3. Если `match` вернул `true`, проверяются права через `hasAnyModulePermission(module, permissions)`
+4. Если у пользователя нет ни одного из указанных прав - доступ запрещается
+5. Если правило не сработало или права есть - переход разрешается
+
+## Примеры match функций
+
+```javascript
+// По имени маршрута
+match: (to) => to.name?.toString().startsWith('ProjectsPage')
+
+// По пути
+match: (to) => to.path?.startsWith('/crm/projects')
+
+// Комбинированная проверка
+match: (to) => 
+  to.name?.toString().startsWith('ProjectsPage') ||
+  to.path?.startsWith('/crm/projects')
+
+// С учетом meta
+match: (to) => 
+  to.path?.startsWith('/admin') &&
+  to.meta?.requiresAdmin === true
+
+// Исключение определенных маршрутов
+match: (to) => 
+  to.path?.startsWith('/projects') &&
+  to.meta?.requiresAdmin !== true
+```
+
+## Связь с API permissions
+
+Ключи прав в `permissions` должны соответствовать ключам из `modules/<имя_модуля>/api/permissions.py`:
+
+```python
+# API (permissions.py)
+MODULE_NAME = "projects"
+PROJECT_VIEW = "project_view"
+PROJECT_MANAGE = "project_manage"
+```
+
+```javascript
+// Client (permission-rules.js)
+{
+  module: 'projects',
+  permissions: ['project_view', 'project_manage'],
+  // ...
+}
+```
+
+## Автоматическое обнаружение
+
+Система автоматически загружает все файлы `permission-rules.js` из:
+- `core/client/src/core/**/js/permission-rules.js` - правила ядра
+- `modules/*/client/js/permission-rules.js` - правила модулей
+
+Не нужно регистрировать правила вручную - система делает это автоматически через `ModuleLoader`.
+
+## Использование в коде
+
+```javascript
+// Получить все правила
+import { getPermissionRules } from '@/modules/index.js'
+const rules = await getPermissionRules()
+
+// Получить менеджер напрямую
+import { moduleManager } from '@/modules/index.js'
+const rules = await moduleManager.getPermissionRules()
+
+// Найти правило для маршрута
+const matchingRule = moduleManager.permissionRules.findMatchingRule(to)
+
+// Получить правила конкретного модуля
+const projectRules = moduleManager.permissionRules.getRulesByModule('projects')
+```
+
+## Важные ограничения
+
+- Файл `permission-rules.js` должен находиться строго в `modules/<имя_модуля>/client/js/`
+- Экспорт должен быть `export default [...]` (массив правил)
+- Функция `match` должна быть синхронной и возвращать boolean
+- Ключи прав должны совпадать с ключами в API модуля
+- Имя модуля в `module` должно совпадать с `MODULE_NAME` в API permissions
