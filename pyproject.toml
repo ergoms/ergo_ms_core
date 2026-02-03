@@ -92,6 +92,8 @@ pypdf2 = "^3.0.1"
 pdfplumber = "^0.11.8"
 docx2pdf = "^0.1.8"
 cryptography = "^46.0.3"
+mammoth = "^1.11.0"
+html2text = "^2025.4.15"
 
 [tool.poetry.scripts]
 api = "commands.__main__:main"
