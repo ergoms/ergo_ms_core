@@ -94,6 +94,8 @@ docx2pdf = "^0.1.8"
 cryptography = "^46.0.3"
 mammoth = "^1.11.0"
 html2text = "^2025.4.15"
+sentence-transformers = "^5.2.2"
+tf-keras = "^2.20.1"
 
 [tool.poetry.scripts]
 api = "commands.__main__:main"
