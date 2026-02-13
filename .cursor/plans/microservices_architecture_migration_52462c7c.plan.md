@@ -24,7 +24,7 @@ todos:
     content: "Фаза 6: ERGO_MODE=microservice для запуска одного модуля на отдельном сервере (свой Django + свой Vite)"
     status: pending
   - id: phase-7-remote-modules
-    content: "Фаза 7: Поддержка удалённых модулей -- модуль на другом сервере регистрируется через .env, core проксирует API и подгружает frontend"
+    content: "Фаза 7: Поддержка удалённых модулей -- модуль при старте сам регистрируется в core через API, core хранит в БД, heartbeat для отслеживания"
     status: pending
   - id: phase-8-redis
     content: "Фаза 8: Замена database-backed Celery broker на Redis"
@@ -502,146 +502,276 @@ class ModuleDiscoverer:
 
 ---
 
-## Фаза 7: Удалённые модули (модуль на другом сервере)
+## Фаза 7: Удалённые модули (саморегистрация)
 
 **Сценарий**: `video_analysis` работает на GPU-сервере (Server B), а `core` + `crm` на основном сервере (Server A). Пользователь открывает один UI и видит оба модуля.
 
+**Принцип**: Core НЕ содержит никаких конфигов с именами модулей. Модуль при старте **сам регистрируется** в core через API. Core хранит реестр в БД. Если модуль упал -- он исчезает из реестра.
+
 ```mermaid
-graph LR
-  subgraph serverA [Server A - Основной]
-    coreApiA["core/api<br/>:8000"]
-    coreClientA["core/client<br/>:8001"]
-    crmA["modules/crm"]
+sequenceDiagram
+  participant ModB as Server B: video_analysis
+  participant CoreAPI as Server A: core/api
+  participant CoreDB as Server A: БД
+  participant Browser as Браузер
+
+  Note over ModB: Модуль стартует
+  ModB->>CoreAPI: POST /api/modules/register/<br/>name, api_url, client_url, secret
+  CoreAPI->>CoreDB: INSERT remote_module
+
+  loop Каждые 30 сек
+    ModB->>CoreAPI: POST /api/modules/heartbeat/<br/>name, secret
+    CoreAPI->>CoreDB: UPDATE last_seen
   end
-  
-  subgraph serverB ["Server B - GPU"]
-    vaApi["video_analysis/api<br/>:8000"]
-    vaClient["video_analysis/client<br/>:8001"]
-  end
-  
-  user["Пользователь<br/>браузер"]
-  
-  user -->|"UI"| coreClientA
-  coreApiA -->|"proxy /api/video_analysis/*"| vaApi
-  coreClientA -->|"загрузка JS модуля"| vaClient
+
+  Browser->>CoreAPI: GET /api/modules/available/
+  CoreAPI->>CoreDB: SELECT local + remote modules
+  CoreAPI->>Browser: [{crm, local}, {video_analysis, remote, client_url}]
+
+  Browser->>ModB: dynamic import JS (routes, endpoints)
+  Browser->>CoreAPI: API-запросы /api/remote/video_analysis/*
+  CoreAPI->>ModB: proxy request
+  ModB->>CoreAPI: response
+  CoreAPI->>Browser: response
+
+  Note over ModB: Модуль остановлен
+  Note over CoreAPI: heartbeat timeout (60s)<br/>модуль удалён из реестра
 ```
 
-### 7.1. Регистрация удалённого модуля через .env
+### 7.1. Django-модель для реестра удалённых модулей
 
-Удалённые модули описываются в `.env` основного сервера (или в отдельном `remote-modules.yaml`). Core не знает имён модулей заранее -- он читает конфиг при старте:
-
-```env
-# .env на Server A
-# Формат: REMOTE_MODULE_<NAME>_URL=<base_url>
-REMOTE_MODULE_VIDEO_ANALYSIS_API=http://192.168.1.50:8000
-REMOTE_MODULE_VIDEO_ANALYSIS_CLIENT=http://192.168.1.50:8001
-```
-
-Или через файл `remote-modules.yaml` (не в git, в `.gitignore`):
-
-```yaml
-# remote-modules.yaml -- создаётся при деплое, НЕ хранится в git
-remote_modules:
-  video_analysis:
-    api_url: "http://192.168.1.50:8000"
-    client_url: "http://192.168.1.50:8001"
-  porosity_analysis:
-    api_url: "http://192.168.1.51:8000"
-    client_url: "http://192.168.1.51:8001"
-```
-
-### 7.2. Backend: API-прокси для удалённых модулей
-
-Core API проксирует запросы к удалённым модулям. Пользователь всегда обращается к одному серверу (Server A), а core маршрутизирует:
+Модель в core -- **универсальная**, без знания о конкретных модулях:
 
 ```python
-# core/api/src/core/utils/remote_proxy.py
-import httpx
-import yaml
-from pathlib import Path
+# core/api/src/core/utils/remote_modules/models.py
+from django.db import models
 
-class RemoteModuleRegistry:
-    """Реестр удалённых модулей, загружается из remote-modules.yaml или .env."""
+class RemoteModule(models.Model):
+    """Удалённый модуль, зарегистрированный через API."""
+    name = models.CharField(max_length=100, unique=True)
+    api_url = models.URLField(help_text="URL API удалённого модуля")
+    client_url = models.URLField(help_text="URL клиента удалённого модуля")
+    secret = models.CharField(max_length=255, help_text="Секрет для heartbeat/deregister")
+    last_heartbeat = models.DateTimeField(auto_now=True)
+    registered_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+    
+    HEARTBEAT_TIMEOUT = 60  # секунд
+    
+    @classmethod
+    def cleanup_stale(cls):
+        """Удаляет модули, не приславшие heartbeat."""
+        from django.utils import timezone
+        from datetime import timedelta
+        threshold = timezone.now() - timedelta(seconds=cls.HEARTBEAT_TIMEOUT)
+        cls.objects.filter(last_heartbeat__lt=threshold).update(is_active=False)
+    
+    class Meta:
+        db_table = 'core_remote_modules'
+```
+
+### 7.2. API для саморегистрации
+
+```python
+# core/api/src/core/utils/remote_modules/views.py
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from .models import RemoteModule
+
+class ModuleRegisterView(APIView):
+    """Модуль вызывает этот endpoint при старте."""
+    authentication_classes = []  # Аутентификация через secret
+    
+    def post(self, request):
+        name = request.data.get('name')
+        api_url = request.data.get('api_url')
+        client_url = request.data.get('client_url')
+        secret = request.data.get('secret')
+        
+        module, created = RemoteModule.objects.update_or_create(
+            name=name,
+            defaults={
+                'api_url': api_url,
+                'client_url': client_url,
+                'secret': secret,
+                'is_active': True,
+            }
+        )
+        return Response({'status': 'registered', 'created': created})
+
+
+class ModuleHeartbeatView(APIView):
+    """Модуль вызывает каждые 30 сек для подтверждения работоспособности."""
+    authentication_classes = []
+    
+    def post(self, request):
+        name = request.data.get('name')
+        secret = request.data.get('secret')
+        
+        updated = RemoteModule.objects.filter(
+            name=name, secret=secret
+        ).update(last_heartbeat=timezone.now(), is_active=True)
+        
+        if not updated:
+            return Response({'error': 'Unknown module'}, status=404)
+        return Response({'status': 'ok'})
+
+
+class ModuleDeregisterView(APIView):
+    """Модуль вызывает при остановке (graceful shutdown)."""
+    authentication_classes = []
+    
+    def post(self, request):
+        name = request.data.get('name')
+        secret = request.data.get('secret')
+        RemoteModule.objects.filter(name=name, secret=secret).delete()
+        return Response({'status': 'deregistered'})
+```
+
+URL-маршруты:
+```python
+# core/api/src/core/utils/remote_modules/urls.py
+urlpatterns = [
+    path('register/', ModuleRegisterView.as_view()),
+    path('heartbeat/', ModuleHeartbeatView.as_view()),
+    path('deregister/', ModuleDeregisterView.as_view()),
+]
+```
+
+### 7.3. Клиент саморегистрации (на стороне модуля)
+
+Каждый модуль при старте в режиме `microservice` автоматически регистрируется в core:
+
+```python
+# core/api/src/core/utils/remote_modules/client.py
+import threading
+import time
+import requests
+import os
+import secrets
+
+class ModuleSelfRegistrar:
+    """Запускается на стороне удалённого модуля."""
     
     def __init__(self):
-        self._modules = {}
-        self._load_config()
+        self.core_url = os.environ.get('ERGO_CORE_URL')  # URL основного сервера
+        self.module_name = os.environ.get('ERGO_MODULE')
+        self.api_url = os.environ.get('ERGO_SELF_API_URL')  # Свой внешний URL
+        self.client_url = os.environ.get('ERGO_SELF_CLIENT_URL')
+        self.secret = os.environ.get('ERGO_MODULE_SECRET', secrets.token_hex(32))
+        self._running = False
     
-    def _load_config(self):
-        config_path = Path(settings.BASE_DIR).parent / 'remote-modules.yaml'
-        if config_path.exists():
-            with open(config_path) as f:
-                data = yaml.safe_load(f)
-                self._modules = data.get('remote_modules', {})
+    def register(self):
+        """Регистрация при старте."""
+        if not self.core_url or not self.module_name:
+            return
+        requests.post(f"{self.core_url}/api/modules/register/", json={
+            'name': self.module_name,
+            'api_url': self.api_url,
+            'client_url': self.client_url,
+            'secret': self.secret,
+        })
     
-    def get_api_url(self, module_name: str) -> str | None:
-        mod = self._modules.get(module_name)
-        return mod['api_url'] if mod else None
+    def deregister(self):
+        """Дерегистрация при остановке."""
+        requests.post(f"{self.core_url}/api/modules/deregister/", json={
+            'name': self.module_name,
+            'secret': self.secret,
+        })
     
-    def get_client_url(self, module_name: str) -> str | None:
-        mod = self._modules.get(module_name)
-        return mod['client_url'] if mod else None
+    def start_heartbeat(self, interval=30):
+        """Запуск фонового потока heartbeat."""
+        self._running = True
+        def _heartbeat_loop():
+            while self._running:
+                try:
+                    requests.post(f"{self.core_url}/api/modules/heartbeat/", json={
+                        'name': self.module_name,
+                        'secret': self.secret,
+                    })
+                except Exception:
+                    pass
+                time.sleep(interval)
+        
+        thread = threading.Thread(target=_heartbeat_loop, daemon=True)
+        thread.start()
     
-    def list_remote_modules(self) -> list[str]:
-        return list(self._modules.keys())
+    def stop(self):
+        self._running = False
+        self.deregister()
 ```
 
-Django view для проксирования:
+Подключается в `apps.py` модуля (или в `ready()` при `ERGO_MODE=microservice`):
 
 ```python
-# core/api/src/core/utils/views.py
+# Запуск при старте Django
+class VideoAnalysisConfig(AppConfig):
+    def ready(self):
+        if os.environ.get('ERGO_MODE') == 'microservice':
+            from core.utils.remote_modules.client import ModuleSelfRegistrar
+            registrar = ModuleSelfRegistrar()
+            registrar.register()
+            registrar.start_heartbeat()
+            
+            import atexit
+            atexit.register(registrar.stop)
+```
+
+### 7.4. Backend: API-прокси для удалённых модулей
+
+Core проксирует API-запросы к зарегистрированным модулям. Пользователь всегда обращается к одному серверу:
+
+```python
+# core/api/src/core/utils/remote_modules/proxy.py
+import httpx
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from .models import RemoteModule
+
 class RemoteModuleProxyView(APIView):
     """Проксирует API-запросы к удалённому модулю."""
     
     async def dispatch(self, request, module_name, path, *args, **kwargs):
-        registry = RemoteModuleRegistry()
-        api_url = registry.get_api_url(module_name)
-        if not api_url:
-            return Response({'error': 'Module not found'}, status=404)
+        try:
+            module = await RemoteModule.objects.aget(name=module_name, is_active=True)
+        except RemoteModule.DoesNotExist:
+            return Response({'error': 'Module not available'}, status=404)
         
-        # Проксируем запрос на удалённый сервер
         async with httpx.AsyncClient() as client:
             resp = await client.request(
                 method=request.method,
-                url=f"{api_url}/{path}",
+                url=f"{module.api_url}/{path}",
                 headers={k: v for k, v in request.headers.items() if k != 'Host'},
                 content=request.body,
             )
             return Response(resp.json(), status=resp.status_code)
 ```
 
-URL-маршрут:
-```python
-# core/api/src/config/urls.py
-urlpatterns += [
-    path('api/remote/<str:module_name>/<path:path>', RemoteModuleProxyView.as_view()),
-]
-```
+### 7.5. Frontend: загрузка UI удалённого модуля
 
-### 7.3. Frontend: загрузка UI удалённого модуля
-
-`ModuleLoader.js` должен уметь загружать модули не только с локального диска, но и с удалённого сервера.
-
-**Шаг 1**: API-эндпоинт отдаёт список ВСЕХ модулей (локальных + удалённых):
+**Шаг 1**: API-эндпоинт отдаёт список ВСЕХ модулей (локальных + зарегистрированных удалённых):
 
 ```python
 class AvailableModulesView(APIView):
     def get(self, request):
+        # Очищаем устаревшие модули
+        RemoteModule.cleanup_stale()
+        
         # Локальные модули (на диске)
         discoverer = ModuleDiscoverer()
         local = discoverer.discover_client_route_modules()
         
-        # Удалённые модули (из remote-modules.yaml)
-        registry = RemoteModuleRegistry()
+        # Удалённые модули (из БД -- зарегистрированные)
+        remote = RemoteModule.objects.filter(is_active=True)
         
         modules = []
         for key, path in local.items():
             modules.append({'name': key, 'type': 'local'})
-        for name in registry.list_remote_modules():
+        for mod in remote:
             modules.append({
-                'name': name,
+                'name': mod.name,
                 'type': 'remote',
-                'client_url': registry.get_client_url(name),
+                'client_url': mod.client_url,
             })
         
         return Response({'modules': modules})
@@ -652,7 +782,6 @@ class AvailableModulesView(APIView):
 ```javascript
 // ModuleLoader.js
 async loadRemoteModule(moduleInfo) {
-  // moduleInfo = { name: 'video_analysis', type: 'remote', client_url: 'http://192.168.1.50:8001' }
   const baseUrl = moduleInfo.client_url
   
   const routes = await import(/* @vite-ignore */ `${baseUrl}/modules/${moduleInfo.name}/client/js/routes.js`)
@@ -665,49 +794,41 @@ async loadRemoteModule(moduleInfo) {
 }
 ```
 
-**Шаг 3**: Настройка CORS на удалённом сервере (Server B):
+### 7.6. Настройка удалённого сервера
+
+На Server B:
+
+```bash
+# Server B -- установка
+git clone <root-repo-url> ergo_ms_core
+cd ergo_ms_core && poetry install
+cd modules/ && git clone <video_analysis_repo> video_analysis
+ergoms install-modules
+```
 
 ```env
-# .env на Server B (video_analysis)
-API_ALLOWED_HOSTS=localhost,192.168.1.50
+# .env на Server B
+ERGO_MODE=microservice
+ERGO_MODULE=video_analysis
+ERGO_CORE_URL=http://192.168.1.1:8000
+ERGO_SELF_API_URL=http://192.168.1.50:8000
+ERGO_SELF_CLIENT_URL=http://192.168.1.50:8001
 CORS_ALLOWED_ORIGINS=http://192.168.1.1:8001
 ```
 
-### 7.4. Удалённый сервер: настройка модуля
-
-На Server B устанавливается core + один модуль:
-
 ```bash
-# Server B
-git clone <root-repo-url> ergo_ms_core
-cd ergo_ms_core
-
-# Установить core
-poetry install
-
-# Клонировать только нужный модуль
-cd modules/
-git clone <video_analysis_repo> video_analysis
-
-# Установить зависимости модуля
-ergoms install-modules
-
-# Запустить в режиме microservice
-export ERGO_MODE=microservice
-export ERGO_MODULE=video_analysis
-ergoms dev           # API на :8000
+ergoms dev           # API на :8000, автоматически регистрируется в core
 ergoms start-client  # Client на :8001
 ```
 
-### 7.5. Схема взаимодействия
+### 7.7. Что обеспечивает Zero-Knowledge
 
-Пользователь работает с одним URL (Server A). Core на Server A:
-- Отдаёт **свой** UI (core + локальные модули)
-- При инициализации frontend вызывает `/api/utils/available-modules/`
-- Получает список `[{crm, local}, {video_analysis, remote, http://...}]`
-- Для `crm` -- загружает JS локально
-- Для `video_analysis` -- загружает JS с Server B
-- API-запросы модуля `video_analysis` проксируются через core на Server B
+- Core **код** не содержит имён модулей -- только универсальную модель `RemoteModule`
+- Core **конфиги** (.env, yaml) не содержат имён модулей
+- Core **git** не содержит ссылок на модули
+- Реестр живёт **в БД** и заполняется **самими модулями** при старте
+- Если модуль остановлен -- он исчезает через 60 секунд (heartbeat timeout)
+- Администратор Server A не обязан знать, какие модули зарегистрируются
 
 ---
 
