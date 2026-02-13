@@ -1,186 +1,206 @@
 ---
 name: Microservices Architecture Migration
-overview: "Поэтапная миграция системы ERGO MS из модульного монолита в микросервисную архитектуру: разделение зависимостей (pyproject.toml / package.json), контейнеризация, выделение модулей в автономные сервисы с собственными процессами, базами данных и API Gateway."
+overview: "Plugin-архитектура с полной изоляцией модулей: ядро не содержит никакой информации о модулях, модуль -- это папка, которая автоматически подхватывается при наличии на диске. Каждый модуль автономен по зависимостям, сборке, деплою."
 todos:
-  - id: phase-1-core-sdk
-    content: "Фаза 1.1: Выделить core/api в отдельный пакет ergo-core-sdk с собственным pyproject.toml (только core-зависимости: Django, DRF, Celery, psycopg2, channels)"
+  - id: phase-1-no-submodules
+    content: "Фаза 1: Удалить .gitmodules полностью, отказаться от git submodules. Core-компоненты включить в основной репо, modules/ в .gitignore"
     status: pending
-  - id: phase-1-module-pyproject
-    content: "Фаза 1.2: Создать pyproject.toml для каждого модуля (modules/*/pyproject.toml) с зависимостью на ergo-core-sdk и специфичными для модуля пакетами"
+  - id: phase-2-core-pyproject
+    content: "Фаза 2.1: Очистить корневой pyproject.toml -- оставить только core-зависимости, убрать ВСЕ модуль-специфичные пакеты"
     status: pending
-  - id: phase-1-root-meta
-    content: "Фаза 1.3: Преобразовать корневой pyproject.toml в мета-пакет с optional extras для каждого модуля"
+  - id: phase-2-module-pyproject
+    content: "Фаза 2.2: Создать pyproject.toml в каждом модуле со своими зависимостями + скрипт auto-install"
     status: pending
-  - id: phase-4-ergo-mode
-    content: "Фаза 4: Добавить ERGO_MODE=monolith|microservice в ModuleDiscoverer для изолированного запуска одного модуля"
+  - id: phase-3-module-install-hook
+    content: "Фаза 3: Добавить хук автоустановки зависимостей модуля в ModuleDiscoverer / ergoms CLI"
     status: pending
-  - id: phase-3-dockerfiles
-    content: "Фаза 3: Создать Dockerfile для core и каждого модуля + docker-compose.yml с Traefik API Gateway"
+  - id: phase-4-frontend-dynamic
+    content: "Фаза 4: Перевести frontend на динамическую загрузку модулей (runtime вместо build-time glob)"
     status: pending
-  - id: phase-5-redis
-    content: "Фаза 5.1: Заменить SQLAlchemy-based Celery broker на Redis"
+  - id: phase-5-module-packagejson
+    content: "Фаза 5: Каждый модуль получает реальный package.json с зависимостями + auto-install при обнаружении"
     status: pending
-  - id: phase-2-frontend
-    content: "Фаза 2: Заполнить package.json модулей реальными зависимостями, настроить peerDependencies на core"
+  - id: phase-6-ergo-mode
+    content: "Фаза 6: ERGO_MODE=microservice для запуска одного модуля на отдельном сервере (свой Django + свой Vite)"
     status: pending
-  - id: phase-5-service-client
-    content: "Фаза 5.2: Создать ServiceClient для межсервисных REST-вызовов через API Gateway"
+  - id: phase-7-remote-modules
+    content: "Фаза 7: Поддержка удалённых модулей -- модуль на другом сервере регистрируется через .env, core проксирует API и подгружает frontend"
     status: pending
-  - id: phase-6-microfrontends
-    content: "Фаза 6: Настроить Vite Module Federation для независимой сборки frontend-модулей"
+  - id: phase-8-redis
+    content: "Фаза 8: Замена database-backed Celery broker на Redis"
     status: pending
 isProject: false
 ---
 
-# Миграция ERGO MS в микросервисную архитектуру
+# Plugin-архитектура ERGO MS с конфиденциальностью модулей
 
-## Текущее состояние: диагностика проблем
+## Главный принцип: Zero-Knowledge Core
 
-Система ERGO MS -- это **модульный монолит** с хорошими границами модулей (git submodules, convention-based auto-discovery), но с критическими архитектурными проблемами:
-
-```mermaid
-graph TB
-  subgraph currentState [Текущая архитектура - Модульный монолит]
-    rootPyproject["pyproject.toml<br/>97 зависимостей"]
-    rootPackageJson["package.json<br/>npm workspaces"]
-    
-    subgraph singleProcess [Единый Django процесс]
-      core_api["core/api"]
-      mod1["modules/porosity_analysis"]
-      mod2["modules/video_analysis"]
-      mod3["modules/learning_analytics"]
-      modN["...18+ модулей"]
-    end
-    
-    subgraph singleVite [Единая Vite сборка]
-      core_client["core/client"]
-      mod1_client["modules/*/client"]
-    end
-    
-    singleDB[("PostgreSQL<br/>Единая БД")]
-    celeryAll["Celery Worker ALL<br/>Все очереди"]
-  end
-  
-  rootPyproject --> singleProcess
-  rootPackageJson --> singleVite
-  singleProcess --> singleDB
-  singleProcess --> celeryAll
-```
-
-
-
-### Проблема 1: Единый `pyproject.toml` -- "God Dependency File"
-
-Файл [pyproject.toml](pyproject.toml) содержит **97 зависимостей для всех модулей**, включая:
-
-- torch + CUDA (3+ ГБ) -- нужен только `video_analysis`, `porosity_analysis`
-- tensorflow (~1 ГБ) -- нужен только для ML-модулей
-- vosk, moviepy, opencv -- нужен только `video_analysis`
-- yfinance, feedparser -- нужен только `assets_analysis`
-- mysqlclient, pyodbc, pymssql -- нужны только модулям с внешними БД
-
-**Последствие**: установка зависимостей на сервер для одного модуля тянет за собой ВСЕ зависимости всех модулей (~15+ ГБ).
-
-### Проблема 2: Единый `package.json` с пустыми модулями
-
-Файл [package.json](package.json) определяет npm workspaces, но модули (например `modules/learning_analytics/client/package.json`) имеют **пустые зависимости** и полностью зависят от core/client. Невозможно собрать и задеплоить модуль отдельно.
-
-### Проблема 3: Единый Django процесс
-
-`ModuleDiscoverer` из [auto_config.py](core/api/src/core/utils/auto_api/auto_config.py) загружает ВСЕ модули в единый INSTALLED_APPS. Падение одного модуля роняет весь сервер. Масштабирование невозможно -- нельзя запустить `video_analysis` на GPU-сервере, а `crm` -- на обычном.
-
-### Проблема 4: Единый Celery Worker
-
-`celery_workers.yaml` определяет один worker `all` с 8 потоками для ВСЕХ очередей. Тяжелые ML-задачи блокируют легковесные задачи CRM/LMS.
-
-### Проблема 5: Нет контейнеризации
-
-Нет Dockerfiles, docker-compose, Kubernetes. Развертывание через NSSM/systemd не масштабируется.
-
----
-
-## Целевая архитектура
+**Ядро не знает ничего о конкретных модулях.** Ни один файл в `core/` или в корне проекта не содержит имён, зависимостей или ссылок на конкретные модули. Модуль -- это папка в `modules/`, и если она есть на диске, система её автоматически подхватывает; если нет -- система о ней не знает.
 
 ```mermaid
 graph TB
-  subgraph targetState [Целевая архитектура - Микросервисы]
-    gateway["API Gateway<br/>Traefik / Nginx"]
+  subgraph zeroKnowledge [Zero-Knowledge Core]
+    rootRepo["Root Repo<br/>pyproject.toml: ТОЛЬКО core deps<br/>БЕЗ .gitmodules<br/>modules/ в .gitignore"]
     
-    subgraph coreService [Core Service]
-      coreApi["core/api<br/>Django"]
-      corePyproject["pyproject.toml<br/>core deps only"]
-      coreDB[("core_db<br/>PostgreSQL")]
+    subgraph core [Core - не знает о модулях]
+      coreApi["core/api<br/>ModuleDiscoverer<br/>сканирует modules/"]
+      coreClient["core/client<br/>динамическая загрузка<br/>модулей в runtime"]
     end
     
-    subgraph moduleService1 [Video Analysis Service]
-      vaApi["video_analysis/api<br/>Django"]
-      vaPyproject["pyproject.toml<br/>torch, opencv, vosk"]
-      vaDB[("video_db<br/>PostgreSQL")]
-      vaWorker["Celery Worker<br/>GPU"]
+    subgraph modulesDir ["modules/ -- физическое наличие определяет доступность"]
+      modA["modules/crm/<br/>pyproject.toml<br/>package.json<br/>своя установка deps"]
+      modB["modules/video_analysis/<br/>pyproject.toml<br/>package.json<br/>своя установка deps"]
+      modGhost["??? -- модуль отсутствует<br/>система не знает о нём"]
     end
-    
-    subgraph moduleService2 [CRM Service]
-      crmApi["crm/api<br/>Django"]
-      crmPyproject["pyproject.toml<br/>lightweight"]
-      crmDB[("crm_db<br/>PostgreSQL")]
-    end
-    
-    subgraph frontendShell [Frontend Shell]
-      shell["Shell App<br/>Vue 3"]
-      mfCore["core MF"]
-      mfVA["video_analysis MF"]
-      mfCRM["crm MF"]
-    end
-    
-    broker["Redis / RabbitMQ"]
-    registry["Service Registry<br/>Consul / etcd"]
   end
   
-  gateway --> coreApi
-  gateway --> vaApi
-  gateway --> crmApi
-  shell --> gateway
-  coreApi --> broker
-  vaApi --> broker
-  vaWorker --> broker
-  coreApi --> registry
-  vaApi --> registry
-  crmApi --> registry
+  coreApi -->|"os.listdir(modules/)"| modA
+  coreApi -->|"os.listdir(modules/)"| modB
+  coreClient -->|"runtime discovery"| modA
+  coreClient -->|"runtime discovery"| modB
 ```
 
 
 
 ---
 
-## Фаза 1: Разделение зависимостей (pyproject.toml per module)
+## Диагностика текущих утечек информации о модулях
 
-**Цель**: каждый модуль объявляет свои зависимости, core становится pip-пакетом.
+Сейчас ядро "знает" о модулях в 4 местах:
 
-### 1.1. Создать `ergo-core` как устанавливаемый пакет
+### 1. `.gitmodules` -- перечисляет ВСЕ 18+ модулей по имени и URL
 
-Выделить core API utilities в пакет `ergo-core-sdk`:
+Файл [.gitmodules](.gitmodules) содержит 23 submodule (5 core + 18 модулей), включая URL каждого репозитория. Любой, кто имеет доступ к root-репозиторию, видит полный список всех модулей и их GitHub-адреса. Кроме утечки информации, git submodules создают сложности при клонировании, обновлении и работе в CI.
 
+### 2. `pyproject.toml` -- содержит зависимости ВСЕХ модулей
+
+Файл [pyproject.toml](pyproject.toml) содержит 97 зависимостей, включая модуль-специфичные:
+
+- `torch`, `torchvision`, `torchaudio` -- только video_analysis/porosity_analysis
+- `vosk`, `moviepy`, `opencv-python` -- только video_analysis
+- `yfinance`, `feedparser` -- только assets_analysis
+- `mysqlclient`, `pyodbc`, `pymssql` -- только модули с внешними БД
+
+По набору зависимостей можно восстановить, какие модули существуют.
+
+### 3. Frontend `import.meta.glob` -- сканирует в build-time
+
+Файл [ModuleLoader.js](core/client/src/modules/core/ModuleLoader.js) использует:
+
+```javascript
+modulesRoutes: import.meta.glob('../../../../../modules/*/client/js/routes.js', { eager: true })
 ```
-core/api/
-  pyproject.toml          # <-- НОВЫЙ: только core зависимости
-  src/
-    core/
-      utils/              # Shared utilities
-    config/               # Django settings
+
+Это Vite build-time glob: все найденные модули **вкомпилируются в JS-бандл**. Если на машине сборки есть все модули, то в production-бандле будут ссылки на все модули.
+
+### 4. `package.json` workspaces -- паттерн `modules/*/client`
+
+Файл [package.json](package.json) содержит:
+
+```json
+"workspaces": ["core/client", "modules/*/client"]
 ```
 
-Пример `core/api/pyproject.toml`:
+Сам паттерн безопасен (глоб), но `npm install` на машине со всеми модулями создаст записи в `node_modules` для всех.
+
+---
+
+## Фаза 1: Полный отказ от git submodules
+
+**Проблема**: `.gitmodules` перечисляет все 18+ модулей по имени и URL. Кроме того, git submodules создают сложности при клонировании, обновлении и CI.
+
+**Решение**: Удалить `.gitmodules` полностью. Core-компоненты становятся частью основного репозитория. Модули клонируются независимо.
+
+### 1.1. Поглотить core submodules в основной репозиторий
+
+Core-компоненты (`core/api`, `core/client`, `core/media_api`, `core/django`, `core/django_rest_framework`) перестают быть submodules и становятся обычными директориями в основном репозитории:
+
+```bash
+# Для каждого core-submodule:
+git rm --cached core/api
+rm -rf .git/modules/core/api
+# Затем git add core/api как обычную директорию
+git add core/api
+```
+
+После этого `.gitmodules` можно удалить полностью:
+
+```bash
+git rm .gitmodules
+```
+
+Вся история core-компонентов сохраняется в их отдельных репозиториях на GitHub, но в root-репозитории они теперь просто директории.
+
+### 1.2. Добавить `modules/` в `.gitignore`
+
+```gitignore
+# Модули подключаются отдельно, клонируются независимо
+modules/
+!modules/.gitkeep
+```
+
+Пустой `modules/.gitkeep` гарантирует, что директория существует при клонировании root-репозитория.
+
+### 1.3. Модули клонируются независимо
+
+Каждый модуль -- это отдельный git-репозиторий. Установка на конкретный сервер:
+
+```bash
+# Только авторизованные пользователи знают URL
+cd modules/
+git clone https://github.com/SKB-AI/ergo_ms_video_analysis.git video_analysis
+```
+
+Или через ergoms CLI:
+
+```bash
+ergoms install-module video_analysis --repo https://github.com/SKB-AI/ergo_ms_video_analysis.git
+```
+
+### 1.4. Приватный реестр модулей (опционально)
+
+Для управления доступом создать `modules-registry.yaml` (НЕ в root-репозитории, а на отдельном сервере/в приватном репозитории):
+
+```yaml
+# Хранится ОТДЕЛЬНО, не в core
+modules:
+  video_analysis:
+    repo: https://github.com/SKB-AI/ergo_ms_video_analysis.git
+    access_level: confidential
+    required_gpu: true
+  crm:
+    repo: https://github.com/SKB-AI/ergo_ms_crm.git
+    access_level: public
+```
+
+---
+
+## Фаза 2: Изоляция Python-зависимостей
+
+**Проблема**: единый `pyproject.toml` содержит зависимости всех модулей.
+
+### 2.1. Очистить корневой `pyproject.toml`
+
+Оставить ТОЛЬКО зависимости, необходимые для ядра:
 
 ```toml
 [tool.poetry]
-name = "ergo-core-sdk"
+name = "ergo_ms_api"
 version = "0.1.0"
-packages = [{include = "src"}]
+packages = [
+    {include = "src", from = "core/api"},
+    {include = "commands", from = "core/api"},
+    {include = "rest_framework", from = "core/django_rest_framework"},
+    {include = "django", from = "core/django"},
+    # НЕТ {include = "modules"} -- модули подключаются динамически
+]
 
 [tool.poetry.dependencies]
 python = ">=3.12,<3.13"
-django = {path = "../django", develop = true}
-djangorestframework = {path = "../django_rest_framework", develop = true}
+# --- ТОЛЬКО core-зависимости ---
+django = {path = "core/django", develop = true}
+djangorestframework = {path = "core/django_rest_framework", develop = true}
 django-cors-headers = ">=4.7.0"
 djangorestframework-simplejwt = ">=5.5.0"
 drf-yasg = ">=1.21.10"
@@ -188,268 +208,562 @@ daphne = ">=4.2.1"
 celery = ">=5.5.3"
 channels = ">=4.2.2"
 psycopg2 = ">=2.9.10"
-pyyaml = ">=6.0.2"
 django-environ = ">=0.12.0"
+pyyaml = ">=6.0.2"
+whitenoise = ">=6.9.0"
+psutil = ">=7.0.0"
+numpy = ">=2.1.3"
+pandas = ">=2.3.1"
+setuptools = ">=80.9.0"
+sqlalchemy = ">=2.0.41"
+django-celery-beat = ">=2.8.1"
+django-filter = ">=25.1"
+django-extensions = ">=4.1,<5.0"
+requests = ">=2.31.0,<3.0.0"
+# НЕТ torch, tensorflow, vosk, opencv, yfinance и т.д.
 ```
 
-### 1.2. Каждый модуль получает свой `pyproject.toml`
+### 2.2. Каждый модуль получает свой `pyproject.toml`
 
-Пример для `modules/video_analysis/pyproject.toml`:
+Пример `modules/video_analysis/pyproject.toml`:
 
 ```toml
 [tool.poetry]
-name = "ergo-video-analysis"
+name = "ergo-module-video-analysis"
 version = "0.1.0"
 packages = [{include = "api"}]
 
+[[tool.poetry.source]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+priority = "explicit"
+
 [tool.poetry.dependencies]
 python = ">=3.12,<3.13"
-ergo-core-sdk = {path = "../../core/api", develop = true}
+# Модуль-специфичные зависимости
 torch = {version = "==2.7.1+cu128", source = "pytorch-cu128"}
 torchvision = {version = "==0.22.1+cu128", source = "pytorch-cu128"}
+torchaudio = {version = "==2.7.1+cu128", source = "pytorch-cu128"}
 opencv-python = ">=4.12.0.88"
 vosk = ">=0.3.45,<0.4.0"
 moviepy = "==1.0.3"
+scikit-image = ">=0.25.2"
+
+[build-system]
+requires = ["poetry-core>=2.1.3"]
+build-backend = "poetry.core.masonry.api"
 ```
 
-### 1.3. Корневой `pyproject.toml` становится "meta-пакетом"
+### 2.3. Автоматическая установка зависимостей модуля
 
-Корневой файл остается только для полной установки (dev-режим):
+При обнаружении модуля в `modules/`, система автоматически устанавливает его зависимости.
+
+Добавить в `ergoms` CLI команду:
+
+```bash
+# Устанавливает зависимости всех найденных модулей
+ergoms install-modules
+
+# Внутренне для каждого modules/*/pyproject.toml:
+# cd modules/video_analysis && poetry install --no-root
+```
+
+Добавить в `ModuleDiscoverer` проверку:
+
+```python
+def _ensure_module_deps_installed(self, module_path: str) -> bool:
+    """Проверяет наличие pyproject.toml в модуле и устанавливает зависимости."""
+    pyproject = os.path.join(module_path, 'pyproject.toml')
+    if os.path.exists(pyproject):
+        # Проверить marker-файл .deps_installed
+        marker = os.path.join(module_path, '.deps_installed')
+        if not os.path.exists(marker):
+            logger.warning(f"Модуль {module_path} требует установки зависимостей. "
+                          f"Запустите: ergoms install-modules")
+            return False
+    return True
+```
+
+### 2.4. Добавить `modules` в Poetry path для import resolution
+
+В корневом `pyproject.toml`:
 
 ```toml
-[tool.poetry.dependencies]
-ergo-core-sdk = {path = "core/api", develop = true}
-ergo-video-analysis = {path = "modules/video_analysis", develop = true, optional = true}
-ergo-crm = {path = "modules/crm", develop = true, optional = true}
+[tool.poetry]
+packages = [
+    {include = "src", from = "core/api"},
+    {include = "commands", from = "core/api"},
+    {include = "rest_framework", from = "core/django_rest_framework"},
+    {include = "django", from = "core/django"},
+]
+# Модули НЕ перечислены -- они добавляются в sys.path динамически
+```
 
-[tool.poetry.extras]
-video = ["ergo-video-analysis"]
-crm = ["ergo-crm"]
-all = ["ergo-video-analysis", "ergo-crm", ...]
+В `settings/base.py` добавить динамическое расширение `sys.path`:
+
+```python
+import sys
+# Динамически добавлять найденные модули в Python path
+for module_dir in MODULES_DIR.iterdir():
+    if module_dir.is_dir() and (module_dir / 'api').is_dir():
+        sys.path.insert(0, str(module_dir))
 ```
 
 ---
 
-## Фаза 2: Разделение frontend зависимостей (package.json per module)
+## Фаза 3: Хук автоустановки в ergoms CLI
 
-### 2.1. Модули получают реальные зависимости
+Добавить в `core/deployment/commands.conf`:
 
-Вместо пустых `package.json`, каждый модуль объявляет свои зависимости:
+```conf
+# Установка зависимостей модулей
+install-modules=shell:python core/api/src/core/utils/module_installer.py
+```
+
+Создать `core/api/src/core/utils/module_installer.py`:
+
+```python
+"""
+Скрипт автоматической установки зависимостей модулей.
+Сканирует modules/ и для каждого модуля с pyproject.toml
+запускает poetry install.
+"""
+import os
+import subprocess
+from pathlib import Path
+
+MODULES_DIR = Path(__file__).resolve().parents[5] / 'modules'
+
+def install_module_deps():
+    for module_dir in sorted(MODULES_DIR.iterdir()):
+        if not module_dir.is_dir():
+            continue
+        pyproject = module_dir / 'pyproject.toml'
+        if pyproject.exists():
+            print(f"[MODULE] Installing deps for {module_dir.name}...")
+            subprocess.run(
+                ['poetry', 'install', '--no-root'],
+                cwd=str(module_dir),
+                check=True
+            )
+            # Создаём marker
+            (module_dir / '.deps_installed').touch()
+
+if __name__ == '__main__':
+    install_module_deps()
+```
+
+---
+
+## Фаза 4: Frontend -- динамическая загрузка модулей в runtime
+
+**Проблема**: `import.meta.glob` -- это build-time механизм Vite. Все модули, найденные на диске в момент сборки, вкомпилируются в бандл. Если на билд-сервере есть все модули, они все окажутся в JS-бандле.
+
+### 4.1. Вариант A: Сборка per-deployment (простой)
+
+Если frontend собирается на том же сервере, где он будет работать, текущий `import.meta.glob` подход уже работает корректно: он подхватит только те модули, которые физически есть в `modules/`.
+
+**Это безопасно при условии**: сборка происходит на целевом сервере или в CI-пайплайне с правильным набором модулей.
+
+### 4.2. Вариант B: Runtime Module Discovery (рекомендуемый)
+
+Заменить build-time globs на runtime API-вызов, который отдаёт список доступных модулей и их ресурсов.
+
+**Шаг 1**: Добавить API-эндпоинт в core, возвращающий список модулей:
+
+```python
+# core/api/src/core/utils/views.py
+class AvailableModulesView(APIView):
+    """Возвращает список модулей, установленных на этом сервере."""
+    
+    def get(self, request):
+        discoverer = ModuleDiscoverer()
+        modules = discoverer.discover_client_route_modules()
+        return Response({
+            'modules': [
+                {
+                    'name': key,
+                    'has_routes': True,
+                    'has_endpoints': os.path.exists(...),
+                    'has_menu': os.path.exists(...),
+                }
+                for key, path in modules.items()
+            ]
+        })
+```
+
+**Шаг 2**: В `ModuleLoader.js` заменить `import.meta.glob` для external-модулей на dynamic import:
+
+```javascript
+// БЫЛО (build-time -- все модули вкомпилированы):
+modulesRoutes: import.meta.glob('../../../../../modules/*/client/js/routes.js', { eager: true })
+
+// СТАЛО (runtime -- загружаются только модули текущего сервера):
+async loadExternalModulesRuntime() {
+  const response = await fetch('/api/utils/available-modules/')
+  const { modules } = await response.json()
+  
+  const loaded = {}
+  for (const mod of modules) {
+    if (mod.has_routes) {
+      // Dynamic import -- загружает JS модуля только если он есть
+      const routes = await import(`/modules/${mod.name}/client/js/routes.js`)
+      loaded[mod.name] = routes.default
+    }
+  }
+  return loaded
+}
+```
+
+**Шаг 3**: Настроить Vite для раздачи модульных JS-файлов как статических:
+
+```javascript
+// vite.config.js
+export default {
+  server: {
+    fs: {
+      allow: ['../../modules']  // Разрешить доступ к модулям
+    }
+  },
+  build: {
+    rollupOptions: {
+      // НЕ включать modules/ в основной бандл
+      external: [/^\/modules\//]
+    }
+  }
+}
+```
+
+### 4.3. Вариант C: Module Federation (долгосрочный)
+
+Каждый модуль собирается отдельно и публикует `remoteEntry.js`. Shell-приложение загружает модули по URL.
+
+Это самый изолированный вариант, но требует значительной переработки сборки. Рекомендуется как Фаза 6+.
+
+---
+
+## Фаза 5: Frontend -- изоляция package.json
+
+### 5.1. Реальные зависимости в модулях
+
+Модули, которые сейчас имеют пустые `package.json`, должны объявить свои зависимости:
 
 ```json
-// modules/video_analysis/client/package.json
 {
   "name": "@ergo/video-analysis-client",
   "version": "0.1.0",
-  "dependencies": {
-    "video.js": "^8.0.0"
-  },
+  "private": true,
+  "dependencies": {},
   "peerDependencies": {
     "vue": "^3.5.0",
-    "vue-router": "^4.5.0",
-    "@ergo/core-client": "workspace:*"
+    "vue-router": "^4.5.0"
   }
 }
 ```
 
-### 2.2. Core client как shared-пакет
+### 5.2. npm workspaces -- без изменений
 
-```json
-// core/client/package.json
-{
-  "name": "@ergo/core-client",
-  "exports": {
-    "./components/*": "./src/components/*",
-    "./modules/*": "./src/modules/*",
-    "./api": "./src/js/api/manager.js"
-  }
-}
+Паттерн `"workspaces": ["core/client", "modules/*/client"]` в корневом `package.json` уже безопасен -- это glob, он подхватывает только то, что есть на диске. Менять не нужно.
+
+### 5.3. Auto-install для frontend-зависимостей модулей
+
+Аналогично Python, добавить в `ergoms`:
+
+```conf
+install-modules-client=shell:node core/client/scripts/install-module-deps.js
 ```
 
 ---
 
-## Фаза 3: Контейнеризация
+## Фаза 6: ERGO_MODE для изолированного запуска
 
-### 3.1. Dockerfile для каждого сервиса
-
-Создать шаблонную структуру:
-
-```
-core/api/Dockerfile
-modules/video_analysis/Dockerfile
-modules/crm/Dockerfile
-docker-compose.yml
-docker-compose.dev.yml
-```
-
-Пример `modules/video_analysis/Dockerfile`:
-
-```dockerfile
-FROM python:3.12-slim
-WORKDIR /app
-COPY modules/video_analysis/pyproject.toml .
-RUN pip install poetry && poetry install --no-dev
-COPY core/api/src/core/utils /app/core_utils
-COPY modules/video_analysis/api /app/api
-EXPOSE 8010
-CMD ["daphne", "-b", "0.0.0.0", "-p", "8010", "config.asgi:application"]
-```
-
-### 3.2. Docker Compose для оркестрации
-
-```yaml
-# docker-compose.yml
-services:
-  traefik:
-    image: traefik:v3
-    ports: ["80:80", "443:443"]
-    
-  redis:
-    image: redis:7-alpine
-    
-  core-api:
-    build: {context: ., dockerfile: core/api/Dockerfile}
-    environment:
-      - DATABASE_URL=postgresql://...
-    labels:
-      - "traefik.http.routers.core.rule=PathPrefix(`/api/core`)"
-      
-  video-analysis:
-    build: {context: ., dockerfile: modules/video_analysis/Dockerfile}
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - capabilities: [gpu]
-    labels:
-      - "traefik.http.routers.video.rule=PathPrefix(`/api/video_analysis`)"
-      
-  video-worker:
-    build: {context: ., dockerfile: modules/video_analysis/Dockerfile}
-    command: celery -A config worker -Q video_analysis
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - capabilities: [gpu]
-```
-
----
-
-## Фаза 4: Модификация `ModuleDiscoverer` для режима микросервиса
-
-### 4.1. Режим работы: monolith vs microservice
-
-Добавить переменную окружения `ERGO_MODE=monolith|microservice`:
-
-В [auto_config.py](core/api/src/core/utils/auto_api/auto_config.py):
-
-- `monolith` -- текущее поведение (все модули в одном процессе)
-- `microservice` -- загружать только один модуль (из `ERGO_MODULE=video_analysis`)
+Модификация [auto_config.py](core/api/src/core/utils/auto_api/auto_config.py):
 
 ```python
 class ModuleDiscoverer:
     def __init__(self):
         self._cache = {}
         self._mode = os.environ.get('ERGO_MODE', 'monolith')
-        self._module = os.environ.get('ERGO_MODULE', None)
+        self._active_module = os.environ.get('ERGO_MODULE', None)
     
     def _find_modules_apps(self, modules_dir, installed_apps):
-        if self._mode == 'microservice' and self._module:
-            # Загружать только указанный модуль
-            module_path = os.path.join(modules_dir, self._module)
+        if self._mode == 'microservice' and self._active_module:
+            # Загрузить ТОЛЬКО один указанный модуль
+            module_path = os.path.join(modules_dir, self._active_module)
             if os.path.isdir(module_path):
-                self._find_apps_in_api(...)
+                api_path = os.path.join(module_path, 'api')
+                if os.path.isdir(api_path):
+                    self._find_apps_in_api(api_path, f'modules.{self._active_module}.api', installed_apps)
         else:
-            # Текущее поведение -- все модули
-            ...
+            # monolith -- текущее поведение, все модули
+            for module_name in os.listdir(modules_dir):
+                ...
 ```
-
-### 4.2. Адаптация URL routing
-
-В режиме `microservice` модуль регистрирует свои URL на корневом уровне (без префикса `modules/`), т.к. API Gateway добавит маршрутизацию.
 
 ---
 
-## Фаза 5: Межсервисная коммуникация
+## Фаза 7: Удалённые модули (модуль на другом сервере)
 
-### 5.1. Замена database-backed broker на Redis/RabbitMQ
+**Сценарий**: `video_analysis` работает на GPU-сервере (Server B), а `core` + `crm` на основном сервере (Server A). Пользователь открывает один UI и видит оба модуля.
 
-Текущий Celery использует `sqla+postgresql://` как брокер -- это неэффективно для микросервисов. Перейти на Redis:
-
-```python
-# config/settings/celery.py
-CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://redis:6379/0')
-CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://redis:6379/1')
+```mermaid
+graph LR
+  subgraph serverA [Server A - Основной]
+    coreApiA["core/api<br/>:8000"]
+    coreClientA["core/client<br/>:8001"]
+    crmA["modules/crm"]
+  end
+  
+  subgraph serverB ["Server B - GPU"]
+    vaApi["video_analysis/api<br/>:8000"]
+    vaClient["video_analysis/client<br/>:8001"]
+  end
+  
+  user["Пользователь<br/>браузер"]
+  
+  user -->|"UI"| coreClientA
+  coreApiA -->|"proxy /api/video_analysis/*"| vaApi
+  coreClientA -->|"загрузка JS модуля"| vaClient
 ```
 
-### 5.2. Межсервисные вызовы через REST API
+### 7.1. Регистрация удалённого модуля через .env
 
-Для случаев, когда модуль A вызывает модуль B, создать SDK-клиент:
+Удалённые модули описываются в `.env` основного сервера (или в отдельном `remote-modules.yaml`). Core не знает имён модулей заранее -- он читает конфиг при старте:
+
+```env
+# .env на Server A
+# Формат: REMOTE_MODULE_<NAME>_URL=<base_url>
+REMOTE_MODULE_VIDEO_ANALYSIS_API=http://192.168.1.50:8000
+REMOTE_MODULE_VIDEO_ANALYSIS_CLIENT=http://192.168.1.50:8001
+```
+
+Или через файл `remote-modules.yaml` (не в git, в `.gitignore`):
+
+```yaml
+# remote-modules.yaml -- создаётся при деплое, НЕ хранится в git
+remote_modules:
+  video_analysis:
+    api_url: "http://192.168.1.50:8000"
+    client_url: "http://192.168.1.50:8001"
+  porosity_analysis:
+    api_url: "http://192.168.1.51:8000"
+    client_url: "http://192.168.1.51:8001"
+```
+
+### 7.2. Backend: API-прокси для удалённых модулей
+
+Core API проксирует запросы к удалённым модулям. Пользователь всегда обращается к одному серверу (Server A), а core маршрутизирует:
 
 ```python
-# core/api/src/core/utils/service_client.py
-class ServiceClient:
-    def __init__(self, service_name: str):
-        self.base_url = os.environ.get(f'{service_name.upper()}_URL')
+# core/api/src/core/utils/remote_proxy.py
+import httpx
+import yaml
+from pathlib import Path
+
+class RemoteModuleRegistry:
+    """Реестр удалённых модулей, загружается из remote-modules.yaml или .env."""
     
-    async def call(self, endpoint: str, method='GET', data=None):
-        # HTTP вызов к другому сервису через API Gateway
-        ...
+    def __init__(self):
+        self._modules = {}
+        self._load_config()
+    
+    def _load_config(self):
+        config_path = Path(settings.BASE_DIR).parent / 'remote-modules.yaml'
+        if config_path.exists():
+            with open(config_path) as f:
+                data = yaml.safe_load(f)
+                self._modules = data.get('remote_modules', {})
+    
+    def get_api_url(self, module_name: str) -> str | None:
+        mod = self._modules.get(module_name)
+        return mod['api_url'] if mod else None
+    
+    def get_client_url(self, module_name: str) -> str | None:
+        mod = self._modules.get(module_name)
+        return mod['client_url'] if mod else None
+    
+    def list_remote_modules(self) -> list[str]:
+        return list(self._modules.keys())
 ```
 
----
+Django view для проксирования:
 
-## Фаза 6: Micro-frontends (опционально, долгосрочная)
+```python
+# core/api/src/core/utils/views.py
+class RemoteModuleProxyView(APIView):
+    """Проксирует API-запросы к удалённому модулю."""
+    
+    async def dispatch(self, request, module_name, path, *args, **kwargs):
+        registry = RemoteModuleRegistry()
+        api_url = registry.get_api_url(module_name)
+        if not api_url:
+            return Response({'error': 'Module not found'}, status=404)
+        
+        # Проксируем запрос на удалённый сервер
+        async with httpx.AsyncClient() as client:
+            resp = await client.request(
+                method=request.method,
+                url=f"{api_url}/{path}",
+                headers={k: v for k, v in request.headers.items() if k != 'Host'},
+                content=request.body,
+            )
+            return Response(resp.json(), status=resp.status_code)
+```
 
-### 6.1. Module Federation через Vite
+URL-маршрут:
+```python
+# core/api/src/config/urls.py
+urlpatterns += [
+    path('api/remote/<str:module_name>/<path:path>', RemoteModuleProxyView.as_view()),
+]
+```
 
-Каждый модуль собирается как remote-приложение, shell-app загружает их динамически. Это замена текущего `import.meta.glob` подхода.
+### 7.3. Frontend: загрузка UI удалённого модуля
 
-Использовать `@originjs/vite-plugin-federation`:
+`ModuleLoader.js` должен уметь загружать модули не только с локального диска, но и с удалённого сервера.
+
+**Шаг 1**: API-эндпоинт отдаёт список ВСЕХ модулей (локальных + удалённых):
+
+```python
+class AvailableModulesView(APIView):
+    def get(self, request):
+        # Локальные модули (на диске)
+        discoverer = ModuleDiscoverer()
+        local = discoverer.discover_client_route_modules()
+        
+        # Удалённые модули (из remote-modules.yaml)
+        registry = RemoteModuleRegistry()
+        
+        modules = []
+        for key, path in local.items():
+            modules.append({'name': key, 'type': 'local'})
+        for name in registry.list_remote_modules():
+            modules.append({
+                'name': name,
+                'type': 'remote',
+                'client_url': registry.get_client_url(name),
+            })
+        
+        return Response({'modules': modules})
+```
+
+**Шаг 2**: Frontend загружает JS удалённого модуля по URL:
 
 ```javascript
-// modules/video_analysis/client/vite.config.js
-import federation from '@originjs/vite-plugin-federation'
-
-export default {
-  plugins: [
-    federation({
-      name: 'videoAnalysis',
-      filename: 'remoteEntry.js',
-      exposes: {
-        './routes': './js/routes.js',
-        './endpoints': './js/endpoints.js'
-      },
-      shared: ['vue', 'vue-router', 'pinia']
-    })
-  ]
+// ModuleLoader.js
+async loadRemoteModule(moduleInfo) {
+  // moduleInfo = { name: 'video_analysis', type: 'remote', client_url: 'http://192.168.1.50:8001' }
+  const baseUrl = moduleInfo.client_url
+  
+  const routes = await import(/* @vite-ignore */ `${baseUrl}/modules/${moduleInfo.name}/client/js/routes.js`)
+  const endpoints = await import(/* @vite-ignore */ `${baseUrl}/modules/${moduleInfo.name}/client/js/endpoints.js`)
+  
+  return {
+    routes: routes.default,
+    endpoints: endpoints.default,
+  }
 }
 ```
 
+**Шаг 3**: Настройка CORS на удалённом сервере (Server B):
+
+```env
+# .env на Server B (video_analysis)
+API_ALLOWED_HOSTS=localhost,192.168.1.50
+CORS_ALLOWED_ORIGINS=http://192.168.1.1:8001
+```
+
+### 7.4. Удалённый сервер: настройка модуля
+
+На Server B устанавливается core + один модуль:
+
+```bash
+# Server B
+git clone <root-repo-url> ergo_ms_core
+cd ergo_ms_core
+
+# Установить core
+poetry install
+
+# Клонировать только нужный модуль
+cd modules/
+git clone <video_analysis_repo> video_analysis
+
+# Установить зависимости модуля
+ergoms install-modules
+
+# Запустить в режиме microservice
+export ERGO_MODE=microservice
+export ERGO_MODULE=video_analysis
+ergoms dev           # API на :8000
+ergoms start-client  # Client на :8001
+```
+
+### 7.5. Схема взаимодействия
+
+Пользователь работает с одним URL (Server A). Core на Server A:
+- Отдаёт **свой** UI (core + локальные модули)
+- При инициализации frontend вызывает `/api/utils/available-modules/`
+- Получает список `[{crm, local}, {video_analysis, remote, http://...}]`
+- Для `crm` -- загружает JS локально
+- Для `video_analysis` -- загружает JS с Server B
+- API-запросы модуля `video_analysis` проксируются через core на Server B
+
 ---
 
-## Порядок миграции (приоритеты)
+## Фаза 8: Redis для Celery
 
-Миграция выполняется **инкрементально** -- система остается работоспособной на каждом этапе:
+Заменить database-backed broker в [celery.py](core/api/src/config/settings/celery.py):
 
-1. **Фаза 1** (pyproject.toml per module) -- **наивысший приоритет**, решает главную боль
-2. **Фаза 4** (ERGO_MODE переключатель) -- позволяет запускать модуль изолированно
-3. **Фаза 3** (Docker) -- контейнеризация каждого сервиса
-4. **Фаза 5.1** (Redis broker) -- замена database-backed Celery
-5. **Фаза 2** (package.json per module) -- разделение frontend зависимостей
-6. **Фаза 5.2** (ServiceClient) -- межсервисное взаимодействие
-7. **Фаза 6** (Micro-frontends) -- самая долгосрочная задача
+```python
+CELERY_BROKER_URL = env.str('CELERY_BROKER_URL', default='redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = env.str('CELERY_RESULT_BACKEND', default='redis://localhost:6379/1')
+```
 
 ---
 
-## Ключевые файлы для изменений
+## Итоговая структура модуля (самодостаточный)
 
-- [pyproject.toml](pyproject.toml) -- разделить на per-module pyproject.toml
-- [package.json](package.json) -- реальные зависимости для модулей
-- [core/api/src/core/utils/auto_api/auto_config.py](core/api/src/core/utils/auto_api/auto_config.py) -- добавить ERGO_MODE
-- [core/api/src/config/settings/celery.py](core/api/src/config/settings/celery.py) -- Redis broker
-- [celery_workers.yaml](celery_workers.yaml) -- per-module workers
-- [core/client/vite.config.js](core/client/vite.config.js) -- Module Federation
-- Новые файлы: `Dockerfile` per module, `docker-compose.yml`, `core/api/src/core/utils/service_client.py`
+```
+modules/video_analysis/
+├── pyproject.toml           # Python-зависимости модуля
+├── .env                     # Переменные окружения модуля
+├── ergoms.conf              # CLI-команды модуля
+├── celery_config.py         # Конфигурация Celery
+├── celery_beat_config.py    # Расписание задач
+├── api/
+│   ├── apps.py              # Django AppConfig
+│   ├── models.py            # Модели
+│   ├── views.py             # API views
+│   ├── urls.py              # URL patterns
+│   ├── tasks.py             # Celery tasks
+│   └── serializers.py       # DRF serializers
+└── client/
+    ├── package.json          # Frontend-зависимости модуля
+    ├── js/
+    │   ├── routes.js         # Vue Router маршруты
+    │   ├── endpoints.js      # API endpoints
+    │   └── menu-config.json  # Конфигурация меню
+    └── *.vue                 # Компоненты
+```
 
+---
+
+## Порядок миграции
+
+Миграция инкрементальная -- система работает на каждом этапе:
+
+
+| Фаза | Что делаем                                | Эффект                                                 | Сложность |
+| ---- | ----------------------------------------- | ------------------------------------------------------ | --------- |
+| 1    | Удалить .gitmodules, core в основной репо | Убрать submodules, скрыть список модулей               | Средняя   |
+| 2    | Разделить pyproject.toml                  | Убрать утечку зависимостей, уменьшить размер установки | Средняя   |
+| 3    | Хук auto-install в ergoms                 | Автоматизировать установку модулей                     | Низкая    |
+| 4    | Runtime module discovery на frontend      | Убрать модули из JS-бандла                             | Средняя   |
+| 5    | Реальные package.json модулей             | Изоляция frontend-зависимостей                         | Низкая    |
+| 6    | ERGO_MODE=microservice                    | Один модуль на отдельном сервере                       | Низкая    |
+| 7    | Удалённые модули (proxy + remote JS)      | Модуль на другом сервере интегрируется в общий UI      | Высокая   |
+| 8    | Redis для Celery                          | Эффективный брокер для распределённых сервисов         | Низкая    |
+
+
+**Рекомендация**: начать с Фаз 1-3, т.к. они дают максимальный эффект при минимальных усилиях.
