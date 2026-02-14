@@ -94,6 +94,9 @@ docx2pdf = "^0.1.8"
 cryptography = "^46.0.3"
 mammoth = "^1.11.0"
 html2text = "^2025.4.15"
+ebooklib = "^0.20"
+beautifulsoup4 = "^4.14.3"
+lxml = "^6.0.2"
 
 [tool.poetry.scripts]
 api = "commands.__main__:main"

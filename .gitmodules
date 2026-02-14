@@ -176,3 +176,10 @@
 	branch = dev
 	update = merge
 	ignore = all
+
+[submodule "neural_networks_hub"]
+	path = modules/neural_networks_hub
+	url = https://github.com/SKB-AI/ergo_ms_neural_networks_hub.git
+	branch = dev
+	update = merge
+	ignore = all
