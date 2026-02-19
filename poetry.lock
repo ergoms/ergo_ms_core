@@ -5284,20 +5284,6 @@ files = [
 ]
 
 [[package]]
-name = "odfpy"
-version = "1.4.1"
-description = "Python API and tools to manipulate OpenDocument files"
-optional = false
-python-versions = "*"
-groups = ["main"]
-files = [
-    {file = "odfpy-1.4.1.tar.gz", hash = "sha256:db766a6e59c5103212f3cc92ec8dd50a0f3a02790233ed0b52148b70d3c438ec"},
-]
-
-[package.dependencies]
-defusedxml = "*"
-
-[[package]]
 name = "ollama"
 version = "0.5.4"
 description = "The official Python client for Ollama."
@@ -9899,4 +9885,4 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<3.13"
-content-hash = "bf0523a7e6e45d3450105f8dd0bd1f462256187b9534a5748a005e92af9b16d6"
+content-hash = "ffb2660963fc35aeeb0311a8d0de26d7f3dccc905d79c99e3a91fe9e0a427d17"
