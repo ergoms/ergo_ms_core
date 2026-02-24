@@ -112,7 +112,7 @@
 	url = https://github.com/SKB-AI/ergo_ms_vacancies_parser.git
 	branch = dev
 	update = merge
-	ignore = all
+	ignore = all	
 	
 [submodule "education_materials_parser"]
 	path = modules/education_materials_parser
@@ -180,6 +180,13 @@
 [submodule "neural_networks_hub"]
 	path = modules/neural_networks_hub
 	url = https://github.com/SKB-AI/ergo_ms_neural_networks_hub.git
+	branch = dev
+	update = merge
+	ignore = all
+
+[submodule "technical_process_analysis"]
+	path = modules/technical_process_analysis
+	url = https://github.com/SKB-AI/ergo_ms_technical_process_analysis.git
 	branch = dev
 	update = merge
 	ignore = all
