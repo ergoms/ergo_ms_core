@@ -13,3 +13,8 @@
 *.heif-srgb-alpha
 
 databases.yaml
+
+# Игнорирование модифицированных Django модулей ядра с большим количеством файлов
+# для оптимизации индексации Cursor
+core/django
+core/django_rest_framework
