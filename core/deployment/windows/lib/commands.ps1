@@ -95,6 +95,9 @@ function Execute-CommandString {
         [string[]]$UserArgs
     )
     
+    # Mark as internal so wrappers in init_terminal.ps1 pass through
+    $env:ERGOMS_INTERNAL = '1'
+    
     # Parse command type (poetry:, api:, npm:, shell:, win:, linux:)
     if ($CommandString -match '^(poetry|api|npm|shell|win|linux):(.+)$') {
         $cmdType = $matches[1]
@@ -126,10 +129,8 @@ function Execute-CommandString {
                 }
                 Push-Location (Join-Path $ProjectRoot "core")
                 try {
-                    # Activate virtual environment
                     $env:VIRTUAL_ENV = $venvPath
                     $env:PATH = "$venvPath\Scripts;$env:PATH"
-                    
                     & api $allArgs
                 }
                 finally {
@@ -139,24 +140,12 @@ function Execute-CommandString {
             'npm' {
                 Push-Location $ProjectRoot
                 try {
-                    # Check if npm is available
-                    & npm --version 2>&1 | Out-Null
-                    if ($LASTEXITCODE -ne 0) {
-                        Write-ColorOutput "[ERROR] npm is not available or not working" Red
-                        Write-ColorOutput "  Please install Node.js and npm" Yellow
-                        exit 1
-                    }
-                    
-                    # Check if package.json exists
                     if (-not (Test-Path "package.json")) {
                         Write-ColorOutput "[ERROR] package.json not found in project root" Red
                         Write-ColorOutput "  Current directory: $(Get-Location)" Gray
                         exit 1
                     }
-                    
-                    # For npm commands, pass arguments correctly
-                    $npmCommand = "npm " + ($allArgs -join ' ')
-                    Invoke-Expression $npmCommand
+                    & npm $allArgs
                 }
                 finally {
                     Pop-Location
@@ -165,7 +154,6 @@ function Execute-CommandString {
             'shell' {
                 Push-Location $ProjectRoot
                 try {
-                    # Execute shell command as-is
                     $fullCommand = $cmdArgs
                     if ($UserArgs.Count -gt 0) {
                         $fullCommand += " " + ($UserArgs -join ' ')
@@ -179,7 +167,6 @@ function Execute-CommandString {
             'win' {
                 Push-Location $ProjectRoot
                 try {
-                    # Execute Windows-specific command
                     $fullCommand = $cmdArgs
                     if ($UserArgs.Count -gt 0) {
                         $fullCommand += " " + ($UserArgs -join ' ')
@@ -210,7 +197,8 @@ function Execute-CommandString {
 function Invoke-PoetryCommand {
     param([string[]]$CommandArgs, [string]$Root)
     
-    # Activate virtual environment if it exists
+    $env:ERGOMS_INTERNAL = '1'
+    
     $venvPath = Join-Path $Root "virtual_env\python"
     if (Test-Path $venvPath) {
         $env:VIRTUAL_ENV = $venvPath
@@ -229,20 +217,20 @@ function Invoke-PoetryCommand {
 function Invoke-ApiCommand {
     param([string[]]$CommandArgs, [string]$Root)
     
+    $env:ERGOMS_INTERNAL = '1'
+    
     $venvPath = Join-Path $Root "virtual_env\python"
     
     if (-not (Test-Path $venvPath)) {
         Write-ColorOutput "[ERROR] Virtual environment not found at: $venvPath" Red
-        Write-ColorOutput "  Please run 'poetry install' first" Yellow
+        Write-ColorOutput "  Please run 'ergoms python-install' first" Yellow
         exit 1
     }
     
     Push-Location (Join-Path $Root "core")
     try {
-        # Activate virtual environment
         $env:VIRTUAL_ENV = $venvPath
         $env:PATH = "$venvPath\Scripts;$env:PATH"
-        
         & api $CommandArgs
     }
     finally {
@@ -253,10 +241,11 @@ function Invoke-ApiCommand {
 function Invoke-NpmCommand {
     param([string[]]$CommandArgs, [string]$Root)
     
+    $env:ERGOMS_INTERNAL = '1'
+    
     Push-Location $Root
     try {
-        $npmCommand = "npm " + ($CommandArgs -join ' ')
-        Invoke-Expression $npmCommand
+        & npm $CommandArgs
     }
     finally {
         Pop-Location
@@ -264,4 +253,3 @@ function Invoke-NpmCommand {
 }
 
 # Export-ModuleMember -Function *  # Удалено, так как это не модуль
-

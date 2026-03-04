@@ -63,6 +63,9 @@ execute_command_string() {
   shift 2
   local user_args=("$@")
   
+  # Mark as internal so wrappers in init_terminal.sh pass through
+  export ERGOMS_INTERNAL=1
+  
   # Parse command type (poetry:, api:, npm:, shell:, win:, linux:)
   if [[ "$cmd_string" =~ ^(poetry|api|npm|shell|win|linux):(.+)$ ]]; then
     local cmd_type="${BASH_REMATCH[1]}"
@@ -92,7 +95,7 @@ execute_command_string() {
         exec api $cmd_args "${user_args[@]}"
         ;;
       npm)
-        cd "$root/core" || exit 1
+        cd "$root" || exit 1
         # shellcheck disable=SC2086
         exec npm $cmd_args "${user_args[@]}"
         ;;
@@ -158,6 +161,7 @@ invoke_custom_command() {
 invoke_poetry_command() {
   local root="${1:-}"
   shift
+  export ERGOMS_INTERNAL=1
   cd "$root" || exit 1
   exec poetry "$@"
 }
@@ -173,6 +177,7 @@ invoke_api_command() {
     exit 1
   fi
   
+  export ERGOMS_INTERNAL=1
   cd "$root/core" || exit 1
   # shellcheck disable=SC1090
   source "$venv_activate"
@@ -182,7 +187,8 @@ invoke_api_command() {
 invoke_npm_command() {
   local root="${1:-}"
   shift
-  cd "$root/core" || exit 1
+  export ERGOMS_INTERNAL=1
+  cd "$root" || exit 1
   exec npm "$@"
 }
 
@@ -192,4 +198,3 @@ export -f invoke_custom_command
 export -f invoke_poetry_command
 export -f invoke_api_command
 export -f invoke_npm_command
-

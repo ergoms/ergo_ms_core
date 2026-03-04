@@ -14,11 +14,11 @@ $global:ProjectRoot = if ($PSScriptRoot) {
     Get-Location | Select-Object -ExpandProperty Path
 }
 
-# Paths to real commands (captured before wrappers shadow them); used when ergoms calls us (PS 5.1 compatible)
+# Paths to real commands (captured before wrappers shadow them); used when ergoms sets ERGOMS_INTERNAL=1
 # Poetry on Windows creates api.cmd / api (no .exe) in Scripts
 $global:RealApiExe = Join-Path $global:ProjectRoot "virtual_env\python\Scripts\api.cmd"
 if (-not (Test-Path $global:RealApiExe)) { $global:RealApiExe = Join-Path $global:ProjectRoot "virtual_env\python\Scripts\api" }
-# Poetry: try venv Scripts first, then PATH (Get-Command can miss it before venv is on PATH)
+# Poetry: try venv Scripts first, then PATH
 $poetryInVenv = Join-Path $global:ProjectRoot "virtual_env\python\Scripts\poetry.exe"
 $global:RealPoetryExe = if (Test-Path $poetryInVenv) { $poetryInVenv } else { $null }
 if (-not $global:RealPoetryExe) {
@@ -40,29 +40,29 @@ function ergoms {
     & (Join-Path $PSScriptRoot "ergo_ms.ps1") -Root $global:ProjectRoot @args
 }
 
-function _CalledFromErgoms {
-    $stack = Get-PSCallStack
-    $fromDeployment = $stack | Where-Object { $_.ScriptName -match 'ergo_ms\.ps1|deployment\\windows\\.*\.ps1' }
-    $fromDeployment.Count -gt 0
-}
-
-# Wrappers: show hint when called by user; run real command when called from ergoms (ASCII only = no encoding issues)
+# Wrappers: pass through when ergoms sets ERGOMS_INTERNAL=1; show hint for direct user calls.
 function pip {
     Write-Host "Use: ergoms python-install or ergoms poetry add <package>" -ForegroundColor Yellow
 }
 
 function poetry {
-    if (_CalledFromErgoms -and $global:RealPoetryExe -and (Test-Path $global:RealPoetryExe)) { & $global:RealPoetryExe @args; return }
+    if ($env:ERGOMS_INTERNAL -eq '1' -and $global:RealPoetryExe -and (Test-Path $global:RealPoetryExe)) {
+        & $global:RealPoetryExe @args; return
+    }
     Write-Host "Use: ergoms poetry <args>, e.g. ergoms poetry install, ergoms python-install, ergoms python-update" -ForegroundColor Yellow
 }
 
 function npm {
-    if (_CalledFromErgoms -and $global:RealNpmCmd -and (Test-Path $global:RealNpmCmd)) { & $global:RealNpmCmd @args; return }
+    if ($env:ERGOMS_INTERNAL -eq '1' -and $global:RealNpmCmd -and (Test-Path $global:RealNpmCmd)) {
+        & $global:RealNpmCmd @args; return
+    }
     Write-Host "Use: ergoms npm <args>, ergoms start-client, ergoms client-build, ergoms install-deps" -ForegroundColor Yellow
 }
 
 function api {
-    if (_CalledFromErgoms -and $global:RealApiExe -and (Test-Path $global:RealApiExe)) { & $global:RealApiExe @args; return }
+    if ($env:ERGOMS_INTERNAL -eq '1' -and $global:RealApiExe -and (Test-Path $global:RealApiExe)) {
+        & $global:RealApiExe @args; return
+    }
     Write-Host "Use: ergoms api <args> or ergoms dev, ergoms db-migrate, ergoms migrate-all, ergoms collectstatic" -ForegroundColor Yellow
 }
 
@@ -73,5 +73,11 @@ function python {
         Write-Host "Use: ergoms api <command>, e.g. ergoms dev, ergoms db-migrate, ergoms migrate-all, ergoms collectstatic" -ForegroundColor Yellow
         return
     }
-    & (Get-Command python.exe -ErrorAction Stop) @remaining
+    $pythonExe = Get-Command python.exe -ErrorAction SilentlyContinue
+    if (-not $pythonExe) { $pythonExe = Get-Command python -ErrorAction SilentlyContinue }
+    if ($pythonExe) {
+        & $pythonExe.Source @remaining
+    } else {
+        Write-Host "[ERROR] python not found in PATH" -ForegroundColor Red
+    }
 }
