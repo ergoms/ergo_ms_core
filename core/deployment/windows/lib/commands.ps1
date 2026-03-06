@@ -145,7 +145,10 @@ function Execute-CommandString {
                         Write-ColorOutput "  Current directory: $(Get-Location)" Gray
                         exit 1
                     }
-                    & npm @allArgs
+                    # Use cmd /c to avoid PowerShell argument passing issues with npm.cmd on Windows
+                    # (direct invocation can cause "run" to become "pm" -> "Unknown command: 'pm'")
+                    $npmCmdLine = "npm " + ($allArgs -join ' ')
+                    & cmd /c $npmCmdLine
                 }
                 finally {
                     Pop-Location
@@ -245,7 +248,9 @@ function Invoke-NpmCommand {
     
     Push-Location $Root
     try {
-        & npm $CommandArgs
+        # Use cmd /c to avoid PowerShell argument passing issues with npm.cmd on Windows
+        $npmCmdLine = "npm " + ($CommandArgs -join ' ')
+        & cmd /c $npmCmdLine
     }
     finally {
         Pop-Location
