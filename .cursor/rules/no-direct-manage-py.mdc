@@ -51,10 +51,11 @@ priority: high
 
 | Действие | Команда ergoms |
 |----------|-----------------|
-| Создать миграции | `ergoms db-makemigrations` или `ergoms api makemigrations [app]` |
-| Применить миграции | `ergoms db-migrate` или `ergoms migrate-all` |
+| Создать миграции | `ergoms db-makemigrations` |
+| Применить миграции | `ergoms db-migrate` |
+| Создать и применить миграции | `ergoms migrate-all` |
 | Запустить API (dev) | `ergoms dev` |
-| Запустить клиент (Vue dev) | `ergoms start-client` или `ergoms client-dev` |
+| Запустить клиент (Vue dev) | `ergoms start-client` |
 | Сбор статики Django | `ergoms collectstatic` |
 | Сборка клиента (prod) | `ergoms client-build` или `ergoms build-all` |
 | Celery worker | `ergoms start-worker` или `ergoms start-worker --worker=<name>` |

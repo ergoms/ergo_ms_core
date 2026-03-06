@@ -20,7 +20,6 @@ ergoms status     # Получение статуса всех сервисов
 ```cmd
 ergoms dev              # API в режиме разработки (api:dev)
 ergoms start-client     # Клиентское приложение (npm:run dev)
-ergoms client-dev       # Эквивалент start-client
 ergoms start-worker     # Обработчик фоновых задач (api:start_celery_worker)
 ergoms start-beat       # Планировщик периодических задач (api:start_celery_beat)
 ```
