@@ -11,6 +11,9 @@ venv/
 *.log
 __pycache__/
 
+# Cursor IDE debug logs
+.cursor/debug*.log
+
 /virtual_env/celery/*
 !/virtual_env/celery/.gitkeep
 
