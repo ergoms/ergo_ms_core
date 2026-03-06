@@ -5,18 +5,14 @@
   "version": "1.2.0",
   "publisher": "ergo-ms",
   "engines": {
-    "vscode": "^1.74.0"
+    "vscode": "^1.75.0"
   },
   "categories": [
     "Other"
   ],
   "activationEvents": [
     "onStartupFinished",
-    "onTaskType:multi-terminal",
-    "onCommand:workbench.action.tasks.runTask",
-    "onCommand:ergo-ms-multi-terminal.run",
-    "onCommand:ergo-ms-multi-terminal.runFromFile",
-    "onCommand:ergo-ms-multi-terminal.stopAll"
+    "onTaskType:multi-terminal"
   ],
   "main": "./extension.js",
   "contributes": {

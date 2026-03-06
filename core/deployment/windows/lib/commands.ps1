@@ -115,7 +115,7 @@ function Execute-CommandString {
             'poetry' {
                 Push-Location $ProjectRoot
                 try {
-                    & poetry $allArgs
+                    & poetry @allArgs
                 }
                 finally {
                     Pop-Location
@@ -131,7 +131,7 @@ function Execute-CommandString {
                 try {
                     $env:VIRTUAL_ENV = $venvPath
                     $env:PATH = "$venvPath\Scripts;$env:PATH"
-                    & api $allArgs
+                    & api @allArgs
                 }
                 finally {
                     Pop-Location
@@ -145,7 +145,7 @@ function Execute-CommandString {
                         Write-ColorOutput "  Current directory: $(Get-Location)" Gray
                         exit 1
                     }
-                    & npm $allArgs
+                    & npm @allArgs
                 }
                 finally {
                     Pop-Location
