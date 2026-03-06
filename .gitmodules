@@ -51,13 +51,6 @@
 	update = merge
 	ignore = all
 
-[submodule "education_expert_system"]
-	path = modules/education_expert_system
-	url = https://github.com/SKB-AI/ergo_ms_education_expert_system.git
-	branch = dev
-	update = merge
-	ignore = all
-
 [submodule "lms"]
 	path = modules/lms
 	url = https://github.com/SKB-AI/ergo_ms_lms.git
