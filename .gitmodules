@@ -193,42 +193,42 @@
 
 [submodule "modules/ollama_framework"]
 	path = modules/ollama_framework
-	url = https://github.com/SKB-AI/ergo_ms_ollama_framework
+	url = https://github.com/SKB-AI/ergo_ms_ollama_framework.git
 	branch = dev
 	update = merge
 	ignore = all
 
 [submodule "modules/ai_assistant"]
 	path = modules/ai_assistant
-	url = https://github.com/SKB-AI/ergo_ms_ai_assistant
+	url = https://github.com/SKB-AI/ergo_ms_ai_assistant.git
 	branch = dev
 	update = merge
 	ignore = all
 
 [submodule "modules/lcp"]
 	path = modules/lcp
-	url = https://github.com/SKB-AI/ergo_ms_lcp
+	url = https://github.com/SKB-AI/ergo_ms_lcp.git
 	branch = dev
 	update = merge
 	ignore = all
 
 [submodule "modules/cms_shortcodes"]
 	path = modules/cms_shortcodes
-	url = https://github.com/SKB-AI/ergo_ms_cms_shortcodes
+	url = https://github.com/SKB-AI/ergo_ms_cms_shortcodes.git
 	branch = dev
 	update = merge
 	ignore = all
 
 [submodule "modules/bi_analysis"]
 	path = modules/bi_analysis
-	url = https://github.com/SKB-AI/ergo_ms_bi_analysis
+	url = https://github.com/SKB-AI/ergo_ms_bi_analysis.git
 	branch = dev
 	update = merge
 	ignore = all
 
 [submodule "modules/bi_analysis_modern"]
 	path = modules/bi_analysis_modern
-	url = https://github.com/SKB-AI/ergo_ms_bi_analysis_modern
+	url = https://github.com/SKB-AI/ergo_ms_bi_analysis_modern.git
 	branch = dev
 	update = merge
 	ignore = all
