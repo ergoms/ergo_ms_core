@@ -5,6 +5,7 @@
 $script:BaseServices = @(
     'ergo-api-dev',
     'ergo-client-dev',
+    'ergo-media-api',
     'ergo-celery-beat'
 )
 

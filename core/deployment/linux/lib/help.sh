@@ -29,6 +29,7 @@ Service Management Commands:
   install-client-service  Install and start Client service only
   install-worker-service  Install and start all Worker services from celery_workers.yaml
   install-beat-service    Install and start Beat service only
+  install-media-service   Install and start Media API service only
   start      Start all services (including all workers from config)
   stop       Stop all services (including all workers from config)
   restart    Restart all services (including all workers from config)
@@ -49,9 +50,10 @@ Deployment Commands (no root required):
   deploy-all     Deploy all components (API + Client)
 
 Proxy Commands (automatically forward to respective tools):
-  poetry <args>  Forward to poetry command
-  api <args>     Forward to api command
-  npm <args>     Forward to npm command
+  poetry <args>     Forward to poetry command
+  api <args>        Forward to api command (Django manage.py)
+  media_api <args>  Forward to media_api command (Media API manage.py)
+  npm <args>        Forward to npm command
 
 USAGE
 

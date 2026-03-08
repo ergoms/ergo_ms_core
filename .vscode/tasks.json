@@ -117,6 +117,7 @@
             "dependsOn": [
                 "Client",
                 "API",
+                "Media API",
                 "Celery Worker",
                 "Celery Beat",
             ],
@@ -202,6 +203,47 @@
                     }
                 },
                 "command": "ergoms dev"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Media API",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": ["/d", "/c"]
+                }
+            },
+            "command": "ergoms start-media",
+            "windows": {
+                "options": {
+                    "cwd": "${workspaceFolder}",
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": ["/d", "/c"]
+                    }
+                },
+                "command": "powershell -ExecutionPolicy Bypass -NoProfile -File \"core/deployment/windows/ergo_ms.ps1\" -Root \"${workspaceFolder}\" start-media"
+            },
+            "linux": {
+                "options": {
+                    "cwd": "${workspaceFolder}",
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": ["-lc"]
+                    }
+                },
+                "command": "ergoms start-media"
             },
             "presentation": {
                 "echo": true,

@@ -5,6 +5,7 @@ description = "Ergo MS API"
 authors = ["Eugene Sergeevich Muzalevsky <muzalevskij.evgenij@mail.ru>"]
 packages = [
     {include = "src", from = "core/api"},
+    {include = "media_server", from = "core/media_api/src"},
     {include = "modules", from = ""},
     {include = "commands", from = "core/api"},
     {include = "rest_framework", from = "core/django_rest_framework"},
@@ -110,6 +111,7 @@ aiohttp = "^3.13.3"
 
 [tool.poetry.scripts]
 api = "commands.__main__:main"
+media_api = "media_server.manage:main"
 
 [build-system]
 requires = ["poetry-core>=2.1.3"]

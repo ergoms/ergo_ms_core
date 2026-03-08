@@ -56,13 +56,13 @@ $LibPath = Join-Path $PSScriptRoot "lib"
 # Main execution
 function Main {
     # Proxy commands that don't require admin
-    $proxyCommands = @('poetry', 'api', 'npm')
+    $proxyCommands = @('poetry', 'api', 'media_api', 'npm')
     $isProxyCommand = $proxyCommands -contains $Command.ToLower()
     
     # Commands that require admin
     $adminCommands = @(
         'install', 'install-services', 'install-api-service', 'install-client-service', 
-        'install-worker-service', 'install-beat-service', 
+        'install-worker-service', 'install-beat-service', 'install-media-service', 
         'start', 'stop', 'restart', 'status', 
         'uninstall-services', 'install-cli', 'uninstall-cli', 'setup-full'
     )
@@ -110,6 +110,10 @@ function Main {
             }
             'api' {
                 Invoke-ApiCommand -CommandArgs $RemainingArgs -Root $projectRoot
+                return
+            }
+            'media_api' {
+                Invoke-MediaApiCommand -CommandArgs $RemainingArgs -Root $projectRoot
                 return
             }
             'npm' {
@@ -170,6 +174,14 @@ function Main {
             Install-SingleService -ServiceName "ergo-celery-beat" -Root $projectRoot
             Start-Service -Name "ergo-celery-beat"
             Write-ColorOutput "`n[OK] Beat service installed and started!" Green
+            Show-ServicesStatus -ProjectRoot $projectRoot
+        }
+        'install-media-service' {
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+            Write-ColorOutput "-> Installing Media API service for: $projectRoot" Cyan
+            Install-SingleService -ServiceName "ergo-media-api" -Root $projectRoot
+            Start-Service -Name "ergo-media-api"
+            Write-ColorOutput "`n[OK] Media API service installed and started!" Green
             Show-ServicesStatus -ProjectRoot $projectRoot
         }
         'install-ollama-service' {

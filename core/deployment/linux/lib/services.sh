@@ -112,6 +112,7 @@ install_services() {
   # Устанавливаем базовые службы
   install_unit "ergo-api-dev"        "$API_UNIT"
   install_unit "ergo-client-dev"     "$CLIENT_UNIT"
+  install_unit "ergo-media-api"      "$MEDIA_API_UNIT"
   install_unit "ergo-celery-beat"    "$CELERY_BEAT_UNIT"
   
   # Устанавливаем воркеры из конфигурации
@@ -122,6 +123,7 @@ install_services() {
   # Включаем и запускаем базовые службы
   enable_and_start ergo-api-dev.service
   enable_and_start ergo-client-dev.service
+  enable_and_start ergo-media-api.service
   enable_and_start ergo-celery-beat.service
   
   # Включаем и запускаем воркеры
@@ -180,6 +182,10 @@ install_single_service() {
     "beat")
       unit_name="ergo-celery-beat"
       install_unit "$unit_name" "$CELERY_BEAT_UNIT"
+      ;;
+    "media")
+      unit_name="ergo-media-api"
+      install_unit "$unit_name" "$MEDIA_API_UNIT"
       ;;
     "ollama")
       local unit_name="ergo-ollama"

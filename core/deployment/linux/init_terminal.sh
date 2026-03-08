@@ -49,6 +49,14 @@ api() {
   echo -e "\033[33mUse: ergoms api <args> or ergoms dev, ergoms db-migrate, ergoms migrate-all, ergoms collectstatic\033[0m"
 }
 
+media_api() {
+  if [[ -n "${ERGOMS_INTERNAL:-}" ]]; then
+    command media_api "$@"
+    return
+  fi
+  echo -e "\033[33mUse: ergoms media_api <args> or ergoms start-media\033[0m"
+}
+
 python() {
   local first="$1"
   if [[ -n "$first" && ("$first" == *manage.py || "$first" == *"/manage.py") ]]; then
@@ -72,5 +80,6 @@ export -f pip3
 export -f poetry
 export -f npm
 export -f api
+export -f media_api
 export -f python
 export -f python3

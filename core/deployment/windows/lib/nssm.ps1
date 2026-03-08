@@ -105,6 +105,19 @@ function New-BaseServiceWrapper {
                 'api start_celery_beat'
             ) -join "`r`n"
         }
+        'ergo-media-api' {
+            $wrapperPath = Join-Path $wrapperDir "start_media_api.bat"
+            $content = @(
+                '@echo off',
+                'chcp 65001 >nul',
+                'set PYTHONIOENCODING=utf-8',
+                'set PYTHONUTF8=1',
+                "set PYTHONPATH=$Root\core\media_api\src",
+                "cd /d `"$Root`"",
+                "call `"$venvActivate`"",
+                'media_api runserver 0.0.0.0:8003'
+            ) -join "`r`n"
+        }
         'ergo-ollama' {
             $wrapperPath = Join-Path $wrapperDir "start_ollama.bat"
             $content = @(
