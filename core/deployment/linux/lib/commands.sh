@@ -66,8 +66,8 @@ execute_command_string() {
   # Mark as internal so wrappers in init_terminal.sh pass through
   export ERGOMS_INTERNAL=1
   
-  # Parse command type (poetry:, api:, npm:, shell:, win:, linux:)
-  if [[ "$cmd_string" =~ ^(poetry|api|npm|shell|win|linux):(.+)$ ]]; then
+  # Parse command type (poetry:, api:, media_api:, npm:, shell:, win:, linux:)
+  if [[ "$cmd_string" =~ ^(poetry|api|media_api|npm|shell|win|linux):(.+)$ ]]; then
     local cmd_type="${BASH_REMATCH[1]}"
     local cmd_args="${BASH_REMATCH[2]}"
     
@@ -93,6 +93,19 @@ execute_command_string() {
         source "$venv_activate"
         # shellcheck disable=SC2086
         exec api $cmd_args "${user_args[@]}"
+        ;;
+      media_api)
+        local venv_activate="$root/virtual_env/python/bin/activate"
+        if [[ ! -f "$venv_activate" ]]; then
+          echo "[ERROR] Virtual environment not found" >&2
+          exit 1
+        fi
+        cd "$root" || exit 1
+        # shellcheck disable=SC1090
+        source "$venv_activate"
+        export PYTHONPATH="$root/core/media_api/src"
+        # shellcheck disable=SC2086
+        exec media_api $cmd_args "${user_args[@]}"
         ;;
       npm)
         cd "$root" || exit 1
@@ -184,6 +197,25 @@ invoke_api_command() {
   exec api "$@"
 }
 
+invoke_media_api_command() {
+  local root="${1:-}"
+  shift
+  local venv_activate="$root/virtual_env/python/bin/activate"
+  
+  if [[ ! -f "$venv_activate" ]]; then
+    echo "[ERROR] Virtual environment not found at: $venv_activate" >&2
+    echo "  Please run 'ergoms poetry install' first" >&2
+    exit 1
+  fi
+  
+  export ERGOMS_INTERNAL=1
+  cd "$root" || exit 1
+  # shellcheck disable=SC1090
+  source "$venv_activate"
+  export PYTHONPATH="$root/core/media_api/src"
+  exec media_api "$@"
+}
+
 invoke_npm_command() {
   local root="${1:-}"
   shift
@@ -197,4 +229,5 @@ export -f execute_command_string
 export -f invoke_custom_command
 export -f invoke_poetry_command
 export -f invoke_api_command
+export -f invoke_media_api_command
 export -f invoke_npm_command

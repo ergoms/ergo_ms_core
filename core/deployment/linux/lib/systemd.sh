@@ -106,6 +106,24 @@ WantedBy=multi-user.target
 UNIT
 )
 
+  MEDIA_API_UNIT=$(cat <<'UNIT'
+[Unit]
+Description=Ergo Media API (CDN / file server)
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/default/ergo_ms
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && PYTHONPATH="$ERGO_ROOT/core/media_api/src" media_api runserver 0.0.0.0:8003'
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+)
+
   OLLAMA_UNIT=$(cat <<'UNIT'
 [Unit]
 Description=Ergo Ollama Server
@@ -127,6 +145,7 @@ UNIT
   export API_UNIT
   export CLIENT_UNIT
   export CELERY_BEAT_UNIT
+  export MEDIA_API_UNIT
   export OLLAMA_UNIT
 }
 

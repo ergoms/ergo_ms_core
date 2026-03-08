@@ -98,8 +98,8 @@ function Execute-CommandString {
     # Mark as internal so wrappers in init_terminal.ps1 pass through
     $env:ERGOMS_INTERNAL = '1'
     
-    # Parse command type (poetry:, api:, npm:, shell:, win:, linux:)
-    if ($CommandString -match '^(poetry|api|npm|shell|win|linux):(.+)$') {
+    # Parse command type (poetry:, api:, media_api:, npm:, shell:, win:, linux:)
+    if ($CommandString -match '^(poetry|api|media_api|npm|shell|win|linux):(.+)$') {
         $cmdType = $matches[1]
         $cmdArgs = $matches[2].Trim()
         
@@ -132,6 +132,23 @@ function Execute-CommandString {
                     $env:VIRTUAL_ENV = $venvPath
                     $env:PATH = "$venvPath\Scripts;$env:PATH"
                     & api @allArgs
+                }
+                finally {
+                    Pop-Location
+                }
+            }
+            'media_api' {
+                $venvPath = Join-Path $ProjectRoot "virtual_env\python"
+                if (-not (Test-Path $venvPath)) {
+                    Write-ColorOutput "[ERROR] Virtual environment not found" Red
+                    exit 1
+                }
+                Push-Location $ProjectRoot
+                try {
+                    $env:VIRTUAL_ENV = $venvPath
+                    $env:PATH = "$venvPath\Scripts;$env:PATH"
+                    $env:PYTHONPATH = Join-Path $ProjectRoot "core\media_api\src"
+                    & media_api @allArgs
                 }
                 finally {
                     Pop-Location
@@ -235,6 +252,31 @@ function Invoke-ApiCommand {
         $env:VIRTUAL_ENV = $venvPath
         $env:PATH = "$venvPath\Scripts;$env:PATH"
         & api $CommandArgs
+    }
+    finally {
+        Pop-Location
+    }
+}
+
+function Invoke-MediaApiCommand {
+    param([string[]]$CommandArgs, [string]$Root)
+    
+    $env:ERGOMS_INTERNAL = '1'
+    
+    $venvPath = Join-Path $Root "virtual_env\python"
+    
+    if (-not (Test-Path $venvPath)) {
+        Write-ColorOutput "[ERROR] Virtual environment not found at: $venvPath" Red
+        Write-ColorOutput "  Please run 'ergoms python-install' first" Yellow
+        exit 1
+    }
+    
+    Push-Location $Root
+    try {
+        $env:VIRTUAL_ENV = $venvPath
+        $env:PATH = "$venvPath\Scripts;$env:PATH"
+        $env:PYTHONPATH = Join-Path $Root "core\media_api\src"
+        & media_api $CommandArgs
     }
     finally {
         Pop-Location

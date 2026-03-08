@@ -18,6 +18,8 @@ $global:ProjectRoot = if ($PSScriptRoot) {
 # Poetry on Windows creates api.cmd / api (no .exe) in Scripts
 $global:RealApiExe = Join-Path $global:ProjectRoot "virtual_env\python\Scripts\api.cmd"
 if (-not (Test-Path $global:RealApiExe)) { $global:RealApiExe = Join-Path $global:ProjectRoot "virtual_env\python\Scripts\api" }
+$global:RealMediaApiExe = Join-Path $global:ProjectRoot "virtual_env\python\Scripts\media_api.cmd"
+if (-not (Test-Path $global:RealMediaApiExe)) { $global:RealMediaApiExe = Join-Path $global:ProjectRoot "virtual_env\python\Scripts\media_api" }
 # Poetry: try venv Scripts first, then PATH
 $poetryInVenv = Join-Path $global:ProjectRoot "virtual_env\python\Scripts\poetry.exe"
 $global:RealPoetryExe = if (Test-Path $poetryInVenv) { $poetryInVenv } else { $null }
@@ -64,6 +66,13 @@ function api {
         & $global:RealApiExe @args; return
     }
     Write-Host "Use: ergoms api <args> or ergoms dev, ergoms db-migrate, ergoms migrate-all, ergoms collectstatic" -ForegroundColor Yellow
+}
+
+function media_api {
+    if ($env:ERGOMS_INTERNAL -eq '1' -and $global:RealMediaApiExe -and (Test-Path $global:RealMediaApiExe)) {
+        & $global:RealMediaApiExe @args; return
+    }
+    Write-Host "Use: ergoms media_api <args> or ergoms start-media" -ForegroundColor Yellow
 }
 
 function python {

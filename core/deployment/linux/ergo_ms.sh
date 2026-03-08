@@ -53,7 +53,7 @@ main() {
   if (( $# > 0 )); then
     command="$1"
     case "$command" in
-      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-ollama-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|update-submodules|clean|clean-project|poetry|api|npm)
+      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|install-ollama-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|update-submodules|clean|clean-project|poetry|api|media_api|npm)
         shift ;;
       -h|--help)
         print_usage "$detected_root"; exit 0 ;;
@@ -79,7 +79,7 @@ main() {
   # Check if it's a proxy command (doesn't require root)
   local is_proxy_command=false
   case "$command" in
-    poetry|api|npm)
+    poetry|api|media_api|npm)
       is_proxy_command=true ;;
   esac
   
@@ -199,9 +199,10 @@ main() {
     
     # Execute proxy command
     case "$command" in
-      poetry) invoke_poetry_command "$ERGO_ROOT" "$@" ;;
-      api)    invoke_api_command "$ERGO_ROOT" "$@" ;;
-      npm)    invoke_npm_command "$ERGO_ROOT" "$@" ;;
+      poetry)    invoke_poetry_command "$ERGO_ROOT" "$@" ;;
+      api)       invoke_api_command "$ERGO_ROOT" "$@" ;;
+      media_api) invoke_media_api_command "$ERGO_ROOT" "$@" ;;
+      npm)       invoke_npm_command "$ERGO_ROOT" "$@" ;;
     esac
     exit 0
   fi
@@ -266,6 +267,7 @@ main() {
     install-client-service)  ;; # Continue to install flow
     install-worker-service)  ;; # Continue to install flow
     install-beat-service)  ;; # Continue to install flow
+    install-media-service)  ;; # Continue to install flow
     install-ollama-service)  ;; # Continue to install flow
     *)        echo "Unknown command: $command" >&2; print_usage "$detected_root"; exit 1 ;;
   esac
@@ -295,6 +297,9 @@ main() {
     install-beat-service)
       install_single_service "beat" "$ERGO_ROOT"
       ;;
+    install-media-service)
+      install_single_service "media" "$ERGO_ROOT"
+      ;;
     install-ollama-service)
       install_single_service "ollama" "$ERGO_ROOT"
       ;;
@@ -307,6 +312,7 @@ main() {
       # Устанавливаем базовые службы
       install_unit "ergo-api-dev"        "$API_UNIT"
       install_unit "ergo-client-dev"     "$CLIENT_UNIT"
+      install_unit "ergo-media-api"      "$MEDIA_API_UNIT"
       install_unit "ergo-celery-beat"    "$CELERY_BEAT_UNIT"
       install_unit "ergo-ollama"         "$OLLAMA_UNIT"
       
@@ -318,6 +324,7 @@ main() {
       # Включаем и запускаем базовые службы
       enable_and_start ergo-api-dev.service
       enable_and_start ergo-client-dev.service
+      enable_and_start ergo-media-api.service
       enable_and_start ergo-celery-beat.service
       enable_and_start ergo-ollama.service
       

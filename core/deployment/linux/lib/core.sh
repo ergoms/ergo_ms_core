@@ -102,7 +102,7 @@ get_celery_workers() {
 # Генерация списка служб на основе конфигурации воркеров
 generate_units_list() {
   local project_root="${1:-}"
-  local units="ergo-api-dev.service ergo-client-dev.service ergo-celery-beat.service"
+  local units="ergo-api-dev.service ergo-client-dev.service ergo-media-api.service ergo-celery-beat.service"
   
   local workers
   workers="$(get_celery_workers "$project_root")"

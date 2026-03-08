@@ -1,0 +1,72 @@
+---
+description: Правила работы с файлами через media_api (CDN-сервис)
+alwaysApply: true
+---
+
+# КРИТИЧЕСКИ ВАЖНО: Работа с файлами только через media_api
+
+Все медиафайлы в системе раздаются и загружаются через отдельный сервис `core/media_api` (порт 8003). Прямой доступ к `/media/` через основной API запрещён. Доступ к файлам контролируется HMAC-SHA256 подписанными URL с ограниченным сроком действия.
+
+## Запрещено
+
+- Строить URL файлов через `settings.MEDIA_URL`, `request.build_absolute_uri(obj.file.url)` или конкатенацию `/media/...`
+- Раздавать файлы из основного API через `django.views.static.serve` или `static(settings.MEDIA_URL, ...)`
+- Добавлять `/media/` в `EXCLUDED_URLS` middleware
+- Загружать файлы напрямую через `request.FILES` без поддержки альтернативного пути `*_path` из media_api
+
+## Отдача файлов (Backend)
+
+`MediaApiStorage` — дефолтный storage (`STORAGES['default']`). Вызов `obj.file.url` автоматически возвращает подписанный URL. Ничего дополнительно делать не нужно.
+
+Для полей-строк (не FileField), содержащих путь к файлу:
+
+```python
+from src.core.utils.media_signing import get_signed_media_url
+
+url = get_signed_media_url('path/relative/to/media_root/file.jpg')
+```
+
+## Загрузка файлов (Backend)
+
+ViewSet должен наследовать `MediaApiFileMixin` и поддерживать оба способа загрузки:
+
+```python
+from src.core.utils.mixins import MediaApiFileMixin
+
+class MyViewSet(MediaApiFileMixin, ModelViewSet):
+    def perform_create(self, serializer):
+        instance = serializer.save()
+        file, file_path = self.get_file_or_path('file')
+        if file:
+            instance.file.save(file.name, file, save=False)
+        elif file_path:
+            instance.file.name = file_path
+        instance.save()
+```
+
+Сериализатор должен принимать `<field>_path` (StringField) наряду с `<field>` (FileField, required=False):
+
+```python
+class MySerializer(serializers.ModelSerializer):
+    file_path = serializers.CharField(write_only=True, required=False)
+    file = serializers.FileField(required=False)
+```
+
+## Загрузка файлов (Frontend)
+
+Используй `mediaApiClient` для загрузки через media_api:
+
+```javascript
+import { mediaApiClient } from '@/js/api/media-api-client'
+
+const result = await mediaApiClient.upload(file, { targetDir: 'tasks/attachments' })
+// result.path — путь для отправки в API как file_path
+```
+
+## Ключевые модули
+
+- `core/api/src/core/utils/media_storage.py` — `MediaApiStorage` (кастомный Django Storage)
+- `core/api/src/core/utils/media_signing.py` — `get_signed_media_url`, `get_upload_info`
+- `core/api/src/core/utils/media_views.py` — `MediaUploadTokenView` (POST `/api/utils/media/upload-token/`)
+- `core/api/src/core/utils/mixins.py` — `MediaApiFileMixin`
+- `core/client/src/js/api/media-api-client.js` — `mediaApiClient`
