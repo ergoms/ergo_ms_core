@@ -13,11 +13,6 @@ packages = [
     {include = ".cursor", from = ""},
 ]
 
-[[tool.poetry.source]]
-name = "pytorch-cu128"
-url = "https://download.pytorch.org/whl/cu128"
-priority = "explicit"
-
 [tool.poetry.dependencies]
 python = ">=3.12,<3.13"
 django = {path = "core/django", develop = true}
@@ -48,7 +43,6 @@ mysqlclient = ">=2.2.7"
 django-celery-beat = ">=2.8.1"
 channels = ">=4.2.2"
 ipykernel = ">=6.29.5"
-torch = {version = "==2.7.1+cu128", source = "pytorch-cu128"}
 tensorflow = ">=2.19.0"
 pymssql = ">=2.3.7"
 clickhouse-connect = ">=0.8.18"
@@ -67,8 +61,6 @@ django-extensions = ">=4.1,<5.0"
 notebook = ">=7.4.4,<8.0.0"
 jupyterlab = ">=4.4.5,<5.0.0"
 requests = ">=2.31.0,<3.0.0"
-torchvision = {version = "==0.22.1+cu128", source = "pytorch-cu128"}
-torchaudio = {version = "==2.7.1+cu128", source = "pytorch-cu128"}
 sqlparse = ">=0.5.3,<0.6.0"
 mcp = "^1.20.0"
 httpx = ">=0.27.0,<1.0.0"
