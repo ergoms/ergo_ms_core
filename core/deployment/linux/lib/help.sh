@@ -86,8 +86,10 @@ USAGE
     fi
     
     set +u
-    local module_count
-    module_count=${#module_cmds[@]:-0}
+    local module_count=0
+    for _ in "${!module_cmds[@]}"; do
+      ((module_count++)) || true
+    done
     set -u
     if [[ "$module_count" -gt 0 ]]; then
       echo "  Module Commands (defined in modules/*/ergoms.conf):"
