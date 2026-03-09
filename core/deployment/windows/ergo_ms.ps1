@@ -43,15 +43,22 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# Load modules
+# Lazy loading: загружаем только core и commands для быстрого выполнения обычных команд.
+# Тяжёлые модули (nssm, services, setup, cli, help) загружаются только при необходимости.
 $LibPath = Join-Path $PSScriptRoot "lib"
 . (Join-Path $LibPath "core.ps1")
-. (Join-Path $LibPath "nssm.ps1")
-. (Join-Path $LibPath "services.ps1")
-. (Join-Path $LibPath "setup.ps1")
-. (Join-Path $LibPath "cli.ps1")
 . (Join-Path $LibPath "commands.ps1")
-. (Join-Path $LibPath "help.ps1")
+
+$script:HeavyModulesLoaded = $false
+function Load-HeavyModules {
+    if ($script:HeavyModulesLoaded) { return }
+    . (Join-Path $LibPath "nssm.ps1")
+    . (Join-Path $LibPath "services.ps1")
+    . (Join-Path $LibPath "setup.ps1")
+    . (Join-Path $LibPath "cli.ps1")
+    . (Join-Path $LibPath "help.ps1")
+    $script:HeavyModulesLoaded = $true
+}
 
 # Main execution
 function Main {
@@ -123,7 +130,10 @@ function Main {
         }
     }
 
-    # Handle service management commands
+    # Service/admin/utility commands — загружаем тяжёлые модули
+    # Dot-source для сохранения определений функций в текущей области видимости
+    . Load-HeavyModules
+
     switch ($Command.ToLower()) {
         'install' {
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
@@ -268,6 +278,10 @@ function Main {
             
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
             $serviceNames = Get-ServiceNames -ProjectRoot $projectRoot
+            $serviceName = switch ($serviceName) {
+                'media_api' { 'ergo-media-api' }
+                default { $serviceName }
+            }
             if ($serviceNames -notcontains $serviceName) {
                 Write-ColorOutput "[ERROR] Unknown service: $serviceName" Red
                 Write-ColorOutput "Available services: $($serviceNames -join ', ')" Yellow

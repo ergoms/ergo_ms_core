@@ -61,10 +61,9 @@ USAGE
     echo "Custom Commands:"
     echo ""
     
-    # Separate core and module commands
     declare -A core_cmds
     declare -A module_cmds
-    
+
     for cmd in "${!custom_cmds[@]}"; do
       if [[ "$cmd" == *:* ]]; then
         module_cmds["$cmd"]="${custom_cmds[$cmd]}"
@@ -72,7 +71,7 @@ USAGE
         core_cmds["$cmd"]="${custom_cmds[$cmd]}"
       fi
     done
-    
+
     if [[ ${#core_cmds[@]} -gt 0 ]]; then
       echo "  Core Commands (defined in commands.conf):"
       for cmd in $(echo "${!core_cmds[@]}" | tr ' ' '\n' | sort); do
@@ -86,16 +85,25 @@ USAGE
       echo ""
     fi
     
-    if [[ ${#module_cmds[@]} -gt 0 ]]; then
+    set +u
+    local module_count
+    module_count=${#module_cmds[@]:-0}
+    set -u
+    if [[ "$module_count" -gt 0 ]]; then
       echo "  Module Commands (defined in modules/*/ergoms.conf):"
-      for cmd in $(echo "${!module_cmds[@]}" | tr ' ' '\n' | sort); do
+      local module_keys_list
+      set +u
+      module_keys_list=$(printf '%s\n' "${!module_cmds[@]}" | sort) || true
+      set -u
+      while IFS= read -r cmd; do
+        [[ -z "$cmd" ]] && continue
         local def="${module_cmds[$cmd]}"
         # Truncate long definitions
         if [[ ${#def} -gt 60 ]]; then
           def="${def:0:57}..."
         fi
         printf "    %-30s -> %s\n" "$cmd" "$def"
-      done
+      done <<< "$module_keys_list"
       echo ""
     fi
   fi

@@ -7,7 +7,7 @@ services:
     description: "Django API server"
   ergo-client-dev:
     description: "Vue.js client dev server"
-  media_api:
+  ergo-media-api:
     description: "Media API (CDN / file server)"
   ergo-celery-beat:
     description: "Celery Beat scheduler"

@@ -26,13 +26,36 @@ function Install-Service {
         Start-Sleep -Seconds 2
     }
 
-    $wrapperPath = New-ServiceWrapper -ServiceName $ServiceName -Root $Root
+    $corePath = Join-Path $Root "core"
+    $pythonExe = Join-Path $Root "virtual_env\python\Scripts\python.exe"
     $displayName = "Ergo MS - $ServiceName"
 
     Write-ColorOutput "-> Installing service: $ServiceName" Cyan
 
-    # Install service
-    & $NssmExe install $ServiceName $wrapperPath
+    $useDirectPython = $false
+    $appPath = $null
+    $appParams = $null
+
+    if ($ServiceName -eq 'ergo-celery-beat') {
+        $useDirectPython = $true
+        $appPath = $pythonExe
+        $appParams = "-m celery -A src beat --loglevel=info"
+    }
+    elseif ($ServiceName -match '^ergo-celery-worker-(.+)$') {
+        $useDirectPython = $true
+        $workerName = $Matches[1]
+        $appPath = $pythonExe
+        $appParams = "api\scripts\start_celery_worker.py --worker=$workerName"
+    }
+
+    if ($useDirectPython -and (Test-Path $pythonExe)) {
+        & $NssmExe install $ServiceName $appPath
+        & $NssmExe set $ServiceName AppParameters $appParams
+    }
+    else {
+        $wrapperPath = New-ServiceWrapper -ServiceName $ServiceName -Root $Root
+        & $NssmExe install $ServiceName $wrapperPath
+    }
     & $NssmExe set $ServiceName DisplayName $displayName
     & $NssmExe set $ServiceName Description "Ergo Management System - $ServiceName"
     & $NssmExe set $ServiceName AppDirectory (Join-Path $Root "core")
@@ -41,8 +64,8 @@ function Install-Service {
     $singleLog = Join-Path $logsDir "${ServiceName}.log"
     & $NssmExe set $ServiceName AppStdout $singleLog
     & $NssmExe set $ServiceName AppStderr $singleLog
-    # Ensure UTF-8 for Python output under Windows services
-    & $NssmExe set $ServiceName AppEnvironmentExtra "PYTHONIOENCODING=UTF-8" "PYTHONUTF8=1"
+    # Ensure UTF-8 and unbuffered output (fixes delayed/blocked logs in Celery)
+    & $NssmExe set $ServiceName AppEnvironmentExtra "PYTHONIOENCODING=UTF-8" "PYTHONUTF8=1" "PYTHONUNBUFFERED=1"
     
     # Set service to auto-start
     & $NssmExe set $ServiceName Start SERVICE_AUTO_START
@@ -265,11 +288,22 @@ function Show-ServiceLogs {
     
     if (-not (Test-Path $logPath)) {
         Write-ColorOutput "[ERROR] Log file not found: $logPath" Red
+        Write-ColorOutput "Logs are written when running as Windows services (ergoms install-services)." Gray
+        Write-ColorOutput "When using VS Code tasks, output goes to the terminal." Gray
         exit 1
     }
     
+    $fileInfo = Get-Item $logPath
+    $isEmpty = $fileInfo.Length -eq 0
     Write-ColorOutput "-> Showing last $Lines lines of $ServiceName logs..." Cyan
     Write-ColorOutput "   Log file: $logPath" Gray
+    if ($isEmpty) {
+        Write-ColorOutput "   Log file is empty." Yellow
+        Write-ColorOutput "   Hint: Logs are written when running as Windows services (ergoms install-services)." Gray
+        Write-ColorOutput "   When using VS Code tasks (Start All Services), output goes to the terminal." Gray
+        Write-ColorOutput ""
+        Write-ColorOutput "Waiting for new log entries (-f)... Press Ctrl+C to exit." Gray
+    }
     Write-ColorOutput ""
     
     # Read log as UTF-8 to display special symbols correctly in Windows PowerShell

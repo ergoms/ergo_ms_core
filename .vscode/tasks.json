@@ -17,114 +17,88 @@
         {
             "label": "Setup Full System",
             "type": "shell",
-            "options": {
-                "cwd": "${workspaceFolder}",
-                "shell": {
-                    "executable": "cmd.exe",
-                    "args": [
-                        "/d",
-                        "/c"
-                    ]
-                }
-            },
-            "command": "powershell -ExecutionPolicy Bypass -File core/deployment/windows/ergo_ms.ps1 setup-full && npm run install-extensions",
+            "command": "ergoms setup-full && ergoms install-extensions",
+            "options": { "cwd": "${workspaceFolder}" },
             "windows": {
                 "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "cmd.exe",
-                        "args": [
-                            "/d",
-                            "/c"
-                        ]
-                    }
-                },
-                "command": "powershell -ExecutionPolicy Bypass -File core/deployment/windows/ergo_ms.ps1 setup-full && npm run install-extensions"
+                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                }
             },
             "linux": {
                 "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "/bin/bash",
-                        "args": [
-                            "-lc"
-                        ]
-                    }
+                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
                 },
-                "command": "sudo bash core/deployment/linux/ergo_ms.sh setup-full && npm run install-extensions"
+                "command": "sudo ergoms setup-full && ergoms install-extensions"
             },
             "presentation": {
                 "echo": true,
                 "reveal": "always",
                 "focus": true,
-                "panel": "shared",
-                "showReuseMessage": true,
-                "clear": false
+                "panel": "shared"
             },
-            "group": {
-                "kind": "build",
-                "isDefault": false
-            },
+            "group": { "kind": "build", "isDefault": false },
             "problemMatcher": []
         },
         {
             "label": "Update Submodules",
             "type": "shell",
-            "options": {
-                "cwd": "${workspaceFolder}",
-                "shell": {
-                    "executable": "cmd.exe",
-                    "args": ["/d", "/c"]
-                }
-            },
-            "command": "ergoms update-submodules --root \"${workspaceFolder}\"",
+            "command": "ergoms update-submodules",
+            "options": { "cwd": "${workspaceFolder}" },
             "windows": {
                 "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "cmd.exe",
-                        "args": ["/d", "/c"]
-                    }
-                },
-                "command": "powershell -ExecutionPolicy Bypass -NoProfile -File \"core/deployment/windows/ergo_ms.ps1\" -Root \"${workspaceFolder}\" update-submodules --root \"${workspaceFolder}\""
-            },
-            "linux": {
-                "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "/bin/bash",
-                        "args": ["-lc"]
-                    }
-                },
-                "command": "ergoms update-submodules --root \"${workspaceFolder}\""
+                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                }
             },
             "presentation": {
                 "echo": true,
                 "reveal": "always",
                 "focus": true,
-                "panel": "new",
-                "showReuseMessage": true,
-                "clear": false
+                "panel": "new"
             },
-            "group": {
-                "kind": "build"
+            "group": { "kind": "build" },
+            "problemMatcher": []
+        },
+        {
+            "label": "Cache Warmup",
+            "type": "shell",
+            "command": "ergoms warmup-caches-if-needed",
+            "options": { "cwd": "${workspaceFolder}" },
+            "windows": {
+                "options": {
+                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                }
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "showReuseMessage": false,
+                "close": true
             },
             "problemMatcher": []
         },
         {
-            "label": "Start All Services",
+            "label": "Services",
             "dependsOrder": "parallel",
             "dependsOn": [
                 "Client",
                 "API",
                 "Media API",
                 "Celery Worker",
-                "Celery Beat",
+                "Celery Beat"
             ],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Start All Services",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "Cache Warmup",
+                "Services"
+            ],
+            "group": { "kind": "build", "isDefault": true },
             "presentation": {
                 "reveal": "silent",
                 "panel": "shared",
@@ -135,205 +109,85 @@
         {
             "label": "Client",
             "type": "shell",
-            "options": {
-                "cwd": "${workspaceFolder}",
-                "shell": {
-                    "executable": "cmd.exe",
-                    "args": ["/d", "/c"]
-                }
-            },
             "command": "ergoms start-client",
+            "options": { "cwd": "${workspaceFolder}" },
             "windows": {
                 "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "cmd.exe",
-                        "args": ["/d", "/c"]
-                    }
-                },
-                "command": "powershell -ExecutionPolicy Bypass -NoProfile -File \"core/deployment/windows/ergo_ms.ps1\" -Root \"${workspaceFolder}\" start-client"
-            },
-            "linux": {
-                "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "/bin/bash",
-                        "args": ["-lc"]
-                    }
-                },
-                "command": "ergoms start-client"
+                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                }
             },
             "presentation": {
                 "echo": true,
                 "reveal": "always",
-                "focus": false,
-                "panel": "new",
-                "showReuseMessage": true,
-                "clear": false
+                "panel": "new"
             },
             "problemMatcher": []
         },
         {
             "label": "API",
             "type": "shell",
-            "options": {
-                "cwd": "${workspaceFolder}",
-                "shell": {
-                    "executable": "cmd.exe",
-                    "args": ["/d", "/c"]
-                }
-            },
             "command": "ergoms dev",
+            "options": { "cwd": "${workspaceFolder}" },
             "windows": {
                 "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "cmd.exe",
-                        "args": ["/d", "/c"]
-                    }
-                },
-                "command": "powershell -ExecutionPolicy Bypass -NoProfile -File \"core/deployment/windows/ergo_ms.ps1\" -Root \"${workspaceFolder}\" dev"
-            },
-            "linux": {
-                "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "/bin/bash",
-                        "args": ["-lc"]
-                    }
-                },
-                "command": "ergoms dev"
+                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                }
             },
             "presentation": {
                 "echo": true,
                 "reveal": "always",
-                "focus": false,
-                "panel": "new",
-                "showReuseMessage": true,
-                "clear": false
+                "panel": "new"
             },
             "problemMatcher": []
         },
         {
             "label": "Media API",
             "type": "shell",
-            "options": {
-                "cwd": "${workspaceFolder}",
-                "shell": {
-                    "executable": "cmd.exe",
-                    "args": ["/d", "/c"]
-                }
-            },
             "command": "ergoms start-media",
+            "options": { "cwd": "${workspaceFolder}" },
             "windows": {
                 "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "cmd.exe",
-                        "args": ["/d", "/c"]
-                    }
-                },
-                "command": "powershell -ExecutionPolicy Bypass -NoProfile -File \"core/deployment/windows/ergo_ms.ps1\" -Root \"${workspaceFolder}\" start-media"
-            },
-            "linux": {
-                "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "/bin/bash",
-                        "args": ["-lc"]
-                    }
-                },
-                "command": "ergoms start-media"
+                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                }
             },
             "presentation": {
                 "echo": true,
                 "reveal": "always",
-                "focus": false,
-                "panel": "new",
-                "showReuseMessage": true,
-                "clear": false
+                "panel": "new"
             },
             "problemMatcher": []
         },
         {
             "label": "Celery Beat",
             "type": "shell",
-            "options": {
-                "cwd": "${workspaceFolder}",
-                "shell": {
-                    "executable": "cmd.exe",
-                    "args": ["/d", "/c"]
-                }
-            },
             "command": "ergoms start-beat",
+            "options": { "cwd": "${workspaceFolder}" },
             "windows": {
                 "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "cmd.exe",
-                        "args": ["/d", "/c"]
-                    }
-                },
-                "command": "powershell -ExecutionPolicy Bypass -NoProfile -File \"core/deployment/windows/ergo_ms.ps1\" -Root \"${workspaceFolder}\" start-beat"
-            },
-            "linux": {
-                "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "/bin/bash",
-                        "args": ["-lc"]
-                    }
-                },
-                "command": "ergoms start-beat"
+                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                }
             },
             "presentation": {
                 "echo": true,
                 "reveal": "always",
-                "focus": false,
-                "panel": "new",
-                "showReuseMessage": true,
-                "clear": false
+                "panel": "new"
             },
             "problemMatcher": []
         },
         {
             "label": "Ollama",
             "type": "shell",
-            "options": {
-                "cwd": "${workspaceFolder}",
-                "shell": {
-                    "executable": "cmd.exe",
-                    "args": ["/d", "/c"]
-                }
-            },
             "command": "ergoms ollama",
+            "options": { "cwd": "${workspaceFolder}" },
             "windows": {
                 "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "cmd.exe",
-                        "args": ["/d", "/c"]
-                    }
-                },
-                "command": "powershell -ExecutionPolicy Bypass -NoProfile -File \"core/deployment/windows/ergo_ms.ps1\" -Root \"${workspaceFolder}\" ollama"
-            },
-            "linux": {
-                "options": {
-                    "cwd": "${workspaceFolder}",
-                    "shell": {
-                        "executable": "/bin/bash",
-                        "args": ["-lc"]
-                    }
-                },
-                "command": "ergoms ollama"
+                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                }
             },
             "presentation": {
                 "echo": true,
                 "reveal": "always",
-                "focus": false,
-                "panel": "new",
-                "showReuseMessage": true,
-                "clear": false
+                "panel": "new"
             },
             "problemMatcher": []
         },
@@ -358,6 +212,6 @@
             "delay": 300,
             "hideControlTerminal": true,
             "problemMatcher": []
-        },
+        }
     ]
 }
