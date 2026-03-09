@@ -88,7 +88,10 @@ execute_command_string() {
           echo "[ERROR] Virtual environment not found" >&2
           exit 1
         fi
-        cd "$root/core" || exit 1
+        export PYTHONPATH="$root"
+        export PYTHONIOENCODING="utf-8"
+        export PYTHONUNBUFFERED="1"
+        cd "$root/core/api" || exit 1
         # shellcheck disable=SC2086
         exec "$venv_python" -m commands $cmd_args "${user_args[@]}"
         ;;
@@ -171,8 +174,64 @@ invoke_poetry_command() {
   local root="${1:-}"
   shift
   export ERGOMS_INTERNAL=1
+
+  # Intercept "poetry install" → custom api install (core + all modules)
+  if [[ "${1:-}" == "install" ]]; then
+    shift
+    invoke_api_command "$root" install "$@"
+    return
+  fi
+
+  # Intercept "poetry list" → api module-list (show core deps + all modules)
+  if [[ "${1:-}" == "list" ]]; then
+    invoke_api_command "$root" module-list
+    return
+  fi
+
   cd "$root" || exit 1
   exec poetry "$@"
+}
+
+invoke_module_poetry_command() {
+  local root="$1"
+  local module_name="$2"
+  shift 2
+  local sub_cmd="${1:-}"
+
+  if [[ -z "$sub_cmd" ]]; then
+    echo "Usage:"
+    echo "  ergoms ${module_name}:poetry add PACKAGE              -- add dep (version auto-resolved)"
+    echo "  ergoms ${module_name}:poetry add PACKAGE '>=1.0.0'    -- add with explicit constraint"
+    echo "  ergoms ${module_name}:poetry remove PACKAGE           -- remove dep"
+    echo "  ergoms ${module_name}:poetry list                     -- list module deps"
+    return
+  fi
+
+  shift
+  case "$sub_cmd" in
+    add)
+      if [[ $# -eq 0 ]]; then
+        echo "[ERROR] Package name required: ergoms ${module_name}:poetry add PACKAGE" >&2
+        exit 1
+      fi
+      invoke_api_command "$root" module-add "$module_name" "$@"
+      ;;
+    remove)
+      if [[ $# -eq 0 ]]; then
+        echo "[ERROR] Package name required: ergoms ${module_name}:poetry remove PACKAGE" >&2
+        exit 1
+      fi
+      invoke_api_command "$root" module-remove "$module_name" "$@"
+      ;;
+    list|show)
+      invoke_api_command "$root" module-list "$module_name"
+      ;;
+    *)
+      echo "[ERROR] Unknown subcommand: $sub_cmd" >&2
+      echo "Available: add, remove, list" >&2
+      exit 1
+      ;;
+  esac
 }
 
 invoke_api_command() {
@@ -187,7 +246,10 @@ invoke_api_command() {
   fi
   
   export ERGOMS_INTERNAL=1
-  cd "$root/core" || exit 1
+  export PYTHONPATH="$root"
+  export PYTHONIOENCODING="utf-8"
+  export PYTHONUNBUFFERED="1"
+  cd "$root/core/api" || exit 1
   exec "$venv_python" -m commands "$@"
 }
 
@@ -220,6 +282,7 @@ export -f load_custom_commands
 export -f execute_command_string
 export -f invoke_custom_command
 export -f invoke_poetry_command
+export -f invoke_module_poetry_command
 export -f invoke_api_command
 export -f invoke_media_api_command
 export -f invoke_npm_command

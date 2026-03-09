@@ -55,6 +55,8 @@ main() {
     case "$command" in
       install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|install-ollama-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|update-submodules|clean|clean-project|poetry|api|media_api|npm)
         shift ;;
+      *:poetry)
+        shift ;;  # module:poetry command, handled below
       -h|--help)
         print_usage "$detected_root"; exit 0 ;;
       *)
@@ -74,6 +76,14 @@ main() {
   if [[ -z "$command" ]]; then
     print_usage "$detected_root"
     exit 0
+  fi
+
+  # Check if it's a <module>:poetry command (doesn't require root)
+  local is_module_poetry_command=false
+  local module_poetry_name=""
+  if [[ "$command" =~ ^([a-zA-Z0-9_-]+):poetry$ ]]; then
+    is_module_poetry_command=true
+    module_poetry_name="${BASH_REMATCH[1]}"
   fi
 
   # Check if it's a proxy command (doesn't require root)
@@ -117,7 +127,7 @@ main() {
   fi
 
   # Parse flags/positional root for proxy, custom, logs, deploy, clean, and update-submodules commands
-  if [[ "$is_proxy_command" == true ]] || [[ "$is_custom_command" == true ]] || [[ "$is_logs_command" == true ]] || [[ "$is_deploy_command" == true ]] || [[ "$is_clean_command" == true ]] || [[ "$is_update_submodules_command" == true ]]; then
+  if [[ "$is_proxy_command" == true ]] || [[ "$is_module_poetry_command" == true ]] || [[ "$is_custom_command" == true ]] || [[ "$is_logs_command" == true ]] || [[ "$is_deploy_command" == true ]] || [[ "$is_clean_command" == true ]] || [[ "$is_update_submodules_command" == true ]]; then
     while (( "$#" )); do
       case "$1" in
         --root)
@@ -200,6 +210,12 @@ main() {
       exit 0
     fi
     
+    # Execute <module>:poetry command
+    if [[ "$is_module_poetry_command" == true ]]; then
+      invoke_module_poetry_command "$ERGO_ROOT" "$module_poetry_name" "$@"
+      exit 0
+    fi
+
     # Execute proxy command
     case "$command" in
       poetry)    invoke_poetry_command "$ERGO_ROOT" "$@" ;;
