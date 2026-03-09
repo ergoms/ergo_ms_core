@@ -83,29 +83,25 @@ execute_command_string() {
         exec poetry $cmd_args "${user_args[@]}"
         ;;
       api)
-        local venv_activate="$root/virtual_env/python/bin/activate"
-        if [[ ! -f "$venv_activate" ]]; then
+        local venv_python="$root/virtual_env/python/bin/python"
+        if [[ ! -f "$venv_python" ]]; then
           echo "[ERROR] Virtual environment not found" >&2
           exit 1
         fi
         cd "$root/core" || exit 1
-        # shellcheck disable=SC1090
-        source "$venv_activate"
         # shellcheck disable=SC2086
-        exec api $cmd_args "${user_args[@]}"
+        exec "$venv_python" -m commands $cmd_args "${user_args[@]}"
         ;;
       media_api)
-        local venv_activate="$root/virtual_env/python/bin/activate"
-        if [[ ! -f "$venv_activate" ]]; then
+        local venv_python="$root/virtual_env/python/bin/python"
+        if [[ ! -f "$venv_python" ]]; then
           echo "[ERROR] Virtual environment not found" >&2
           exit 1
         fi
         cd "$root" || exit 1
-        # shellcheck disable=SC1090
-        source "$venv_activate"
         export PYTHONPATH="$root/core/media_api/src"
         # shellcheck disable=SC2086
-        exec media_api $cmd_args "${user_args[@]}"
+        exec "$venv_python" -m media_server.manage $cmd_args "${user_args[@]}"
         ;;
       npm)
         cd "$root" || exit 1
@@ -182,38 +178,34 @@ invoke_poetry_command() {
 invoke_api_command() {
   local root="${1:-}"
   shift
-  local venv_activate="$root/virtual_env/python/bin/activate"
+  local venv_python="$root/virtual_env/python/bin/python"
   
-  if [[ ! -f "$venv_activate" ]]; then
-    echo "[ERROR] Virtual environment not found at: $venv_activate" >&2
-    echo "  Please run 'ergoms poetry install' first" >&2
+  if [[ ! -f "$venv_python" ]]; then
+    echo "[ERROR] Virtual environment not found at: $venv_python" >&2
+    echo "  Please run 'ergoms python-install' first" >&2
     exit 1
   fi
   
   export ERGOMS_INTERNAL=1
   cd "$root/core" || exit 1
-  # shellcheck disable=SC1090
-  source "$venv_activate"
-  exec api "$@"
+  exec "$venv_python" -m commands "$@"
 }
 
 invoke_media_api_command() {
   local root="${1:-}"
   shift
-  local venv_activate="$root/virtual_env/python/bin/activate"
+  local venv_python="$root/virtual_env/python/bin/python"
   
-  if [[ ! -f "$venv_activate" ]]; then
-    echo "[ERROR] Virtual environment not found at: $venv_activate" >&2
-    echo "  Please run 'ergoms poetry install' first" >&2
+  if [[ ! -f "$venv_python" ]]; then
+    echo "[ERROR] Virtual environment not found at: $venv_python" >&2
+    echo "  Please run 'ergoms python-install' first" >&2
     exit 1
   fi
   
   export ERGOMS_INTERNAL=1
   cd "$root" || exit 1
-  # shellcheck disable=SC1090
-  source "$venv_activate"
   export PYTHONPATH="$root/core/media_api/src"
-  exec media_api "$@"
+  exec "$venv_python" -m media_server.manage "$@"
 }
 
 invoke_npm_command() {

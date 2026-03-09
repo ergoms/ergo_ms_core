@@ -175,6 +175,7 @@ main() {
       fi
       
       local service_name="$1"
+      [[ "$service_name" == "media_api" ]] && service_name="ergo-media-api"
       local lines="${2:-500}"
       
       # Check if service exists

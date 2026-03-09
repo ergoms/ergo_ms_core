@@ -123,7 +123,8 @@ function Execute-CommandString {
             }
             'api' {
                 $venvPath = Join-Path $ProjectRoot "virtual_env\python"
-                if (-not (Test-Path $venvPath)) {
+                $pythonExe = Join-Path $venvPath "Scripts\python.exe"
+                if (-not (Test-Path $pythonExe)) {
                     Write-ColorOutput "[ERROR] Virtual environment not found" Red
                     exit 1
                 }
@@ -131,7 +132,7 @@ function Execute-CommandString {
                 try {
                     $env:VIRTUAL_ENV = $venvPath
                     $env:PATH = "$venvPath\Scripts;$env:PATH"
-                    & api @allArgs
+                    & $pythonExe -m commands @allArgs
                 }
                 finally {
                     Pop-Location
@@ -139,7 +140,8 @@ function Execute-CommandString {
             }
             'media_api' {
                 $venvPath = Join-Path $ProjectRoot "virtual_env\python"
-                if (-not (Test-Path $venvPath)) {
+                $pythonExe = Join-Path $venvPath "Scripts\python.exe"
+                if (-not (Test-Path $pythonExe)) {
                     Write-ColorOutput "[ERROR] Virtual environment not found" Red
                     exit 1
                 }
@@ -148,7 +150,7 @@ function Execute-CommandString {
                     $env:VIRTUAL_ENV = $venvPath
                     $env:PATH = "$venvPath\Scripts;$env:PATH"
                     $env:PYTHONPATH = Join-Path $ProjectRoot "core\media_api\src"
-                    & media_api @allArgs
+                    & $pythonExe -m media_server.manage @allArgs
                 }
                 finally {
                     Pop-Location
@@ -241,7 +243,8 @@ function Invoke-ApiCommand {
     
     $venvPath = Join-Path $Root "virtual_env\python"
     
-    if (-not (Test-Path $venvPath)) {
+    $pythonExe = Join-Path $venvPath "Scripts\python.exe"
+    if (-not (Test-Path $pythonExe)) {
         Write-ColorOutput "[ERROR] Virtual environment not found at: $venvPath" Red
         Write-ColorOutput "  Please run 'ergoms python-install' first" Yellow
         exit 1
@@ -251,7 +254,7 @@ function Invoke-ApiCommand {
     try {
         $env:VIRTUAL_ENV = $venvPath
         $env:PATH = "$venvPath\Scripts;$env:PATH"
-        & api $CommandArgs
+        & $pythonExe -m commands $CommandArgs
     }
     finally {
         Pop-Location
@@ -264,8 +267,8 @@ function Invoke-MediaApiCommand {
     $env:ERGOMS_INTERNAL = '1'
     
     $venvPath = Join-Path $Root "virtual_env\python"
-    
-    if (-not (Test-Path $venvPath)) {
+    $pythonExe = Join-Path $venvPath "Scripts\python.exe"
+    if (-not (Test-Path $pythonExe)) {
         Write-ColorOutput "[ERROR] Virtual environment not found at: $venvPath" Red
         Write-ColorOutput "  Please run 'ergoms python-install' first" Yellow
         exit 1
@@ -276,7 +279,7 @@ function Invoke-MediaApiCommand {
         $env:VIRTUAL_ENV = $venvPath
         $env:PATH = "$venvPath\Scripts;$env:PATH"
         $env:PYTHONPATH = Join-Path $Root "core\media_api\src"
-        & media_api $CommandArgs
+        & $pythonExe -m media_server.manage $CommandArgs
     }
     finally {
         Pop-Location

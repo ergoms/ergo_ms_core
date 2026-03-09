@@ -20,8 +20,8 @@ ergoms status     # Получение статуса всех сервисов
 ```cmd
 ergoms dev              # API в режиме разработки (api:dev)
 ergoms start-client     # Клиентское приложение (npm:run dev)
-ergoms start-worker     # Обработчик фоновых задач (api:start_celery_worker)
-ergoms start-beat       # Планировщик периодических задач (api:start_celery_beat)
+ergoms start-worker     # Обработчик фоновых задач (scripts/start_celery_worker.py)
+ergoms start-beat       # Планировщик периодических задач (scripts/start_celery_beat.py)
 ```
 
 ## Наблюдение за системой
@@ -235,8 +235,8 @@ start-client=npm:run dev
 client-build=npm:run build
 
 # Команды Celery
-start-worker=api:start_celery_worker
-start-beat=api:start_celery_beat
+start-worker=win:...python.exe core\api\scripts\start_celery_worker.py && linux:...python core/api/scripts/start_celery_worker.py
+start-beat=win:...python.exe core\api\scripts\start_celery_beat.py && linux:...python core/api/scripts/start_celery_beat.py
 
 # Управление зависимостями
 setup=poetry:install && npm:install && api:migrate

@@ -35,6 +35,9 @@ __pycache__/
 /virtual_env/static_api/*
 !/virtual_env/static_api/.gitkeep
 
+/virtual_env/cache/*
+!/virtual_env/cache/.gitkeep
+
 /logs/*
 !/logs/.gitkeep
 

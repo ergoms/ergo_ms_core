@@ -353,8 +353,9 @@ function Setup-FullSystem {
         # api migrate should be run from core directory
         Push-Location "core"
         try {
-            & api migrate
+            & python -m commands migrate
             if ($LASTEXITCODE -ne 0) { throw "API migrate failed" }
+            & python -m commands warmup_caches
         }
         finally {
             Pop-Location
@@ -381,7 +382,7 @@ function Setup-FullSystem {
         
         Push-Location "core"
         try {
-            & api collectstatic --noinput
+            & python -m commands collectstatic --noinput
             if ($LASTEXITCODE -ne 0) { throw "Collectstatic failed" }
         }
         finally {
@@ -412,22 +413,60 @@ function Setup-FullSystem {
 
 # Clean project dependencies
 # Очистка зависимостей проекта
+
+function Remove-DirectoryContents {
+    param(
+        [string]$Path,
+        [string]$Label
+    )
+    
+    if (-not (Test-Path $Path)) {
+        Write-ColorOutput "[SKIP] $Label not found" Gray
+        return
+    }
+    try {
+        $items = Get-ChildItem -Path $Path -Force -ErrorAction Stop
+        $removedCount = 0
+        foreach ($item in $items) {
+            if ($item.Name -ne '.gitkeep') {
+                Remove-Item $item.FullName -Recurse -Force -ErrorAction Stop
+                $removedCount++
+            }
+        }
+        if ($removedCount -gt 0) {
+            Write-ColorOutput "[OK] Removed $removedCount items from $Label" Green
+        }
+        else {
+            Write-ColorOutput "[SKIP] $Label is already empty" Gray
+        }
+    }
+    catch {
+        Write-ColorOutput "[ERROR] Failed to clean ${Label}: $($_.Exception.Message)" Red
+    }
+}
+
 function Clear-ProjectDependencies {
     param(
         [string]$Root
     )
     
+    $cleanTargets = @(
+        @{Path = "node_modules";               Label = "node_modules";               FullRemove = $true},
+        @{Path = "virtual_env\python";          Label = "virtual_env/python";          FullRemove = $false},
+        @{Path = "virtual_env\static_api";      Label = "virtual_env/static_api";      FullRemove = $false},
+        @{Path = "virtual_env\celery";          Label = "virtual_env/celery";          FullRemove = $false},
+        @{Path = "virtual_env\nodejs";          Label = "virtual_env/nodejs";          FullRemove = $false},
+        @{Path = "virtual_env\packages";        Label = "virtual_env/packages";        FullRemove = $false},
+        @{Path = "virtual_env\resources";       Label = "virtual_env/resources";       FullRemove = $false},
+        @{Path = "virtual_env\trained_models";  Label = "virtual_env/trained_models";  FullRemove = $false}
+    )
+    
     Write-ColorOutput "`n=== Cleaning Project Dependencies ===" Cyan
     Write-ColorOutput ""
     Write-ColorOutput "This will remove:" Yellow
-    Write-ColorOutput "  - node_modules" Gray
-    Write-ColorOutput "  - virtual_env/python/*" Gray
-    Write-ColorOutput "  - virtual_env/static_api/*" Gray
-    Write-ColorOutput "  - virtual_env/celery/*" Gray
-    Write-ColorOutput "  - virtual_env/nodejs/*" Gray
-    Write-ColorOutput "  - virtual_env/packages/*" Gray
-    Write-ColorOutput "  - virtual_env/resources/*" Gray
-    Write-ColorOutput "  - virtual_env/trained_models/*" Gray
+    foreach ($target in $cleanTargets) {
+        Write-ColorOutput "  - $($target.Label)" Gray
+    }
     Write-ColorOutput ""
     Write-ColorOutput "Media folder will NOT be deleted." Green
     Write-ColorOutput ""
@@ -438,216 +477,30 @@ function Clear-ProjectDependencies {
         return
     }
     
-    # Step 1: Remove node_modules
-    Write-ColorOutput "`n-> Step 1/8: Removing node_modules..." Yellow
-    $nodeModulesPath = Join-Path $Root "node_modules"
-    if (Test-Path $nodeModulesPath) {
-        try {
-            Remove-Item $nodeModulesPath -Recurse -Force -ErrorAction Stop
-            Write-ColorOutput "[OK] node_modules removed" Green
-        }
-        catch {
-            Write-ColorOutput "[ERROR] Failed to remove node_modules: $($_.Exception.Message)" Red
-        }
-    }
-    else {
-        Write-ColorOutput "[SKIP] node_modules not found" Gray
-    }
-    
-    # Step 2: Remove virtual_env/python/*
-    Write-ColorOutput "`n-> Step 2/8: Cleaning virtual_env/python..." Yellow
-    $pythonVenvPath = Join-Path $Root "virtual_env\python"
-    if (Test-Path $pythonVenvPath) {
-        try {
-            $items = Get-ChildItem -Path $pythonVenvPath -Force -ErrorAction Stop
-            $removedCount = 0
-            foreach ($item in $items) {
-                if ($item.Name -ne '.gitkeep') {
-                    Remove-Item $item.FullName -Recurse -Force -ErrorAction Stop
-                    $removedCount++
+    $total = $cleanTargets.Count
+    for ($i = 0; $i -lt $total; $i++) {
+        $target = $cleanTargets[$i]
+        $step = $i + 1
+        $fullPath = Join-Path $Root $target.Path
+        Write-ColorOutput "`n-> Step ${step}/${total}: Cleaning $($target.Label)..." Yellow
+        
+        if ($target.FullRemove) {
+            if (Test-Path $fullPath) {
+                try {
+                    Remove-Item $fullPath -Recurse -Force -ErrorAction Stop
+                    Write-ColorOutput "[OK] $($target.Label) removed" Green
+                }
+                catch {
+                    Write-ColorOutput "[ERROR] Failed to remove $($target.Label): $($_.Exception.Message)" Red
                 }
             }
-            if ($removedCount -gt 0) {
-                Write-ColorOutput "[OK] Removed $removedCount items from virtual_env/python" Green
-            }
             else {
-                Write-ColorOutput "[SKIP] virtual_env/python is already empty" Gray
+                Write-ColorOutput "[SKIP] $($target.Label) not found" Gray
             }
         }
-        catch {
-            Write-ColorOutput "[ERROR] Failed to clean virtual_env/python: $($_.Exception.Message)" Red
+        else {
+            Remove-DirectoryContents -Path $fullPath -Label $target.Label
         }
-    }
-    else {
-        Write-ColorOutput "[SKIP] virtual_env/python not found" Gray
-    }
-    
-    # Step 3: Remove virtual_env/static_api/*
-    Write-ColorOutput "`n-> Step 3/8: Cleaning virtual_env/static_api..." Yellow
-    $staticPath = Join-Path $Root "virtual_env\static_api"
-    if (Test-Path $staticPath) {
-        try {
-            $items = Get-ChildItem -Path $staticPath -Force -ErrorAction Stop
-            $removedCount = 0
-            foreach ($item in $items) {
-                if ($item.Name -ne '.gitkeep') {
-                    Remove-Item $item.FullName -Recurse -Force -ErrorAction Stop
-                    $removedCount++
-                }
-            }
-            if ($removedCount -gt 0) {
-                Write-ColorOutput "[OK] Removed $removedCount items from virtual_env/static_api" Green
-            }
-            else {
-                Write-ColorOutput "[SKIP] virtual_env/static_api is already empty" Gray
-            }
-        }
-        catch {
-            Write-ColorOutput "[ERROR] Failed to clean virtual_env/static_api: $($_.Exception.Message)" Red
-        }
-    }
-    else {
-        Write-ColorOutput "[SKIP] virtual_env/static_api not found" Gray
-    }
-    
-    # Step 4: Remove virtual_env/celery/*
-    Write-ColorOutput "`n-> Step 4/8: Cleaning virtual_env/celery..." Yellow
-    $celeryPath = Join-Path $Root "virtual_env\celery"
-    if (Test-Path $celeryPath) {
-        try {
-            $items = Get-ChildItem -Path $celeryPath -Force -ErrorAction Stop
-            $removedCount = 0
-            foreach ($item in $items) {
-                if ($item.Name -ne '.gitkeep') {
-                    Remove-Item $item.FullName -Recurse -Force -ErrorAction Stop
-                    $removedCount++
-                }
-            }
-            if ($removedCount -gt 0) {
-                Write-ColorOutput "[OK] Removed $removedCount items from virtual_env/celery" Green
-            }
-            else {
-                Write-ColorOutput "[SKIP] virtual_env/celery is already empty" Gray
-            }
-        }
-        catch {
-            Write-ColorOutput "[ERROR] Failed to clean virtual_env/celery: $($_.Exception.Message)" Red
-        }
-    }
-    else {
-        Write-ColorOutput "[SKIP] virtual_env/celery not found" Gray
-    }
-    
-    # Step 5: Remove virtual_env/nodejs/*
-    Write-ColorOutput "`n-> Step 5/8: Cleaning virtual_env/nodejs..." Yellow
-    $nodejsPath = Join-Path $Root "virtual_env\nodejs"
-    if (Test-Path $nodejsPath) {
-        try {
-            $items = Get-ChildItem -Path $nodejsPath -Force -ErrorAction Stop
-            $removedCount = 0
-            foreach ($item in $items) {
-                if ($item.Name -ne '.gitkeep') {
-                    Remove-Item $item.FullName -Recurse -Force -ErrorAction Stop
-                    $removedCount++
-                }
-            }
-            if ($removedCount -gt 0) {
-                Write-ColorOutput "[OK] Removed $removedCount items from virtual_env/nodejs" Green
-            }
-            else {
-                Write-ColorOutput "[SKIP] virtual_env/nodejs is already empty" Gray
-            }
-        }
-        catch {
-            Write-ColorOutput "[ERROR] Failed to clean virtual_env/nodejs: $($_.Exception.Message)" Red
-        }
-    }
-    else {
-        Write-ColorOutput "[SKIP] virtual_env/nodejs not found" Gray
-    }
-    
-    # Step 6: Remove virtual_env/packages/*
-    Write-ColorOutput "`n-> Step 6/8: Cleaning virtual_env/packages..." Yellow
-    $packagesPath = Join-Path $Root "virtual_env\packages"
-    if (Test-Path $packagesPath) {
-        try {
-            $items = Get-ChildItem -Path $packagesPath -Force -ErrorAction Stop
-            $removedCount = 0
-            foreach ($item in $items) {
-                if ($item.Name -ne '.gitkeep') {
-                    Remove-Item $item.FullName -Recurse -Force -ErrorAction Stop
-                    $removedCount++
-                }
-            }
-            if ($removedCount -gt 0) {
-                Write-ColorOutput "[OK] Removed $removedCount items from virtual_env/packages" Green
-            }
-            else {
-                Write-ColorOutput "[SKIP] virtual_env/packages is already empty" Gray
-            }
-        }
-        catch {
-            Write-ColorOutput "[ERROR] Failed to clean virtual_env/packages: $($_.Exception.Message)" Red
-        }
-    }
-    else {
-        Write-ColorOutput "[SKIP] virtual_env/packages not found" Gray
-    }
-    
-    # Step 7: Remove virtual_env/resources/*
-    Write-ColorOutput "`n-> Step 7/8: Cleaning virtual_env/resources..." Yellow
-    $resourcesPath = Join-Path $Root "virtual_env\resources"
-    if (Test-Path $resourcesPath) {
-        try {
-            $items = Get-ChildItem -Path $resourcesPath -Force -ErrorAction Stop
-            $removedCount = 0
-            foreach ($item in $items) {
-                if ($item.Name -ne '.gitkeep') {
-                    Remove-Item $item.FullName -Recurse -Force -ErrorAction Stop
-                    $removedCount++
-                }
-            }
-            if ($removedCount -gt 0) {
-                Write-ColorOutput "[OK] Removed $removedCount items from virtual_env/resources" Green
-            }
-            else {
-                Write-ColorOutput "[SKIP] virtual_env/resources is already empty" Gray
-            }
-        }
-        catch {
-            Write-ColorOutput "[ERROR] Failed to clean virtual_env/resources: $($_.Exception.Message)" Red
-        }
-    }
-    else {
-        Write-ColorOutput "[SKIP] virtual_env/resources not found" Gray
-    }
-    
-    # Step 8: Remove virtual_env/trained_models/*
-    Write-ColorOutput "`n-> Step 8/8: Cleaning virtual_env/trained_models..." Yellow
-    $modelsPath = Join-Path $Root "virtual_env\trained_models"
-    if (Test-Path $modelsPath) {
-        try {
-            $items = Get-ChildItem -Path $modelsPath -Force -ErrorAction Stop
-            $removedCount = 0
-            foreach ($item in $items) {
-                if ($item.Name -ne '.gitkeep') {
-                    Remove-Item $item.FullName -Recurse -Force -ErrorAction Stop
-                    $removedCount++
-                }
-            }
-            if ($removedCount -gt 0) {
-                Write-ColorOutput "[OK] Removed $removedCount items from virtual_env/trained_models" Green
-            }
-            else {
-                Write-ColorOutput "[SKIP] virtual_env/trained_models is already empty" Gray
-            }
-        }
-        catch {
-            Write-ColorOutput "[ERROR] Failed to clean virtual_env/trained_models: $($_.Exception.Message)" Red
-        }
-    }
-    else {
-        Write-ColorOutput "[SKIP] virtual_env/trained_models not found" Gray
     }
     
     Write-ColorOutput "`n=== Cleaning Complete ===" Green

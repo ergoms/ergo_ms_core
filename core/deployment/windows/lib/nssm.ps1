@@ -78,7 +78,7 @@ function New-BaseServiceWrapper {
                 'set PYTHONUTF8=1',
                 "cd /d `"$corePath`"",
                 "call `"$venvActivate`"",
-                'api dev'
+                'python -m commands dev'
             ) -join "`r`n"
         }
         'ergo-client-dev' {
@@ -95,6 +95,7 @@ function New-BaseServiceWrapper {
         }
         'ergo-celery-beat' {
             $wrapperPath = Join-Path $wrapperDir "start_celery_beat.bat"
+            $scriptPath = Join-Path $corePath "api\scripts\start_celery_beat.py"
             $content = @(
                 '@echo off',
                 'chcp 65001 >nul',
@@ -102,7 +103,7 @@ function New-BaseServiceWrapper {
                 'set PYTHONUTF8=1',
                 "cd /d `"$corePath`"",
                 "call `"$venvActivate`"",
-                'api start_celery_beat'
+                "python `"$scriptPath`""
             ) -join "`r`n"
         }
         'ergo-media-api' {
@@ -115,7 +116,7 @@ function New-BaseServiceWrapper {
                 "set PYTHONPATH=$Root\core\media_api\src",
                 "cd /d `"$Root`"",
                 "call `"$venvActivate`"",
-                'media_api runserver 0.0.0.0:8003'
+                'python -m media_server.manage runserver 0.0.0.0:8003'
             ) -join "`r`n"
         }
         'ergo-ollama' {
@@ -125,7 +126,7 @@ function New-BaseServiceWrapper {
                 'chcp 65001 >nul',
                 "cd /d `"$corePath`"",
                 "call `"$venvActivate`"",
-                'api start_ollama'
+                'python -m commands start_ollama'
             ) -join "`r`n"
         }
         default {
@@ -151,6 +152,7 @@ function New-WorkerServiceWrapper {
     
     New-Item -ItemType Directory -Path $wrapperDir -Force | Out-Null
 
+    $scriptPath = Join-Path $corePath "api\scripts\start_celery_worker.py"
     $wrapperPath = Join-Path $wrapperDir "start_celery_worker_${WorkerName}.bat"
     $content = @(
         '@echo off',
@@ -159,7 +161,7 @@ function New-WorkerServiceWrapper {
         'set PYTHONUTF8=1',
         "cd /d `"$corePath`"",
         "call `"$venvActivate`"",
-        "api start_celery_worker --worker=$WorkerName"
+        "python `"$scriptPath`" --worker=$WorkerName"
     ) -join "`r`n"
 
     # Write without BOM to avoid issues in logs
@@ -179,6 +181,7 @@ function New-DefaultWorkerServiceWrapper {
     
     New-Item -ItemType Directory -Path $wrapperDir -Force | Out-Null
 
+    $scriptPath = Join-Path $corePath "api\scripts\start_celery_worker.py"
     $wrapperPath = Join-Path $wrapperDir "start_celery_worker.bat"
     $content = @(
         '@echo off',
@@ -187,7 +190,7 @@ function New-DefaultWorkerServiceWrapper {
         'set PYTHONUTF8=1',
         "cd /d `"$corePath`"",
         "call `"$venvActivate`"",
-        'api start_celery_worker'
+        "python `"$scriptPath`""
     ) -join "`r`n"
 
     # Write without BOM to avoid issues in logs
