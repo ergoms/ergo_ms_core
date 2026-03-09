@@ -90,8 +90,10 @@ main() {
   fi
   
   # Check if it's a custom command (doesn't require root)
+  # Exclude built-in commands to avoid recursion (e.g. install-cli would re-invoke self via commands.conf)
+  local builtin_override="install-cli|uninstall-cli|install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|install-ollama-service|start|stop|restart|status|uninstall-services|setup-full"
   local is_custom_command=false
-  if [[ -v "available_custom_cmds[$command]" ]]; then
+  if [[ -v "available_custom_cmds[$command]" ]] && [[ ! "$command" =~ ^($builtin_override)$ ]]; then
     is_custom_command=true
   fi
   
