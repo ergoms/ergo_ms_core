@@ -11,5 +11,3 @@ services:
     description: "Media API (CDN / file server)"
   ergo-celery-beat:
     description: "Celery Beat scheduler"
-  ergo-ollama:
-    description: "Ollama server"
