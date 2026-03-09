@@ -292,8 +292,8 @@ function Setup-FullSystem {
         $env:VIRTUAL_ENV = $venvPath
         $env:PATH = "$venvPath\Scripts;$env:PATH"
         
-        # Poetry install should be run from core directory
-        Push-Location "core"
+        # Poetry install must run from the project root (where pyproject.toml lives)
+        Push-Location $Root
         try {
             & poetry install
             if ($LASTEXITCODE -ne 0) { throw "Poetry install failed" }
@@ -350,12 +350,14 @@ function Setup-FullSystem {
             Pop-Location
         }
         
-        # api migrate should be run from core directory
-        Push-Location "core"
+        # api commands must run from core\api with project root in PYTHONPATH
+        Push-Location (Join-Path $Root "core\api")
         try {
-            & python -m commands migrate
+            $env:PYTHONPATH = $Root
+            $env:PYTHONIOENCODING = "utf-8"
+            & $pythonExe -m commands migrate
             if ($LASTEXITCODE -ne 0) { throw "API migrate failed" }
-            & python -m commands warmup_caches
+            & $pythonExe -m commands warmup_caches
         }
         finally {
             Pop-Location
@@ -380,9 +382,11 @@ function Setup-FullSystem {
         $env:VIRTUAL_ENV = $venvPath
         $env:PATH = "$venvPath\Scripts;$env:PATH"
         
-        Push-Location "core"
+        Push-Location (Join-Path $Root "core\api")
         try {
-            & python -m commands collectstatic --noinput
+            $env:PYTHONPATH = $Root
+            $env:PYTHONIOENCODING = "utf-8"
+            & $pythonExe -m commands collectstatic --noinput
             if ($LASTEXITCODE -ne 0) { throw "Collectstatic failed" }
         }
         finally {

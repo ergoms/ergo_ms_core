@@ -1,4 +1,4 @@
-# Custom commands management
+﻿# Custom commands management
 # Управление пользовательскими командами
 
 function Get-CustomCommands {
@@ -128,10 +128,13 @@ function Execute-CommandString {
                     Write-ColorOutput "[ERROR] Virtual environment not found" Red
                     exit 1
                 }
-                Push-Location (Join-Path $ProjectRoot "core")
+                Push-Location (Join-Path $ProjectRoot "core\api")
                 try {
                     $env:VIRTUAL_ENV = $venvPath
                     $env:PATH = "$venvPath\Scripts;$env:PATH"
+                    $env:PYTHONPATH = $ProjectRoot
+                    $env:PYTHONIOENCODING = "utf-8"
+                    $env:PYTHONUNBUFFERED = "1"
                     & $pythonExe -m commands @allArgs
                 }
                 finally {
@@ -216,10 +219,66 @@ function Execute-CommandString {
     }
 }
 
+function Invoke-ModulePoetryCommand {
+    param([string]$ModuleName, [string[]]$CommandArgs, [string]$Root)
+
+    $env:ERGOMS_INTERNAL = '1'
+
+    if ($CommandArgs.Count -eq 0) {
+        Write-ColorOutput "Usage:" Yellow
+        Write-ColorOutput "  ergoms ${ModuleName}:poetry add PACKAGE              -- add dep (version auto-resolved)" Yellow
+        Write-ColorOutput "  ergoms ${ModuleName}:poetry add PACKAGE `">=1.0.0`"  -- add with explicit constraint" Yellow
+        Write-ColorOutput "  ergoms ${ModuleName}:poetry remove PACKAGE           -- remove dep" Yellow
+        Write-ColorOutput "  ergoms ${ModuleName}:poetry list                     -- list module deps" Yellow
+        return
+    }
+
+    $subCmd = $CommandArgs[0].ToLower()
+    $restArgs = if ($CommandArgs.Count -gt 1) { $CommandArgs[1..($CommandArgs.Count - 1)] } else { @() }
+
+    switch ($subCmd) {
+        'add' {
+            if ($restArgs.Count -eq 0) {
+                Write-ColorOutput "[ERROR] Package name required: ergoms ${ModuleName}:poetry add PACKAGE" Red
+                return
+            }
+            Invoke-ApiCommand -CommandArgs (@('module-add', $ModuleName) + $restArgs) -Root $Root
+        }
+        'remove' {
+            if ($restArgs.Count -eq 0) {
+                Write-ColorOutput "[ERROR] Package name required: ergoms ${ModuleName}:poetry remove PACKAGE" Red
+                return
+            }
+            Invoke-ApiCommand -CommandArgs (@('module-remove', $ModuleName) + $restArgs) -Root $Root
+        }
+        { $_ -in 'list', 'show' } {
+            Invoke-ApiCommand -CommandArgs @('module-list', $ModuleName) -Root $Root
+        }
+        default {
+            Write-ColorOutput "[ERROR] Неизвестная подкоманда: $subCmd" Red
+            Write-ColorOutput "Доступные: add, remove, list" Yellow
+        }
+    }
+}
+
 function Invoke-PoetryCommand {
     param([string[]]$CommandArgs, [string]$Root)
     
     $env:ERGOMS_INTERNAL = '1'
+
+    # Перехватываем "poetry install [...]" и заменяем собственной реализацией,
+    # которая устанавливает ядро + зависимости всех модулей.
+    # Остальные poetry-подкоманды выполняются напрямую.
+    if ($CommandArgs.Count -gt 0 -and $CommandArgs[0] -eq 'install') {
+        $extraArgs = if ($CommandArgs.Count -gt 1) { $CommandArgs[1..($CommandArgs.Count - 1)] } else { @() }
+        Invoke-ApiCommand -CommandArgs (@('install') + $extraArgs) -Root $Root
+        return
+    }
+
+    if ($CommandArgs.Count -gt 0 -and $CommandArgs[0] -eq 'list') {
+        Invoke-ApiCommand -CommandArgs @('module-list') -Root $Root
+        return
+    }
     
     $venvPath = Join-Path $Root "virtual_env\python"
     if (Test-Path $venvPath) {
@@ -250,10 +309,13 @@ function Invoke-ApiCommand {
         exit 1
     }
     
-    Push-Location (Join-Path $Root "core")
+    Push-Location (Join-Path $Root "core\api")
     try {
         $env:VIRTUAL_ENV = $venvPath
         $env:PATH = "$venvPath\Scripts;$env:PATH"
+        $env:PYTHONPATH = $Root
+        $env:PYTHONIOENCODING = "utf-8"
+        $env:PYTHONUNBUFFERED = "1"
         & $pythonExe -m commands $CommandArgs
     }
     finally {

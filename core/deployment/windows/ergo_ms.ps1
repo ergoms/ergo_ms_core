@@ -1,4 +1,4 @@
-#Requires -RunAsAdministrator
+﻿#Requires -RunAsAdministrator
 <#
 .SYNOPSIS
     Manages ergo_ms services on Windows using NSSM (Non-Sucking Service Manager)
@@ -128,6 +128,14 @@ function Main {
                 return
             }
         }
+    }
+
+    # Handle <module>:poetry commands (e.g., ergoms bi_analysis:poetry add requests ">=2.28.0")
+    if ($Command -match '^([a-zA-Z0-9_-]+):poetry$') {
+        $moduleName = $Matches[1]
+        $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+        Invoke-ModulePoetryCommand -ModuleName $moduleName -CommandArgs $RemainingArgs -Root $projectRoot
+        return
     }
 
     # Service/admin/utility commands — загружаем тяжёлые модули
