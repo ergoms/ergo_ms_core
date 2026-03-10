@@ -2,7 +2,11 @@ import { readdir, readFile } from 'fs/promises';
 import { join, dirname } from 'path';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
 import { existsSync } from 'fs';
+
+const require = createRequire(import.meta.url);
+const osAbstraction = require('../lib/os-abstraction.cjs');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -101,15 +105,13 @@ function uninstallExtension(extensionId, filePath) {
  * Удалить расширение на удаленном сервере (для user-config)
  */
 async function uninstallUserConfigFromRemote() {
-  const os = await import('os');
-  const homeDir = os.homedir();
-  const isWindows = process.platform === 'win32';
-
-  if (isWindows) {
+  if (!osAbstraction.supportsRemoteInstall()) {
     return false;
   }
 
   try {
+    const os = await import('os');
+    const homeDir = os.default.homedir();
     const fs = await import('fs/promises');
     const remoteDirs = [
       join(homeDir, '.vscode-server', 'extensions'),

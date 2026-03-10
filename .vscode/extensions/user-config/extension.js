@@ -2,6 +2,7 @@ const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const osAbstraction = require('../../lib/os-abstraction.cjs');
 
 /**
  * ERGO MS User Config Extension
@@ -50,11 +51,7 @@ function isRunningOnRemoteHost() {
     const keybindingsPath = getGlobalKeybindingsPath();
     const keybindingsDir = path.dirname(keybindingsPath);
     
-    // On Windows local machine, APPDATA would be set
-    // On Linux remote, we'd be looking at ~/.config/Cursor/User
-    // If APPDATA is empty but we're supposedly looking for Windows path, we're on remote
-    if (process.platform !== 'win32' && isRemoteSession()) {
-        // Running on Linux remote, so keybindings would be remote, not local
+    if (!osAbstraction.isWindows() && isRemoteSession()) {
         return true;
     }
     
@@ -67,14 +64,7 @@ function isRunningOnRemoteHost() {
 function getGlobalConfigDir() {
     const appName = vscode.env.appName.toLowerCase();
     const isCursor = appName.includes('cursor');
-    
-    if (process.platform === 'win32') {
-        return path.join(process.env.APPDATA || '', isCursor ? 'Cursor' : 'Code', 'User');
-    } else if (process.platform === 'darwin') {
-        return path.join(os.homedir(), 'Library', 'Application Support', isCursor ? 'Cursor' : 'Code', 'User');
-    } else {
-        return path.join(os.homedir(), '.config', isCursor ? 'Cursor' : 'Code', 'User');
-    }
+    return osAbstraction.getGlobalConfigDir(os.homedir(), appName, isCursor);
 }
 
 /**
@@ -629,14 +619,7 @@ async function applyAllConfig(showNotification = true) {
 function getLocalExtensionsDir() {
     const appName = vscode.env.appName.toLowerCase();
     const isCursor = appName.includes('cursor');
-    
-    if (process.platform === 'win32') {
-        return path.join(os.homedir(), isCursor ? '.cursor' : '.vscode', 'extensions');
-    } else if (process.platform === 'darwin') {
-        return path.join(os.homedir(), isCursor ? '.cursor' : '.vscode', 'extensions');
-    } else {
-        return path.join(os.homedir(), isCursor ? '.cursor' : '.vscode', 'extensions');
-    }
+    return osAbstraction.getLocalExtensionsDir(os.homedir(), isCursor);
 }
 
 /**

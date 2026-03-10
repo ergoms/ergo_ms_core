@@ -5,13 +5,19 @@ MCP сервер для работы с Ollama
 
 import asyncio
 import json
-import sys
 import subprocess
-import psutil
+import sys
 import time
 from pathlib import Path
-from typing import Any, Optional, List
+from typing import Any, List, Optional
+
 import httpx
+import psutil
+
+_cursor_dir = Path(__file__).parent.resolve()
+if str(_cursor_dir) not in sys.path:
+    sys.path.insert(0, str(_cursor_dir))
+from os_abstraction import get_background_popen_kwargs
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
@@ -83,25 +89,13 @@ def start_ollama_background() -> bool:
         api_dir = PROJECT_DIR / "core" / "api"
         cmd: List[str] = ['ollama', 'serve']
         
-        # Запускаем в фоне (на Windows и Linux по-разному)
-        if sys.platform == 'win32':
-            # Windows: используем CREATE_NO_WINDOW флаг
-            process = subprocess.Popen(
-                cmd,
-                cwd=str(api_dir),
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                creationflags=subprocess.CREATE_NO_WINDOW
-            )
-        else:
-            # Linux: запускаем в фоне
-            process = subprocess.Popen(
-                cmd,
-                cwd=str(api_dir),
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                start_new_session=True
-            )
+        popen_kwargs = {
+            'cwd': str(api_dir),
+            'stdout': subprocess.DEVNULL,
+            'stderr': subprocess.DEVNULL,
+            **get_background_popen_kwargs()
+        }
+        process = subprocess.Popen(cmd, **popen_kwargs)
         
         # Ждем немного, чтобы сервер успел запуститься
         time.sleep(2)

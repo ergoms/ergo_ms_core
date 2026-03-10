@@ -2,11 +2,16 @@
 Обертка для запуска MCP сервера PostgreSQL с динамической загрузкой конфигурации из databases.yaml
 """
 
-import sys
 import subprocess
-import shutil
+import sys
 from pathlib import Path
+
 import yaml
+
+_cursor_dir = Path(__file__).parent.resolve()
+if str(_cursor_dir) not in sys.path:
+    sys.path.insert(0, str(_cursor_dir))
+from os_abstraction import get_npx_executable
 
 
 def load_db_config(db_name='default'):
@@ -64,9 +69,7 @@ def main():
     # Загружаем строку подключения
     connection_string = load_db_config(db_name)
     
-    # Определяем исполняемый файл npx (учитываем Windows, где нужен npx.cmd)
-    windows_prefix: str = 'win'
-    npx_executable = shutil.which('npx.cmd') if sys.platform.startswith(windows_prefix) else shutil.which('npx')
+    npx_executable = get_npx_executable()
     if not npx_executable:
         print("ОШИБКА: npx не найден в PATH. Установите Node.js и перезапустите терминал.", file=sys.stderr)
         sys.exit(1)

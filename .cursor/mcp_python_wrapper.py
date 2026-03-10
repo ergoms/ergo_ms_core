@@ -6,38 +6,30 @@
 правильный Python из виртуального окружения проекта.
 """
 
-import sys
 import os
 import subprocess
+import sys
 from pathlib import Path
+
+_cursor_dir = Path(__file__).parent.resolve()
+if str(_cursor_dir) not in sys.path:
+    sys.path.insert(0, str(_cursor_dir))
+from os_abstraction import get_venv_python_path
 
 
 def find_python_executable():
     """
     Находит правильный Python интерпретатор для виртуального окружения
-    
+
     Returns:
         str: Путь к Python интерпретатору
     """
-    # Определяем корневую директорию проекта (на уровень выше .cursor)
-    # Используем абсолютный путь на основе местоположения этого скрипта
     script_dir = Path(__file__).parent.absolute()
     project_root = script_dir.parent.absolute()
     venv_dir = project_root / 'virtual_env' / 'python'
-    
-    # Определяем ОС
-    is_windows = os.name == 'nt' or sys.platform == 'win32'
-    
-    if is_windows:
-        # На Windows Python находится в Scripts/python.exe
-        python_path = venv_dir / 'Scripts' / 'python.exe'
-    else:
-        # На Linux Python находится в bin/python3 или bin/python
-        python_path = venv_dir / 'bin' / 'python3'
-        if not python_path.exists():
-            python_path = venv_dir / 'bin' / 'python'
-    
-    # Проверяем существование
+
+    python_path = get_venv_python_path(venv_dir)
+
     if not python_path.exists():
         error_msg = (
             f"ОШИБКА: Python интерпретатор не найден по пути: {python_path}\n"

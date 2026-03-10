@@ -1,6 +1,7 @@
 const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
+const osAbstraction = require('../../lib/os-abstraction.cjs');
 
 // Хранилище запущенных задач по группам
 const taskGroups = new Map();
@@ -142,12 +143,6 @@ function getWorkspaceRoot() {
     return folders && folders.length > 0 ? folders[0].uri.fsPath : null;
 }
 
-/**
- * Определяет платформу
- */
-function isWindows() {
-    return process.platform === 'win32';
-}
 
 /**
  * Создаёт и запускает задачу
@@ -158,95 +153,28 @@ async function runTask(name, command, cwd, group) {
         task: name
     };
     
-    let execution;
-    
-    if (isWindows()) {
-        // Windows: ProcessExecution с cmd.exe для bat-файлов (ergoms)
-        // PowerShell для прямых вызовов .ps1 скриптов
-        const usePowerShell = (command.includes('.ps1') && command.includes('powershell')) || 
-                              (command.startsWith('powershell') && command.includes('.ps1'));
-        
-        if (usePowerShell) {
-            // Для PowerShell скриптов
-            const processExecution = new vscode.ProcessExecution('powershell.exe', [
-                '-NoProfile',
-                '-ExecutionPolicy', 'Bypass',
-                '-Command', command
-            ], {
-                cwd: cwd
-            });
-            
-            const task = new vscode.Task(
-                taskDefinition,
-                vscode.TaskScope.Workspace,
-                name,
-                'multi-terminal',
-                processExecution,
-                []
-            );
-            
-            task.presentationOptions = {
-                reveal: vscode.TaskRevealKind.Always,
-                panel: vscode.TaskPanelKind.New,
-                focus: false,
-                echo: true,
-                showReuseMessage: false,
-                clear: false
-            };
-            
-            execution = await vscode.tasks.executeTask(task);
-        } else {
-            // Для обычных команд (ergoms и т.д.) используем cmd.exe
-            const processExecution = new vscode.ProcessExecution('cmd.exe', ['/d', '/c', command], {
-                cwd: cwd
-            });
-            
-            const task = new vscode.Task(
-                taskDefinition,
-                vscode.TaskScope.Workspace,
-                name,
-                'multi-terminal',
-                processExecution,
-                []
-            );
-            
-            task.presentationOptions = {
-                reveal: vscode.TaskRevealKind.Always,
-                panel: vscode.TaskPanelKind.New,
-                focus: false,
-                echo: true,
-                showReuseMessage: false,
-                clear: false
-            };
-            
-            execution = await vscode.tasks.executeTask(task);
-        }
-    } else {
-        // Linux/macOS: ProcessExecution с bash
-        const processExecution = new vscode.ProcessExecution('/bin/bash', ['-l', '-c', command], {
-            cwd: cwd
-        });
-        
-        const task = new vscode.Task(
-            taskDefinition,
-            vscode.TaskScope.Workspace,
-            name,
-            'multi-terminal',
-            processExecution,
-            []
-        );
-        
-        task.presentationOptions = {
-            reveal: vscode.TaskRevealKind.Always,
-            panel: vscode.TaskPanelKind.New,
-            focus: false,
-            echo: true,
-            showReuseMessage: false,
-            clear: false
-        };
-        
-        execution = await vscode.tasks.executeTask(task);
-    }
+    const { executable, args, options } = osAbstraction.getProcessExecution(command, cwd);
+    const processExecution = new vscode.ProcessExecution(executable, args, options);
+
+    const task = new vscode.Task(
+        taskDefinition,
+        vscode.TaskScope.Workspace,
+        name,
+        'multi-terminal',
+        processExecution,
+        []
+    );
+
+    task.presentationOptions = {
+        reveal: vscode.TaskRevealKind.Always,
+        panel: vscode.TaskPanelKind.New,
+        focus: false,
+        echo: true,
+        showReuseMessage: false,
+        clear: false
+    };
+
+    const execution = await vscode.tasks.executeTask(task);
     
     // Сохраняем в группу
     if (group) {

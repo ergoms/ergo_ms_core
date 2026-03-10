@@ -2,8 +2,12 @@ import { readdir, mkdir, readdir as readdirSync } from 'fs/promises';
 import { join, dirname } from 'path';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
 import os from 'os';
 import { existsSync } from 'fs';
+
+const require = createRequire(import.meta.url);
+const osAbstraction = require('../lib/os-abstraction.cjs');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -15,27 +19,7 @@ const extensionsDir = join(projectRoot, 'local-extensions');
  * Получить все директории расширений удаленного сервера
  */
 function getRemoteExtensionsDirs() {
-  const dirs = [];
-  const homeDir = os.homedir();
-  const isWindows = process.platform === 'win32';
-
-  if (!isWindows) {
-    // Linux/Mac - проверяем директории удаленного сервера
-    const possibleDirs = [
-      join(homeDir, '.vscode-server', 'extensions'),
-      join(homeDir, '.cursor-server', 'extensions'),
-    ];
-
-    for (const dir of possibleDirs) {
-      // Проверяем, существует ли директория сервера (признак подключенного удаленного сервера)
-      const serverDir = join(dir, '..');
-      if (existsSync(serverDir)) {
-        dirs.push(dir);
-      }
-    }
-  }
-
-  return dirs;
+  return osAbstraction.getRemoteExtensionsDirs(os.homedir());
 }
 
 /**
@@ -97,17 +81,12 @@ async function installExtensionLocally(vsixPath, extensionId) {
 
     const extensionDirName = `${publisher}.${name}-${version}`;
     const homeDir = os.homedir();
-    const isWindows = process.platform === 'win32';
 
-    // Определяем локальные директории расширений
     const localDirs = [];
-    if (isWindows) {
+    if (osAbstraction.isWindows()) {
       localDirs.push(join(homeDir, '.vscode', 'extensions'));
       localDirs.push(join(homeDir, '.cursor', 'extensions'));
     } else {
-      // Linux/Mac - проверяем через SSH переменные окружения
-      // Если мы на удаленном сервере, локальные директории недоступны напрямую
-      // В этом случае используем команду code с переменной окружения
       return false;
     }
 
@@ -179,16 +158,12 @@ async function copyDirectory(sourceDir, targetDir) {
  * Установить user-config расширение на удаленный сервер
  */
 async function installUserConfigToRemote() {
-  const homeDir = os.homedir();
-  const isWindows = process.platform === 'win32';
-
-  if (isWindows) {
-    // На Windows удаленные серверы устанавливаются через Remote API
-    // Обычная установка через code --install-extension должна работать
+  if (!osAbstraction.supportsRemoteInstall()) {
     return false;
   }
 
   try {
+    const homeDir = os.homedir();
     // Используем исходную директорию расширения (относительно .vscode)
     const sourceExtensionDir = join(projectRoot, 'extensions', 'user-config');
     
