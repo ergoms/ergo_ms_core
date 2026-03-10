@@ -284,23 +284,18 @@ function Setup-FullSystem {
     Write-ColorOutput "-> Step 4/8: Installing ErgoMS CLI..." Yellow
     Install-CliWrapper
     
-    # Step 5: Run setup (poetry install && npm install && npm run build && api migrate)
-    Write-ColorOutput "-> Step 5/8: Running ergoms setup..." Yellow
+    # Step 5: Run setup (centralized api install + npm install && npm run build)
+    Write-ColorOutput "-> Step 5/8: Running ergoms setup (api install + npm)..." Yellow
     Push-Location $Root
     try {
         # Activate virtual environment and run commands
         $env:VIRTUAL_ENV = $venvPath
         $env:PATH = "$venvPath\Scripts;$env:PATH"
         
-        # Poetry install must run from the project root (where pyproject.toml lives)
-        Push-Location $Root
-        try {
-            & poetry install
-            if ($LASTEXITCODE -ne 0) { throw "Poetry install failed" }
-        }
-        finally {
-            Pop-Location
-        }
+        # Centralized Python deps installation: core + all modules via api install
+        Write-ColorOutput "  Running: ergoms python-install (api install)..." Gray
+        & ergoms python-install
+        if ($LASTEXITCODE -ne 0) { throw "ergoms python-install (api install) failed" }
         
         # npm commands should be run from project root (where package.json is)
         # Verify package.json exists in root

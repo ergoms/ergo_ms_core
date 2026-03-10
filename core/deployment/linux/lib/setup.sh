@@ -147,11 +147,11 @@ setup_full_system() {
   fi
   create_cli_wrapper "$target_script"
   
-  # Step 5: Run setup (poetry install && npm install && npm run build && api migrate)
-  echo "-> Step 5/7: Running ergoms setup..."
-  cd "$root/core" || exit 1
-  if ! poetry install; then
-    echo "[ERROR] Poetry install failed" >&2
+  # Step 5: Run setup (centralized api install + npm install && npm run build && api migrate)
+  echo "-> Step 5/7: Running ergoms setup (api install + npm)..."
+  cd "$root" || exit 1
+  if ! ergoms python-install; then
+    echo "[ERROR] ergoms python-install (api install) failed" >&2
     exit 1
   fi
   if ! npm install; then
