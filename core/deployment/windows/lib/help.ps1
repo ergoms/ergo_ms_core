@@ -41,7 +41,7 @@ Service Management Commands:
     uninstall-cli  Remove CLI wrapper
     logs           Show logs for a service (usage: logs <service-name> [lines])
     setup-full     Full system setup (git, venv, poetry, npm) - no services
-    clean-project  Clean all dependencies (node_modules, venv, static) - keep media
+    clean          Clean all dependencies (node_modules, venv, static) - keep media
     update-submodules Update all git submodules and switch to dev branch
     help           Show this help
 

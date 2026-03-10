@@ -86,7 +86,7 @@ ergoms install-all-services-linux # Регистрация всех служб L
 - `core/deployment/windows/ergo_ms.ps1` — скрипт PowerShell для Windows
 - `core/deployment/linux/ergo_ms.sh` — скрипт Bash для Linux
 
-Скрипты реализуют операции: `setup-full`, `clean-project`, управление жизненным циклом служб.
+Скрипты реализуют операции: `setup-full`, `clean`, управление жизненным циклом служб.
 
 ### Управление CLI-обёрткой
 

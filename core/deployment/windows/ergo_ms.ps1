@@ -1,4 +1,4 @@
-﻿#Requires -RunAsAdministrator
+#Requires -RunAsAdministrator
 <#
 .SYNOPSIS
     Manages ergo_ms services on Windows using NSSM (Non-Sucking Service Manager)
@@ -76,7 +76,7 @@ function Main {
     $requiresAdmin = $adminCommands -contains $Command.ToLower()
     
     # Commands that don't require admin
-    $noAdminCommands = @('logs', 'help', 'clean', 'clean-project', 'update-submodules')
+    $noAdminCommands = @('logs', 'help', 'clean', 'update-submodules')
     
     # Check if it's a custom command
     $projectRoot = $null
@@ -303,10 +303,6 @@ function Main {
             Setup-FullSystem -Root $projectRoot -RecreateVenv $RecreateVenv
         }
         'clean' {
-            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
-            Clear-ProjectDependencies -Root $projectRoot
-        }
-        'clean-project' {
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
             Clear-ProjectDependencies -Root $projectRoot
         }
