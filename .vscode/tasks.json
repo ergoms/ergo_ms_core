@@ -68,6 +68,11 @@
                     "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
                 }
             },
+            "linux": {
+                "options": {
+                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                }
+            },
             "presentation": {
                 "reveal": "always",
                 "panel": "shared",
@@ -116,6 +121,11 @@
                     "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
                 }
             },
+            "linux": {
+                "options": {
+                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                }
+            },
             "presentation": {
                 "echo": true,
                 "reveal": "always",
@@ -131,6 +141,11 @@
             "windows": {
                 "options": {
                     "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                }
+            },
+            "linux": {
+                "options": {
+                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
                 }
             },
             "presentation": {
@@ -150,6 +165,11 @@
                     "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
                 }
             },
+            "linux": {
+                "options": {
+                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                }
+            },
             "presentation": {
                 "echo": true,
                 "reveal": "always",
@@ -165,6 +185,11 @@
             "windows": {
                 "options": {
                     "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                }
+            },
+            "linux": {
+                "options": {
+                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
                 }
             },
             "presentation": {
