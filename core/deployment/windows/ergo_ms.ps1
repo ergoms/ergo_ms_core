@@ -101,6 +101,19 @@ function Main {
         exit 1
     }
 
+    # Handle built-in noAdminCommands before custom commands to avoid recursion
+    # (clean/update-submodules are in commands.conf but must run as built-in when invoked via win: ergo_ms.ps1)
+    if ($Command -in @('clean', 'update-submodules')) {
+        . Load-HeavyModules
+        $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+        if ($Command -eq 'clean') {
+            Clear-ProjectDependencies -Root $projectRoot
+        } else {
+            Update-Submodules -Root $projectRoot
+        }
+        return
+    }
+
     # Handle custom commands (no admin required)
     if ($isCustomCommand) {
         Invoke-CustomCommand -CommandName $Command -CommandArgs $RemainingArgs -ProjectRoot $projectRoot

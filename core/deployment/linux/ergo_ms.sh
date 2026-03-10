@@ -153,6 +153,16 @@ main() {
       ERGO_ROOT="$(detect_project_root)"
     fi
     
+    # Execute clean and update-submodules as built-in first (avoid recursion via commands.conf)
+    if [[ "$is_clean_command" == true ]]; then
+      clear_project_dependencies "$ERGO_ROOT"
+      exit 0
+    fi
+    if [[ "$is_update_submodules_command" == true ]]; then
+      update_submodules "$ERGO_ROOT"
+      exit 0
+    fi
+
     # Execute custom command
     if [[ "$is_custom_command" == true ]]; then
       invoke_custom_command "$ERGO_ROOT" "$command" "$@"
@@ -162,18 +172,6 @@ main() {
     # Execute deploy command
     if [[ "$is_deploy_command" == true ]]; then
       invoke_custom_command "$ERGO_ROOT" "$command" "$@"
-      exit 0
-    fi
-    
-    # Execute clean command
-    if [[ "$is_clean_command" == true ]]; then
-      clear_project_dependencies "$ERGO_ROOT"
-      exit 0
-    fi
-
-    # Execute update-submodules command
-    if [[ "$is_update_submodules_command" == true ]]; then
-      update_submodules "$ERGO_ROOT"
       exit 0
     fi
     
