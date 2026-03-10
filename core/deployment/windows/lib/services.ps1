@@ -37,9 +37,11 @@ function Install-Service {
     $appParams = $null
 
     if ($ServiceName -eq 'ergo-celery-beat') {
+        # Используем общий скрипт запуска Beat, чтобы логика кэшей и логирование
+        # совпадали с ergoms start-beat / start_celery_beat.py
         $useDirectPython = $true
         $appPath = $pythonExe
-        $appParams = "-m celery -A src beat --loglevel=info"
+        $appParams = "api\scripts\start_celery_beat.py"
     }
     elseif ($ServiceName -match '^ergo-celery-worker-(.+)$') {
         $useDirectPython = $true
