@@ -94,8 +94,9 @@ ergoms install-all-services-linux # Регистрация всех служб L
 ergoms install-cli    # Установка CLI-обёртки (требуется повышение привилегий)
 ergoms uninstall-cli  # Удаление CLI-обёртки (требуется повышение привилегий)
 ergoms help           # Вывод справочной информации по доступным командам
-ergoms setup-full     # Полная инициализация системы (git, venv, poetry, npm, services; требуется повышение привилегий)
 ```
+
+**Полная инициализация (setup-full):** при первой установке команда `ergoms` ещё не установлена. Запускайте полную настройку **скриптом напрямую** (см. раздел «Практические сценарии»). После установки CLI доступна и команда `ergoms setup-full` для повторных запусков.
 
 ### Комплексные сценарии развёртывания
 
@@ -158,17 +159,19 @@ ergoms <command>                # Неквалифицированный выз�
 
 ## Практические сценарии
 
-**Полная инициализация системы:**
+**Полная инициализация системы (первичная установка):**
+
+Команда `ergoms` устанавливается в ходе setup-full (шаг 4), поэтому при первом развёртывании запускайте скрипт **напрямую**, без предварительной установки CLI:
 
 ```cmd
-# Windows (PowerShell с повышением привилегий)
-.\core\deployment\windows\ergo_ms.ps1 install-cli
-ergoms setup-full
+# Windows (PowerShell; при необходимости — повышение привилегий)
+.\core\deployment\windows\ergo_ms.ps1 setup-full
 
 # Linux (Bash с привилегиями суперпользователя)
-sudo bash core/deployment/linux/ergo_ms.sh install-cli
-sudo ergoms setup-full
+sudo bash core/deployment/linux/ergo_ms.sh setup-full
 ```
+
+После выполнения скрипта CLI (`ergoms`) доступен в PATH. Для повторной полной настройки можно использовать: `ergoms setup-full`.
 
 **Цикл ежедневной разработки:**
 

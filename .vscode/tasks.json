@@ -17,7 +17,7 @@
         {
             "label": "Setup Full System",
             "type": "shell",
-            "command": "ergoms setup-full && ergoms install-extensions",
+            "command": "powershell -ExecutionPolicy Bypass -File \"core/deployment/windows/ergo_ms.ps1\" setup-full && npm run install-extensions",
             "options": { "cwd": "${workspaceFolder}" },
             "windows": {
                 "options": {
@@ -28,7 +28,7 @@
                 "options": {
                     "shell": { "executable": "/bin/bash", "args": ["-lc"] }
                 },
-                "command": "sudo ergoms setup-full && ergoms install-extensions"
+                "command": "sudo bash core/deployment/linux/ergo_ms.sh setup-full && npm run install-extensions"
             },
             "presentation": {
                 "echo": true,
