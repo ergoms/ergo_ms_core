@@ -284,18 +284,32 @@ function Setup-FullSystem {
     Write-ColorOutput "-> Step 4/8: Installing ErgoMS CLI..." Yellow
     Install-CliWrapper
     
-    # Step 5: Run setup (centralized api install + npm install && npm run build)
-    Write-ColorOutput "-> Step 5/8: Running ergoms setup (api install + npm)..." Yellow
+    # Step 5: Run setup (poetry install + npm install && npm run build) — без ergoms/api, только venv + poetry
+    Write-ColorOutput "-> Step 5/8: Installing dependencies (poetry + npm)..." Yellow
     Push-Location $Root
     try {
-        # Activate virtual environment and run commands
         $env:VIRTUAL_ENV = $venvPath
         $env:PATH = "$venvPath\Scripts;$env:PATH"
+        $env:POETRY_VIRTUALENVS_CREATE = "false"
         
-        # Centralized Python deps installation: core + all modules via api install
-        Write-ColorOutput "  Running: ergoms python-install (api install)..." Gray
-        & ergoms python-install
-        if ($LASTEXITCODE -ne 0) { throw "ergoms python-install (api install) failed" }
+        $poetryExe = Join-Path $venvPath "Scripts\poetry.exe"
+        if (-not (Test-Path $poetryExe)) {
+            throw "poetry not found in virtual environment at $poetryExe"
+        }
+        Write-ColorOutput "  Running: poetry install --no-root (from project root)..." Gray
+        & $poetryExe install --no-root
+        if ($LASTEXITCODE -ne 0) { throw "poetry install failed" }
+        Write-ColorOutput "  Running: python -m commands install (module deps)..." Gray
+        $env:PYTHONPATH = $Root
+        $env:PYTHONIOENCODING = "utf-8"
+        Push-Location (Join-Path $Root "core\api")
+        try {
+            & $pythonExe -m commands install
+            if ($LASTEXITCODE -ne 0) { Write-ColorOutput "[WARNING] commands install (module deps) failed, continuing" Yellow }
+        }
+        finally {
+            Pop-Location
+        }
         
         # npm commands should be run from project root (where package.json is)
         # Verify package.json exists in root

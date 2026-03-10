@@ -147,12 +147,17 @@ setup_full_system() {
   fi
   create_cli_wrapper "$target_script"
   
-  # Step 5: Run setup (centralized api install + npm install && npm run build && api migrate)
-  echo "-> Step 5/7: Running ergoms setup (api install + npm)..."
+  # Step 5: Run setup (poetry install + npm) — без ergoms/api, только venv + poetry
+  echo "-> Step 5/7: Installing dependencies (poetry + npm)..."
   cd "$root" || exit 1
-  if ! ergoms python-install; then
-    echo "[ERROR] ergoms python-install (api install) failed" >&2
+  export POETRY_VIRTUALENVS_CREATE=false
+  if ! poetry install --no-root; then
+    echo "[ERROR] poetry install failed" >&2
     exit 1
+  fi
+  echo "  Running: python -m commands install (module deps)..."
+  if ! (cd "$root/core/api" && export PYTHONPATH="$root" && python -m commands install); then
+    echo "[WARNING] commands install (module deps) failed, continuing" >&2
   fi
   if ! npm install; then
     echo "[ERROR] npm install failed" >&2
