@@ -167,16 +167,16 @@ setup_full_system() {
     echo "[ERROR] npm run build failed" >&2
     exit 1
   fi
-  if ! python -m commands migrate; then
+  if ! (cd "$root/core/api" && export PYTHONPATH="$root" && python -m commands migrate); then
     echo "[ERROR] Database migration failed" >&2
     exit 1
   fi
-  python -m commands warmup_caches || true
+  (cd "$root/core/api" && export PYTHONPATH="$root" && python -m commands warmup_caches) || true
   echo "[OK] Setup completed"
   
   # Step 6: Collect static
   echo "-> Step 6/7: Collecting static files..."
-  if ! python -m commands collectstatic --noinput; then
+  if ! (cd "$root/core/api" && export PYTHONPATH="$root" && python -m commands collectstatic --noinput); then
     echo "[ERROR] Failed to collect static files" >&2
     exit 1
   fi
