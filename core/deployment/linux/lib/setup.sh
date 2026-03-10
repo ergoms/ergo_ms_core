@@ -236,6 +236,7 @@ clear_project_dependencies() {
     "virtual_env/packages"
     "virtual_env/resources"
     "virtual_env/trained_models"
+    "virtual_env/cache"
   )
   
   echo ""

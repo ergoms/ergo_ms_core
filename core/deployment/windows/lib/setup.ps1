@@ -471,7 +471,8 @@ function Clear-ProjectDependencies {
         @{Path = "virtual_env\nodejs";          Label = "virtual_env/nodejs";          FullRemove = $false},
         @{Path = "virtual_env\packages";        Label = "virtual_env/packages";        FullRemove = $false},
         @{Path = "virtual_env\resources";       Label = "virtual_env/resources";       FullRemove = $false},
-        @{Path = "virtual_env\trained_models";  Label = "virtual_env/trained_models";  FullRemove = $false}
+        @{Path = "virtual_env\trained_models";  Label = "virtual_env/trained_models";  FullRemove = $false},
+        @{Path = "virtual_env\cache";          Label = "virtual_env/cache";          FullRemove = $false}
     )
     
     Write-ColorOutput "`n=== Cleaning Project Dependencies ===" Cyan
