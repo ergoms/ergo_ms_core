@@ -1,4 +1,4 @@
-import { readdir, mkdir, readFile } from 'fs/promises';
+import { readdir, mkdir, readFile, copyFile } from 'fs/promises';
 import { join, dirname } from 'path';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
@@ -65,6 +65,13 @@ async function updateVsixFiles() {
         const vsixOutputPath = join(localExtensionsDir, vsixFileName);
 
         console.log(`\n🔧 Обновление VSIX: ${vsixFileName} (${name} v${version})`);
+
+        const osAbstractionPath = join(projectRoot, 'lib', 'os-abstraction.cjs');
+        if (existsSync(osAbstractionPath)) {
+          const extLibDir = join(extensionPath, 'lib');
+          await mkdir(extLibDir, { recursive: true });
+          await copyFile(osAbstractionPath, join(extLibDir, 'os-abstraction.cjs'));
+        }
 
         // Упаковываем расширение в VSIX
         execSync(

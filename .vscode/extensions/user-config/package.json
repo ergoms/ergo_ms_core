@@ -2,7 +2,7 @@
   "name": "ergo-ms-user-config",
   "displayName": "ERGO MS User Config",
   "description": "Applies project-specific settings and keybindings from user_settings.json and user_keybindings.json",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "publisher": "ergo-ms",
   "engines": {
     "vscode": "^1.74.0"

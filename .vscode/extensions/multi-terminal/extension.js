@@ -1,7 +1,7 @@
 const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
-const osAbstraction = require('../../lib/os-abstraction.cjs');
+const osAbstraction = require('./lib/os-abstraction.cjs');
 
 // Хранилище запущенных задач по группам
 const taskGroups = new Map();

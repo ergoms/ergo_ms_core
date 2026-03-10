@@ -150,7 +150,7 @@ invoke_custom_command() {
   # Check if it's a composite command (contains &&)
   if [[ "$command_def" == *"&&"* ]]; then
     echo "-> Executing composite command: $cmd_name"
-    IFS='&&' read -ra sub_cmds <<< "$command_def"
+    IFS='|' read -ra sub_cmds <<< "${command_def// && /|}"
     
     for sub_cmd in "${sub_cmds[@]}"; do
       sub_cmd=$(echo "$sub_cmd" | xargs)  # Trim whitespace

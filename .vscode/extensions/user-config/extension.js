@@ -2,7 +2,7 @@ const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const osAbstraction = require('../../lib/os-abstraction.cjs');
+const osAbstraction = require('./lib/os-abstraction.cjs');
 
 /**
  * ERGO MS User Config Extension
