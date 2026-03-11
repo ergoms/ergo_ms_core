@@ -1,17 +1,15 @@
 ---
-alwaysApply: true
-priority: critical
+alwaysApply: false
 ---
-
 # КРИТИЧЕСКИ ВАЖНО: Правила работы с базой данных
 
 ### Работа с БД
-# Любое взаимодействие с базами данных делай при помощи DjangoORM и SQLAlchemy.
-# Все таблицы должны создаваться внутри БД при помощи миграций.
+- Любое взаимодействие с базами данных делай при помощи Django ORM и SQLAlchemy
+- Все таблицы создаются в БД через миграции
 
 
 ### Трудоемкие запросы к БД
-Для сложных и трудоемких запросов к БД, пиши SQL код, по пути core.api.src.core.utils.database.dbconfig - DBConfig, core.api.src.core.utils.database.base - SqlAlchemyManager. Это классы для работы с запросами к БД. Лучше работать следующим образом, создавать файл queries.py с sql запросами в виде методов, и вызывать эти методы для получения строк и передачи их в SqlAlchemyManager для выполнения запроса.
+Для сложных запросов используй SQL и классы из `src.core.utils.database`: `DBConfig` (dbconfig.py), `SqlAlchemyManager` (base.py). Рекомендуется создавать `queries.py` с методами для SQL-запросов и вызывать их для передачи в SqlAlchemyManager.
 
 
 ### Нормальные формы
@@ -19,4 +17,4 @@ priority: critical
 
 
 ### Миграции
-Никогда не генерируй миграции, делай их командой - `api makemigrations`.
+Никогда не генерируй миграции, делай их через `ergoms db-makemigrations`.

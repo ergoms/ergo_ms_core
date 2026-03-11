@@ -1,9 +1,10 @@
 ---
-alwaysApply: true
-priority: high
+alwaysApply: false
+description: Техническая справка по ergoms (формат команд, конфигурация)
 ---
+# Система команд ERGO MS (ergoms)
 
-# КРИТИЧЕСКИ ВАЖНО: Система команд ERGO MS (ergoms)
+Поведенческие правила (что предлагать пользователю, что запрещено) — **no-direct-manage-py.mdc**.
 
 ## Общие принципы
 
@@ -26,7 +27,7 @@ command-name=type:command
 ### Префиксы типов команд
 
 - `poetry:` — команды Poetry (контекст выполнения: корень проекта)
-- `api:` — команды Django manage.py (контекст: `core/`, активируется виртуальное окружение)
+- `api:` — команды Django manage.py (контекст: `core/api/`, активируется виртуальное окружение)
 - `npm:` — команды npm (контекст: корень проекта)
 - `shell:` — обычные shell-команды (кроссплатформенные)
 - `win:` — команды только для Windows (игнорируются на Linux)
@@ -65,20 +66,16 @@ install-ffmpeg=api:install_ffmpeg
 Аргументы передаются автоматически после имени команды:
 
 ```bash
-# Правильно: аргументы передаются автоматически
-ergoms clear-migrations settings
-ergoms clear-migrations settings --noinput
-ergoms clear-migrations settings --database=default
+# Аргументы передаются автоматически после имени команды
+ergoms sq-del-migrations cms_shortcodes
+ergoms safe-drop-app settings --check-only
 
-# Правильно: через прокси-команду api
-ergoms api clear_migrations settings
-ergoms api clear_migrations settings --noinput
-
-# Неправильно: не используй подчеркивание для команд с дефисом
-ergoms clear_migrations settings  # Ошибка: команда не найдена
+# Через прокси-команду api — любая Django management-команда
+ergoms api migrate
+ergoms api makemigrations
 ```
 
-**Важно**: Имена команд в `commands.conf` могут содержать дефисы (`clear-migrations`) или подчеркивания (`clear_migrations`). При вызове через `ergoms` используй точно такое же имя, как в определении. Для удобства можно создать алиасы с обоими вариантами написания.
+**Важно**: Имена команд в `commands.conf` используют kebab-case (например `sq-del-migrations`). При вызове через `ergoms` используй точно такое же имя, как в определении.
 
 ## Контекст выполнения команд
 
@@ -89,7 +86,7 @@ ergoms clear_migrations settings  # Ошибка: команда не найде
 
 ### API команды (`api:`)
 
-- Выполняются в директории `core/`
+- Выполняются в директории `core/api/`
 - Требуют наличие виртуального окружения
 - Автоматически активируется виртуальное окружение
 - Аргументы передаются напрямую в Django manage.py
@@ -98,15 +95,12 @@ ergoms clear_migrations settings  # Ошибка: команда не найде
 
 ```bash
 # В commands.conf:
-clear-migrations=api:clear_migrations
+sq-del-migrations=api:sq_del_migrations
 
 # При вызове:
-ergoms clear-migrations settings --noinput --database=default
+ergoms sq-del-migrations cms_shortcodes --check-only
 
-# Реально выполняется:
-# cd core/
-# source virtual_env/python/bin/activate  # Linux
-# api clear_migrations settings --noinput --database=default
+# Реально выполняется: api sq_del_migrations cms_shortcodes --check-only
 ```
 
 ### NPM команды (`npm:`)
@@ -130,14 +124,14 @@ my-command=api:my_django_command
 
 ### Команды с аргументами
 
-Аргументы передаются автоматически после имени команды:
+Аргументы передаются автоматически:
 
 ```conf
 # core/deployment/commands.conf
-clear-migrations=api:clear_migrations
+sq-del-migrations=api:sq_del_migrations
 ```
 
-При вызове `ergoms clear-migrations settings --noinput` аргументы `settings --noinput` автоматически передаются в команду `api:clear_migrations`.
+При вызове `ergoms sq-del-migrations cms_shortcodes --check-only` аргументы передаются в `api:sq_del_migrations`.
 
 ### Составные команды
 
@@ -176,10 +170,9 @@ ergoms migrate-all
 # Запуск сервера разработки
 ergoms dev
 
-# Очистка миграций приложения (оба варианта работают)
-ergoms clear-migrations settings
-ergoms clear_migrations settings
-ergoms clear-migrations settings --noinput
+# Управление миграциями
+ergoms sq-del-migrations cms_shortcodes --check-only
+ergoms safe-drop-app settings --check-only
 ```
 
 ### Прокси-команды
@@ -192,7 +185,7 @@ ergoms poetry add package-name
 # Прямой доступ к Django manage.py
 ergoms api migrate
 ergoms api makemigrations
-ergoms api clear_migrations settings
+ergoms api sq_del_migrations cms_shortcodes
 
 # Прямой доступ к npm
 ergoms npm install
@@ -233,10 +226,11 @@ ergoms video_analysis:install-ffmpeg
 ergoms help
 
 # Прямой вызов через прокси-команду api (обходит систему команд)
-ergoms api clear_migrations settings
+ergoms api sq_del_migrations cms_shortcodes
 
 # Проверка определения команды в commands.conf
-cat core/deployment/commands.conf | grep clear-migrations
+# Windows: findstr sq-del-migrations core\deployment\commands.conf
+# Linux: grep sq-del-migrations core/deployment/commands.conf
 ```
 
 ## Лучшие практики

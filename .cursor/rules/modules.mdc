@@ -1,8 +1,6 @@
 ---
 alwaysApply: true
-priority: critical
 ---
-
 # КРИТИЧЕСКИ ВАЖНО: Правила работы с модулями
 
 ## Архитектура модулей
@@ -130,7 +128,7 @@ export const endpoints = {
 1. **Создай `celery_config.py`** - наследуй от `CeleryModuleConfig`:
 
 ```python
-from src.core.utils.celery.config import CeleryModuleConfig
+from src.core.utils.celery.base import CeleryModuleConfig
 
 class MyModuleCeleryConfig(CeleryModuleConfig):
     def get_task_routes(self):

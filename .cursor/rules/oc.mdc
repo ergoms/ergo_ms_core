@@ -1,8 +1,15 @@
 ---
 alwaysApply: true
-priority: critical
 ---
-
 # КРИТИЧЕСКИ ВАЖНО: Кроссплатформенность
 
 Разрабатывай любой функционал системы так, чтобы он работал и на Windows и на Linux.
+
+## Слой абстракции
+
+В любом функционале, который может зависеть от ОС (пути, процессы, исполняемые файлы, shell-команды и т.п.), необходимо реализовывать **слой абстракции**. Вместо прямых проверок `sys.platform` или `os.name` в бизнес-логике — описывай интерфейс (Protocol/стратегию) и отдельные реализации для Windows и Linux.
+
+**Примеры в проекте:**
+- **API (Python)**: `core/api/src/core/utils/os_abstraction/` — интерфейс `OSAbstraction`, реализации `WindowsImpl`, `LinuxImpl`, получение через `get_os_abstraction()`
+- **Client (JavaScript)**: `core/client/scripts/lib/process-ops.js` — стратегии `createWindowsStrategy` / `createUnixStrategy` для поиска и остановки процессов
+- **Ergoms/deployment**: отдельные скрипты `core/deployment/windows/` и `core/deployment/linux/`, команды с префиксами `win:` и `linux:`
