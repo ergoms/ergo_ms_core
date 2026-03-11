@@ -1,61 +1,71 @@
 # Управление сервисами через CLI
 
-Командная оболочка `ergoms` осуществляет агрегацию команд из центрального дескриптора `core/deployment/commands.conf` и модульных конфигураций `modules/*/ergoms.conf`. Классификация команд представлена ниже.
+Командная оболочка `ergoms` осуществляет агрегацию команд из центрального дескриптора `core/deployment/commands.conf` и модульных конфигураций `modules/*/ergoms.conf`. Все операции в проекте выполняются **только через ergoms** — прямые вызовы `python manage.py`, `pip`, `poetry`, `npm` запрещены (см. `no-direct-manage-py.mdc`).
 
 ## Базовые операции
 
-Управление жизненным циклом всех сервисов системы (API, Client, Celery Worker, Celery Beat):
+Управление системными службами (требуют прав администратора/root):
 
 ```cmd
-ergoms start      # Инициализация всех сервисов
-ergoms stop       # Завершение работы всех сервисов
+ergoms start      # Запуск всех системных служб (API, Client, Celery Worker, Celery Beat, Media API)
+ergoms stop       # Остановка всех сервисов
 ergoms restart    # Перезапуск всех сервисов
-ergoms status     # Получение статуса всех сервисов
+ergoms status     # Статус всех сервисов
 ```
+
+Для режима разработки (без системных служб) используйте отдельные команды: `ergoms dev`, `ergoms start-client`, `ergoms start-worker`, `ergoms start-beat`, `ergoms start-media` или `ergoms start-all` (API + Worker + Beat в одном терминале).
 
 ## Компонентный запуск
 
-Избирательная инициализация отдельных компонентов системы:
+Избирательная инициализация отдельных компонентов:
 
 ```cmd
-ergoms dev              # API в режиме разработки (api:dev)
-ergoms start-client     # Клиентское приложение (npm:run dev)
-ergoms start-worker     # Обработчик фоновых задач (scripts/start_celery_worker.py)
-ergoms start-beat       # Планировщик периодических задач (scripts/start_celery_beat.py)
+ergoms dev              # API в режиме разработки (с прогревом кэшей)
+ergoms start-client     # Клиентское приложение Vue.js (npm:run dev)
+ergoms start-worker     # Celery Worker (из celery_workers.yaml)
+ergoms start-worker --worker=<name>   # Конкретный воркер
+ergoms start-beat       # Celery Beat — планировщик задач
+ergoms start-media      # Media API (CDN, файловый сервер, порт 8003)
+ergoms start-all        # API + Worker + Beat в одном терминале (разработка)
 ```
 
 ## Наблюдение за системой
 
-Инспекция журналов сервисов с параметрами глубины вывода:
+Инспекция журналов системных служб (при использовании `ergoms start`):
 
 ```cmd
-ergoms logs ergo-api-dev           # Последние 500 записей журнала API
-ergoms logs ergo-client-dev 1000   # Последние 1000 записей журнала Client
-ergoms logs ergo-celery-worker     # Журнал обработчика фоновых задач
-ergoms logs ergo-celery-beat       # Журнал планировщика задач
+ergoms logs ergo-api-dev [N]          # Последние N записей (по умолчанию 500)
+ergoms logs ergo-client-dev
+ergoms logs ergo-celery-worker-all    # Worker (при конфиге celery_workers.yaml по умолчанию)
+ergoms logs ergo-celery-beat
+ergoms logs ergo-media-api
 ```
 
 ## Миграции и статика
 
-Операции обслуживания схемы базы данных и статических ресурсов:
+Операции со схемой БД и статикой:
 
 ```cmd
-ergoms db-migrate           # Применение миграций к базе данных
-ergoms db-makemigrations    # Генерация новых миграций
-ergoms migrate-all          # Генерация и применение миграций (единая транзакция)
-ergoms collectstatic        # Агрегация статических файлов
+ergoms db-makemigrations    # Создание миграций
+ergoms db-migrate           # Применение миграций
+ergoms migrate-all          # Создание и применение миграций
+ergoms sq-del-migrations <app> [start] [end] [--check-only] [--force]   # Объединение миграций
+ergoms safe-drop-app <app> [--check-only] [--cascade] [--force] [--auto-fix]   # Удаление приложения
+ergoms restore-menu [--core-only] [--module=name] [--dry-run]   # Восстановление меню
+ergoms collectstatic        # Сбор статических файлов Django
 ```
 
 ## Управление зависимостями
 
-Операции с пакетными зависимостями Python и Node.js:
-
 ```cmd
-ergoms setup                # Полная инициализация: poetry:install && npm:install && api:migrate
-ergoms python-install       # Установка Python-зависимостей (poetry:install)
+ergoms setup                # Полная настройка (setup-full): venv, Poetry, зависимости, CLI
+ergoms install-deps         # Быстрая установка: api:install && npm:install && migrate + warmup
+ergoms python-install       # Python-зависимости (api:install)
 ergoms python-update        # Обновление Python-зависимостей (poetry:update)
-ergoms reinstall            # Переустановка с синхронизацией: poetry:install --sync && npm:ci
-ergoms update-all           # Обновление всех зависимостей: poetry:update && npm:update
+ergoms reinstall            # Переустановка: poetry:install --sync && npm:ci
+ergoms update-all           # Обновление всех зависимостей
+ergoms warmup-caches        # Прогрев кэшей (discovered_apps, celery, modules_env)
+ergoms warmup-caches-if-needed   # Прогрев только при пустом/устаревшем кэше
 ```
 
 ## Сборка проекта
@@ -70,15 +80,29 @@ ergoms collectstatic        # Сборка статических ресурсо
 
 ## Дополнительные команды CLI
 
-### Установка и управление службами
-
-Регистрация системных служб в операционной системе (требуется повышение привилегий):
+### Media API и Ollama
 
 ```cmd
-ergoms install              # Регистрация и запуск служб Windows
-ergoms uninstall            # Удаление служб (опция -Purge удаляет пользовательские данные)
-ergoms install-all-services # Регистрация всех служб Windows
-ergoms install-all-services-linux # Регистрация всех служб Linux (systemd)
+ergoms start-media      # Запуск Media API (CDN, порт 8003)
+ergoms ollama           # Управление Ollama
+ergoms install-ollama   # Установка Ollama
+ergoms uninstall-ollama # Удаление Ollama
+```
+
+### Установка и управление службами
+
+Регистрация системных служб (требуется администратор/root):
+
+```cmd
+ergoms install-all-services  # Регистрация служб (Windows: NSSM, Linux: systemd)
+ergoms start-api-service     # Запуск службы API
+ergoms start-client-service  # Запуск службы Client
+ergoms start-worker-service  # Запуск службы Celery Worker
+ergoms start-beat-service    # Запуск службы Celery Beat
+ergoms start-media-service   # Запуск службы Media API
+ergoms start-ollama-service  # Запуск службы Ollama
+ergoms stop-all-services     # Остановка всех служб
+ergoms uninstall-services    # Удаление служб (опция --purge)
 ```
 
 **Платформенные скрипты прямого вызова:**
@@ -86,7 +110,7 @@ ergoms install-all-services-linux # Регистрация всех служб L
 - `core/deployment/windows/ergo_ms.ps1` — скрипт PowerShell для Windows
 - `core/deployment/linux/ergo_ms.sh` — скрипт Bash для Linux
 
-Скрипты реализуют операции: `setup-full`, `clean`, управление жизненным циклом служб.
+Скрипты реализуют операции: `setup-full`, `clean`, `update-submodules`, управление жизненным циклом служб.
 
 ### Управление CLI-обёрткой
 
@@ -96,7 +120,7 @@ ergoms uninstall-cli  # Удаление CLI-обёртки (требуется 
 ergoms help           # Вывод справочной информации по доступным командам
 ```
 
-**Полная инициализация (setup-full):** при первой установке команда `ergoms` ещё не установлена. Запускайте полную настройку **скриптом напрямую** (см. раздел «Практические сценарии»). После установки CLI доступна и команда `ergoms setup-full` для повторных запусков.
+**Полная инициализация (setup-full):** при первой установке команда `ergoms` ещё недоступна. Запускайте настройку **напрямую скриптом** (см. раздел «Практические сценарии»). После установки CLI можно использовать `ergoms setup` (запускает setup-full).
 
 ### Комплексные сценарии развёртывания
 
@@ -119,8 +143,9 @@ ergoms deploy-client-dev  # Развёртывание Client с запуско�
 Прямая переадресация к инструментальным утилитам (не требуется повышение привилегий):
 
 ```cmd
-ergoms poetry <args>     # Переадресация к Poetry
-ergoms api <args>        # Переадресация к Django manage.py
+ergoms poetry <args>     # Переадресация к Poetry (контекст: корень проекта)
+ergoms api <args>        # Переадресация к Django manage.py (core/api)
+ergoms media_api <args>  # Переадресация к Media API manage.py
 ergoms npm <args>        # Переадресация к npm
 ```
 
@@ -171,14 +196,15 @@ ergoms <command>                # Неквалифицированный выз�
 sudo bash core/deployment/linux/ergo_ms.sh setup-full
 ```
 
-После выполнения скрипта CLI (`ergoms`) доступен в PATH. Для повторной полной настройки можно использовать: `ergoms setup-full`.
+После выполнения скрипта CLI (`ergoms`) доступен в PATH. Для повторной полной настройки: `ergoms setup`.
 
 **Цикл ежедневной разработки:**
 
 ```cmd
-ergoms start                # Инициализация всех сервисов
-ergoms logs ergo-api-dev    # Инспекция журналов
-ergoms stop                 # Завершение работы сервисов
+ergoms start-all            # API + Worker + Beat
+ergoms start-client         # Клиент (в отдельном терминале)
+# или Ctrl+Shift+B в VS Code/Cursor для запуска всех сервисов
+ergoms stop                 # Остановка (при использовании системных служб)
 ```
 
 **Операции с базой данных:**
@@ -192,7 +218,8 @@ ergoms api shell            # Интерактивная оболочка Django
 **Управление зависимостями:**
 
 ```cmd
-ergoms setup                # Полная установка зависимостей (poetry + npm + migrate)
+ergoms install-deps         # Быстрая установка (api:install + npm + migrate + warmup)
+ergoms setup                # Полная настройка (при первой установке)
 ergoms poetry add <package> # Добавление Python-пакета
 ergoms npm install <package># Добавление npm-пакета
 ```
@@ -217,8 +244,8 @@ ergoms build-all            # Сборка клиента и агрегация 
 command-name=type:command
 
 # Типология префиксов:
-# poetry: - команда Poetry (контекст выполнения: core/)
-# api:    - команда Django manage.py
+# poetry:  - команда Poetry (контекст: корень проекта)
+# api:     - команда Django manage.py (core/api)
 # npm:    - команда npm
 # shell:  - команда оболочки (кроссплатформенная)
 # win:    - команда Windows (игнорируется на Linux)
@@ -237,14 +264,11 @@ migrate-all=api:makemigrations && api:migrate
 start-client=npm:run dev
 client-build=npm:run build
 
-# Команды Celery
-start-worker=win:...python.exe core\api\scripts\start_celery_worker.py && linux:...python core/api/scripts/start_celery_worker.py
-start-beat=win:...python.exe core\api\scripts\start_celery_beat.py && linux:...python core/api/scripts/start_celery_beat.py
-
 # Управление зависимостями
-setup=poetry:install && npm:install && api:migrate
-python-install=poetry:install
-update-all=poetry:update && npm:update
+setup=win:...setup-full && linux:...setup-full
+install-deps=api:install && npm:install && api:migrate && api:warmup_caches
+python-install=api:install
+warmup-caches=api:warmup_caches
 
 # Сборка артефактов
 build-all=npm:run build && api:collectstatic --noinput
@@ -266,9 +290,6 @@ install-opus=api:install_opus_mt
 
 **Завершение работы системы:**
 
-```cmd
-ergoms stop
-```
-
-Альтернативный способ: завершение процессов терминалов посредством `Ctrl+C` в каждом активном сеансе.
+- При использовании системных служб: `ergoms stop`
+- При запуске через `ergoms start-all` или отдельные команды: `Ctrl+C` в каждом терминале
 

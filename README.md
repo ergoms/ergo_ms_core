@@ -10,7 +10,7 @@ ERGO MS представляет собой интеллектуальный ф�
 - Серверная часть: Django 5.2, Django REST Framework
 - Клиентская часть: Vue.js 3, Vite
 - Система управления базами данных: PostgreSQL 14+ | SQLite | MySQL
-- Обработка асинхронных задач: Celery, Redis
+- Обработка асинхронных задач: Celery (брокер: PostgreSQL/SQLite/MySQL — через `databases.yaml`)
 - Управление зависимостями: Poetry (Python), npm (Node.js)
 
 ## Документация
@@ -55,8 +55,13 @@ cd ergo_ms_core
 **Этап 3. Инициализация конфигурационных файлов**
 
 ```cmd
+# Windows
 copy .env.example .env
 copy databases.yaml.example databases.yaml
+
+# Linux / macOS
+cp .env.example .env
+cp databases.yaml.example databases.yaml
 ```
 
 Полученные конфигурационные дескрипторы `.env` и `databases.yaml` подлежат корректировке в соответствии с параметрами целевой инфраструктуры (детальная спецификация представлена в разделе [Настройка конфигурационных файлов](.docs/configuration.md)).
@@ -69,7 +74,7 @@ copy databases.yaml.example databases.yaml
 ```
 Ctrl+Shift+P → Tasks: Run Task → Setup Full System
 ```
-Задача запускает скрипт setup-full (на шаге 4 устанавливается CLI), затем расширения. После этого команда `ergoms` доступна в терминале.
+Задача запускает скрипт setup-full (на шаге 4 устанавливается CLI), затем рекомендованные расширения. После этого команда `ergoms` доступна в терминале.
 
 *Вариант B: командная строка*
 
@@ -84,14 +89,14 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 .\core\deployment\windows\ergo_ms.ps1 setup-full
 ```
 
-**Linux (Bash, при необходимости с привилегиями суперпользователя):**
+**Linux (Bash, с привилегиями суперпользователя):**
 ```bash
 sudo bash core/deployment/linux/ergo_ms.sh setup-full
 ```
 
-Скрипт setup-full создаёт venv, ставит Poetry, зависимости, на шаге 4 устанавливает CLI (`ergoms`). После выполнения полной настройки можно использовать `ergoms` для всех дальнейших команд.
+Скрипт setup-full создаёт виртуальное окружение, устанавливает Poetry, зависимости, на шаге 4 устанавливает CLI (`ergoms`). После выполнения полной настройки можно использовать `ergoms` для всех дальнейших команд. Для быстрой установки зависимостей при уже настроенном окружении: `ergoms install-deps`.
 
-> **⚠️ Требование безопасности:** процедура регистрации системных служб требует административных привилегий операционной системы.
+> **⚠️ Требование безопасности:** процедура регистрации системных служб и `setup-full` требуют административных привилегий операционной системы.
 
 **Этап 5. Запуск системы в режиме разработки**
 
@@ -99,18 +104,22 @@ sudo bash core/deployment/linux/ergo_ms.sh setup-full
 ```
 Ctrl+Shift+B
 ```
+Запускает все сервисы: API, Client, Media API, Celery Worker, Celery Beat (с предварительным прогревом кэшей).
 
 *Альтернативный способ (CLI):*
 ```cmd
-ergoms start
+ergoms start-all      # API + Celery Worker + Beat в одном терминале
+ergoms start-client   # Отдельно: клиентское приложение
 ```
+Или по отдельности: `ergoms dev`, `ergoms start-client`, `ergoms start-worker`, `ergoms start-beat`, `ergoms start-media`.
 
-> **ℹ️ Особенность архитектуры:** в режиме разработки Django инициализирует два параллельных процесса: основной обрабатывает HTTP-запросы, вспомогательный осуществляет мониторинг изменений исходного кода и выполняет горячую перезагрузку модулей. Данная конфигурация соответствует штатному режиму функционирования.
+> **ℹ️ Различие команд:** `ergoms start` (с правами администратора) — запуск системных служб Windows/Linux. Для разработки используйте `Ctrl+Shift+B` или команды `dev`, `start-client`, `start-worker`, `start-beat`.
 
 **Этап 6. Сетевые точки доступа**
 
 - Клиентское веб-приложение: `http://localhost:8001`
 - API-сервер: `http://localhost:8000`
+- Media API (CDN, файлы): `http://localhost:8003`
 
 ## Дополнительная информация
 

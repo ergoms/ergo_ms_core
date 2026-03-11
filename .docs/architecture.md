@@ -4,7 +4,7 @@
 
 ### Модульная архитектура и Git submodules
 - Архитектура системы задаётся манифестом `.gitmodules`: ядро и каждый доменный модуль подключаются посредством механизма Git submodule, обеспечивая независимую разработку компонентов и выборочное обновление через `git submodule update`.
-- Ядро образуется субмодулями `core/api`, `core/client`, `core/media_api`, а также форками `core/django` и `core/django_rest_framework`. В последних удалён функционал стандартной административной панели Django ввиду отсутствия необходимости её использования.
+- Ядро образуется субмодулями `core/api`, `core/client`, `core/media_api`, а также форками `core/django` и `core/django_rest_framework`. В форках Django и DRF удалён функционал стандартной административной панели Django.
 - Каждая директория `modules/<имя>` представляет собой обособленный submodule (например, `modules/video_analysis`, `modules/crm`). Модули взаимодействуют с ядром через унифицированный API-контракт и клиентский интерфейс, сохраняя изоляцию, что обеспечивает упрощённую поддержку и масштабируемость.
 
 ### Модульные переменные окружения
@@ -21,11 +21,11 @@
 - Файл `tasks.py` импортируется системой Celery автоматически при инициализации воркеров. В нём располагаются пайплайны обработки данных, включая высоконагруженные задачи, масштабируемые посредством Celery с учётом параметров GPU/CPU, определённых в `apps.py`.
 
 ### Клиентская архитектура
-- Фронтенд-файлы `client/js/endpoints.js`, `client/js/routes.js` и `client/js/menu-config.json` обнаруживаются фреймворком автоматически: они формируют точки входа API, регистрируют маршруты клиентского приложения и определяют элементы навигационного меню без необходимости модификации ядра.
+- Фронтенд-файлы `modules/<имя>/client/js/endpoints.js`, `modules/<имя>/client/js/routes.js`, `modules/<имя>/client/js/menu-config.json` и `modules/<имя>/client/js/permission-rules.js` обнаруживаются фреймворком автоматически; внутренние модули ядра — в `core/client/src/core/<имя>/js/`. Они формируют точки входа API, маршруты, меню и правила доступа без модификации ядра.
 - Vue-компоненты подлежат декомпозиции: бизнес-логика выделяется в файлы `.js` либо `.ts`, стилевое оформление — в `.scss`. Для зависимостей ядра применяются абсолютные импорты с префиксом `@/`, обеспечивая модульную изоляцию.
 
 ### Интеграция с Cursor
-- Фреймворк обеспечивает совместимость с MCP-инфраструктурой Cursor. Реестр серверов и параметры подключения задаются в файле `.cursor/mcp.json` (детальное описание приведено в разделе «Конфигурационные файлы»).
+- Фреймворк обеспечивает совместимость с MCP-инфраструктурой Cursor. Реестр серверов задаётся в `.cursor/mcp.json`: `ergo-api` (запросы к API), `ergo-database-postgres`, `ergo-filesystem`, `ergo_ollama`.
 
 ### Правила разработки Cursor (Rules)
 
@@ -50,11 +50,16 @@
 ├── api_code.mdc          # Правила разработки серверной части (Django)
 ├── client_code.mdc       # Правила разработки клиентской части (Vue.js)
 ├── code.mdc              # Общие правила кодирования
+├── components.mdc        # Компоненты UI
 ├── database.mdc          # Правила работы с базами данных
 ├── django.mdc            # Специфичные правила Django
 ├── docs.mdc              # Правила генерации документации
-├── mcp.mdc               # Правила использования MCP-серверов
+├── ergoms-commands.mdc   # Техническая справка по ergoms
+├── media_api.mdc         # Правила работы с media_api (CDN)
+├── modules.mdc           # Правила работы с модулями
+├── no-direct-manage-py.mdc # Обязательное использование ergoms
 ├── oc.mdc                # Правила кроссплатформенной разработки
+├── permission_rules.mdc  # Правила проверки прав на клиенте
 ├── struct.mdc            # Правила архитектурной организации
 └── word_docs.mdc         # Правила работы с документами Word
 ```
@@ -106,8 +111,8 @@ alwaysApply: true
 - Использование Celery для высоконагруженных алгоритмов
 - Адаптация под GPU/CPU
 
-**Правила интеграции (`mcp.mdc`):**
-- Использование MCP-серверов для работы с API, базой данных и файловой системой
+**Правила интеграции (`media_api.mdc`):**
+- Работа с файлами через media_api (CDN-сервис)
 
 **Правила кроссплатформенности (`oc.mdc`):**
 - Обеспечение совместимости с Windows и Linux
@@ -235,16 +240,16 @@ complex-command=command1 && command2 && command3
 
 ```conf
 # Простые команды
-python-install=poetry:install
+python-install=api:install
 db-migrate=api:migrate
 client-build=npm:run build
 
 # Составные команды
 migrate-all=api:makemigrations && api:migrate
-setup=poetry:install && npm:install && api:migrate
+install-deps=api:install && npm:install && api:migrate && api:warmup_caches
 
 # Платформо-специфичные команды
-setup-full=win:powershell -File core/deployment/windows/ergo_ms.ps1 setup-full && linux:bash core/deployment/linux/ergo_ms.sh setup-full
+setup=win:powershell -File core/deployment/windows/ergo_ms.ps1 setup-full && linux:bash core/deployment/linux/ergo_ms.sh setup-full
 ```
 
 #### Модульные команды

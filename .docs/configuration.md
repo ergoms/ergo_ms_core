@@ -39,7 +39,8 @@
    EMAIL_USE_TLS=False
    EMAIL_USE_SSL=True
 
-   VITE_YANDEX_MAPS_API_KEY=secret-key      
+   VITE_DEFAULT_THEME=auto           # Тема: auto, light, dark
+   VITE_LOG_LEVEL=debug             # Уровень логирования клиента
    ```
 
 **Критичные параметры безопасности и производительности:**
