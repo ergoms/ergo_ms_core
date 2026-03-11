@@ -138,7 +138,7 @@ sq-del-migrations=api:sq_del_migrations
 ```conf
 # core/deployment/commands.conf
 migrate-all=api:makemigrations && api:migrate
-setup-full=poetry:install && npm:install && api:migrate
+install-deps=api:install && npm:install && api:migrate && api:warmup_caches
 ```
 
 ### Платформо-специфичные команды
@@ -202,7 +202,7 @@ ergoms video_analysis:install-ffmpeg
 
 ## Важные ограничения
 
-1. **Имена команд**: Используй kebab-case для имён команд (`clear-migrations`, `migrate-all`)
+1. **Имена команд**: Используй kebab-case для имён команд (`sq-del-migrations`, `migrate-all`)
 2. **Аргументы**: Аргументы передаются автоматически, не нужно их указывать в определении команды
 3. **Составные команды**: Используй `&&` для объединения команд, при ошибке цепочка прерывается
 4. **Платформо-специфичные команды**: Используй `win:` и `linux:` для команд, специфичных для платформы

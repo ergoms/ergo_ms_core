@@ -10,13 +10,13 @@ alwaysApply: false
 Система состоит из двух независимых компонентов:
 
 1. **Celery Worker** — обрабатывает асинхронные задачи из очередей
-   - Запускается командой `api start_celery_worker`
+   - Запускается командой `ergoms start-worker`
    - Подключается к брокеру (БД) для получения задач
    - Использует пул потоков (`--pool=threads`) для параллельной обработки
    - Автоматически собирает все очереди из модулей при запуске
 
 2. **Celery Beat** — планировщик периодических задач
-   - Запускается командой `api start_celery_beat`
+   - Запускается командой `ergoms start-beat`
    - Использует тот же брокер, что и Worker (чтобы задачи доходили до Worker)
    - Хранит расписание в отдельной БД или локальном файле
    - Автоматически синхронизирует задачи из конфигов модулей с БД при запуске
@@ -179,13 +179,11 @@ def get_beat_schedule(self) -> Dict[str, Dict[str, Any]]:
 
 Никогда не предлагай перезапускать API, Worker или Beat через команды, если пользователь не попросил.
 
-Для запуска используй команды:
-- `api start_celery_worker` или `ergoms start-worker`
-- `api start_celery_beat` или `ergoms start-beat`
+Для запуска используй команды `ergoms`:
+- `ergoms start-worker` или `ergoms start-worker --worker=<name>`
+- `ergoms start-beat`
 
-Для остановки используй команды:
-- `api stop_celery_worker` или `ergoms stop-worker`
-- `api stop_celery_beat` или `ergoms stop-beat`
+Для остановки: `ergoms stop-worker`, `ergoms stop-beat`
 
 Команды запуска автоматически:
 - Проверяют, не запущен ли уже процесс
@@ -207,7 +205,7 @@ Worker автоматически подписывается на все оче�
 
 ## Важные ограничения
 
-- Не изменяй файлы конфигурации ядра (`core/api/src/config/celery.py`, `config/settings/celery.py`, `config/settings/celery_beat.py`) без крайней необходимости
+- Не изменяй файлы конфигурации ядра (`core/api/src/config/celery.py`, `core/api/src/config/settings/celery.py`, `core/api/src/config/settings/celery_beat.py`) без крайней необходимости
 - Не создавай задачи напрямую в ядре системы, всегда создавай их в модулях
 - Не используй глобальные логгеры для задач модулей, всегда используй логгеры модулей
 - Не регистрируй конфигурации модулей вручную — система делает это автоматически

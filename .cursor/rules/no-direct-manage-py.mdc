@@ -48,7 +48,7 @@ priority: critical
 | Обновление Python-зависимостей | `ergoms python-update` или `ergoms poetry update` |
 | Установка npm-зависимостей | `ergoms npm install`; полная установка — `ergoms install-deps` |
 | Любая management-команда | `ergoms api <command> [args]` |
-| Полная настройка проекта | `ergoms setup` / `ergoms setup-full` (по конфигу) |
+| Полная настройка проекта | `ergoms setup` |
 | Справка по командам | `ergoms help` |
 
 Модульные команды: `ergoms <module_name>:<command> [args]`.
