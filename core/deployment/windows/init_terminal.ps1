@@ -1,0 +1,92 @@
+# init_terminal.ps1 - Project shell with ergoms-only wrappers
+# Run at terminal start so pip, poetry, npm, api and python manage.py are redirected to ergoms.
+# Location: core/deployment/windows/init_terminal.ps1 (project root is 3 levels up).
+
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+try { [Console]::InputEncoding = [System.Text.Encoding]::UTF8 } catch { }
+$null = cmd /c "chcp 65001 >nul"
+
+# Project root: this script is in core/deployment/windows/
+$global:ProjectRoot = if ($PSScriptRoot) {
+    (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
+} else {
+    Get-Location | Select-Object -ExpandProperty Path
+}
+
+# Paths to real commands (captured before wrappers shadow them); used when ergoms sets ERGOMS_INTERNAL=1
+# Poetry on Windows creates api.cmd / api (no .exe) in Scripts
+$global:RealApiExe = Join-Path $global:ProjectRoot "virtual_env\python\Scripts\api.cmd"
+if (-not (Test-Path $global:RealApiExe)) { $global:RealApiExe = Join-Path $global:ProjectRoot "virtual_env\python\Scripts\api" }
+$global:RealMediaApiExe = Join-Path $global:ProjectRoot "virtual_env\python\Scripts\media_api.cmd"
+if (-not (Test-Path $global:RealMediaApiExe)) { $global:RealMediaApiExe = Join-Path $global:ProjectRoot "virtual_env\python\Scripts\media_api" }
+# Poetry: try venv Scripts first, then PATH
+$poetryInVenv = Join-Path $global:ProjectRoot "virtual_env\python\Scripts\poetry.exe"
+$global:RealPoetryExe = if (Test-Path $poetryInVenv) { $poetryInVenv } else { $null }
+if (-not $global:RealPoetryExe) {
+    $poetryCmd = Get-Command poetry.exe -ErrorAction SilentlyContinue
+    if ($poetryCmd) { $global:RealPoetryExe = $poetryCmd.Source }
+}
+$npmCmd = Get-Command npm.cmd -ErrorAction SilentlyContinue
+if (-not $npmCmd) { $npmCmd = Get-Command npm -ErrorAction SilentlyContinue }
+$global:RealNpmCmd = if ($npmCmd) { $npmCmd.Source } else { $null }
+
+# Activate venv if present (so ergoms can run api/poetry)
+$venvActivate = Join-Path $global:ProjectRoot "virtual_env\python\Scripts\Activate.ps1"
+if (Test-Path $venvActivate) {
+    & $venvActivate
+}
+
+# Local ergoms (same folder as this script); pass -Root so ergo_ms.ps1 does not get null
+function ergoms {
+    & (Join-Path $PSScriptRoot "ergo_ms.ps1") -Root $global:ProjectRoot @args
+}
+
+# Wrappers: pass through when ergoms sets ERGOMS_INTERNAL=1; show hint for direct user calls.
+function pip {
+    Write-Host "Use: ergoms python-install or ergoms poetry add <package>" -ForegroundColor Yellow
+}
+
+function poetry {
+    if ($env:ERGOMS_INTERNAL -eq '1' -and $global:RealPoetryExe -and (Test-Path $global:RealPoetryExe)) {
+        & $global:RealPoetryExe @args; return
+    }
+    Write-Host "Use: ergoms poetry <args>, e.g. ergoms poetry install, ergoms python-install, ergoms python-update" -ForegroundColor Yellow
+}
+
+function npm {
+    if ($env:ERGOMS_INTERNAL -eq '1' -and $global:RealNpmCmd -and (Test-Path $global:RealNpmCmd)) {
+        & $global:RealNpmCmd @args; return
+    }
+    Write-Host "Use: ergoms npm <args>, ergoms start-client, ergoms client-build, ergoms install-deps" -ForegroundColor Yellow
+}
+
+function api {
+    if ($env:ERGOMS_INTERNAL -eq '1' -and $global:RealApiExe -and (Test-Path $global:RealApiExe)) {
+        & $global:RealApiExe @args; return
+    }
+    Write-Host "Use: ergoms api <args> or ergoms dev, ergoms db-migrate, ergoms migrate-all, ergoms collectstatic" -ForegroundColor Yellow
+}
+
+function media_api {
+    if ($env:ERGOMS_INTERNAL -eq '1' -and $global:RealMediaApiExe -and (Test-Path $global:RealMediaApiExe)) {
+        & $global:RealMediaApiExe @args; return
+    }
+    Write-Host "Use: ergoms media_api <args> or ergoms start-media" -ForegroundColor Yellow
+}
+
+function python {
+    param([Parameter(ValueFromRemainingArguments = $true)] $remaining)
+    $firstArg = $remaining | Select-Object -First 1
+    if ($firstArg -and ($firstArg -match 'manage\.py$' -or $firstArg -replace '\\', '/' -match '.*/manage\.py$')) {
+        Write-Host "Use: ergoms api <command>, e.g. ergoms dev, ergoms db-migrate, ergoms migrate-all, ergoms collectstatic" -ForegroundColor Yellow
+        return
+    }
+    $pythonExe = Get-Command python.exe -ErrorAction SilentlyContinue
+    if (-not $pythonExe) { $pythonExe = Get-Command python -ErrorAction SilentlyContinue }
+    if ($pythonExe) {
+        & $pythonExe.Source @remaining
+    } else {
+        Write-Host "[ERROR] python not found in PATH" -ForegroundColor Red
+    }
+}

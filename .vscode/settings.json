@@ -1,7 +1,12 @@
 {
-    "terminal.integrated.defaultProfile.windows": "PowerShell",
-    "terminal.integrated.defaultProfile.linux": "bash",
+    "terminal.integrated.defaultProfile.windows": "Project-Shell",
+    "terminal.integrated.defaultProfile.linux": "Project-Shell",
     "terminal.integrated.profiles.windows": {
+        "Project-Shell": {
+            "source": "PowerShell",
+            "icon": "terminal-powershell",
+            "args": ["-NoExit", "-File", "${workspaceFolder}/core/deployment/windows/init_terminal.ps1"]
+        },
         "PowerShell": {
             "source": "PowerShell",
             "icon": "terminal-powershell",
@@ -17,6 +22,11 @@
         }
     },
     "terminal.integrated.profiles.linux": {
+        "Project-Shell": {
+            "path": "/bin/bash",
+            "icon": "terminal-bash",
+            "args": ["-c", "source '${workspaceFolder}/core/deployment/linux/init_terminal.sh' && exec bash"]
+        },
         "bash": {
             "path": "/bin/bash",
             "icon": "terminal-bash",
