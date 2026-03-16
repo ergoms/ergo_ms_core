@@ -225,3 +225,10 @@
 	branch = dev
 	update = merge
 	ignore = all
+
+[submodule "modules/module_template"]
+	path = modules/module_template
+	url = https://github.com/Wyaro/module_template.git
+    branch = main
+    update = merge
+    ignore = all
