@@ -46,6 +46,9 @@ __pycache__/
 
 /node_modules
 
+/notebooks/*
+!/notebooks/.gitkeep
+
 /core/deployment/wrappers/*
 !/core/deployment/wrappers/.gitkeep
 
