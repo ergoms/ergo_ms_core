@@ -48,6 +48,7 @@ __pycache__/
 
 /notebooks/*
 !/notebooks/.gitkeep
+!/notebooks/example_analytics.ipynb
 
 /core/deployment/wrappers/*
 !/core/deployment/wrappers/.gitkeep
