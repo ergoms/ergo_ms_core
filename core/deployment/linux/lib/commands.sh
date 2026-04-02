@@ -80,6 +80,13 @@ execute_command_string() {
     case "$cmd_type" in
       poetry)
         cd "$root" || exit 1
+        local venv_python="$root/virtual_env/python/bin/python"
+        if [[ -f "$venv_python" ]]; then
+          # Prefer venv Poetry module to avoid missing/broken console script.
+          # shellcheck disable=SC2086
+          exec "$venv_python" -m poetry $cmd_args "${user_args[@]}"
+        fi
+        # shellcheck disable=SC2086
         exec poetry $cmd_args "${user_args[@]}"
         ;;
       api)
@@ -188,7 +195,11 @@ invoke_poetry_command() {
     return
   fi
 
+  local venv_python="$root/virtual_env/python/bin/python"
   cd "$root" || exit 1
+  if [[ -f "$venv_python" ]]; then
+    exec "$venv_python" -m poetry "$@"
+  fi
   exec poetry "$@"
 }
 
