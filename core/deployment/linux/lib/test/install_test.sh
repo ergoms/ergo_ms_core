@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -11,42 +10,26 @@ echo "=      Начало проверки установки системы.   
 echo "================================================="
 
 step "1. Установка системы через Setup Full System"
-
 log "Удаление кэша и зависимостей"
-
+cd "$ROOT_DIR"
 chown_project_paths_to_invoking_user
 ergoms stop || true
 ergoms clean
-
-cd "$ROOT_DIR"
 echo
 log "=== Запуск Setup Full System ==="
-
 run_task "Setup Full System"
-
 echo
 log "=== Проверка Setup Full System завершена. ==="
 
 step "2. Проверка комманды setup через утилиту ergoms"
-
 log "Удаление кэша и зависимостей"
 chown_project_paths_to_invoking_user
 ergoms stop || true
 ergoms clean
-
 ergoms setup # для linux вызовет bash core/deployment/linux/ergo_ms.sh setup-full
 log "=== Проверка ergoms setup завершена. ==="
 
-# bash core/deployment/linux/ergo_ms.sh start-services
-# bash core/deployment/linux/ergo_ms.sh status-services
-# bash core/deployment/linux/ergo_ms.sh logs-services
-# bash core/deployment/linux/ergo_ms.sh stop-services
-# bash core/deployment/linux/ergo_ms.sh uninstall-services
-# bash core/deployment/linux/ergo_ms.sh uninstall-services --purge
-# bash core/deployment/linux/ergo_ms.sh uninstall-services --purge
-
-step "3. Установка служб через команду ergoms install-all-services"
-# bash core/deployment/linux/ergo_ms.sh install-services
+step "3. Установка служб через команду ergoms install-all-services" # для linux вызовет bash core/deployment/linux/ergo_ms.sh install-services
 # Удаление всех служб перед установкой
 ergoms uninstall-services || true
 if ! ergoms install-all-services; then

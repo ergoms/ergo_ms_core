@@ -18,10 +18,71 @@ start_all() {
   for u in $(units_list "$root"); do systemctl_do start "$u"; done
 }
 
+# Собирает PID текущего процесса и всех предков (чтобы не завершить shell, запустивший ergoms stop).
+_kill_ergo_skip_pids_ancestor_chain() {
+  local p=$$ n=0 max=64
+  while [[ "$p" -gt 1 && "$n" -lt "$max" ]]; do
+    printf '%s\n' "$p"
+    p=$(awk '/^PPid:/{print $2}' "/proc/$p/status" 2>/dev/null || echo 1)
+    [[ -z "$p" || "$p" == 0 ]] && break
+    ((n++)) || true
+  done
+}
+
+# Завершает оставшиеся после systemctl пользовательские процессы этого репозитория (Daphne, Celery, Vite,
+# фоновые ergoms/npm и т.д.) по наличию абсолютного пути корня или virtual_env в cmdline.
+kill_ergo_project_session_processes() {
+  local root="${1:-${SERVICE_PROJECT_ROOT:-}}"
+  [[ -n "$root" ]] || return 0
+  [[ -d /proc ]] || return 0
+  if command -v readlink >/dev/null 2>&1; then
+    root="$(readlink -f "$root" 2>/dev/null || echo "$root")"
+  fi
+  local venv_mark="${root}/virtual_env"
+  local proc pid cmd round
+  local -A skip=()
+  while IFS= read -r pid; do
+    [[ -n "$pid" ]] && skip["$pid"]=1
+  done < <(_kill_ergo_skip_pids_ancestor_chain)
+
+  _cmdline_matches_project() {
+    local c="$1"
+    [[ -n "$c" ]] || return 1
+    [[ "$c" == *"$root"* ]] && return 0
+    [[ "$c" == *"$venv_mark"* ]] && return 0
+    return 1
+  }
+
+  for round in 1 2; do
+    for proc in /proc/[0-9]*; do
+      [[ -r "$proc/cmdline" ]] || continue
+      pid="${proc##/proc/}"
+      [[ "$pid" =~ ^[0-9]+$ ]] || continue
+      [[ -v "skip[$pid]" ]] && continue
+      cmd="$(tr '\0' ' ' <"$proc/cmdline" 2>/dev/null || true)"
+      _cmdline_matches_project "$cmd" || continue
+      if [[ "$round" -eq 1 ]]; then
+        kill -TERM "$pid" 2>/dev/null || true
+      else
+        kill -0 "$pid" 2>/dev/null || continue
+        cmd="$(tr '\0' ' ' <"$proc/cmdline" 2>/dev/null || true)"
+        _cmdline_matches_project "$cmd" || continue
+        kill -KILL "$pid" 2>/dev/null || true
+      fi
+    done
+    [[ "$round" -eq 1 ]] && sleep 0.8
+  done
+}
+
 stop_all() {
   local root="${SERVICE_PROJECT_ROOT:-}"
   local u
   for u in $(units_list "$root"); do systemctl_do stop "$u" || true; done
+  # Иначе kill_ergo_project_session_processes рвёт node/vite — npm печатает ERR на «упавший» lifecycle.
+  if [[ -n "$root" && -d "$root" ]] && command -v ergoms >/dev/null 2>&1; then
+    ( cd "$root" && ergoms npm run stop-dev ) || true
+  fi
+  kill_ergo_project_session_processes "$root"
 }
 
 restart_all() {
