@@ -51,6 +51,7 @@ psycopg2-binary = "^2.9.11"
 python-slugify = "^8.0.4"
 pillow = "^12.1.1"
 matplotlib = ">=3.9.0"
+statsmodels = "^0.14.6"
 
 [tool.poetry.scripts]
 api = "commands.__main__:main"
