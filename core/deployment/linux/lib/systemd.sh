@@ -43,8 +43,10 @@ install_unit() {
 enable_and_start() {
   local unit="$1"
   if [[ $(id -u) -eq 0 ]]; then
+    systemctl reset-failed "$unit" 2>/dev/null || true
     systemctl enable --now "$unit"
   else
+    sudo systemctl reset-failed "$unit" 2>/dev/null || true
     sudo systemctl enable --now "$unit"
   fi
 }
@@ -59,7 +61,7 @@ After=network.target
 [Service]
 Type=simple
 EnvironmentFile=/etc/default/ergo_ms
-ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && python -m commands dev'
+ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core/api" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && export PYTHONPATH="$ERGO_ROOT" && python -m commands dev'
 Restart=always
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1
@@ -77,7 +79,7 @@ After=network.target
 [Service]
 Type=simple
 EnvironmentFile=/etc/default/ergo_ms
-ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && npm run dev'
+ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT" && npm run dev'
 Restart=always
 RestartSec=5
 Environment=NODE_ENV=development
@@ -132,7 +134,7 @@ After=network.target
 [Service]
 Type=simple
 EnvironmentFile=/etc/default/ergo_ms
-ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && python -m commands start_ollama'
+ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core/api" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && export PYTHONPATH="$ERGO_ROOT" && python -m commands start_ollama'
 Restart=always
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1

@@ -122,7 +122,9 @@ setup_full_system() {
   local venv_activate="$venv_path/bin/activate"
   # shellcheck disable=SC1090
   source "$venv_activate"
-  if ! pip install poetry; then
+  # Use python -m pip to avoid shell function wrappers ("pip()") from init_terminal.sh.
+  # Force reinstall to restore a broken/missing console script.
+  if ! python -m pip install --upgrade --force-reinstall poetry; then
     echo "[ERROR] Failed to install Poetry" >&2
     exit 1
   fi
@@ -151,7 +153,8 @@ setup_full_system() {
   echo "-> Step 5/7: Installing dependencies (poetry + npm)..."
   cd "$root" || exit 1
   export POETRY_VIRTUALENVS_CREATE=false
-  if ! poetry install --no-root; then
+  # Call Poetry via module so we don't depend on a "poetry" console script existing.
+  if ! python -m poetry install --no-root; then
     echo "[ERROR] poetry install failed" >&2
     exit 1
   fi
