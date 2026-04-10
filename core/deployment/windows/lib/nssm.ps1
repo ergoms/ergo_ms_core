@@ -63,6 +63,7 @@ function New-BaseServiceWrapper {
     )
 
     $corePath = Join-Path $Root "core"
+    $apiPath = Join-Path $corePath "api"
     $venvActivate = Join-Path $Root "virtual_env\python\Scripts\activate.bat"
     $wrapperDir = Get-ProjectWrappersDir -ProjectRoot $Root
     
@@ -76,7 +77,8 @@ function New-BaseServiceWrapper {
                 'chcp 65001 >nul',
                 'set PYTHONIOENCODING=utf-8',
                 'set PYTHONUTF8=1',
-                "cd /d `"$corePath`"",
+                "set PYTHONPATH=$Root",
+                "cd /d `"$apiPath`"",
                 "call `"$venvActivate`"",
                 'python -m commands dev'
             ) -join "`r`n"
@@ -124,7 +126,10 @@ function New-BaseServiceWrapper {
             $content = @(
                 '@echo off',
                 'chcp 65001 >nul',
-                "cd /d `"$corePath`"",
+                'set PYTHONIOENCODING=utf-8',
+                'set PYTHONUTF8=1',
+                "set PYTHONPATH=$Root",
+                "cd /d `"$apiPath`"",
                 "call `"$venvActivate`"",
                 'python -m commands start_ollama'
             ) -join "`r`n"

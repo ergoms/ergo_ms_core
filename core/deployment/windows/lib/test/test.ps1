@@ -1,6 +1,6 @@
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$RootDir = (Resolve-Path "$ScriptDir\..\..\..\..").ProviderPath
+$RootDir = (Resolve-Path "$ScriptDir\..\..\..\..\..").ProviderPath
 Set-Location $RootDir
 
 $InstallTest = Join-Path $ScriptDir "install_test.ps1"

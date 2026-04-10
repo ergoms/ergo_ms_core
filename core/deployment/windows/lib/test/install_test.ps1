@@ -1,4 +1,4 @@
-$ErrorActionPreference = "Stop"
+﻿﻿$ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 . "$ScriptDir\lib.ps1"
 
@@ -15,7 +15,11 @@ ergoms clean
 Write-Host ""
 Log "=== Запуск Setup Full System ==="
 # Напрямую вызываем скрипт, как в tasks.json
-powershell -ExecutionPolicy Bypass -File "core/deployment/windows/ergo_ms.ps1" setup-full
+$ErgomsScript = Join-Path $RootDir "core\deployment\windows\ergo_ms.ps1"
+if (-not (Test-Path $ErgomsScript)) {
+    throw "Не найден скрипт $ErgomsScript"
+}
+powershell -ExecutionPolicy Bypass -File $ErgomsScript setup-full
 npm run install-extensions
 Write-Host ""
 Log "=== Проверка Setup Full System завершена. ==="
@@ -38,6 +42,11 @@ try {
 Log "=== Проверка ergoms install-all-services завершена. ==="
 
 Step "4. Установка служб через отдельные команды утилиты ergoms"
+Log "Предварительная остановка и удаление всех служб для чистого теста"
+Stop-AllErgoms
+try { ergoms uninstall-services } catch { }
+Start-Sleep -Seconds 3
+
 Log "Установка API через утилиту ergoms: ergoms install-api-service"
 ergoms install-api-service
 Log "=== Проверка ergoms install-api-service завершена. ==="

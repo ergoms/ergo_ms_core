@@ -1,6 +1,12 @@
-﻿$ErrorActionPreference = "Stop"
+﻿﻿$ErrorActionPreference = "Stop"
+try {
+    & "$env:SystemRoot\System32\chcp.com" 65001 > $null
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    [Console]::InputEncoding = [System.Text.Encoding]::UTF8
+    $OutputEncoding = [System.Text.Encoding]::UTF8
+} catch { }
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$RootDir = (Resolve-Path "$ScriptDir\..\..\..\..").ProviderPath
+$RootDir = (Resolve-Path "$ScriptDir\..\..\..\..\..").ProviderPath
 $TestLogFile = Join-Path $RootDir "logs\test.log"
 
 function Ensure-LogDir {
@@ -30,19 +36,31 @@ function Step {
 function Stop-AllErgoms {
     Log "Остановка всех процессов ergoms и служб..."
     Set-Location $RootDir
+
+    $services = Get-Service -Name "ergo-*" -ErrorAction SilentlyContinue
+    foreach ($svc in $services) {
+        try {
+            Set-Service -Name $svc.Name -StartupType Disabled -ErrorAction Stop
+        } catch {
+            Log ("[WARNING] Не удалось отключить автозапуск службы " + $svc.Name + ". Продолжаем.")
+        }
+
+        if ($svc.Status -ne 'Stopped') {
+            try {
+                Stop-Service -Name $svc.Name -Force -ErrorAction Stop
+            } catch {
+                Log ("[WARNING] Не удалось остановить службу " + $svc.Name + ". Продолжаем.")
+            }
+        }
+    }
+
     # Пытаемся остановить через ergoms stop
     if (Get-Command ergoms -ErrorAction SilentlyContinue) {
         ergoms stop
         ergoms stop-ollama
     }
-    
-    # Также останавливаем службы, если они есть
-    $services = Get-Service -Name "ergo-*" -ErrorAction SilentlyContinue
-    foreach ($svc in $services) {
-        if ($svc.Status -eq 'Running') {
-            Stop-Service -Name $svc.Name -Force -ErrorAction SilentlyContinue
-        }
-    }
+
+    Start-Sleep -Seconds 3
 }
 
 function Require-InstallReadyForLaunch {
@@ -80,9 +98,9 @@ function Test-ServiceAction {
     } elseif ($Action -eq "status") {
         $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
         if ($svc) {
-            Log "Статус ${ServiceName}: $($svc.Status)"
+            Log ("Статус " + $ServiceName + ": " + $svc.Status)
         } else {
-            Log "Служба ${ServiceName} не найдена"
+            Log ("Служба " + $ServiceName + " не найдена")
         }
     }
 }
@@ -121,18 +139,18 @@ function Run-Task {
     
     $task = $tasksObj.tasks | Where-Object { $_.label -eq $Label }
     if (-not $task) {
-        throw "Задача '$Label' не найдена в tasks.json"
+        throw ("Задача '" + $Label + "' не найдена в tasks.json")
     }
     
-    Log "Запуск задачи: $Label"
+    Log ("Запуск задачи: " + $Label)
     
     if ($task.command) {
         $cmd = $task.command
         if ($task.windows -and $task.windows.command) {
             $cmd = $task.windows.command
         }
-        $cmd = $cmd -replace '\$\{workspaceFolder\}', $RootDir
-        Log "Выполнение команды: $cmd"
+        $cmd = $cmd.Replace('${workspaceFolder}', $RootDir)
+        Log ("Выполнение команды: " + $cmd)
         
         if ($InParallel) {
             Start-Process -FilePath "cmd.exe" -ArgumentList "/c $cmd" -WindowStyle Hidden
@@ -143,14 +161,17 @@ function Run-Task {
     }
     
     if ($task.type -eq "multi-terminal") {
-        Log "Multi-terminal задача '$Label' (пропускаем сложную эмуляцию, запускаем напрямую если нужно)"
+        Log ("Multi-terminal задача '" + $Label + "' (пропускаем сложную эмуляцию, запускаем напрямую если нужно)")
         # В Windows для тестов можно просто пропустить или реализовать базово
         return
     }
     
     if ($task.dependsOn) {
-        $order = if ($task.dependsOrder) { $task.dependsOrder } else { "parallel" }
-        Log "Задача '$Label' имеет dependsOn (порядок: $order)"
+        $order = "parallel"
+        if ($task.dependsOrder) {
+            $order = $task.dependsOrder
+        }
+        Log ("Задача '" + $Label + "' имеет dependsOn (порядок: " + $order + ")")
         
         foreach ($dep in $task.dependsOn) {
             if ($order -eq "sequence") {
@@ -167,5 +188,5 @@ function Run-Task {
         return
     }
     
-    throw "Задача '$Label' не имеет command или dependsOn"
+    throw ("Задача '" + $Label + "' не имеет command или dependsOn")
 }
