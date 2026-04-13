@@ -16,9 +16,10 @@ Log "Предусловия выполнены. Система готова к �
 Step "1. Запуск системы через Run Task: Start All Services"
 Log "Предварительная остановка системы"
 Stop-AllErgoms
+Enable-ErgoServicesForStart
 Log "Запуск системы через Start All Services"
 Run-Task -Label "Start All Services"
-Log "Ожидание стабилизации сервисов перед проверкой статуса (5 с)…"
+Log "Ожидание стабилизации сервисов перед проверкой статуса (5 с)..."
 Start-Sleep -Seconds 5
 Write-Host ""
 try { ergoms status } catch { }
@@ -28,9 +29,10 @@ Log "=== Запуск системы через Start All Services заверш�
 Step "2. Запуск системы через ergoms start"
 Log "Предварительная остановка системы"
 Stop-AllErgoms
+Enable-ErgoServicesForStart
 Log "Запуск системы через ergoms start"
 ergoms start
-Log "Ожидание стабилизации сервисов перед проверкой статуса (5 с)…"
+Log "Ожидание стабилизации сервисов перед проверкой статуса (5 с)..."
 Start-Sleep -Seconds 5
 Write-Host ""
 try { ergoms status } catch { }
@@ -40,6 +42,7 @@ Log "=== Запуск при помощи ergoms start завершён. ==="
 Step "3. Отдельный запуск сервисов (api, media, client, celery-beat, worker)"
 Log "Условия для воркеров: проверяем celery inspect ping и celery beat show_next_tasks"
 Stop-AllErgoms
+Enable-ErgoServicesForStart
 
 Step "3.1. API: старт -> статус -> стоп"
 Test-ServiceAction -Action "start" -ServiceName "ergo-api-dev"

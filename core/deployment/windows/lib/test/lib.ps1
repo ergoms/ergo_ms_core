@@ -1,4 +1,4 @@
-﻿﻿$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
 try {
     & "$env:SystemRoot\System32\chcp.com" 65001 > $null
     [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -33,9 +33,45 @@ function Step {
     Add-Content -Path $TestLogFile -Value "=== $Message ===" -Encoding UTF8
 }
 
+function Stop-StaleCeleryBeatProcessesForTests {
+    $pythonExe = (Join-Path $RootDir "virtual_env\python\Scripts\python.exe").ToLowerInvariant()
+    $processes = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
+        $cmd = $_.CommandLine
+        $exe = $_.ExecutablePath
+
+        if (-not $cmd -or -not $exe) {
+            return $false
+        }
+
+        $cmdLower = $cmd.ToLowerInvariant()
+        $exeLower = $exe.ToLowerInvariant()
+
+        if ($exeLower -ne $pythonExe) {
+            return $false
+        }
+
+        if ($cmdLower.Contains("start_celery_beat.py")) {
+            return $true
+        }
+
+        return $cmdLower.Contains(" -m celery ") -and $cmdLower.Contains(" beat")
+    }
+
+    foreach ($proc in $processes) {
+        try {
+            Stop-Process -Id $proc.ProcessId -Force -ErrorAction Stop
+            Log ("[INFO] Остановлен осиротевший Celery Beat процесс PID=" + $proc.ProcessId)
+        } catch {
+            Log ("[WARNING] Не удалось остановить осиротевший Celery Beat процесс PID=" + $proc.ProcessId)
+        }
+    }
+}
+
 function Stop-AllErgoms {
     Log "Остановка всех процессов ergoms и служб..."
     Set-Location $RootDir
+
+    Stop-StaleCeleryBeatProcessesForTests
 
     $services = Get-Service -Name "ergo-*" -ErrorAction SilentlyContinue
     foreach ($svc in $services) {
@@ -61,6 +97,17 @@ function Stop-AllErgoms {
     }
 
     Start-Sleep -Seconds 3
+}
+
+function Enable-ErgoServicesForStart {
+    $services = Get-Service -Name "ergo-*" -ErrorAction SilentlyContinue
+    foreach ($svc in $services) {
+        try {
+            Set-Service -Name $svc.Name -StartupType Automatic -ErrorAction Stop
+        } catch {
+            Log ("[WARNING] Не удалось перевести службу " + $svc.Name + " в Automatic. Продолжаем.")
+        }
+    }
 }
 
 function Require-InstallReadyForLaunch {
@@ -92,6 +139,10 @@ function Test-ServiceAction {
     )
     
     if ($Action -eq "start") {
+        if ($ServiceName -eq "ergo-celery-beat") {
+            Stop-StaleCeleryBeatProcessesForTests
+            Start-Sleep -Seconds 1
+        }
         Start-Service -Name $ServiceName -ErrorAction Stop
     } elseif ($Action -eq "stop") {
         Stop-Service -Name $ServiceName -Force -ErrorAction SilentlyContinue
@@ -117,7 +168,7 @@ function Run-CeleryWorkerInspectPing {
 function Run-CeleryBeatShowNextTasks {
     Set-Location $RootDir
     Log "Выполнение ergoms api show_next_tasks..."
-    $process = Start-Process -FilePath "ergoms.cmd" -ArgumentList "api show_next_tasks --count 5" -Wait -NoNewWindow -PassThru
+    $process = Start-Process -FilePath "cmd.exe" -ArgumentList "/c ergoms api show_next_tasks --count 5" -Wait -NoNewWindow -PassThru
     return ($process.ExitCode -eq 0)
 }
 
