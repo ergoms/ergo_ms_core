@@ -28,6 +28,8 @@ try {
 Step "2. Проверка команды очистки (clean)"
 Log "Выполнение ergoms clean"
 try {
+    Stop-AllErgoms
+    Stop-ProjectProcessesForClean
     ergoms clean
     Log "clean: OK"
 } catch {
@@ -37,10 +39,22 @@ try {
 Step "3. Проверка команды логов (logs)"
 Log "Выполнение ergoms logs ergo-api-dev 10"
 try {
-    ergoms logs ergo-api-dev 10
-    Log "logs ergo-api-dev: OK"
+    if (Test-ErgomsLogs -ServiceName "ergo-api-dev" -Lines 10) {
+        Log "logs ergo-api-dev: OK"
+    } else {
+        Log "[WARNING] logs ergo-api-dev завершился с ошибкой или таймаутом"
+    }
 } catch {
     Log "[WARNING] logs ergo-api-dev завершился с ошибкой"
+}
+
+Step "4. Подготовка системы к работе (финальный ergoms setup)"
+Log "Выполнение ergoms setup"
+try {
+    ergoms setup
+    Log "ergoms setup: OK"
+} catch {
+    Log "[WARNING] ergoms setup завершился с ошибкой"
 }
 
 Write-Host "=================================================" -ForegroundColor Cyan

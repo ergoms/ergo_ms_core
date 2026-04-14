@@ -68,7 +68,6 @@ Start-Sleep -Seconds 4
 Test-ServiceAction -Action "start" -ServiceName "ergo-celery-beat"
 Start-Sleep -Seconds 3
 
-# Запускаем все воркеры
 $workers = Get-Service -Name "ergo-celery-worker*" -ErrorAction SilentlyContinue
 foreach ($w in $workers) {
     Log "Запуск воркера: $($w.Name)"

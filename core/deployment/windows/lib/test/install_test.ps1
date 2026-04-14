@@ -11,14 +11,12 @@ Write-Host "=================================================" -ForegroundColor 
 Step "1. Установка системы через Setup Full System"
 Log "Удаление кэша и зависимостей"
 Stop-AllErgoms
+Stop-ProjectProcessesForClean
 ergoms clean
 Write-Host ""
 Log "=== Запуск Setup Full System ==="
-# Напрямую вызываем скрипт, как в tasks.json
 $ErgomsScript = Join-Path $RootDir "core\deployment\windows\ergo_ms.ps1"
-if (-not (Test-Path $ErgomsScript)) {
-    throw "Не найден скрипт $ErgomsScript"
-}
+if (-not (Test-Path $ErgomsScript)) { throw "Не найден скрипт $ErgomsScript" }
 powershell -ExecutionPolicy Bypass -File $ErgomsScript setup-full
 npm run install-extensions
 Write-Host ""
@@ -27,12 +25,12 @@ Log "=== Проверка Setup Full System завершена. ==="
 Step "2. Проверка команды setup через утилиту ergoms"
 Log "Удаление кэша и зависимостей"
 Stop-AllErgoms
+Stop-ProjectProcessesForClean
 ergoms clean
 ergoms setup
 Log "=== Проверка ergoms setup завершена. ==="
 
 Step "3. Установка служб через команду ergoms install-all-services"
-# Удаление всех служб перед установкой
 try { ergoms uninstall-services } catch { }
 try {
     ergoms install-all-services
