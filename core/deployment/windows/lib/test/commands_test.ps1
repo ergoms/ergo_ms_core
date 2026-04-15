@@ -30,8 +30,7 @@ Log "Выполнение ergoms clean"
 try {
     Stop-AllErgoms
     Stop-ProjectProcessesForClean
-    ergoms clean
-    Log "clean: OK"
+    if (Invoke-ErgomsClean) { Log "clean: OK" } else { Log "[WARNING] clean завершился с ошибкой или таймаутом" }
 } catch {
     Log "[WARNING] clean завершился с ошибкой"
 }

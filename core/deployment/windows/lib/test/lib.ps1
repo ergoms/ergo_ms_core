@@ -1,4 +1,4 @@
-﻿$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Stop"
 try {
     & "$env:SystemRoot\System32\chcp.com" 65001 > $null
     [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -24,7 +24,7 @@ function Add-ContentSafe {
             return $true
         } catch { Start-Sleep -Milliseconds $DelayMs }
     }
-    Write-Host ("[WARNING] Не удалось записать в лог-файл (занят другим процессом): " + $Path) -ForegroundColor Yellow
+    Write-Host ("[WARNING] Failed to write test log (file locked): " + $Path) -ForegroundColor Yellow
     return $false
 }
 
@@ -58,15 +58,15 @@ function Stop-StaleCeleryBeatProcessesForTests {
     foreach ($proc in $processes) {
         try {
             Stop-Process -Id $proc.ProcessId -Force -ErrorAction Stop
-            Log ("[INFO] Остановлен осиротевший Celery Beat процесс PID=" + $proc.ProcessId)
+            Log ("[INFO] Stopped stale Celery Beat process PID=" + $proc.ProcessId)
         } catch {
-            Log ("[WARNING] Не удалось остановить осиротевший Celery Beat процесс PID=" + $proc.ProcessId)
+            Log ("[WARNING] Failed to stop stale Celery Beat process PID=" + $proc.ProcessId)
         }
     }
 }
 
 function Stop-AllErgoms {
-    Log "Остановка всех процессов ergoms и служб..."
+    Log "Stopping all ergoms processes and services..."
     Set-Location $RootDir
     Stop-StaleCeleryBeatProcessesForTests
     $services = Get-Service -Name "ergo-*" -ErrorAction SilentlyContinue
@@ -77,14 +77,14 @@ function Stop-AllErgoms {
         }
     }
     if (Get-Command ergoms -ErrorAction SilentlyContinue) {
-        try { ergoms stop } catch { Log "[WARNING] ergoms stop завершился с ошибкой (возможно, нет venv). Продолжаем." }
-        try { ergoms stop-ollama } catch { Log "[WARNING] ergoms stop-ollama завершился с ошибкой. Продолжаем." }
+        try { ergoms stop } catch { Log "[WARNING] ergoms stop failed (maybe no venv). Continuing." }
+        try { ergoms stop-ollama } catch { Log "[WARNING] ergoms stop-ollama failed. Continuing." }
     }
     Start-Sleep -Seconds 3
 }
 
 function Stop-ProjectProcessesForClean {
-    Log "Остановка процессов node/python, блокирующих очистку (только внутри проекта)..."
+    Log "Stopping node/python processes that block clean (project only)..."
     $rootLower = $RootDir.ToLowerInvariant()
     $pythonExe = (Join-Path $RootDir "virtual_env\python\Scripts\python.exe").ToLowerInvariant()
 
@@ -95,15 +95,15 @@ function Stop-ProjectProcessesForClean {
         $exeLower = $exe.ToLowerInvariant()
         $cmdLower = if ($cmd) { $cmd.ToLowerInvariant() } else { "" }
 
-        # 1. Наш python.exe из virtual_env
+        # 1) Project python.exe from virtual_env
         if ($exeLower -eq $pythonExe) { return $true }
-        # Любой другой python.exe, но только если он выполняет скрипт из нашего проекта
+        # Any other python.exe only if it runs a script from this project
         if ($exeLower.EndsWith("\python.exe") -and $cmdLower.Contains($rootLower)) { return $true }
 
-        # 2. esbuild.exe (внутри проекта или работающий с ним)
+        # 2) esbuild.exe (inside project or working with it)
         if ($exeLower.EndsWith("\esbuild.exe") -and ($exeLower.StartsWith($rootLower) -or $cmdLower.Contains($rootLower))) { return $true }
 
-        # 3. node.exe, работающий с файлами проекта
+        # 3) node.exe working with project files
         if ($exeLower.EndsWith("\node.exe") -and $cmdLower.Contains($rootLower)) { return $true }
 
         return $false
@@ -113,7 +113,7 @@ function Stop-ProjectProcessesForClean {
         if ($p.ProcessId -eq $PID) { continue }
         try {
             Stop-Process -Id $p.ProcessId -Force -ErrorAction Stop
-            Log "[INFO] Остановлен блокирующий процесс: $($p.Name) (PID $($p.ProcessId))"
+            Log "[INFO] Stopped blocking process: $($p.Name) (PID $($p.ProcessId))"
         } catch { }
     }
     Start-Sleep -Seconds 2
@@ -127,12 +127,12 @@ function Enable-ErgoServicesForStart {
 }
 
 function Require-InstallReadyForLaunch {
-    Log "Проверка готовности к запуску: структура проекта, venv, ergoms, службы."
-    if (-not (Get-Command ergoms -ErrorAction SilentlyContinue)) { throw "ergoms не найден в PATH." }
-    if (-not (Test-Path "$RootDir\core\api") -or -not (Test-Path "$RootDir\core\client")) { throw "Нет каталогов core/api или core/client." }
-    if (-not (Test-Path "$RootDir\virtual_env\python\Scripts\activate.ps1")) { throw "Нет virtual_env/python." }
-    if (-not (Test-Path "$RootDir\node_modules") -and -not (Test-Path "$RootDir\core\client\node_modules")) { throw "Нет node_modules." }
-    Log "► Готовность к запуску служб: OK."
+    Log "Checking launch prerequisites: project structure, venv, ergoms, services."
+    if (-not (Get-Command ergoms -ErrorAction SilentlyContinue)) { throw "ergoms not found in PATH." }
+    if (-not (Test-Path "$RootDir\core\api") -or -not (Test-Path "$RootDir\core\client")) { throw "Missing core/api or core/client directories." }
+    if (-not (Test-Path "$RootDir\virtual_env\python\Scripts\activate.ps1")) { throw "Missing virtual_env/python." }
+    if (-not (Test-Path "$RootDir\node_modules") -and -not (Test-Path "$RootDir\core\client\node_modules")) { throw "Missing node_modules." }
+    Log "Launch prerequisites: OK."
 }
 
 function Test-ServiceAction {
@@ -147,8 +147,8 @@ function Test-ServiceAction {
         Stop-Service -Name $ServiceName -Force -ErrorAction SilentlyContinue
     } elseif ($Action -eq "status") {
         $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
-        if ($svc) { Log ("Статус " + $ServiceName + ": " + $svc.Status) }
-        else { Log ("Служба " + $ServiceName + " не найдена") }
+        if ($svc) { Log ("Status " + $ServiceName + ": " + $svc.Status) }
+        else { Log ("Service " + $ServiceName + " not found") }
     }
 }
 
@@ -156,14 +156,14 @@ function Run-CeleryWorkerInspectPing {
     Set-Location "$RootDir\core\api"
     $pythonExe = "$RootDir\virtual_env\python\Scripts\python.exe"
     $env:PYTHONPATH = $RootDir
-    Log "Выполнение celery inspect ping..."
+    Log "Running celery inspect ping..."
     $process = Start-Process -FilePath $pythonExe -ArgumentList "-m celery -A src.config.celery.celery_app inspect ping --timeout 8" -Wait -NoNewWindow -PassThru
     return ($process.ExitCode -eq 0)
 }
 
 function Run-CeleryBeatShowNextTasks {
     Set-Location $RootDir
-    Log "Выполнение ergoms api show_next_tasks..."
+    Log "Running ergoms api show_next_tasks..."
     $process = Start-Process -FilePath "cmd.exe" -ArgumentList "/c ergoms api show_next_tasks --count 5" -Wait -NoNewWindow -PassThru
     return ($process.ExitCode -eq 0)
 }
@@ -176,20 +176,30 @@ function Invoke-CmdWithTimeout {
     $stdoutPath = Join-Path $tmpDir "stdout.txt"
     $stderrPath = Join-Path $tmpDir "stderr.txt"
     try {
-        Log ("Выполнение (таймаут " + $TimeoutSeconds + "с): " + $CommandLine)
+        Log ("Running (timeout " + $TimeoutSeconds + "s): " + $CommandLine)
         $cmdLineUtf8 = "chcp 65001 >nul & " + $CommandLine
         $p = Start-Process -FilePath "cmd.exe" -ArgumentList ("/c " + $cmdLineUtf8) -NoNewWindow -PassThru -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
         $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
         while (-not $p.HasExited -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 200 }
         if (-not $p.HasExited) {
             try { Stop-Process -Id $p.Id -Force -ErrorAction Stop } catch { }
-            Log ("[WARNING] Команда превысила таймаут и была остановлена. PID=" + $p.Id)
+            Log ("[WARNING] Command timed out and was killed. PID=" + $p.Id)
             return @{ ok = $false; exitCode = $null; stdout = (Get-Content -LiteralPath $stdoutPath -Raw -Encoding UTF8 -ErrorAction SilentlyContinue); stderr = (Get-Content -LiteralPath $stderrPath -Raw -Encoding UTF8 -ErrorAction SilentlyContinue); timedOut = $true }
         }
         return @{ ok = ($p.ExitCode -eq 0); exitCode = $p.ExitCode; stdout = (Get-Content -LiteralPath $stdoutPath -Raw -Encoding UTF8 -ErrorAction SilentlyContinue); stderr = (Get-Content -LiteralPath $stderrPath -Raw -Encoding UTF8 -ErrorAction SilentlyContinue); timedOut = $false }
     } finally {
         try { Remove-Item -LiteralPath $tmpDir -Recurse -Force -ErrorAction SilentlyContinue } catch { }
     }
+}
+
+function Invoke-ErgomsClean {
+    param([int]$TimeoutSeconds = 600)
+    Set-Location $RootDir
+    Log "Running ergoms clean (auto-confirm)..."
+    $res = Invoke-CmdWithTimeout -CommandLine "echo y| ergoms clean" -TimeoutSeconds $TimeoutSeconds
+    if ($res.stdout) { $out = $res.stdout.Trim(); if ($out) { Log ("ergoms clean stdout:`n" + $out) } }
+    if ($res.stderr) { $err = $res.stderr.Trim(); if ($err) { Log ("[WARNING] ergoms clean stderr:`n" + $err) } }
+    return [bool]$res.ok
 }
 
 function Test-ErgomsLogs {
@@ -203,39 +213,39 @@ function Test-ErgomsLogs {
 function Run-Task {
     param([string]$Label, [switch]$InParallel)
     $tasksFile = "$RootDir\.vscode\tasks.json"
-    if (-not (Test-Path $tasksFile)) { throw "Файл tasks.json не найден" }
+    if (-not (Test-Path $tasksFile)) { throw "tasks.json not found" }
     $jsonContent = Get-Content $tasksFile -Raw
     $jsonContent = $jsonContent -replace '(?m)^\s*//.*$', ''
     $tasksObj = $jsonContent | ConvertFrom-Json
     $task = $tasksObj.tasks | Where-Object { $_.label -eq $Label }
-    if (-not $task) { throw ("Задача '" + $Label + "' не найдена в tasks.json") }
-    Log ("Запуск задачи: " + $Label)
+    if (-not $task) { throw ("Task '" + $Label + "' not found in tasks.json") }
+    Log ("Starting task: " + $Label)
     if ($task.command) {
         $cmd = $task.command
         if ($task.windows -and $task.windows.command) { $cmd = $task.windows.command }
         $cmd = $cmd.Replace('${workspaceFolder}', $RootDir)
-        Log ("Выполнение команды: " + $cmd)
+        Log ("Executing command: " + $cmd)
         if ($InParallel) { Start-Process -FilePath "cmd.exe" -ArgumentList "/c $cmd" -WindowStyle Hidden }
         else { Invoke-Expression $cmd }
         return
     }
     if ($task.type -eq "multi-terminal") {
-        Log ("Multi-terminal задача '" + $Label + "' (пропускаем сложную эмуляцию, запускаем напрямую если нужно)")
+        Log ("Multi-terminal task '" + $Label + "' (skipping complex emulation)")
         return
     }
     if ($task.dependsOn) {
         $order = "parallel"
         if ($task.dependsOrder) { $order = $task.dependsOrder }
-        Log ("Задача '" + $Label + "' имеет dependsOn (порядок: " + $order + ")")
+        Log ("Task '" + $Label + "' has dependsOn (order: " + $order + ")")
         foreach ($dep in $task.dependsOn) {
             if ($order -eq "sequence") { Run-Task -Label $dep }
             else { Run-Task -Label $dep -InParallel }
         }
         if ($order -eq "parallel") {
-            Log "Ожидание параллельных задач (5 сек)..."
+            Log "Waiting for parallel tasks (5s)..."
             Start-Sleep -Seconds 5
         }
         return
     }
-    throw ("Задача '" + $Label + "' не имеет command или dependsOn")
+    throw ("Task '" + $Label + "' has no command or dependsOn")
 }

@@ -80,6 +80,7 @@ function Run-CeleryWorkerTaskTest {
     $tmpDir = Join-Path $env:TEMP ("ergo_celery_test_" + [Guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Path $tmpDir -Force | Out-Null
     $tmpTask = Join-Path $tmpDir "_ergo_celery_test_task.py"
+    $tmpSend = Join-Path $tmpDir "_ergo_celery_send_task.py"
 
     try {
         @"
@@ -115,7 +116,9 @@ val = r.get(timeout=15)
 print(val)
 sys.exit(0 if val == 'pong' else 1)
 "@
-        $res = Start-Process -FilePath $pythonExe -ArgumentList ("-c " + [char]34 + $sendScript.Replace([char]34, '\\"') + [char]34) -Wait -NoNewWindow -PassThru
+        Set-Content -LiteralPath $tmpSend -Value $sendScript -Encoding UTF8
+
+        $res = Start-Process -FilePath $pythonExe -ArgumentList $tmpSend -Wait -NoNewWindow -PassThru
         if ($res.ExitCode -ne 0) {
             Log "[WARNING] celery task test: FAILED (результат не получен или не 'pong')"
             return $false
@@ -141,6 +144,9 @@ function Run-CeleryBeatExecutionTest {
     $tmpDir = Join-Path $env:TEMP ("ergo_celery_beat_test_" + [Guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Path $tmpDir -Force | Out-Null
     $tmpTask = Join-Path $tmpDir "_ergo_celery_test_task.py"
+    $tmpCreate = Join-Path $tmpDir "_ergo_celery_create_periodic.py"
+    $tmpCheck = Join-Path $tmpDir "_ergo_celery_check_periodic.py"
+    $tmpCleanup = Join-Path $tmpDir "_ergo_celery_cleanup_periodic.py"
     $taskName = "ergo_test_ping"
     $periodicName = "ergo_test_periodic_ping"
     $scheduleEverySeconds = 5
@@ -180,7 +186,9 @@ pt = PeriodicTask.objects.create(
 )
 print(pt.id)
 "@
-        $createRes = Start-Process -FilePath $pythonExe -ArgumentList ("-c " + [char]34 + $createScript.Replace([char]34, '\\"') + [char]34) -Wait -NoNewWindow -PassThru
+        Set-Content -LiteralPath $tmpCreate -Value $createScript -Encoding UTF8
+
+        $createRes = Start-Process -FilePath $pythonExe -ArgumentList $tmpCreate -Wait -NoNewWindow -PassThru
         if ($createRes.ExitCode -ne 0) {
             Log "[WARNING] Не удалось создать PeriodicTask"
             return $false
@@ -210,7 +218,8 @@ cnt = pt.total_run_count or 0
 print(cnt)
 raise SystemExit(0 if cnt >= 1 else 1)
 "@
-            $chk = Start-Process -FilePath $pythonExe -ArgumentList ("-c " + [char]34 + $checkScript.Replace([char]34, '\\"') + [char]34) -Wait -NoNewWindow -PassThru
+            Set-Content -LiteralPath $tmpCheck -Value $checkScript -Encoding UTF8
+            $chk = Start-Process -FilePath $pythonExe -ArgumentList $tmpCheck -Wait -NoNewWindow -PassThru
             if ($chk.ExitCode -eq 0) { $ok = $true; break }
             Start-Sleep -Seconds 3
         }
@@ -231,7 +240,8 @@ django.setup()
 from django_celery_beat.models import PeriodicTask
 PeriodicTask.objects.filter(name='$periodicName').delete()
 "@
-            [void](Start-Process -FilePath $pythonExe -ArgumentList ("-c " + [char]34 + $cleanupScript.Replace([char]34, '\\"') + [char]34) -Wait -NoNewWindow -PassThru)
+            Set-Content -LiteralPath $tmpCleanup -Value $cleanupScript -Encoding UTF8
+            [void](Start-Process -FilePath $pythonExe -ArgumentList $tmpCleanup -Wait -NoNewWindow -PassThru)
         } catch { }
         try {
             if ($workerProc -and -not $workerProc.HasExited) {

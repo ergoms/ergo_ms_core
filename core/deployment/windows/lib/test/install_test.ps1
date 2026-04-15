@@ -12,7 +12,7 @@ Step "1. Установка системы через Setup Full System"
 Log "Удаление кэша и зависимостей"
 Stop-AllErgoms
 Stop-ProjectProcessesForClean
-ergoms clean
+Invoke-ErgomsClean | Out-Null
 Write-Host ""
 Log "=== Запуск Setup Full System ==="
 $ErgomsScript = Join-Path $RootDir "core\deployment\windows\ergo_ms.ps1"
@@ -26,7 +26,7 @@ Step "2. Проверка команды setup через утилиту ergoms"
 Log "Удаление кэша и зависимостей"
 Stop-AllErgoms
 Stop-ProjectProcessesForClean
-ergoms clean
+Invoke-ErgomsClean | Out-Null
 ergoms setup
 Log "=== Проверка ergoms setup завершена. ==="
 
