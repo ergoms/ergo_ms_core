@@ -1,4 +1,4 @@
-﻿$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 . "$ScriptDir\lib.ps1"
 
@@ -62,36 +62,10 @@ Start-Sleep -Seconds 3
 Test-ServiceAction -Action "status" -ServiceName "ergo-client-dev"
 Test-ServiceAction -Action "stop" -ServiceName "ergo-client-dev"
 
-Step "3.4. Celery: API + beat + worker -> ping -> show_next_tasks -> стоп"
-Test-ServiceAction -Action "start" -ServiceName "ergo-api-dev"
-Start-Sleep -Seconds 4
-Test-ServiceAction -Action "start" -ServiceName "ergo-celery-beat"
-Start-Sleep -Seconds 3
-
-$workers = Get-Service -Name "ergo-celery-worker*" -ErrorAction SilentlyContinue
-foreach ($w in $workers) {
-    Log "Запуск воркера: $($w.Name)"
-    Test-ServiceAction -Action "start" -ServiceName $w.Name
-}
-Start-Sleep -Seconds 6
-
-if (Run-CeleryWorkerInspectPing) {
-    Log "celery inspect ping: OK"
-} else {
-    Log "[WARNING] celery inspect ping не прошёл (брокер, worker или таймаут)"
-}
-
-if (Run-CeleryBeatShowNextTasks) {
-    Log "show_next_tasks: выполнено"
-} else {
-    Log "[WARNING] show_next_tasks завершился с ошибкой"
-}
-
-foreach ($w in $workers) {
-    Test-ServiceAction -Action "stop" -ServiceName $w.Name
-}
-Test-ServiceAction -Action "stop" -ServiceName "ergo-celery-beat"
-Test-ServiceAction -Action "stop" -ServiceName "ergo-api-dev"
+Step "3.4. Celery: beat + workers (yaml сценарии + worker через задачу)"
+$CeleryTest = Join-Path $ScriptDir "celery_test.ps1"
+if (-not (Test-Path $CeleryTest)) { throw "Не найден $CeleryTest" }
+& $CeleryTest
 
 Stop-AllErgoms
 Log "=== Шаг 3 (отдельные сервисы и Celery) завершён. ==="

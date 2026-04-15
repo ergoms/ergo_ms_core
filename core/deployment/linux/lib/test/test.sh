@@ -23,4 +23,4 @@ echo "=== test.sh: этап запуска (run_test.sh) ==="
 bash "${RUN_TEST}" "$@"
 
 echo
-echo "=== test.sh: оба этапа завершены ==="
+echo "=== test.sh: все этапы завершены ==="
