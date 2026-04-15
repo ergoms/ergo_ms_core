@@ -1,12 +1,22 @@
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../.." && pwd)"
+TEST_LOG_FILE="${ROOT_DIR}/logs/test.log"
+
+_test_ensure_log_dir() {
+  mkdir -p "$(dirname "$TEST_LOG_FILE")"
+}
 
 log() {
-  echo "[$(date +'%Y-%m-%d %H:%M:%S')] $*"
+  _test_ensure_log_dir
+  local line="[$(date +'%Y-%m-%d %H:%M:%S')] $*"
+  printf '%s\n' "$line" | tee -a "$TEST_LOG_FILE"
 }
 
 step() {
-  echo
-  echo "=== $* ==="
+  _test_ensure_log_dir
+  {
+    echo
+    echo "=== $* ==="
+  } | tee -a "$TEST_LOG_FILE"
 }
 
 chown_project_paths_to_invoking_user() {

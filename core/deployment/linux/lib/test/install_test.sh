@@ -5,13 +5,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib.sh
 source "$SCRIPT_DIR/lib.sh"
 
+cd "$ROOT_DIR"
+
 echo "================================================="
 echo "=      Начало проверки установки системы.       ="
 echo "================================================="
 
 step "1. Установка системы через Setup Full System"
 log "Удаление кэша и зависимостей"
-cd "$ROOT_DIR"
 chown_project_paths_to_invoking_user
 ergoms stop || true
 ergoms clean
