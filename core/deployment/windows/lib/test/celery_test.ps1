@@ -1,4 +1,4 @@
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 . "$ScriptDir\lib.ps1"
 
@@ -92,11 +92,18 @@ def ergo_test_ping():
 "@ | Set-Content -LiteralPath $tmpTask -Encoding UTF8
 
         Set-Location (Join-Path $RootDir "core\api")
-        $env:PYTHONPATH = ($tmpDir + ";" + $RootDir)
-        $env:DJANGO_SETTINGS_MODULE = "src.config.patterns.development"
+        # Нужен доступ к пакету `src` из core/api/src при запуске временных скриптов из %TEMP%.
+        # Добавляем core/api в PYTHONPATH, иначе django.setup() не находит settings-модуль `src.*`.
+        $env:PYTHONPATH = ($tmpDir + ";" + $RootDir + ";" + (Join-Path $RootDir "core\\api"))
+        # Важно: `development`/`local` определяют загрузку settings через sys.argv (ищут "beat"),
+        # а временные файлы лежат в %TEMP% с путём, содержащим "beat", из-за чего импортируется
+        # `celery_beat` раньше `base` и Django может упасть при инициализации.
+        # Для тестов используем стабильный settings pattern `test` (не зависит от argv).
+        $env:DJANGO_SETTINGS_MODULE = "src.config.patterns.test"
 
         Log "Запуск test worker с задачей ergo_test_ping..."
-        $workerArgs = "-m celery -A src.config.celery.celery_app worker --loglevel=info -Q default --concurrency=1 -n test_worker@%h --include=_ergo_celery_test_task"
+        # Windows: prefork/billiard часто падает с WinError 5 (semlock). Для автотеста используем solo pool.
+        $workerArgs = "-m celery -A src.config.celery.celery_app worker --loglevel=info -Q default --pool=solo --concurrency=1 -n test_worker@%h --include=_ergo_celery_test_task"
         $workerProc = Start-Process -FilePath $pythonExe -ArgumentList $workerArgs -NoNewWindow -PassThru
         Start-Sleep -Seconds 10
 
@@ -162,8 +169,10 @@ def ergo_test_ping():
 "@ | Set-Content -LiteralPath $tmpTask -Encoding UTF8
 
         Set-Location (Join-Path $RootDir "core\api")
-        $env:PYTHONPATH = ($tmpDir + ";" + $RootDir)
-        $env:DJANGO_SETTINGS_MODULE = "src.config.patterns.development"
+        # Нужен доступ к пакету `src` из core/api/src при запуске временных скриптов из %TEMP%.
+        $env:PYTHONPATH = ($tmpDir + ";" + $RootDir + ";" + (Join-Path $RootDir "core\\api"))
+        # См. пояснение выше: используем стабильный `test` вместо `development`.
+        $env:DJANGO_SETTINGS_MODULE = "src.config.patterns.test"
 
         Log "Создание временной periodic task в django_celery_beat..."
         $createScript = @"
@@ -195,7 +204,8 @@ print(pt.id)
         }
 
         Log "Запуск test worker (для приема задач от beat) с include задаче..."
-        $workerArgs = "-m celery -A src.config.celery.celery_app worker --loglevel=info -Q default --concurrency=1 -n beat_test_worker@%h --include=_ergo_celery_test_task"
+        # Windows: prefork/billiard часто падает с WinError 5 (semlock). Для автотеста используем solo pool.
+        $workerArgs = "-m celery -A src.config.celery.celery_app worker --loglevel=info -Q default --pool=solo --concurrency=1 -n beat_test_worker@%h --include=_ergo_celery_test_task"
         $workerProc = Start-Process -FilePath $pythonExe -ArgumentList $workerArgs -NoNewWindow -PassThru
         Start-Sleep -Seconds 8
         if ($workerProc.HasExited) {
