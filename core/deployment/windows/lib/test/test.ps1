@@ -9,6 +9,8 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $RootDir = (Resolve-Path "$ScriptDir\..\..\..\..\..").ProviderPath
 Set-Location $RootDir
 
+. "$ScriptDir\lib.ps1"
+
 $InstallTest = Join-Path $ScriptDir "install_test.ps1"
 $CommandsTest = Join-Path $ScriptDir "commands_test.ps1"
 $RunTest = Join-Path $ScriptDir "run_test.ps1"
@@ -33,12 +35,13 @@ function Write-Dot {
 }
 
 function Print-Checklist {
-    param([hashtable]$Status, [string]$ErrorMessage)
-    Write-Host "`n=== Чек-лист проверок ===" -ForegroundColor Cyan
+    param([hashtable]$Status, [string]$ErrorMessage, [int]$ExitCode = 0)
+    Write-Host ""
+    Step "Чек-лист проверок (test_system): итог"
     $items = @(
-        @{ key = "install"; name = "install_test.ps1 (Окружение)" },
-        @{ key = "commands"; name = "commands_test.ps1 (Команды)" },
-        @{ key = "run"; name = "run_test.ps1 (Запуск)" }
+        @{ key = "install"; name = "install_test.ps1 (окружение)" },
+        @{ key = "run"; name = "run_test.ps1 (запуск)" },
+        @{ key = "commands"; name = "commands_test.ps1 (команды)" }
     )
     foreach ($it in $items) {
         $s = $Status[$it.key]
@@ -47,37 +50,43 @@ function Print-Checklist {
         elseif ($s -eq "fail") { Write-Dot Red }
         else { Write-Dot Yellow }
         Write-Host (" " + $it.name)
+        Log ("[RESULT] {0} - {1}" -f $it.name, $s)
     }
     if ($ErrorMessage) {
         Write-Host "`nОшибка, из-за которой остановился скрипт:" -ForegroundColor Red
         Write-Host $ErrorMessage
+        Log ("[ERROR] test_system: " + $ErrorMessage)
     }
+    Log ("[RESULT] test_system: код выхода = " + $ExitCode)
 }
 
 $status = @{ install="pending"; commands="pending"; run="pending" }
 $finalError = ""; $exitCode = 0
 
 try {
-    Write-Host "=== test.ps1: этап проверки окружения (install_test.ps1) ===" -ForegroundColor Cyan
+    Step "test.ps1: этап 1/3 - install_test.ps1 (окружение, установка)"
     $status.install = "fail"
     Invoke-TestStageScript -Path $InstallTest
     $status.install = "ok"
+    Log "[OK] test_system: install_test.ps1 пройден; переход к run_test"
 
-    Write-Host "`n=== test.ps1: этап проверки запуска (run_test.ps1) ===" -ForegroundColor Cyan
+    Step "test.ps1: этап 2/3 - run_test.ps1 (запуск, сервисы)"
     $status.run = "fail"
     Invoke-TestStageScript -Path $RunTest
     $status.run = "ok"
+    Log "[OK] test_system: run_test.ps1 пройден; переход к commands_test"
 
-    Write-Host "`n=== test.ps1: этап проверки команд (commands_test.ps1) ===" -ForegroundColor Cyan
+    Step "test.ps1: этап 3/3 - commands_test.ps1 (команды, fin setup)"
     $status.commands = "fail"
     Invoke-TestStageScript -Path $CommandsTest
     $status.commands = "ok"
 
-    Write-Host "`n=== test.ps1: все этапы завершены ===" -ForegroundColor Green
+    Log "[OK] test_system: все три этапа завершены (install, run, commands). Тесты прошли."
 } catch {
     $finalError = $_.Exception.Message
     $exitCode = 1
+    try { Log ("[ERROR] test_system: прервано - " + $finalError) } catch { }
 } finally {
-    Print-Checklist -Status $status -ErrorMessage $finalError
+    Print-Checklist -Status $status -ErrorMessage $finalError -ExitCode $exitCode
     exit $exitCode
 }

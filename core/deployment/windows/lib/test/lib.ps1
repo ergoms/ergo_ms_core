@@ -1,4 +1,4 @@
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
 try {
     & "$env:SystemRoot\System32\chcp.com" 65001 > $null
     [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -43,6 +43,29 @@ function Step {
     Write-Host "`n=== $Message ===" -ForegroundColor Cyan
     [void](Add-ContentSafe -Path $TestLogFile -Value "")
     [void](Add-ContentSafe -Path $TestLogFile -Value ("=== " + $Message + " ==="))
+}
+
+# Строка попадает в test.log, если в ней есть «инфо»-блок [ТЕГ] — [INFO] [OK] [WARNING] [ERROR] [SKIP] и т.д.
+# Первая буква тега — любая буква (в т.ч. кириллица): [\p{L}]; цифры/даты [2024] не считаем тегом.
+function Test-TestLogSignificantLine {
+    param([string]$Line)
+    if ([string]::IsNullOrWhiteSpace($Line)) { return $false }
+    $t = $Line.Trim()
+    if ($t -match '\[[\p{L}][^\]]*\]') { return $true }
+    if ($t -match '\[(?:OK|ERR|ON|NO)\]') { return $true }
+    if ($t -match '(?i)^fatal:') { return $true }
+    if ($t -match '(?i)(NativeCommandError|ServiceCommandException|Start-Service|OpenError:|Command failed|Failed to start|Virtual environment not found)') { return $true }
+    if ($t -match '^\s*(\+ )?(CategoryInfo|FullyQualifiedErrorId|Exception|ErrorRecord)\s*:') { return $true }
+    return $false
+}
+
+function Log-FilteredMultilineText {
+    param([string]$Text)
+    if ([string]::IsNullOrWhiteSpace($Text)) { return }
+    foreach ($ln in ($Text -split "`r?`n")) {
+        if ([string]::IsNullOrWhiteSpace($ln)) { continue }
+        if (Test-TestLogSignificantLine $ln) { Log $ln.TrimEnd() }
+    }
 }
 
 function Stop-StaleCeleryBeatProcessesForTests {
@@ -197,16 +220,16 @@ function Invoke-ErgomsClean {
     Set-Location $RootDir
     Log "Running ergoms clean (auto-confirm)..."
     $res = Invoke-CmdWithTimeout -CommandLine "echo y| ergoms clean" -TimeoutSeconds $TimeoutSeconds
-    if ($res.stdout) { $out = $res.stdout.Trim(); if ($out) { Log ("ergoms clean stdout:`n" + $out) } }
-    if ($res.stderr) { $err = $res.stderr.Trim(); if ($err) { Log ("[WARNING] ergoms clean stderr:`n" + $err) } }
+    if ($res.stdout) { Log-FilteredMultilineText -Text $res.stdout }
+    if ($res.stderr) { Log-FilteredMultilineText -Text $res.stderr }
     return [bool]$res.ok
 }
 
 function Test-ErgomsLogs {
     param([string]$ServiceName, [int]$Lines = 10)
     $res = Invoke-CmdWithTimeout -CommandLine ("ergoms logs " + $ServiceName + " " + $Lines) -TimeoutSeconds 8
-    if ($res.stdout) { $out = $res.stdout.Trim(); if ($out) { Log ("ergoms logs stdout:`n" + $out) } }
-    if ($res.stderr) { $err = $res.stderr.Trim(); if ($err) { Log ("[WARNING] ergoms logs stderr:`n" + $err) } }
+    if ($res.stdout) { Log-FilteredMultilineText -Text $res.stdout }
+    if ($res.stderr) { Log-FilteredMultilineText -Text $res.stderr }
     return [bool]$res.ok
 }
 
