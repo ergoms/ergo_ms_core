@@ -233,6 +233,86 @@ function Test-ErgomsLogs {
     return [bool]$res.ok
 }
 
+function Get-KeysFromYamlMap {
+    param(
+        [Parameter(Mandatory=$true)][string]$YamlPath,
+        [Parameter(Mandatory=$true)][string]$RootKey,
+        [int]$Indent = 2
+    )
+    if (-not (Test-Path $YamlPath)) { return @() }
+    $lines = Get-Content -LiteralPath $YamlPath -ErrorAction SilentlyContinue
+    if (-not $lines) { return @() }
+
+    $inRoot = $false
+    $out = New-Object System.Collections.Generic.List[string]
+    $reRoot = '^\s*' + [regex]::Escape($RootKey) + ':\s*$'
+    $reKey = '^\s{' + $Indent + '}([A-Za-z0-9_-]+):\s*$'
+
+    foreach ($line in $lines) {
+        if ($line -match $reRoot) { $inRoot = $true; continue }
+        if (-not $inRoot) { continue }
+        # Выходим, когда начинается новый корневой ключ (0 пробелов + word + :)
+        if ($line -match '^[A-Za-z0-9_-]+:\s*$') { break }
+        if ($line -match $reKey) { $out.Add($Matches[1]) | Out-Null }
+    }
+    return ,$out.ToArray()
+}
+
+function Start-DetachedTaskCommand {
+    param([Parameter(Mandatory=$true)][string]$CommandLine)
+    # Для команд tasks.json: запускаем через cmd.exe (как в tasks.json), в фоне.
+    $cmdLineUtf8 = "chcp 65001 >nul & " + $CommandLine
+    Start-Process -FilePath "cmd.exe" -ArgumentList ("/d", "/c", $cmdLineUtf8) -WindowStyle Hidden | Out-Null
+}
+
+function Invoke-MultiTerminalTask {
+    param(
+        [Parameter(Mandatory=$true)][object]$Task,
+        [Parameter(Mandatory=$true)][string]$TaskLabel,
+        [switch]$InParallel
+    )
+    # Эмуляция VS Code multi-terminal: для каждого key из YAML запускаем commandTemplate.
+    # В тестах не пытаемся “воссоздать терминалы”, просто стартуем процессы.
+    $runDetached = $false
+    if ($env:ERGO_RUN_TASK_DETACHED -eq "1") { $runDetached = $true }
+    if ($InParallel) { $runDetached = $true }
+
+    $sources = @()
+    if ($Task.sources) { $sources = @($Task.sources) }
+    elseif ($Task.source) { $sources = @($Task.source) }
+    else { throw ("Multi-terminal task '" + $TaskLabel + "' has no source(s)") }
+
+    foreach ($src in $sources) {
+        $fileRel = $src.file
+        $rootKey = $src.path
+        # В tasks.json встречаются оба формата:
+        # - commandTemplate внутри source (как у Logs: All Services)
+        # - commandTemplate на уровне Task (как у Celery Worker)
+        $commandTemplate = $null
+        if ($src.commandTemplate) { $commandTemplate = $src.commandTemplate }
+        elseif ($Task.commandTemplate) { $commandTemplate = $Task.commandTemplate }
+
+        if (-not $fileRel -or -not $rootKey -or -not $commandTemplate) {
+            throw ("Multi-terminal task '" + $TaskLabel + "': source требует file/path и commandTemplate (в source или на уровне task)")
+        }
+        $yamlPath = Join-Path $RootDir $fileRel
+        $keys = Get-KeysFromYamlMap -YamlPath $yamlPath -RootKey $rootKey -Indent 2
+        if (-not $keys -or $keys.Count -eq 0) {
+            Log ("[WARNING] Multi-terminal task '" + $TaskLabel + "': нет ключей в " + $fileRel + " (" + $rootKey + ")")
+            continue
+        }
+        Log ("Multi-terminal '" + $TaskLabel + "': keys=" + ($keys -join ", "))
+
+        foreach ($k in $keys) {
+            $cmd = $commandTemplate.Replace('${workspaceFolder}', $RootDir)
+            $cmd = $cmd.Replace('${key}', $k)
+            Log ("Executing (multi-terminal " + $TaskLabel + " [" + $k + "]): " + $cmd)
+            if ($runDetached) { Start-DetachedTaskCommand -CommandLine $cmd }
+            else { Invoke-Expression $cmd }
+        }
+    }
+}
+
 function Run-Task {
     param([string]$Label, [switch]$InParallel)
     $tasksFile = "$RootDir\.vscode\tasks.json"
@@ -253,7 +333,7 @@ function Run-Task {
         return
     }
     if ($task.type -eq "multi-terminal") {
-        Log ("Multi-terminal task '" + $Label + "' (skipping complex emulation)")
+        Invoke-MultiTerminalTask -Task $task -TaskLabel $Label -InParallel:$InParallel
         return
     }
     if ($task.dependsOn) {

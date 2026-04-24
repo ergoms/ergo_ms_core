@@ -4,6 +4,70 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 
 Set-Location $RootDir
 
+function Backup-AndPrepareWorkersYaml {
+    $yaml = Join-Path $RootDir "celery_workers.yaml"
+    $bak = Join-Path $RootDir "celery_workers.yaml.test.bak"
+    if (-not (Test-Path $yaml)) {
+        # Если файла нет, всё равно создадим бэкап-метку, чтобы restore был безопасным.
+        "" | Set-Content -LiteralPath $bak -Encoding UTF8
+        return @{ yaml = $yaml; bak = $bak; existed = $false }
+    }
+    Copy-Item -LiteralPath $yaml -Destination $bak -Force
+    return @{ yaml = $yaml; bak = $bak; existed = $true }
+}
+
+function Restore-WorkersYaml {
+    param([hashtable]$State)
+    if (-not $State) { return }
+    $yaml = $State.yaml
+    $bak = $State.bak
+    try {
+        if (Test-Path $bak) {
+            if ($State.existed) {
+                Copy-Item -LiteralPath $bak -Destination $yaml -Force
+            } else {
+                # Если исходного файла не было — удаляем созданный в тесте.
+                if (Test-Path $yaml) { Remove-Item -LiteralPath $yaml -Force -ErrorAction SilentlyContinue }
+            }
+            Remove-Item -LiteralPath $bak -Force -ErrorAction SilentlyContinue
+        }
+    } catch { }
+}
+
+function Write-WorkersYaml {
+    param([string[]]$Keys)
+    $yaml = Join-Path $RootDir "celery_workers.yaml"
+
+    $lines = New-Object System.Collections.Generic.List[string]
+    $lines.Add("workers:") | Out-Null
+    foreach ($k in $Keys) {
+        $lines.Add(("  {0}:" -f $k)) | Out-Null
+        $lines.Add(("    description: ""autotest worker {0}""" -f $k)) | Out-Null
+        $lines.Add(("    hostname: ""{0}_worker""" -f $k)) | Out-Null
+        $lines.Add("    queues: all") | Out-Null
+        $lines.Add("    concurrency: 1") | Out-Null
+        $lines.Add("") | Out-Null
+    }
+    $lines.Add("defaults:") | Out-Null
+    $lines.Add("  pool: solo") | Out-Null
+    $lines.Add("  loglevel: info") | Out-Null
+    $lines.Add("  events: true") | Out-Null
+
+    $lines | Set-Content -LiteralPath $yaml -Encoding UTF8
+}
+
+function Reinstall-WorkerServicesFromYaml {
+    Log "Переустановка worker-служб: ergoms install-worker-service (перечитать celery_workers.yaml)"
+    try {
+        ergoms install-worker-service
+        Start-Sleep -Seconds 3
+        return $true
+    } catch {
+        Log "[WARNING] ergoms install-worker-service завершился с ошибкой"
+        return $false
+    }
+}
+
 function Get-CeleryWorkersFromYaml {
     $yamlPath = Join-Path $RootDir "celery_workers.yaml"
     if (-not (Test-Path $yamlPath)) { return @() }
@@ -280,7 +344,29 @@ Step "Celery Beat: проверка фактического исполнени�
 if (Run-CeleryBeatExecutionTest) { Log "beat execution: OK" } else { Log "[WARNING] beat execution: FAILED" }
 
 Step "Celery Workers: соответствие celery_workers.yaml и служб (много/мало)"
-[void](Assert-WorkersServicesMatchConfig)
+$yamlState = $null
+try {
+    $yamlState = Backup-AndPrepareWorkersYaml
+
+    Step "Celery Workers: сценарий 'мало' (1 worker) -> install-worker-service -> сверка служб"
+    Write-WorkersYaml -Keys @("one")
+    [void](Reinstall-WorkerServicesFromYaml)
+    [void](Assert-WorkersServicesMatchConfig)
+
+    Step "Celery Workers: сценарий 'много' (8 workers) -> install-worker-service -> сверка служб"
+    Write-WorkersYaml -Keys @("w1","w2","w3","w4","w5","w6","w7","w8")
+    [void](Reinstall-WorkerServicesFromYaml)
+    [void](Assert-WorkersServicesMatchConfig)
+
+    Step "Celery Workers: возврат к исходному celery_workers.yaml -> install-worker-service -> сверка служб"
+    Restore-WorkersYaml -State $yamlState
+    $yamlState = $null
+    [void](Reinstall-WorkerServicesFromYaml)
+    [void](Assert-WorkersServicesMatchConfig)
+} finally {
+    # Если что-то упало посреди сценариев — всё равно восстановим yaml.
+    if ($yamlState) { Restore-WorkersYaml -State $yamlState }
+}
 
 Step "Celery Workers: запуск служб (все ergo-celery-worker-*)"
 if (Start-AndCheckWorkerServices) { Log "worker services: OK" } else { Log "[WARNING] worker services: FAILED" }

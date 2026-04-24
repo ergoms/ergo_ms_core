@@ -30,14 +30,19 @@ Invoke-ErgomsClean | Out-Null
 ergoms setup
 Log "=== Проверка ergoms setup завершена. ==="
 
-Step "3. Установка служб через команду ergoms install-all-services"
+Step "3. Установка служб через команду ergoms install-services"
 try { ergoms uninstall-services } catch { }
 try {
-    ergoms install-all-services
+    try {
+        ergoms install-services
+    } catch {
+        # Совместимость: в некоторых версиях команда называлась install-all-services
+        ergoms install-all-services
+    }
 } catch {
-    Log "[WARNING] ergoms install-all-services завершилась с ошибкой. Продолжаем тест."
+    Log "[WARNING] установка служб завершилась с ошибкой. Продолжаем тест."
 }
-Log "=== Проверка ergoms install-all-services завершена. ==="
+Log "=== Проверка установки служб завершена. ==="
 
 Step "4. Установка служб через отдельные команды утилиты ergoms"
 Log "Предварительная остановка и удаление всех служб для чистого теста"
