@@ -19,31 +19,261 @@ step() {
   } | tee -a "$TEST_LOG_FILE"
 }
 
+has_cmd() { command -v "$1" >/dev/null 2>&1; }
+
+_tasks_json_py() {
+  # Чтение tasks.json через Python (fallback если нет jq).
+  local tasks_json="${1:?}"
+  local label="${2:?}"
+  local action="${3:?}"
+
+  local py_bin=""
+  if command -v python3 >/dev/null 2>&1; then py_bin="python3"
+  elif command -v python >/dev/null 2>&1; then py_bin="python"
+  else
+    echo ""
+    return 2
+  fi
+
+  "$py_bin" - "$tasks_json" "$label" "$action" <<'PY'
+import json, sys
+path, label, action = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(path, "r", encoding="utf-8") as f:
+    data = json.load(f)
+tasks = data.get("tasks", [])
+t = next((x for x in tasks if x.get("label") == label), None)
+
+def out(s=""):
+    sys.stdout.write(str(s) if s is not None else "")
+
+if action == "exists":
+    out("true" if t else "false")
+elif action == "type":
+    out((t or {}).get("type", ""))
+elif action == "command":
+    if not t:
+        out("")
+    else:
+        # prefer linux.command, then command
+        linux = t.get("linux") or {}
+        cmd = linux.get("command") or t.get("command") or ""
+        out(cmd)
+elif action == "has_depends":
+    out("true" if (t and "dependsOn" in t) else "false")
+elif action == "depends_order":
+    out((t or {}).get("dependsOrder") or "parallel")
+elif action == "depends_list":
+    if not t:
+        out("")
+    else:
+        deps = t.get("dependsOn") or []
+        if isinstance(deps, list):
+            out("\n".join(str(d) for d in deps))
+        else:
+            out("")
+else:
+    out("")
+PY
+}
+
+_tasks_json_get() {
+  local task_file="${1:?}"
+  local label="${2:?}"
+  local field="${3:?}"
+
+  if command -v jq >/dev/null 2>&1; then
+    case "$field" in
+      exists)
+        jq -e --arg l "$label" 'any(.tasks[]; .label == $l)' "$task_file" >/dev/null 2>&1 && echo "true" || echo "false"
+        ;;
+      command)
+        jq -r --arg l "$label" '
+          .tasks[]
+          | select(.label == $l)
+          | (.linux.command // .command) // empty
+        ' "$task_file"
+        ;;
+      type)
+        jq -r --arg l "$label" '.tasks[] | select(.label == $l) | .type // empty' "$task_file"
+        ;;
+      has_depends)
+        jq -r --arg l "$label" '.tasks[] | select(.label == $l) | has("dependsOn")' "$task_file"
+        ;;
+      depends_order)
+        jq -r --arg l "$label" '.tasks[] | select(.label == $l) | .dependsOrder // "parallel"' "$task_file"
+        ;;
+      depends_list)
+        jq -r --arg l "$label" '.tasks[] | select(.label == $l) | .dependsOn[]?' "$task_file"
+        ;;
+      *)
+        echo ""
+        ;;
+    esac
+  else
+    _tasks_json_py "$task_file" "$label" "$field" || true
+  fi
+}
+
+test_test_log_significant_line() {
+  local line="${1:-}"
+  [[ -n "${line//[[:space:]]/}" ]] || return 1
+
+  # Тег вида [INFO]/[OK]/[WARNING]/[ERROR]/[SKIP] и т.п.
+  if [[ "$line" =~ \[[[:alpha:]][^][]*\] ]]; then return 0; fi
+  if [[ "$line" =~ \[(OK|ERR|ON|NO)\] ]]; then return 0; fi
+
+  # Типовые фатальные/ошибочные маркеры.
+  if [[ "$line" =~ ^fatal: ]]; then return 0; fi
+  if [[ "$line" =~ (Traceback|ERROR|Error|Exception|Failed|Command\ failed|Permission\ denied|No\ such\ file|cannot\ import|circular\ import) ]]; then return 0; fi
+  if [[ "$line" =~ (NativeCommandError|ServiceCommandException|Start-Service|OpenError:) ]]; then return 0; fi
+
+  return 1
+}
+
+log_filtered_file() {
+  local path="${1:?}"
+  [[ -f "$path" ]] || return 0
+  local ln any=1
+  while IFS= read -r ln || [[ -n "$ln" ]]; do
+    if test_test_log_significant_line "$ln"; then
+      any=0
+      log "$ln"
+    fi
+  done <"$path"
+  return "$any"
+}
+
+log_tail_file() {
+  local path="${1:?}"
+  local lines="${2:-40}"
+  [[ -f "$path" ]] || return 0
+  log "[INFO] Последние ${lines} строк вывода (tail) для диагностики:"
+  if has_cmd tail; then
+    while IFS= read -r ln || [[ -n "$ln" ]]; do
+      log "$ln"
+    done < <(tail -n "$lines" "$path")
+  fi
+}
+
+run_cmd() {
+  # Запускает команду и пишет в test.log только "значимый" вывод stderr.
+  local title="${1:?}"; shift
+  _test_ensure_log_dir
+  log "[CMD] $title"
+
+  local tmp_dir err
+  tmp_dir="$(mktemp -d)"
+  err="${tmp_dir}/err.txt"
+  set +e
+  "$@" 2>"$err"
+  local rc=$?
+  set -e
+
+  # Пишем только значимые строки из stderr. Если команда упала и "значимых" строк нет — пишем tail stderr.
+  if ! log_filtered_file "$err"; then
+    if [[ "$rc" -ne 0 ]]; then
+      log_tail_file "$err" 60
+    fi
+  fi
+
+  rm -rf "$tmp_dir" 2>/dev/null || true
+
+  if [[ "$rc" -ne 0 ]]; then
+    log "[ERROR] Команда завершилась с кодом $rc: $title"
+  else
+    log "[OK] $title"
+  fi
+  return "$rc"
+}
+
+enable_test_traps() {
+  # Логирует причину остановки скрипта (строка/команда/rc).
+  set -E
+  trap '{
+    rc=$?;
+    cmd=${BASH_COMMAND:-unknown};
+    line=${BASH_LINENO[0]:-unknown};
+    src=${BASH_SOURCE[1]:-${BASH_SOURCE[0]}};
+    step_name=${ERGO_TEST_CURRENT_STEP:-""};
+    if [[ -n "$step_name" ]]; then
+      log "[ERROR] Скрипт остановлен на шаге: $step_name"
+    fi
+    log "[ERROR] Ошибка (rc=$rc) в $src:$line; команда: $cmd"
+    exit "$rc"
+  }' ERR
+}
+
+run_with_timeout() {
+  local seconds="${1:?}"; shift
+  if has_cmd timeout; then
+    timeout "${seconds}" "$@"
+  else
+    "$@"
+  fi
+}
+
+parse_yaml_map_keys() {
+  # Простой YAML-парсер: возвращает ключи map в секции root_key.
+  local yaml_file="${1:?}"
+  local root_key="${2:?}"
+  local indent="${3:-2}"
+
+  [[ -f "$yaml_file" ]] || return 0
+
+  local in_root=false
+  local re_key="^[[:space:]]{${indent}}([A-Za-z0-9_-]+):[[:space:]]*$"
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    [[ -z "${line// }" ]] && continue
+
+    if [[ "$line" =~ ^${root_key}:[[:space:]]*$ ]]; then
+      in_root=true
+      continue
+    fi
+
+    if [[ "$in_root" == true ]]; then
+      # Новый корневой ключ (0 пробелов + word + :)
+      if [[ "$line" =~ ^[A-Za-z0-9_-]+:[[:space:]]*$ ]] && [[ ! "$line" =~ ^[[:space:]] ]]; then
+        break
+      fi
+      if [[ "$line" =~ $re_key ]]; then
+        echo "${BASH_REMATCH[1]}"
+      fi
+    fi
+  done < "$yaml_file"
+}
+
+get_services_from_logs_yaml() {
+  parse_yaml_map_keys "$ROOT_DIR/.vscode/logs-services.yaml" "services" 2 || true
+}
+
+get_workers_from_workers_yaml() {
+  parse_yaml_map_keys "$ROOT_DIR/celery_workers.yaml" "workers" 2 || true
+}
+
 chown_project_paths_to_invoking_user() {
-  # После запуска setup-full через sudo часть файлов может стать root:root.
-  # Это ломает последующий `ergoms clean` (Permission denied), поэтому перед clean
-  # возвращаем владение вызывающему пользователю.
+  # Возврат владения, если setup запускали через sudo.
   local target_user="${SUDO_USER:-$(id -un)}"
   local target_group
   target_group="$(id -gn "$target_user")"
+  sudo_warmup
   sudo chown -R "${target_user}:${target_group}" virtual_env logs .git/modules core/api core/client node_modules 2>/dev/null || true
 }
 
 sudo_warmup() {
-  # Запросить пароль один раз заранее (как при обычном sudo-вызове).
-  # Если sudo не нужен/уже закеширован — вернётся мгновенно.
+  # Прогрев sudo timestamp, чтобы не прерывать тест посреди шага.
   if command -v sudo >/dev/null 2>&1; then
     sudo -v
   fi
 }
 
-# ergoms stop: systemctl + снятие всех процессов с путём репозитория в cmdline (services.sh).
 stop_all_ergoms() {
   local root="$ROOT_DIR"
   cd "$root"
   sudo_warmup
-  ergoms stop || true
-  ergoms stop-ollama || true
+  run_cmd "ergoms stop" ergoms stop || true
+  run_cmd "ergoms stop-ollama" ergoms stop-ollama || true
 }
 
 _test_source_core_sh() {
@@ -57,7 +287,6 @@ _test_source_core_sh() {
   reset_units_cache
 }
 
-# start|stop|status unit'а через sudo (кэш после sudo_warmup в начале run_test), без polkit от ergoms *-service.
 test_svc_systemctl() {
   local action="${1:?}"
   local unit="${2:?}"
@@ -66,7 +295,6 @@ test_svc_systemctl() {
   systemctl_do "$action" "$unit"
 }
 
-# Старт всех unit'ов worker по ключам workers: в celery_workers.yaml (не хардкод ergo-celery-worker-all).
 start_worker_services_from_config() {
   local w
   sudo_warmup
@@ -86,7 +314,6 @@ stop_worker_services_from_config() {
   done
 }
 
-# Проверка worker: отклик consumer'ов через broker (нужен запущенный worker).
 run_celery_worker_inspect_ping() {
   local root="$ROOT_DIR"
   (
@@ -98,9 +325,16 @@ run_celery_worker_inspect_ping() {
   )
 }
 
-# Проверка beat: ближайшие слоты расписания из кода модулей (не ожидание реального срабатывания в БД).
 run_celery_beat_show_next_tasks() {
   ( cd "$ROOT_DIR" && ergoms api show_next_tasks --count 5 )
+}
+
+require_python_venv() {
+  local root="$ROOT_DIR"
+  if [[ ! -f "$root/virtual_env/python/bin/activate" ]]; then
+    echo "Не найден venv: $root/virtual_env/python/bin/activate" >&2
+    return 1
+  fi
 }
 
 _run_task_exec_shell() {
@@ -111,11 +345,9 @@ _run_task_exec_shell() {
   if [[ "$cmd" == *"sudo "* || "$cmd" == *" systemctl "* || "$cmd" == systemctl* ]]; then
     sudo_warmup
   fi
-  # По умолчанию при parallel — foreground: родитель уже параллелит через ( run_task … ) &; лишний & здесь
-  # давал мгновенный return и обрывал сервисы следующим stop_all_ergoms в run_test.sh.
-  # ERGO_RUN_TASK_DETACHED=1 — фон внутри подоболочки (автотест: поднять всё, подождать, остановить).
+  # ERGO_RUN_TASK_DETACHED=1 — запуск в фоне (для долгоживущих dev-сервисов).
   if [[ "$in_parallel" == "true" && "${ERGO_RUN_TASK_DETACHED:-}" == "1" ]]; then
-    ( cd "$ROOT_DIR" && bash -lc "$cmd" ) &
+    ( cd "$ROOT_DIR" && bash -lc "$cmd" ) >/dev/null 2>&1 &
   else
     ( cd "$ROOT_DIR" && bash -lc "$cmd" )
   fi
@@ -129,7 +361,6 @@ _run_task_multi_terminal() {
     echo "multi-terminal «$label»: не найден $core_sh" >&2
     return 1
   fi
-  # shellcheck source=../core.sh
   source "$core_sh"
   reset_units_cache 2>/dev/null || true
 
@@ -154,37 +385,27 @@ _run_task_multi_terminal() {
     cmd="${template//\$\{key\}/$key}"
     cmd="${cmd//\$\{workspaceFolder\}/$ROOT_DIR}"
     echo "Выполнение (multi-terminal «$label» [$key]): $cmd"
-    ( cd "$ROOT_DIR" && bash -lc "$cmd" ) &
+    ( cd "$ROOT_DIR" && bash -lc "$cmd" ) >/dev/null 2>&1 &
   done
 }
 
-# Задача из .vscode/tasks.json: command → иначе multi-terminal → иначе dependsOn (рекурсия).
-# Второй аргумент: true — долгоживущая shell-команда в фоне (ветка parallel у родителя).
 run_task() {
   local label="${1:?}"
   local in_parallel="${2:-false}"
   local task_file="$ROOT_DIR/.vscode/tasks.json"
 
-  if ! command -v jq >/dev/null 2>&1; then
-    echo "jq не установлен. Невозможно прочитать $task_file" >&2
-    return 1
-  fi
   if [[ ! -r "$task_file" ]]; then
     echo "Нет прав на чтение $task_file (проверь права/владельца файла)." >&2
     return 1
   fi
 
-  if ! jq -e --arg l "$label" 'any(.tasks[]; .label == $l)' "$task_file" >/dev/null 2>&1; then
+  if [[ "$(_tasks_json_get "$task_file" "$label" exists)" != "true" ]]; then
     echo "Задача не найдена в tasks.json: $label" >&2
     return 1
   fi
 
   local cmd
-  cmd="$(jq -r --arg l "$label" '
-    .tasks[]
-    | select(.label == $l)
-    | (.linux.command // .command) // empty
-  ' "$task_file")"
+  cmd="$(_tasks_json_get "$task_file" "$label" command)"
 
   if [[ -n "$cmd" && "$cmd" != "null" ]]; then
     _run_task_exec_shell "$cmd" "$in_parallel"
@@ -192,28 +413,28 @@ run_task() {
   fi
 
   local ttype
-  ttype="$(jq -r --arg l "$label" '.tasks[] | select(.label == $l) | .type // empty' "$task_file")"
+  ttype="$(_tasks_json_get "$task_file" "$label" type)"
   if [[ "$ttype" == "multi-terminal" ]]; then
     _run_task_multi_terminal "$label" "$task_file" || return 1
     return 0
   fi
 
-  if [[ "$(jq -r --arg l "$label" '.tasks[] | select(.label == $l) | has("dependsOn")' "$task_file")" == "true" ]]; then
+  if [[ "$(_tasks_json_get "$task_file" "$label" has_depends)" == "true" ]]; then
     local order dep
     local -a pids=()
-    order="$(jq -r --arg l "$label" '.tasks[] | select(.label == $l) | .dependsOrder // "parallel"' "$task_file")"
+    order="$(_tasks_json_get "$task_file" "$label" depends_order)"
     log "Задача «$label»: dependsOn (порядок: $order)"
     if [[ "$order" == "sequence" ]]; then
       while IFS= read -r dep; do
         [[ -n "$dep" ]] || continue
         run_task "$dep" false || return 1
-      done < <(jq -r --arg l "$label" '.tasks[] | select(.label == $l) | .dependsOn[]?' "$task_file")
+      done < <(_tasks_json_get "$task_file" "$label" depends_list)
     else
       while IFS= read -r dep; do
         [[ -n "$dep" ]] || continue
         ( run_task "$dep" true ) &
         pids+=($!)
-      done < <(jq -r --arg l "$label" '.tasks[] | select(.label == $l) | .dependsOn[]?' "$task_file")
+      done < <(_tasks_json_get "$task_file" "$label" depends_list)
       local pid
       for pid in "${pids[@]}"; do
         wait "$pid" || return 1
