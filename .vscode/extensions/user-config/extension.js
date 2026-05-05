@@ -804,6 +804,21 @@ function activate(context) {
             }
             
             try {
+                // Для VS Code tasks на Windows stdout/pty может быть нестабильным:
+                // - цветной баннер Celery иногда падает (OSError / BrokenPipe)
+                // - пайп stdout может закрываться, поэтому для некоторых сценариев нужен "detached".
+                //
+                // Управляем этим строго через query-параметры, чтобы не ломать обычный запуск.
+                const isTest = parsedUrl.query.test === '1' || parsedUrl.query.test === 'true';
+                const enableNoColor = isTest || parsedUrl.query.noColor === '1' || parsedUrl.query.noColor === 'true';
+                const enableDetached = isTest || parsedUrl.query.detached === '1' || parsedUrl.query.detached === 'true';
+
+                const prevNoColor = process.env.ERGOMS_NO_COLOR;
+                const prevDetached = process.env.ERGOMS_DETACHED;
+
+                if (enableNoColor) process.env.ERGOMS_NO_COLOR = '1';
+                if (enableDetached) process.env.ERGOMS_DETACHED = '1';
+
                 const tasks = await vscode.tasks.fetchTasks();
                 const task = tasks.find(t => t.name === taskName);
                 
@@ -816,6 +831,15 @@ function activate(context) {
                 await vscode.tasks.executeTask(task);
                 res.writeHead(200);
                 res.end(`Task ${taskName} started successfully`);
+
+                if (enableNoColor) {
+                    if (prevNoColor === undefined) delete process.env.ERGOMS_NO_COLOR;
+                    else process.env.ERGOMS_NO_COLOR = prevNoColor;
+                }
+                if (enableDetached) {
+                    if (prevDetached === undefined) delete process.env.ERGOMS_DETACHED;
+                    else process.env.ERGOMS_DETACHED = prevDetached;
+                }
             } catch (err) {
                 res.writeHead(500);
                 res.end(`Error executing task: ${err.message}`);

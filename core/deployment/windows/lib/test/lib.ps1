@@ -68,22 +68,24 @@ function Log-FilteredMultilineText {
     }
 }
 
-function Stop-StaleCeleryBeatProcessesForTests {
+function Stop-StaleCeleryProcessesForTests {
     $pythonExe = (Join-Path $RootDir "virtual_env\python\Scripts\python.exe").ToLowerInvariant()
     $processes = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
         $cmd = $_.CommandLine; $exe = $_.ExecutablePath
         if (-not $cmd -or -not $exe) { return $false }
         $cmdLower = $cmd.ToLowerInvariant(); $exeLower = $exe.ToLowerInvariant()
         if ($exeLower -ne $pythonExe) { return $false }
-        if ($cmdLower.Contains("start_celery_beat.py")) { return $true }
-        return $cmdLower.Contains(" -m celery ") -and $cmdLower.Contains(" beat")
+        
+        if ($cmdLower.Contains("start_celery_beat.py") -or $cmdLower.Contains("start_celery_worker.py")) { return $true }
+        if ($cmdLower.Contains(" -m celery ")) { return $true }
+        return $false
     }
     foreach ($proc in $processes) {
         try {
             Stop-Process -Id $proc.ProcessId -Force -ErrorAction Stop
-            Log ("[INFO] Stopped stale Celery Beat process PID=" + $proc.ProcessId)
+            Log ("[INFO] Stopped stale Celery process PID=" + $proc.ProcessId)
         } catch {
-            Log ("[WARNING] Failed to stop stale Celery Beat process PID=" + $proc.ProcessId)
+            Log ("[WARNING] Failed to stop stale Celery process PID=" + $proc.ProcessId)
         }
     }
 }
@@ -97,7 +99,7 @@ function Stop-AllErgoms {
         Log "[INFO] Terminated all VS Code tasks via HTTP"
     } catch { }
 
-    Stop-StaleCeleryBeatProcessesForTests
+    Stop-StaleCeleryProcessesForTests
     $services = Get-Service -Name "ergo-*" -ErrorAction SilentlyContinue
     foreach ($svc in $services) {
         try { Set-Service -Name $svc.Name -StartupType Disabled -ErrorAction Stop } catch { }
@@ -167,8 +169,8 @@ function Require-InstallReadyForLaunch {
 function Test-ServiceAction {
     param([string]$Action, [string]$ServiceName)
     if ($Action -eq "start") {
-        if ($ServiceName -eq "ergo-celery-beat") {
-            Stop-StaleCeleryBeatProcessesForTests
+        if ($ServiceName -eq "ergo-celery-beat" -or $ServiceName -like "ergo-celery-worker-*") {
+            Stop-StaleCeleryProcessesForTests
             Start-Sleep -Seconds 1
         }
         Start-Service -Name $ServiceName -ErrorAction Stop
@@ -327,7 +329,10 @@ function Run-Task {
     # Вариант 1: HTTP запрос к локальному серверу расширения user-config
     try {
         $encodedLabel = [uri]::EscapeDataString($Label)
-        $url = "http://127.0.0.1:45678/run-task?name=$encodedLabel"
+        # Запускаем через VS Code Tasks, но в "безопасном" режиме:
+        # - detached=1: Celery не привязывается к нестабильному stdout пайпу VS Code task (BrokenPipe)
+        # - noColor=1: отключаем цветной баннер Celery (OSError/console issues на Windows)
+        $url = "http://127.0.0.1:45678/run-task?name=$encodedLabel&detached=1&noColor=1"
         Log ("[Run-Task] Try Path 2: HTTP request to VS Code extension ($url)")
         $response = Invoke-RestMethod -Uri $url -Method Get -TimeoutSec 5 -ErrorAction Stop
         Log ("[Run-Task] Path 2 Success: " + $response)
