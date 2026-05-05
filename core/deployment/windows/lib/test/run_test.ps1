@@ -19,8 +19,8 @@ Stop-AllErgoms
 Enable-ErgoServicesForStart
 Log "Запуск системы через Start All Services"
 Run-Task -Label "Start All Services"
-Log "Ожидание стабилизации сервисов перед проверкой статуса (5 с)..."
-Start-Sleep -Seconds 5
+Log "Ожидание стабилизации сервисов перед проверкой статуса (10 с)..."
+Start-Sleep -Seconds 10
 Write-Host ""
 try { ergoms status } catch { }
 Stop-AllErgoms
@@ -32,8 +32,8 @@ Stop-AllErgoms
 Enable-ErgoServicesForStart
 Log "Запуск системы через ergoms start"
 ergoms start
-Log "Ожидание стабилизации сервисов перед проверкой статуса (5 с)..."
-Start-Sleep -Seconds 5
+Log "Ожидание стабилизации сервисов перед проверкой статуса (10 с)..."
+Start-Sleep -Seconds 10
 Write-Host ""
 try { ergoms status } catch { }
 Stop-AllErgoms

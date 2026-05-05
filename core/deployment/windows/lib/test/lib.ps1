@@ -91,6 +91,12 @@ function Stop-StaleCeleryBeatProcessesForTests {
 function Stop-AllErgoms {
     Log "Stopping all ergoms processes and services..."
     Set-Location $RootDir
+    
+    try {
+        Invoke-RestMethod -Uri "http://127.0.0.1:45678/terminate-all-tasks" -Method Get -TimeoutSec 2 -ErrorAction Stop | Out-Null
+        Log "[INFO] Terminated all VS Code tasks via HTTP"
+    } catch { }
+
     Stop-StaleCeleryBeatProcessesForTests
     $services = Get-Service -Name "ergo-*" -ErrorAction SilentlyContinue
     foreach ($svc in $services) {
@@ -315,6 +321,44 @@ function Invoke-MultiTerminalTask {
 
 function Run-Task {
     param([string]$Label, [switch]$InParallel)
+    
+    Log ("Attempting to run task: " + $Label)
+
+    # Вариант 1: HTTP запрос к локальному серверу расширения user-config
+    try {
+        $encodedLabel = [uri]::EscapeDataString($Label)
+        $url = "http://127.0.0.1:45678/run-task?name=$encodedLabel"
+        Log ("[Run-Task] Try Path 2: HTTP request to VS Code extension ($url)")
+        $response = Invoke-RestMethod -Uri $url -Method Get -TimeoutSec 5 -ErrorAction Stop
+        Log ("[Run-Task] Path 2 Success: " + $response)
+        return
+    } catch {
+        Log ("[Run-Task] [INFO] Path 2 failed: " + $_.Exception.Message)
+    }
+
+    # Вариант 2: URI-обработчик VS Code
+    try {
+        Log ("[Run-Task] Try Path 1: VS Code URI handler (code --open-url)")
+        $encodedLabel2 = [uri]::EscapeDataString($Label)
+        $uri = "vscode://command/workbench.action.tasks.runTask?%22$encodedLabel2%22"
+        if (Get-Command "code" -ErrorAction SilentlyContinue) {
+            $p = Start-Process -FilePath "code" -ArgumentList "--open-url", "`"$uri`"" -PassThru -Wait -NoNewWindow
+            if ($p.ExitCode -eq 0) {
+                Log ("[Run-Task] Path 1 Success: Sent URI to VS Code")
+                Start-Sleep -Seconds 2 # Даем время VS Code начать задачу
+                return
+            } else {
+                Log ("[Run-Task] [INFO] Path 1 failed with exit code " + $p.ExitCode)
+            }
+        } else {
+            Log ("[Run-Task] [INFO] Path 1 failed: 'code' command not found in PATH")
+        }
+    } catch {
+        Log ("[Run-Task] [INFO] Path 1 failed: " + $_.Exception.Message)
+    }
+
+    # Вариант 3: Fallback (Эмуляция через парсинг параметров задачи из tasks.json)
+    Log ("[Run-Task] Try Path 3: Fallback (Emulation)")
     $tasksFile = "$RootDir\.vscode\tasks.json"
     if (-not (Test-Path $tasksFile)) { throw "tasks.json not found" }
     $jsonContent = Get-Content $tasksFile -Raw
@@ -322,7 +366,7 @@ function Run-Task {
     $tasksObj = $jsonContent | ConvertFrom-Json
     $task = $tasksObj.tasks | Where-Object { $_.label -eq $Label }
     if (-not $task) { throw ("Task '" + $Label + "' not found in tasks.json") }
-    Log ("Starting task: " + $Label)
+    Log ("Starting task (Emulation): " + $Label)
     if ($task.command) {
         $cmd = $task.command
         if ($task.windows -and $task.windows.command) { $cmd = $task.windows.command }

@@ -788,6 +788,65 @@ function activate(context) {
     
     // Apply config on activation
     applyAllConfig(false);
+
+    // --- HTTP Server for Test Automation ---
+    const http = require('http');
+    const url = require('url');
+    
+    const server = http.createServer(async (req, res) => {
+        const parsedUrl = url.parse(req.url, true);
+        if (parsedUrl.pathname === '/run-task') {
+            const taskName = parsedUrl.query.name;
+            if (!taskName) {
+                res.writeHead(400);
+                res.end('Missing task name');
+                return;
+            }
+            
+            try {
+                const tasks = await vscode.tasks.fetchTasks();
+                const task = tasks.find(t => t.name === taskName);
+                
+                if (!task) {
+                    res.writeHead(404);
+                    res.end(`Task not found: ${taskName}`);
+                    return;
+                }
+                
+                await vscode.tasks.executeTask(task);
+                res.writeHead(200);
+                res.end(`Task ${taskName} started successfully`);
+            } catch (err) {
+                res.writeHead(500);
+                res.end(`Error executing task: ${err.message}`);
+            }
+        } else if (parsedUrl.pathname === '/terminate-all-tasks') {
+            try {
+                const executions = vscode.tasks.taskExecutions;
+                for (const exec of executions) {
+                    exec.terminate();
+                }
+                res.writeHead(200);
+                res.end(`Terminated ${executions.length} tasks`);
+            } catch (err) {
+                res.writeHead(500);
+                res.end(`Error terminating tasks: ${err.message}`);
+            }
+        } else {
+            res.writeHead(404);
+            res.end('Not found');
+        }
+    });
+    
+    server.listen(45678, '127.0.0.1', () => {
+        console.log('ERGO MS Test Automation Server listening on http://127.0.0.1:45678');
+    });
+    
+    context.subscriptions.push({
+        dispose: () => {
+            server.close();
+        }
+    });
 }
 
 function deactivate() {
