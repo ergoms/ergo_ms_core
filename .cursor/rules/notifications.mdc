@@ -1,0 +1,77 @@
+---
+description: Уведомления ядра — создание только через ModuleBridge (notifications.create), иконки и идемпотентность
+alwaysApply: false
+---
+# Уведомления ядра и ModuleBridge
+
+Модули-источники (LMS, BI и др.) **не импортируют** модели и сервисы приложения `src.core.notifications` напрямую. Создание уведомлений — только через `bridge.call('notifications.create', ...)`. Если приложение не подключено, вызов тихо вернёт `None`.
+
+Подробности реализации приложения — в `core/api/src/core/notifications/`; контракт для модулей — ниже.
+
+## Операция `notifications.create`
+
+```python
+from src.core.integrations import bridge
+
+bridge.call(
+    'notifications.create',
+    recipient=user,                       # User или PK (int)
+    title='…',                            # обязательное
+    body='…',
+    level='info',                         # info | success | warning | error
+    icon='BookOpen',                      # lucide PascalCase; пусто → fallback на клиенте
+    source_module='lms',
+    event_key='course.review_required',
+    route={'name': 'LmsCourseReview', 'params': {'courseId': 42}},
+    link_url=None,
+    meta={'course_id': 42},
+    idempotency_key=f'lms:course_review:{course_id}:{user.id}',
+)
+```
+
+Возвращает экземпляр `Notification` или `None`.
+
+### Аргументы
+
+| Имя | Тип | Обязателен | Назначение |
+|-----|-----|------------|------------|
+| `recipient` | `User \| int` | да | получатель |
+| `title` | `str` | да | заголовок (колокольчик / список) |
+| `body` | `str` | нет | текст |
+| `level` | `str` | нет | `info` / `success` / `warning` / `error` |
+| `icon` | `str` | нет | имя иконки lucide (PascalCase); пусто → fallback по `source_module`, затем `level` |
+| `source_module` | `str` | нет | идентификатор модуля (фильтры, иконки) |
+| `event_key` | `str` | нет | код события в модуле |
+| `route` | `dict \| None` | нет | `{ 'name': '<VueRouteName>', 'params': {...} }` |
+| `link_url` | `str \| None` | нет | URL, если нет именованного маршрута |
+| `meta` | `dict \| None` | нет | произвольные сериализуемые данные |
+| `idempotency_key` | `str \| None` | нет | защита от дублей при повторной доставке |
+
+## Доставка
+
+После записи в БД вызываются зарегистрированные каналы. Сейчас активен **in_app**: инбокс + WebSocket-группа `notifications_user_<user_id>`. Дополнительные каналы (email, push и т.д.) подключаются в ядре без смены контракта для модулей.
+
+## Иконка на клиенте (гибрид)
+
+Приоритет:
+
+1. поле `icon` из API (если непустое);
+2. маппинг по `source_module` в клиенте (`icon-resolver.js`);
+3. маппинг по `level`;
+4. дефолт `Bell`.
+
+Имена — как в `lucide-vue-next` (PascalCase).
+
+## Идемпотентность
+
+При непустом `idempotency_key` повторный вызов с тем же `(recipient, idempotency_key)` возвращает ту же запись (без дубля). Использовать при Celery-ретраях, вебхуках и повторных событиях.
+
+## Адресация
+
+В текущей версии — только конкретному пользователю. Групповая рассылка — отдельная операция bridge при появлении требования.
+
+## Celery
+
+Тот же `bridge.call('notifications.create', recipient=user_id, ...)`, импорт `from src.core.integrations import bridge`.
+
+Расширенные примеры и таблицы — в репозитории: `core/api/src/core/notifications/INTEGRATIONS.md`.
