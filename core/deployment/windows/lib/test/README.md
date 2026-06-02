@@ -1,4 +1,4 @@
-# Тестирование развертывания (Linux и Windows)
+﻿# Тестирование развертывания (Linux и Windows)
 
 Набор тестов для проверки установки, запуска и базовых команд системы. Тесты разделены на платформы (Linux — скрипты `.sh`, Windows — скрипты `.ps1`), но имеют полностью аналогичную структуру и логику.
 
@@ -27,7 +27,16 @@
    - Очистка кэша (`ergoms clean`).
    - Проверка логов (например, `ergoms logs ergo-api-dev 10`).
 
-5. **`test`** (`test.sh` / `test.ps1`) — главный скрипт-оркестратор, который поочерёдно вызывает все этапы тестирования (`install_test`, `run_test` и т.д.).
+5. **`extensions_test`** (`extensions_test.sh` / `extensions_test.ps1`) — проверка VS Code/Cursor расширений:
+   - Проверка наличия локальных расширений проекта (из `.vscode/extensions/*`).
+   - Проверка рекомендованных расширений (из `.vscode/extensions.json`) — предупреждения, но не блокирующая проверка.
+   - Валидация “работоспособности” расширения автоматизации: доступность HTTP `http://127.0.0.1:45678` (используется тестами для запуска/остановки VS Code tasks).
+
+6. **`db_test`** (`db_test.sh` / `db_test.ps1`) — проверка подключений к базам данных:
+   - Django ORM: `SELECT 1` по всем `DATABASES` из settings.
+   - SQLAlchemy: `SELECT 1` по подключениям из конфигурации.
+
+7. **`test`** (`test.sh` / `test.ps1`) — главный скрипт-оркестратор, который поочерёдно вызывает все этапы тестирования (`install_test`, `extensions_test`, `db_test`, `run_test`, `commands_test`).
 
 ## Запуск
 
@@ -38,6 +47,18 @@
 - **Windows:** из корня репозитория: `.\core\deployment\windows\lib\test\test.ps1` (нужен префикс `.\`, иначе PowerShell не выполнит скрипт по относительному пути).
 
 Весь процесс (установка, запуск, команды) пройдёт автоматически с дублированием вывода в файл `logs/test.log` в корне проекта.
+
+## Запуск отдельных этапов (без ожидания предыдущих)
+
+Чтобы тестировать только нужный компонент (например, только запуск или только БД), используйте отдельные команды `ergoms`:
+
+- **Установка/окружение**: `ergoms test_system_install` (алиас: `ergoms test-system-install`)
+- **VS Code/Cursor расширения**: `ergoms test_system_extensions` (алиас: `ergoms test-system-extensions`)
+- **Базы данных**: `ergoms test_system_db` (алиас: `ergoms test-system-db`)
+- **Запуск/службы**: `ergoms test_system_run` (алиас: `ergoms test-system-run`)
+- **Команды**: `ergoms test_system_commands` (алиас: `ergoms test-system-commands`)
+
+Все команды кроссплатформенные: на Windows выполняются `.ps1`, на Linux — `.sh`.
 
 ### Кодировка (Windows PowerShell 5.1)
 

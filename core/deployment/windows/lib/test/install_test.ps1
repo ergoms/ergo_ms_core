@@ -18,7 +18,33 @@ Log "=== Запуск Setup Full System ==="
 $ErgomsScript = Join-Path $RootDir "core\deployment\windows\ergo_ms.ps1"
 if (-not (Test-Path $ErgomsScript)) { throw "Не найден скрипт $ErgomsScript" }
 powershell -ExecutionPolicy Bypass -File $ErgomsScript setup-full
-npm run install-extensions
+
+try {
+    Step "1.1 Установка локальных расширений IDE (best-effort)"
+
+    $nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+    if (-not $nodeCmd) {
+        Log "[WARNING] node не найден в PATH; пропускаем установку расширений (npm run install-extensions)."
+    } else {
+        $scriptPath = Join-Path $RootDir ".vscode\\scripts\\install-extensions.js"
+        if (-not (Test-Path -LiteralPath $scriptPath)) {
+            Log ("[WARNING] Скрипт установки расширений не найден: " + $scriptPath)
+        } else {
+            Push-Location (Join-Path $RootDir ".vscode")
+            try {
+                Log ("Running: node " + $scriptPath)
+                & $nodeCmd.Source $scriptPath
+                if ($LASTEXITCODE -ne 0) {
+                    Log ("[WARNING] Установка расширений завершилась с кодом: " + $LASTEXITCODE + ". Продолжаем тест.")
+                }
+            } finally {
+                Pop-Location
+            }
+        }
+    }
+} catch {
+    Log ("[WARNING] Установка расширений завершилась с ошибкой: " + $_.Exception.Message + ". Продолжаем тест.")
+}
 Write-Host ""
 Log "=== Проверка Setup Full System завершена. ==="
 

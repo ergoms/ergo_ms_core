@@ -22,6 +22,23 @@ run_cmd "ergoms clean (auto-confirm)" bash -lc "echo y | ergoms clean"
 echo
 log "=== Запуск Setup Full System ==="
 run_cmd "run_task Setup Full System" run_task "Setup Full System"
+
+# Best-effort: local IDE extensions installation (should not fail whole test run).
+# Some environments (remote shells/containers) do not have VS Code/Cursor CLI available.
+step "1.1 Установка локальных расширений IDE (best-effort)"
+ERGO_TEST_CURRENT_STEP="install: ide extensions"
+if command -v node >/dev/null 2>&1; then
+  ext_script="$ROOT_DIR/.vscode/scripts/install-extensions.js"
+  if [[ -f "$ext_script" ]]; then
+    if ! run_cmd "node install-extensions.js" node "$ext_script"; then
+      log "[WARNING] Установка расширений завершилась с ошибкой. Продолжаем тест."
+    fi
+  else
+    log "[WARNING] Скрипт установки расширений не найден: $ext_script"
+  fi
+else
+  log "[WARNING] node не найден в PATH; пропускаем установку расширений IDE."
+fi
 echo
 log "=== Проверка Setup Full System завершена. ==="
 

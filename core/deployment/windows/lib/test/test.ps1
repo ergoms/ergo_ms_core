@@ -15,8 +15,9 @@ $InstallTest = Join-Path $ScriptDir "install_test.ps1"
 $CommandsTest = Join-Path $ScriptDir "commands_test.ps1"
 $RunTest = Join-Path $ScriptDir "run_test.ps1"
 $DbTest = Join-Path $ScriptDir "db_test.ps1"
+$ExtensionsTest = Join-Path $ScriptDir "extensions_test.ps1"
 
-$files = @($InstallTest, $CommandsTest, $RunTest, $DbTest)
+$files = @($InstallTest, $CommandsTest, $RunTest, $DbTest, $ExtensionsTest)
 foreach ($f in $files) {
     if (-not (Test-Path $f)) {
         Write-Error "Ошибка: не найден скрипт $f"
@@ -41,6 +42,7 @@ function Print-Checklist {
     Step "Чек-лист проверок (test_system): итог"
     $items = @(
         @{ key = "install"; name = "install_test.ps1 (окружение)" },
+        @{ key = "extensions"; name = "extensions_test.ps1 (VS Code расширения)" },
         @{ key = "db"; name = "db_test.ps1 (базы данных)" },
         @{ key = "run"; name = "run_test.ps1 (запуск)" },
         @{ key = "commands"; name = "commands_test.ps1 (команды)" }
@@ -62,7 +64,7 @@ function Print-Checklist {
     Log ("[RESULT] test_system: код выхода = " + $ExitCode)
 }
 
-$status = @{ install="pending"; db="pending"; commands="pending"; run="pending" }
+$status = @{ install="pending"; extensions="pending"; db="pending"; commands="pending"; run="pending" }
 $finalError = ""; $exitCode = 0
 
 try {
@@ -70,21 +72,27 @@ try {
     $status.install = "fail"
     Invoke-TestStageScript -Path $InstallTest
     $status.install = "ok"
-    Log "[OK] test_system: install_test.ps1 пройден; переход к run_test"
+    Log "[OK] test_system: install_test.ps1 пройден; переход к extensions_test"
 
-    Step "test.ps1: этап 2/4 - db_test.ps1 (подключение к базам данных)"
+    Step "test.ps1: этап 2/5 - extensions_test.ps1 (VS Code расширения)"
+    $status.extensions = "fail"
+    Invoke-TestStageScript -Path $ExtensionsTest
+    $status.extensions = "ok"
+    Log "[OK] test_system: extensions_test.ps1 пройден; переход к db_test"
+
+    Step "test.ps1: этап 3/5 - db_test.ps1 (подключение к базам данных)"
     $status.db = "fail"
     Invoke-TestStageScript -Path $DbTest
     $status.db = "ok"
     Log "[OK] test_system: db_test.ps1 пройден; переход к run_test"
 
-    Step "test.ps1: этап 3/4 - run_test.ps1 (запуск, сервисы)"
+    Step "test.ps1: этап 4/5 - run_test.ps1 (запуск, сервисы)"
     $status.run = "fail"
     Invoke-TestStageScript -Path $RunTest
     $status.run = "ok"
     Log "[OK] test_system: run_test.ps1 пройден; переход к commands_test"
 
-    Step "test.ps1: этап 4/4 - commands_test.ps1 (команды, fin setup)"
+    Step "test.ps1: этап 5/5 - commands_test.ps1 (команды, fin setup)"
     $status.commands = "fail"
     Invoke-TestStageScript -Path $CommandsTest
     $status.commands = "ok"
