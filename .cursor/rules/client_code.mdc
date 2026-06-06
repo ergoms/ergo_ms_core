@@ -23,6 +23,8 @@ const toast = useToast()
 import { apiClient } from '@/js/api/manager'
 import { endpoints } from '@/js/api/endpoints'
 
+Даты, время и склонение относительного времени на русском — только через `@/js/utils/timeUtils.js` (подробности в `time-utils.mdc`).
+
 Если ты используешь внутримодульные зависимости (modules/<имя_модуля>), то пиши пути используя относительные импорты.
 
 
