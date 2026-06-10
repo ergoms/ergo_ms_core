@@ -1,12 +1,48 @@
 ---
-description: Уведомления ядра — создание только через ModuleBridge (notifications.create), иконки и идемпотентность
+description: Уведомления ядра — каталог событий, настройки каналов (in_app/email), email-шаблоны, ролевая фильтрация и notifications.create через ModuleBridge
 alwaysApply: false
 ---
 # Уведомления ядра и ModuleBridge
 
-Модули-источники (LMS, BI и др.) **не импортируют** модели и сервисы приложения `src.core.notifications` напрямую. Создание уведомлений — только через `bridge.call('notifications.create', ...)`. Если приложение не подключено, вызов тихо вернёт `None`.
+Модули-источники **не импортируют** `src.core.notifications` напрямую. Создание — только через `bridge.call('notifications.create', ...)`. Если приложение не подключено, вызов тихо вернёт `None`.
 
-Подробности реализации приложения — в `core/api/src/core/notifications/`; контракт для модулей — ниже.
+Ядро: `core/api/src/core/notifications/`. Эталон модуля: `modules/project_ed/api/notification_catalog.py`, `integrations.py`, `notification_events.py`.
+
+## Чек-лист: новое событие в модуле
+
+1. Объявить в `modules/<X>/api/notification_catalog.py`: `event_key`, `label`, `category`/`category_label`, `channels` (`in_app`, `email` с `subject`, опционально `template_html`), при ролевой видимости — маркер `audience` (manager/expert/admin, только внутри модуля).
+2. Зарегистрировать в `modules/<X>/api/integrations.py`: `bridge.provide_many('notifications.event_definitions', key='<module>', obj=SECTION)`.
+3. Отправка — функция в `notification_events.py` через `_emit_core_notifications(...)`; `source_module` и `event_key` **обязаны совпадать** с каталогом.
+4. Вызов из view/сервиса — в `try/except`, чтобы сбой уведомления не ломал API.
+
+## Каналы и настройки пользователя
+
+- Каналы: `in_app` (инбокс + WebSocket `notifications_user_<id>`) и `email` (Celery после `transaction.on_commit`).
+- Дефолты каналов — из каталога; фактическая отправка — `PreferenceResolver` (галочки в панели настроек, API `notifications/preferences/`).
+- Событие **вне каталога**: in_app шлётся (обратная совместимость), email — нет.
+- Email-only: `in_app_visible=False`, не показывается в инбоксе.
+
+## Email
+
+- `channels.email.subject` — Django template string (`{{ project_name }}`, `{{ period_label }}` и т.д.).
+- Кастомный HTML наследует `notifications/email/base.html` (путь в `template_html` спеки события).
+- Переменные для писем: всё нужное кладётся в `meta` при `notifications.create`; модуль обогащает контекст через `bridge.provide_many('notifications.email_context', key='<module>', obj=callable)`.
+- Статус доставки — `NotificationEmailDelivery`; повторная отправка идемпотентна на уровне задачи.
+
+## Ролевая видимость строк в панели
+
+Опционально: `bridge.provide('notifications.filter_events_for_user.<module>', fn)` — `fn(user, event_keys) -> list[str]`.
+
+Пример project_ed: `audience` в каталоге, `EXPERT_EVENT_KEYS`/`ADMIN_EVENT_KEYS`, проверка через `PermissionService.check_module_permission`. Менеджерские события видны всем.
+
+## Конвенции
+
+| Поле | Формат |
+|------|--------|
+| `event_key` | `'<entity>.<event>'` (`project.final_report_approved`) |
+| `idempotency_key` | `'<module>:<action>:<object_ids>'` |
+| `meta` | плоский JSON-serializable dict; имена, названия, периоды — для email |
+| `route` | `{ 'name': '<VueRouteName>', 'params': {...}, 'query': {...} }` — маршрут из `routes.js` модуля |
 
 ## Операция `notifications.create`
 
@@ -15,63 +51,37 @@ from src.core.integrations import bridge
 
 bridge.call(
     'notifications.create',
-    recipient=user,                       # User или PK (int)
-    title='…',                            # обязательное
+    recipient=user,
+    title='…',
     body='…',
     level='info',                         # info | success | warning | error
     icon='BookOpen',                      # lucide PascalCase; пусто → fallback на клиенте
-    source_module='lms',
-    event_key='course.review_required',
-    route={'name': 'LmsCourseReview', 'params': {'courseId': 42}},
-    link_url=None,
-    meta={'course_id': 42},
-    idempotency_key=f'lms:course_review:{course_id}:{user.id}',
+    source_module='project_ed',
+    event_key='project.submitted_for_review',
+    route={'name': 'ProjectEdPassportApprovalReview', 'params': {'projectId': 42}},
+    meta={'project_id': 42, 'project_name': '…', 'actor_name': '…'},
+    idempotency_key='project_ed:project_submitted:42',
 )
 ```
 
-Возвращает экземпляр `Notification` или `None`.
+| Имя | Обязателен | Назначение |
+|-----|------------|------------|
+| `recipient` | да | `User` или PK |
+| `title` | да | заголовок |
+| `body`, `level`, `icon` | нет | текст, уровень, иконка |
+| `source_module`, `event_key` | нет | модуль и код события (должны совпадать с каталогом) |
+| `route` / `link_url` | нет | переход в клиенте |
+| `meta` | нет | данные для email и deep-link |
+| `idempotency_key` | нет | защита от дублей |
 
-### Аргументы
+## Иконка на клиенте
 
-| Имя | Тип | Обязателен | Назначение |
-|-----|-----|------------|------------|
-| `recipient` | `User \| int` | да | получатель |
-| `title` | `str` | да | заголовок (колокольчик / список) |
-| `body` | `str` | нет | текст |
-| `level` | `str` | нет | `info` / `success` / `warning` / `error` |
-| `icon` | `str` | нет | имя иконки lucide (PascalCase); пусто → fallback по `source_module`, затем `level` |
-| `source_module` | `str` | нет | идентификатор модуля (фильтры, иконки) |
-| `event_key` | `str` | нет | код события в модуле |
-| `route` | `dict \| None` | нет | `{ 'name': '<VueRouteName>', 'params': {...} }` |
-| `link_url` | `str \| None` | нет | URL, если нет именованного маршрута |
-| `meta` | `dict \| None` | нет | произвольные сериализуемые данные |
-| `idempotency_key` | `str \| None` | нет | защита от дублей при повторной доставке |
+Приоритет: `icon` из API → `source_module` (`icon-resolver.js`) → `level` → `Bell`. Имена — PascalCase (`lucide-vue-next`).
 
-## Доставка
+## Идемпотентность и Celery
 
-После записи в БД вызываются зарегистрированные каналы. Сейчас активен **in_app**: инбокс + WebSocket-группа `notifications_user_<user_id>`. Дополнительные каналы (email, push и т.д.) подключаются в ядре без смены контракта для модулей.
+При непустом `idempotency_key` повтор с тем же `(recipient, idempotency_key)` возвращает ту же запись. В Celery-задачах — тот же `bridge.call('notifications.create', recipient=user_id, ...)`.
 
-## Иконка на клиенте (гибрид)
+Адресация — только конкретному пользователю; групповая рассылка — цикл вызовов на стороне модуля.
 
-Приоритет:
-
-1. поле `icon` из API (если непустое);
-2. маппинг по `source_module` в клиенте (`icon-resolver.js`);
-3. маппинг по `level`;
-4. дефолт `Bell`.
-
-Имена — как в `lucide-vue-next` (PascalCase).
-
-## Идемпотентность
-
-При непустом `idempotency_key` повторный вызов с тем же `(recipient, idempotency_key)` возвращает ту же запись (без дубля). Использовать при Celery-ретраях, вебхуках и повторных событиях.
-
-## Адресация
-
-В текущей версии — только конкретному пользователю. Групповая рассылка — отдельная операция bridge при появлении требования.
-
-## Celery
-
-Тот же `bridge.call('notifications.create', recipient=user_id, ...)`, импорт `from src.core.integrations import bridge`.
-
-Расширенные примеры и таблицы — в репозитории: `core/api/src/core/notifications/INTEGRATIONS.md`.
+Подробнее: `core/api/src/core/notifications/INTEGRATIONS.md`.
