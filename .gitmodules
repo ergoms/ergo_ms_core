@@ -37,13 +37,6 @@
 
 # Репозитории сторонних модулей
 
-[submodule "assets_analysis"]
-	path = modules/assets_analysis
-	url = https://github.com/SKB-AI/ergo_ms_assets_analysis.git
-	branch = dev
-	update = merge
-	ignore = all
-
 [submodule "crm"]
 	path = modules/crm
 	url = https://github.com/SKB-AI/ergo_ms_crm.git
@@ -75,13 +68,6 @@
 [submodule "video_analysis"]
 	path = modules/video_analysis
 	url = https://github.com/SKB-AI/ergo_ms_video_analysis.git
-	branch = dev
-	update = merge
-	ignore = all
-
-[submodule "cities_expansion"]
-	path = modules/cities_expansion
-	url = https://github.com/SKB-AI/ergo_ms_cities_expansion.git
 	branch = dev
 	update = merge
 	ignore = all
