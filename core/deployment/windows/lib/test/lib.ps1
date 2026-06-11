@@ -108,38 +108,10 @@ function Stop-AllErgoms {
 
 function Stop-ProjectProcessesForClean {
     Log "Stopping node/python processes that block clean (project only)..."
-    $rootLower = $RootDir.ToLowerInvariant()
-    $pythonExe = (Join-Path $RootDir "virtual_env\python\Scripts\python.exe").ToLowerInvariant()
-
-    $procs = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
-        $exe = $_.ExecutablePath
-        $cmd = $_.CommandLine
-        if (-not $exe) { return $false }
-        $exeLower = $exe.ToLowerInvariant()
-        $cmdLower = if ($cmd) { $cmd.ToLowerInvariant() } else { "" }
-
-        # 1) Project python.exe from virtual_env
-        if ($exeLower -eq $pythonExe) { return $true }
-        # Any other python.exe only if it runs a script from this project
-        if ($exeLower.EndsWith("\python.exe") -and $cmdLower.Contains($rootLower)) { return $true }
-
-        # 2) esbuild.exe (inside project or working with it)
-        if ($exeLower.EndsWith("\esbuild.exe") -and ($exeLower.StartsWith($rootLower) -or $cmdLower.Contains($rootLower))) { return $true }
-
-        # 3) node.exe working with project files
-        if ($exeLower.EndsWith("\node.exe") -and $cmdLower.Contains($rootLower)) { return $true }
-
-        return $false
-    }
-
-    foreach ($p in $procs) {
-        if ($p.ProcessId -eq $PID) { continue }
-        try {
-            Stop-Process -Id $p.ProcessId -Force -ErrorAction Stop
-            Log "[INFO] Stopped blocking process: $($p.Name) (PID $($p.ProcessId))"
-        } catch { }
-    }
-    Start-Sleep -Seconds 2
+    $libDir = Split-Path -Parent $ScriptDir
+    . (Join-Path $libDir "core.ps1")
+    . (Join-Path $libDir "clean.ps1")
+    Stop-BlockingProcessesForClean -Root $RootDir
 }
 
 function Enable-ErgoServicesForStart {
