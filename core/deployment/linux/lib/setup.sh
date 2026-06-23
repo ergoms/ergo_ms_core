@@ -154,7 +154,7 @@ setup_full_system() {
   cd "$root" || exit 1
   export POETRY_VIRTUALENVS_CREATE=false
   # Call Poetry via module so we don't depend on a "poetry" console script existing.
-  if ! python -m poetry install --no-root; then
+  if ! python -m poetry install --only main --no-root; then
     echo "[ERROR] poetry install failed" >&2
     exit 1
   fi
@@ -162,8 +162,8 @@ setup_full_system() {
   if ! (cd "$root/core/api" && export PYTHONPATH="$root" && python -m commands install); then
     echo "[WARNING] commands install (module deps) failed, continuing" >&2
   fi
-  if ! npm install; then
-    echo "[ERROR] npm install failed" >&2
+  if ! npm run install:all; then
+    echo "[ERROR] npm run install:all failed" >&2
     exit 1
   fi
   if ! npm run build; then

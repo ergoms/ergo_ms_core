@@ -296,8 +296,8 @@ function Setup-FullSystem {
         if (-not (Test-Path $poetryExe)) {
             throw "poetry not found in virtual environment at $poetryExe"
         }
-        Write-ColorOutput "  Running: poetry install --no-root (from project root)..." Gray
-        & $poetryExe install --no-root
+        Write-ColorOutput "  Running: poetry install --only main --no-root (from project root)..." Gray
+        & $poetryExe install --only main --no-root
         if ($LASTEXITCODE -ne 0) { throw "poetry install failed" }
         Write-ColorOutput "  Running: python -m commands install (module deps)..." Gray
         $env:PYTHONPATH = $Root
@@ -339,10 +339,10 @@ function Setup-FullSystem {
         # Change to root directory for npm commands
         Push-Location $Root
         try {
-            Write-ColorOutput "  Running: npm install (from: $(Get-Location))" Gray
+            Write-ColorOutput "  Running: npm run install:all (from: $(Get-Location))" Gray
             # Call npm directly using full path with argument array to avoid command truncation
             # Using argument array prevents PowerShell from interpreting the command incorrectly
-            & $npmExe install
+            & $npmExe run install:all
             $exitCode = $LASTEXITCODE
             if ($exitCode -ne 0) { 
                 throw "NPM install failed with exit code: $exitCode" 
