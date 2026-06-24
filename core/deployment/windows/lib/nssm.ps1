@@ -121,19 +121,6 @@ function New-BaseServiceWrapper {
                 'python -m media_server.manage runserver 0.0.0.0:8003'
             ) -join "`r`n"
         }
-        'ergo-ollama' {
-            $wrapperPath = Join-Path $wrapperDir "start_ollama.bat"
-            $content = @(
-                '@echo off',
-                'chcp 65001 >nul',
-                'set PYTHONIOENCODING=utf-8',
-                'set PYTHONUTF8=1',
-                "set PYTHONPATH=$Root",
-                "cd /d `"$apiPath`"",
-                "call `"$venvActivate`"",
-                'python -m commands start_ollama'
-            ) -join "`r`n"
-        }
         default {
             throw "Unknown base service: $ServiceName"
         }

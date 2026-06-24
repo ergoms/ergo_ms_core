@@ -70,9 +70,9 @@ Log "Установка Media через утилиту ergoms: ergoms install-m
 ergoms install-media-service
 Log "=== Проверка ergoms install-media-service завершена. ==="
 
-Log "Установка Ollama через утилиту ergoms: ergoms install-ollama-service"
-ergoms install-ollama-service
-Log "=== Проверка ergoms install-ollama-service завершена. ==="
+Log "Установка Ollama через утилиту ergoms: ergoms ollama_framework:install-ollama-service"
+ergoms ollama_framework:install-ollama-service
+Log "=== Проверка ergoms ollama_framework:install-ollama-service завершена. ==="
 
 Log "=== Проверка установки служб через утилиту ergoms по отдельности завершена. ==="
 

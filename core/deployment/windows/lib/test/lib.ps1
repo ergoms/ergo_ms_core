@@ -101,7 +101,7 @@ function Stop-AllErgoms {
     }
     if (Get-Command ergoms -ErrorAction SilentlyContinue) {
         try { ergoms stop } catch { Log "[WARNING] ergoms stop failed (maybe no venv). Continuing." }
-        try { ergoms stop-ollama } catch { Log "[WARNING] ergoms stop-ollama failed. Continuing." }
+        try { ergoms ollama_framework:stop-ollama } catch { Log "[WARNING] ergoms ollama_framework:stop-ollama failed. Continuing." }
     }
     Start-Sleep -Seconds 3
 }

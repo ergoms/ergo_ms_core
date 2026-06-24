@@ -53,7 +53,7 @@ main() {
   if (( $# > 0 )); then
     command="$1"
     case "$command" in
-      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|install-ollama-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|update-submodules|clean|poetry|api|media_api|npm)
+      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|update-submodules|clean|poetry|api|media_api|npm)
         shift ;;
       *:poetry)
         shift ;;  # module:poetry command, handled below
@@ -101,7 +101,7 @@ main() {
   
   # Check if it's a custom command (doesn't require root)
   # Exclude built-in commands to avoid recursion (e.g. install-cli would re-invoke self via commands.conf)
-  local builtin_override="install-cli|uninstall-cli|install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|install-ollama-service|start|stop|restart|status|uninstall-services|setup-full"
+  local builtin_override="install-cli|uninstall-cli|install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|start|stop|restart|status|uninstall-services|setup-full"
   local is_custom_command=false
   if [[ -v "available_custom_cmds[$command]" ]] && [[ ! "$command" =~ ^($builtin_override)$ ]]; then
     is_custom_command=true
@@ -285,7 +285,6 @@ main() {
     install-worker-service)  ;; # Continue to install flow
     install-beat-service)  ;; # Continue to install flow
     install-media-service)  ;; # Continue to install flow
-    install-ollama-service)  ;; # Continue to install flow
     *)        echo "Unknown command: $command" >&2; print_usage "$detected_root"; exit 1 ;;
   esac
 
@@ -317,9 +316,6 @@ main() {
     install-media-service)
       install_single_service "media" "$ERGO_ROOT"
       ;;
-    install-ollama-service)
-      install_single_service "ollama" "$ERGO_ROOT"
-      ;;
     install)
       write_env_file "$ERGO_ROOT"
       
@@ -331,7 +327,6 @@ main() {
       install_unit "ergo-client-dev"     "$CLIENT_UNIT"
       install_unit "ergo-media-api"      "$MEDIA_API_UNIT"
       install_unit "ergo-celery-beat"    "$CELERY_BEAT_UNIT"
-      install_unit "ergo-ollama"         "$OLLAMA_UNIT"
       
       # Устанавливаем воркеры из конфигурации
       install_worker_units "$ERGO_ROOT"
@@ -343,7 +338,6 @@ main() {
       enable_and_start ergo-client-dev.service
       enable_and_start ergo-media-api.service
       enable_and_start ergo-celery-beat.service
-      enable_and_start ergo-ollama.service
       
       # Включаем и запускаем воркеры
       enable_and_start_workers "$ERGO_ROOT"

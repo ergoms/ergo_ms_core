@@ -273,7 +273,7 @@ stop_all_ergoms() {
   cd "$root"
   sudo_warmup
   run_cmd "ergoms stop" ergoms stop || true
-  run_cmd "ergoms stop-ollama" ergoms stop-ollama || true
+  run_cmd "ergoms ollama_framework:stop-ollama" ergoms ollama_framework:stop-ollama || true
 }
 
 _test_source_core_sh() {

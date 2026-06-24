@@ -215,14 +215,6 @@ function Main {
             Write-ColorOutput "`n[OK] Media API service installed and started!" Green
             Show-ServicesStatus -ProjectRoot $projectRoot
         }
-        'install-ollama-service' {
-            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
-            Write-ColorOutput "-> Installing Ollama service for: $projectRoot" Cyan
-            Install-SingleService -ServiceName "ergo-ollama" -Root $projectRoot
-            Start-Service -Name "ergo-ollama"
-            Write-ColorOutput "`n[OK] Ollama service installed and started!" Green
-            Show-ServicesStatus
-        }
         'deploy-api' {
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
             Write-ColorOutput "-> Deploying API only for: $projectRoot" Cyan

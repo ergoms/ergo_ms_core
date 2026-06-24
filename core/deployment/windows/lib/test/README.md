@@ -14,7 +14,7 @@
    - Установка через `Setup Full System` (`setup-full`).
    - Установка через команду `ergoms setup`.
    - Установка всех служб сразу (`ergoms install-all-services`).
-   - Поочередная установка каждой службы (`install-api-service`, `install-client-service`, `install-worker-service`, `install-beat-service`, `install-media-service`, `install-ollama-service`).
+   - Поочередная установка каждой службы (`install-api-service`, `install-client-service`, `install-worker-service`, `install-beat-service`, `install-media-service`, `ollama_framework:install-ollama-service`).
 
 3. **`run_test`** (`run_test.sh` / `run_test.ps1`) — тесты запуска:
    - Запуск через задачу `Start All Services` (аналог ctrl+shift+b).
