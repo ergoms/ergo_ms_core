@@ -47,6 +47,31 @@ update_submodules() {
   echo "[OK] Git submodules updated"
 }
 
+scaffold_config_files() {
+  local root="$1"
+  local script="$root/core/deployment/scripts/scaffold_config_files.py"
+  local python_cmd=""
+
+  for cmd in python3.12 python3 python; do
+    if command -v "$cmd" >/dev/null 2>&1; then
+      python_cmd="$cmd"
+      break
+    fi
+  done
+
+  if [[ -z "$python_cmd" ]]; then
+    echo "    [WARNING] Python not found, cannot scaffold configuration files" >&2
+    return 1
+  fi
+
+  if [[ ! -f "$script" ]]; then
+    echo "    [WARNING] Config scaffold script not found: $script" >&2
+    return 1
+  fi
+
+  "$python_cmd" "$script" --root "$root"
+}
+
 setup_full_system() {
   local root="$1"
   
@@ -60,49 +85,7 @@ setup_full_system() {
   
   # Create configuration files from examples if they don't exist
   echo "  Creating configuration files from examples..."
-  
-  # Special handling for databases.yaml - only first 8 lines
-  local databases_source_path="$root/databases.yaml.example"
-  local databases_target_path="$root/databases.yaml"
-  if [[ -f "$databases_source_path" ]]; then
-    if [[ ! -f "$databases_target_path" ]]; then
-      if head -n 8 "$databases_source_path" > "$databases_target_path"; then
-        echo "    Created databases.yaml (first 8 lines)"
-      else
-        echo "    [WARNING] Failed to create databases.yaml" >&2
-      fi
-    else
-      echo "    databases.yaml already exists, skipping"
-    fi
-  else
-    echo "    [WARNING] Example file databases.yaml.example not found" >&2
-  fi
-  
-  # Other configuration files - full copy
-  local config_files=(
-    "celery_workers.yaml.example:celery_workers.yaml"
-    ".env.example:.env"
-  )
-  
-  for config_pair in "${config_files[@]}"; do
-    IFS=':' read -r source_file target_file <<< "$config_pair"
-    local source_path="$root/$source_file"
-    local target_path="$root/$target_file"
-    
-    if [[ -f "$source_path" ]]; then
-      if [[ ! -f "$target_path" ]]; then
-        if cp "$source_path" "$target_path"; then
-          echo "    Created $target_file"
-        else
-          echo "    [WARNING] Failed to create $target_file" >&2
-        fi
-      else
-        echo "    $target_file already exists, skipping"
-      fi
-    else
-      echo "    [WARNING] Example file $source_file not found" >&2
-    fi
-  done
+  scaffold_config_files "$root" || true
   
   # Step 2: Create virtual environment
   echo "-> Step 2/7: Creating Python virtual environment..."
@@ -202,3 +185,4 @@ source "$LIB_DIR/clean.sh"
 
 export -f setup_full_system
 export -f update_submodules
+export -f scaffold_config_files

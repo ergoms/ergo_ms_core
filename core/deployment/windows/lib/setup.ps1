@@ -54,6 +54,35 @@ function Update-Submodules {
     }
 }
 
+function Invoke-ConfigScaffold {
+    param(
+        [string]$Root
+    )
+
+    $script = Join-Path $Root "core\deployment\scripts\scaffold_config_files.py"
+    $pythonCmd = $null
+
+    foreach ($cmd in @('python', 'python3', 'python3.12')) {
+        if (Get-Command $cmd -ErrorAction SilentlyContinue) {
+            $pythonCmd = $cmd
+            break
+        }
+    }
+
+    if (-not $pythonCmd) {
+        Write-ColorOutput "    [WARNING] Python not found, cannot scaffold configuration files" Yellow
+        return $false
+    }
+
+    if (-not (Test-Path $script)) {
+        Write-ColorOutput "    [WARNING] Config scaffold script not found: $script" Yellow
+        return $false
+    }
+
+    & $pythonCmd $script --root $Root
+    return ($LASTEXITCODE -eq 0)
+}
+
 function Setup-FullSystem {
     param(
         [string]$Root,
@@ -88,57 +117,7 @@ function Setup-FullSystem {
     
     # Create configuration files from examples if they don't exist
     Write-ColorOutput "  Creating configuration files from examples..." Gray
-    
-    # Special handling for databases.yaml - only first 8 lines
-    $databasesSourcePath = Join-Path $Root "databases.yaml.example"
-    $databasesTargetPath = Join-Path $Root "databases.yaml"
-    if (Test-Path $databasesSourcePath) {
-        if (-not (Test-Path $databasesTargetPath)) {
-            try {
-                $content = Get-Content $databasesSourcePath -TotalCount 8
-                $content | Set-Content $databasesTargetPath
-                Write-ColorOutput "    Created databases.yaml (first 8 lines)" Green
-            }
-            catch {
-                Write-ColorOutput "    [WARNING] Failed to create databases.yaml: $($_.Exception.Message)" Yellow
-            }
-        }
-        else {
-            Write-ColorOutput "    databases.yaml already exists, skipping" Gray
-        }
-    }
-    else {
-        Write-ColorOutput "    [WARNING] Example file databases.yaml.example not found" Yellow
-    }
-    
-    # Other configuration files - full copy
-    $configFiles = @(
-        @{Source = "celery_workers.yaml.example"; Target = "celery_workers.yaml"},
-        @{Source = ".env.example"; Target = ".env"}
-    )
-    
-    foreach ($config in $configFiles) {
-        $sourcePath = Join-Path $Root $config.Source
-        $targetPath = Join-Path $Root $config.Target
-        
-        if (Test-Path $sourcePath) {
-            if (-not (Test-Path $targetPath)) {
-                try {
-                    Copy-Item -Path $sourcePath -Destination $targetPath -Force
-                    Write-ColorOutput "    Created $($config.Target)" Green
-                }
-                catch {
-                    Write-ColorOutput "    [WARNING] Failed to create $($config.Target): $($_.Exception.Message)" Yellow
-                }
-            }
-            else {
-                Write-ColorOutput "    $($config.Target) already exists, skipping" Gray
-            }
-        }
-        else {
-            Write-ColorOutput "    [WARNING] Example file $($config.Source) not found" Yellow
-        }
-    }
+    Invoke-ConfigScaffold -Root $Root | Out-Null
     
     # Step 2: Create virtual environment
     Write-ColorOutput "-> Step 2/8: Creating Python virtual environment..." Yellow
