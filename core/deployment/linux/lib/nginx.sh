@@ -38,6 +38,100 @@ _nginx_is_installed() {
   command -v nginx >/dev/null 2>&1
 }
 
+_nginx_wait_for_apt_locks() {
+  local timeout="${1:-180}"
+  local waited=0
+  local lock_paths=(
+    /var/lib/dpkg/lock-frontend
+    /var/lib/dpkg/lock
+    /var/cache/apt/archives/lock
+    /var/lib/apt/lists/lock
+  )
+
+  if ! command -v fuser >/dev/null 2>&1; then
+    return 0
+  fi
+
+  while (( waited < timeout )); do
+    local busy=0
+    local lock
+    for lock in "${lock_paths[@]}"; do
+      if [[ -e "$lock" ]] && fuser "$lock" >/dev/null 2>&1; then
+        busy=1
+        break
+      fi
+    done
+    if (( busy == 0 )); then
+      return 0
+    fi
+    if (( waited == 0 )); then
+      echo "-> Waiting for apt/dpkg lock (another package manager is running)..."
+    fi
+    sleep 3
+    waited=$((waited + 3))
+  done
+
+  echo "[ERROR] apt/dpkg lock is still held after ${timeout}s." >&2
+  echo "  Wait until unattended-upgrades or apt-get finishes, then retry:" >&2
+  echo "  sudo ergoms install-nginx" >&2
+  echo "  Check: ps aux | grep -E 'apt|dpkg|unattended'" >&2
+  return 1
+}
+
+_nginx_install_via_apt() {
+  local apt_opts=(
+    -o "DPkg::Lock::Timeout=120"
+    -o "APT::Acquire::Retries=3"
+  )
+
+  _nginx_wait_for_apt_locks || return 1
+
+  echo "-> Installing nginx (apt)..."
+  if _nginx_sudo apt-get "${apt_opts[@]}" install -y -qq nginx; then
+    return 0
+  fi
+
+  echo "-> Refreshing package lists..."
+  _nginx_wait_for_apt_locks || return 1
+  if ! _nginx_sudo apt-get "${apt_opts[@]}" update -qq; then
+    echo "[WARN] apt-get update failed. Retrying nginx install anyway..." >&2
+  fi
+
+  _nginx_wait_for_apt_locks || return 1
+  _nginx_sudo apt-get "${apt_opts[@]}" install -y -qq nginx
+}
+
+_nginx_install_package() {
+  if _nginx_is_installed; then
+    echo "[OK] Nginx already installed: $(nginx -v 2>&1)"
+    return 0
+  fi
+
+  if command -v apt-get >/dev/null 2>&1; then
+    _nginx_install_via_apt
+  elif command -v dnf >/dev/null 2>&1; then
+    echo "-> Installing nginx (dnf)..."
+    _nginx_sudo dnf install -y -q nginx
+  elif command -v yum >/dev/null 2>&1; then
+    echo "-> Installing nginx (yum)..."
+    _nginx_sudo yum install -y -q nginx
+  elif command -v pacman >/dev/null 2>&1; then
+    echo "-> Installing nginx (pacman)..."
+    _nginx_sudo pacman -Sy --noconfirm nginx
+  else
+    echo "[ERROR] Cannot detect package manager. Install nginx manually." >&2
+    return 1
+  fi
+
+  if _nginx_is_installed; then
+    echo "[OK] Nginx installed"
+    return 0
+  fi
+
+  echo "[ERROR] Nginx installation failed." >&2
+  return 1
+}
+
 _nginx_detect_snippets_dir() {
   local root="$1"
   echo "$root/core/deployment/nginx/snippets"
@@ -104,24 +198,8 @@ nginx_install() {
   echo "=== Nginx: Install ==="
   echo ""
 
-  if ! _nginx_is_installed; then
-    echo "-> Installing nginx..."
-    if command -v apt-get >/dev/null 2>&1; then
-      _nginx_sudo apt-get update -qq
-      _nginx_sudo apt-get install -y -qq nginx
-    elif command -v dnf >/dev/null 2>&1; then
-      _nginx_sudo dnf install -y -q nginx
-    elif command -v yum >/dev/null 2>&1; then
-      _nginx_sudo yum install -y -q nginx
-    elif command -v pacman >/dev/null 2>&1; then
-      _nginx_sudo pacman -Sy --noconfirm nginx
-    else
-      echo "[ERROR] Cannot detect package manager. Install nginx manually." >&2
-      return 1
-    fi
-    echo "[OK] Nginx installed"
-  else
-    echo "[OK] Nginx already installed: $(nginx -v 2>&1)"
+  if ! _nginx_install_package; then
+    return 1
   fi
 
   local template
