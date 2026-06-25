@@ -2,6 +2,10 @@
 # Core utilities for ErgoMS deployment
 # Базовые утилиты для развертывания ErgoMS
 
+SCRIPT_DIR_CORE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=nginx_env.sh
+source "$SCRIPT_DIR_CORE/nginx_env.sh"
+
 # Константы (базовые службы без воркеров)
 BASE_SERVICES="ergo-api-dev ergo-client-dev ergo-celery-beat"
 CLI_NAME="ergoms"
@@ -102,7 +106,11 @@ get_celery_workers() {
 # Генерация списка служб на основе конфигурации воркеров
 generate_units_list() {
   local project_root="${1:-}"
-  local units="ergo-api-dev.service ergo-client-dev.service ergo-media-api.service ergo-celery-beat.service"
+  local units="ergo-api-dev.service ergo-media-api.service ergo-celery-beat.service"
+
+  if ! is_nginx_enabled "$project_root"; then
+    units="ergo-api-dev.service ergo-client-dev.service ergo-media-api.service ergo-celery-beat.service"
+  fi
   
   local workers
   workers="$(get_celery_workers "$project_root")"

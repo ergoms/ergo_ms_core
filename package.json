@@ -9,7 +9,7 @@
     "modules/*/client"
   ],
   "scripts": {
-    "dev": "cd core/client && npm run dev",
+    "dev": "python core/deployment/scripts/start_client_if_dev.py",
     "stop-dev": "cd core/client && npm run stop-dev",
     "build": "cd core/client && npm run build",
     "preview": "cd core/client && npm run preview",

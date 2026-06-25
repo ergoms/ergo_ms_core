@@ -73,13 +73,13 @@ UNIT
 
   CLIENT_UNIT=$(cat <<'UNIT'
 [Unit]
-Description=Ergo Client (npm run dev)
+Description=Ergo Client (Vite dev or nginx skip)
 After=network.target
 
 [Service]
 Type=simple
 EnvironmentFile=/etc/default/ergo_ms
-ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT" && npm run dev'
+ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && python core/deployment/scripts/start_client_if_dev.py'
 Restart=always
 RestartSec=5
 Environment=NODE_ENV=development

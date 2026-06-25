@@ -153,8 +153,20 @@ uninstall_all() {
   fi
 }
 
+disable_client_service_if_nginx() {
+  local root="$1"
+  if ! is_nginx_enabled "$root"; then
+    return 0
+  fi
+  systemctl_do disable ergo-client-dev.service 2>/dev/null || true
+  systemctl_do stop ergo-client-dev.service 2>/dev/null || true
+  nginx_skip_client_message "$root"
+}
+
 install_services() {
   local root="$1"
+  local skip_client=0
+  is_nginx_enabled "$root" && skip_client=1
   
   echo ""
   echo "=== Installing Services ==="
@@ -172,7 +184,11 @@ install_services() {
   
   # Устанавливаем базовые службы
   install_unit "ergo-api-dev"        "$API_UNIT"
-  install_unit "ergo-client-dev"     "$CLIENT_UNIT"
+  if (( skip_client == 0 )); then
+    install_unit "ergo-client-dev"     "$CLIENT_UNIT"
+  else
+    disable_client_service_if_nginx "$root"
+  fi
   install_unit "ergo-media-api"      "$MEDIA_API_UNIT"
   install_unit "ergo-celery-beat"    "$CELERY_BEAT_UNIT"
   
@@ -183,7 +199,9 @@ install_services() {
 
   # Включаем и запускаем базовые службы
   enable_and_start ergo-api-dev.service
-  enable_and_start ergo-client-dev.service
+  if (( skip_client == 0 )); then
+    enable_and_start ergo-client-dev.service
+  fi
   enable_and_start ergo-media-api.service
   enable_and_start ergo-celery-beat.service
   
@@ -224,6 +242,10 @@ install_single_service() {
       install_unit "$unit_name" "$API_UNIT"
       ;;
     "client")
+      if is_nginx_enabled "$root"; then
+        disable_client_service_if_nginx "$root"
+        return 0
+      fi
       unit_name="ergo-client-dev"
       install_unit "$unit_name" "$CLIENT_UNIT"
       ;;
@@ -265,6 +287,7 @@ install_single_service() {
   echo "$service_name service is now running!"
 }
 
+export -f disable_client_service_if_nginx
 export -f set_service_project_root
 export -f start_all
 export -f stop_all

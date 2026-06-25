@@ -47,6 +47,7 @@ $ErrorActionPreference = "Stop"
 # Тяжёлые модули (nssm, services, setup, cli, help) загружаются только при необходимости.
 $LibPath = Join-Path $PSScriptRoot "lib"
 . (Join-Path $LibPath "core.ps1")
+. (Join-Path $LibPath "nginx_env.ps1")
 . (Join-Path $LibPath "commands.ps1")
 
 $script:HeavyModulesLoaded = $false

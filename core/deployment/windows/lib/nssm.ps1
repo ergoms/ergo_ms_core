@@ -85,14 +85,16 @@ function New-BaseServiceWrapper {
         }
         'ergo-client-dev' {
             $wrapperPath = Join-Path $wrapperDir "start_client.bat"
+            $pythonExe = Join-Path $Root "virtual_env\python\Scripts\python.exe"
+            $scriptPath = Join-Path $Root "core\deployment\scripts\start_client_if_dev.py"
             $content = @(
                 '@echo off',
                 'chcp 65001 >nul',
                 'set NO_COLOR=1',
                 'set FORCE_COLOR=0',
                 'set npm_config_color=false',
-                "cd /d `"$corePath`"",
-                'npm run dev'
+                "cd /d `"$Root`"",
+                "call `"$pythonExe`" `"$scriptPath`""
             ) -join "`r`n"
         }
         'ergo-celery-beat' {

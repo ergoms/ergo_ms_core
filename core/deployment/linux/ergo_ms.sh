@@ -349,9 +349,16 @@ main() {
       # Получаем базовые unit definitions
       get_base_unit_definitions
       
+      local skip_client=0
+      is_nginx_enabled "$ERGO_ROOT" && skip_client=1
+
       # Устанавливаем базовые службы
       install_unit "ergo-api-dev"        "$API_UNIT"
-      install_unit "ergo-client-dev"     "$CLIENT_UNIT"
+      if (( skip_client == 0 )); then
+        install_unit "ergo-client-dev"     "$CLIENT_UNIT"
+      else
+        disable_client_service_if_nginx "$ERGO_ROOT"
+      fi
       install_unit "ergo-media-api"      "$MEDIA_API_UNIT"
       install_unit "ergo-celery-beat"    "$CELERY_BEAT_UNIT"
       
@@ -362,7 +369,9 @@ main() {
 
       # Включаем и запускаем базовые службы
       enable_and_start ergo-api-dev.service
-      enable_and_start ergo-client-dev.service
+      if (( skip_client == 0 )); then
+        enable_and_start ergo-client-dev.service
+      fi
       enable_and_start ergo-media-api.service
       enable_and_start ergo-celery-beat.service
       

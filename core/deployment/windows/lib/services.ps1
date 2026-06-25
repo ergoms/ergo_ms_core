@@ -43,6 +43,11 @@ function Install-Service {
         $appPath = $pythonExe
         $appParams = "api\scripts\start_celery_beat.py"
     }
+    elseif ($ServiceName -eq 'ergo-client-dev') {
+        $useDirectPython = $true
+        $appPath = $pythonExe
+        $appParams = "core\deployment\scripts\start_client_if_dev.py"
+    }
     elseif ($ServiceName -match '^ergo-celery-worker-(.+)$') {
         $useDirectPython = $true
         $workerName = $Matches[1]
@@ -60,7 +65,12 @@ function Install-Service {
     }
     & $NssmExe set $ServiceName DisplayName $displayName
     & $NssmExe set $ServiceName Description "Ergo Management System - $ServiceName"
-    & $NssmExe set $ServiceName AppDirectory (Join-Path $Root "core")
+    if ($ServiceName -eq 'ergo-client-dev') {
+        & $NssmExe set $ServiceName AppDirectory $Root
+    }
+    else {
+        & $NssmExe set $ServiceName AppDirectory (Join-Path $Root "core")
+    }
     $logsDir = Get-ProjectLogsDir -ProjectRoot $Root
     # Redirect both stdout and stderr to the same file (single log per service)
     $singleLog = Join-Path $logsDir "${ServiceName}.log"
@@ -79,6 +89,21 @@ function Install-Service {
     Write-ColorOutput "[OK] Service $ServiceName installed" Green
 }
 
+function Disable-ClientServiceIfNginx {
+    param([string]$ProjectRoot)
+
+    if (-not (Test-NginxEnabled -ProjectRoot $ProjectRoot)) {
+        return
+    }
+
+    $service = Get-Service -Name 'ergo-client-dev' -ErrorAction SilentlyContinue
+    if ($service -and $service.Status -ne 'Stopped') {
+        Stop-Service -Name 'ergo-client-dev' -Force -ErrorAction SilentlyContinue
+    }
+
+    Write-NginxSkipClientMessage -ProjectRoot $ProjectRoot
+}
+
 function Install-AllServices {
     param([string]$Root)
 
@@ -90,6 +115,10 @@ function Install-AllServices {
 
     # Install NSSM
     $nssmExe = Install-NSSM
+
+    if (Test-NginxEnabled -ProjectRoot $Root) {
+        Disable-ClientServiceIfNginx -ProjectRoot $Root
+    }
 
     # Get service names dynamically based on config
     $serviceNames = Get-ServiceNames -ProjectRoot $Root
@@ -109,6 +138,11 @@ function Install-SingleService {
         [string]$ServiceName,
         [string]$Root
     )
+
+    if ($ServiceName -eq 'ergo-client-dev' -and (Test-NginxEnabled -ProjectRoot $Root)) {
+        Disable-ClientServiceIfNginx -ProjectRoot $Root
+        return
+    }
 
     Test-ProjectStructure -Root $Root
     

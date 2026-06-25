@@ -156,12 +156,17 @@ function Get-CeleryWorkers {
 function Get-ServiceNames {
     param([string]$ProjectRoot)
     
-    # Используем кэш если проект тот же
-    if ($script:CachedServiceNames -and $script:CachedProjectRoot -eq $ProjectRoot) {
+    # Используем кэш если проект и nginx-сценарий не изменились
+    $nginxEnabled = Test-NginxEnabled -ProjectRoot $ProjectRoot
+    if ($script:CachedServiceNames -and $script:CachedProjectRoot -eq $ProjectRoot -and $script:CachedNginxEnabled -eq $nginxEnabled) {
         return $script:CachedServiceNames
     }
     
     $services = @() + $script:BaseServices
+
+    if ($nginxEnabled) {
+        $services = $services | Where-Object { $_ -ne 'ergo-client-dev' }
+    }
     
     $workers = Get-CeleryWorkers -ProjectRoot $ProjectRoot
     
@@ -179,6 +184,7 @@ function Get-ServiceNames {
     # Кэшируем результат
     $script:CachedServiceNames = $services
     $script:CachedProjectRoot = $ProjectRoot
+    $script:CachedNginxEnabled = $nginxEnabled
     
     return $services
 }
@@ -207,6 +213,7 @@ function Get-WorkerServiceNames {
 function Reset-ServiceNamesCache {
     $script:CachedServiceNames = $null
     $script:CachedProjectRoot = $null
+    $script:CachedNginxEnabled = $null
 }
 
 function Get-CliName {
