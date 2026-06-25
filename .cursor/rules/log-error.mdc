@@ -1,0 +1,61 @@
+---
+description: Безопасное логирование ошибок и предупреждений — logError/logWarn через auto-import из @/js/utils/logError.js
+globs:
+  - core/client/**/*.vue
+  - core/client/**/*.js
+  - modules/**/client/**/*.vue
+  - modules/**/client/**/*.js
+alwaysApply: false
+---
+
+# Логирование ошибок — logError / logWarn
+
+Единый источник: [`core/client/src/js/utils/logError.js`](core/client/src/js/utils/logError.js).
+
+Функции `logError`, `logWarn` и `sanitizeError` **подключаются автоматически** через `unplugin-auto-import` в [`core/client/vite.config.js`](core/client/vite.config.js). **Импортировать их вручную не нужно.**
+
+```js
+// Правильно — без import
+logError('Ошибка загрузки данных:', error)
+logWarn('Не удалось прочитать кеш:', err)
+```
+
+## Когда что использовать
+
+| Задача | Функция |
+|--------|---------|
+| Ошибка API, исключение, сбой операции | `logError(context, error?)` |
+| Некритичная проблема, fallback, деградация | `logWarn(context, error?)` |
+| Извлечь безопасное сообщение из ошибки (без логирования) | `sanitizeError(error)` |
+
+## Допустимые формы вызова
+
+```js
+logError('Контекст', error)
+logError(error)
+logError('Текст ошибки без объекта')
+
+logWarn('Контекст', error)
+logWarn(error)
+```
+
+## Запрещено
+
+- Писать `import { logError } from '@/js/utils/logError.js'` — auto-import уже подключён
+- Логировать ошибки через `console.error(error)` / `console.warn(error)` — утекут headers, body, stack, чувствительные поля
+- Дублировать санитизацию ошибок локально в модулях
+
+## Уровни console vs logError
+
+[`logger.js`](core/client/src/js/utils/logger.js) фильтрует уровни `console.*` по `VITE_LOG_LEVEL`.  
+`logError` / `logWarn` — отдельный слой: **санитизация** ответа сервера (пароли, токены, `Authorization` и т.д.) перед выводом в console.
+
+Для отладочных сообщений без ошибок — `console.log` / `console.debug` (с учётом уровня логирования).
+
+## Расширение
+
+Новые правила санитизации или форматы — только в `logError.js` ядра, не в модулях.
+
+## Эталон
+
+[`core/client/src/js/api/manager.js`](core/client/src/js/api/manager.js) — перехватчики axios используют `logError` / `logWarn` / `sanitizeError`.
