@@ -29,8 +29,21 @@ is_nginx_enabled() {
 
 nginx_skip_client_message() {
   local root="${1:-}"
+  local public_host='<NGINX_PUBLIC_HOST>'
+
+  if [[ -f "$root/.env" ]]; then
+    public_host="$(grep -E '^NGINX_PUBLIC_HOST=' "$root/.env" 2>/dev/null | head -1 | cut -d= -f2-)"
+    public_host="${public_host#"${public_host%%[![:space:]]*}"}"
+    public_host="${public_host%"${public_host##*[![:space:]]}"}"
+    public_host="${public_host#\"}"
+    public_host="${public_host%\"}"
+    public_host="${public_host#\'}"
+    public_host="${public_host%\'}"
+    [[ -z "$public_host" ]] && public_host='<NGINX_PUBLIC_HOST>'
+  fi
+
   echo "[OK] ergo-client-dev skipped (NGINX_ENABLED=true, client is served via nginx)"
-  echo "  Open: http://$(grep -E '^NGINX_PUBLIC_HOST=' "$root/.env" 2>/dev/null | cut -d= -f2- | tr -d \"'\" || echo '<NGINX_PUBLIC_HOST>')"
+  echo "  Open: http://${public_host}"
   echo "  After UI changes: ergoms client-build && ergoms reload-nginx"
 }
 
