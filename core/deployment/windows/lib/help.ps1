@@ -46,7 +46,7 @@ Service Management Commands:
     help           Show this help
 
 Nginx Commands (separate from standard install, requires admin except status/test):
-    install-nginx [server] [port]  Download nginx to virtual_env/packages/nginx, generate config, start
+    install-nginx [server] [port]  Download nginx, generate config (NGINX_USE_HTTPS for TLS), start
     install-nginx-service [s] [p]  Same but as Windows service (auto-start)
     uninstall-nginx   Remove nginx config and optionally binaries (-Purge)
     start-nginx       Start nginx process

@@ -17,13 +17,54 @@ _nginx_read_env() {
     if [[ "$line" =~ ^([A-Z_][A-Z0-9_]*)=(.*)$ ]]; then
       key="${BASH_REMATCH[1]}"
       value="${BASH_REMATCH[2]}"
+      value="${value#\"}"
+      value="${value%\"}"
+      value="${value#\'}"
+      value="${value%\'}"
       case "$key" in
-        NGINX_ENABLED|NGINX_SERVER_NAME|NGINX_PUBLIC_HOST|NGINX_LISTEN_HOST|NGINX_LISTEN_PORT)
+        NGINX_ENABLED|NGINX_SERVER_NAME|NGINX_PUBLIC_HOST|NGINX_LISTEN_HOST|NGINX_LISTEN_PORT|NGINX_USE_HTTPS|ERGO_SSL_CERT|ERGO_SSL_KEY)
           export "$key=$value"
           ;;
       esac
     fi
   done < "$env_file"
+}
+
+_nginx_truthy() {
+  local value
+  value="$(echo "${1:-}" | tr '[:upper:]' '[:lower:]')"
+  [[ "$value" == "1" || "$value" == "true" || "$value" == "yes" ]]
+}
+
+_nginx_should_use_ssl() {
+  local explicit="${1:-false}"
+  local port="${2:-${NGINX_LISTEN_PORT:-80}}"
+  if [[ "$explicit" == "true" ]]; then
+    return 0
+  fi
+  if _nginx_truthy "${NGINX_USE_HTTPS:-}"; then
+    return 0
+  fi
+  [[ "$port" == "443" ]]
+}
+
+_nginx_warn_insecure_certs() {
+  local cert="${ERGO_SSL_CERT:-}"
+  local key="${ERGO_SSL_KEY:-}"
+  if [[ -z "$cert" || -z "$key" ]]; then
+    echo "[WARN] ERGO_SSL_CERT / ERGO_SSL_KEY not set. HTTPS will fail nginx -t." >&2
+    return 0
+  fi
+  if [[ "$cert" == *snakeoil* || "$key" == *snakeoil* ]]; then
+    echo "[WARN] Self-signed snakeoil certificate in use. Use Let's Encrypt for production." >&2
+    return 0
+  fi
+  if [[ ! -f "$cert" ]]; then
+    echo "[WARN] SSL certificate not found: $cert" >&2
+  fi
+  if [[ ! -f "$key" ]]; then
+    echo "[WARN] SSL private key not found: $key" >&2
+  fi
 }
 
 _nginx_sudo() {
@@ -194,6 +235,13 @@ nginx_install() {
   fi
   [[ -z "$listen_port" ]] && listen_port="${NGINX_LISTEN_PORT:-80}"
 
+  if _nginx_should_use_ssl "$use_ssl" "$listen_port"; then
+    use_ssl="true"
+    export ERGO_SSL_CERT="${ERGO_SSL_CERT:-/etc/ssl/certs/ssl-cert-snakeoil.pem}"
+    export ERGO_SSL_KEY="${ERGO_SSL_KEY:-/etc/ssl/private/ssl-cert-snakeoil.key}"
+    _nginx_warn_insecure_certs
+  fi
+
   echo ""
   echo "=== Nginx: Install ==="
   echo ""
@@ -240,7 +288,11 @@ nginx_install() {
     _nginx_sudo systemctl reload nginx 2>/dev/null || _nginx_sudo systemctl start nginx
     echo "[OK] Nginx installed and running"
     echo "    Config: $conf_path"
-    echo "    Listening: http://${server_name}:${listen_port} (bind ${listen_host})"
+    if [[ "$use_ssl" == "true" ]]; then
+      echo "    Listening: https://${server_name}:443"
+    else
+      echo "    Listening: http://${server_name}:${listen_port} (bind ${listen_host})"
+    fi
   else
     echo "[ERROR] nginx -t failed. Config written but not activated." >&2
     return 1

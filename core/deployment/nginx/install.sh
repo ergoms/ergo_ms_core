@@ -24,7 +24,21 @@ ERGO_NGINX_SITES_ENABLED="${ERGO_NGINX_SITES_ENABLED:-/etc/nginx/sites-enabled}"
 SITE_NAME="${ERGO_NGINX_SITE_NAME:-ergo_ms}"
 OUTPUT_CONF="${ERGO_NGINX_SITES_AVAILABLE}/${SITE_NAME}.conf"
 
+warn_insecure_certs() {
+  if [[ "$ERGO_SSL_CERT" == *snakeoil* || "$ERGO_SSL_KEY" == *snakeoil* ]]; then
+    echo "Warning: self-signed snakeoil certificate. Use Let's Encrypt for production." >&2
+  fi
+  if [[ ! -f "$ERGO_SSL_CERT" ]]; then
+    echo "Warning: SSL certificate not found: $ERGO_SSL_CERT" >&2
+  fi
+  if [[ ! -f "$ERGO_SSL_KEY" ]]; then
+    echo "Warning: SSL private key not found: $ERGO_SSL_KEY" >&2
+  fi
+}
+
 export ERGO_ROOT ERGO_SERVER_NAME ERGO_SSL_CERT ERGO_SSL_KEY ERGO_NGINX_SNIPPETS
+
+warn_insecure_certs
 
 render_template() {
   local template="$1"

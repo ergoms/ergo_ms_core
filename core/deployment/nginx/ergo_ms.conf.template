@@ -7,11 +7,16 @@
 #   export ERGO_SSL_KEY=/etc/letsencrypt/live/app.example.com/privkey.pem
 #   bash core/deployment/nginx/install.sh
 #
+# Или: NGINX_USE_HTTPS=true в .env и sudo ergoms install-nginx
+#
 # Перед запуском:
 #   ergoms build-all
 #   API_HOST=127.0.0.1, VITE_USE_RELATIVE_API=true, MEDIA_API_* — см. core/deployment/nginx/env.example
 #
 # Upstream-сервисы (ergoms dev / start-media) слушают только localhost.
+
+include ${ERGO_NGINX_SNIPPETS}/http_hardening.conf;
+include ${ERGO_NGINX_SNIPPETS}/rate_limit.conf;
 
 upstream ergo_api {
     server 127.0.0.1:8000;
@@ -43,11 +48,13 @@ server {
     listen [::]:443 ssl http2;
     server_name ${ERGO_SERVER_NAME};
 
-    ssl_certificate     ${ERGO_SSL_CERT};
-    ssl_certificate_key ${ERGO_SSL_KEY};
-    ssl_session_timeout 1d;
-    ssl_session_cache shared:ErgoSSL:10m;
-    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_certificate         ${ERGO_SSL_CERT};
+    ssl_certificate_key     ${ERGO_SSL_KEY};
+    ssl_trusted_certificate ${ERGO_SSL_CERT};
+    include ${ERGO_NGINX_SNIPPETS}/tls_params.conf;
+
+    include ${ERGO_NGINX_SNIPPETS}/security_headers.conf;
+    include ${ERGO_NGINX_SNIPPETS}/security_headers_hsts.conf;
 
     # Vue SPA (ergoms client-build -> core/client/dist)
     root ${ERGO_ROOT}/core/client/dist;
@@ -58,18 +65,28 @@ server {
 
     include ${ERGO_NGINX_SNIPPETS}/proxy_params.conf;
 
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
     # --- Клиент (Vue Router, history mode) ---
     location / {
+        limit_conn ergo_conn 50;
         try_files $uri $uri/ /index.html;
     }
 
     # --- Django API ---
     location /api/ {
+        limit_req zone=ergo_api burst=50 nodelay;
+        limit_conn ergo_conn 50;
         proxy_pass http://ergo_api;
     }
 
     # --- WebSocket: мессенджер, уведомления (/ws/messenger/, /ws/notifications/) ---
     location /ws/ {
+        limit_conn ergo_conn 20;
         proxy_pass http://ergo_api;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -81,21 +98,30 @@ server {
     location /static/ {
         alias ${ERGO_ROOT}/virtual_env/static_api/;
         expires 30d;
-        add_header Cache-Control "public, immutable";
+        add_header Cache-Control "public, immutable" always;
+        include ${ERGO_NGINX_SNIPPETS}/security_headers.conf;
         access_log off;
     }
 
     # --- Media API: подписанные URL /serve/..., загрузка /upload/ ---
     location /serve/ {
+        limit_req zone=ergo_serve burst=40 nodelay;
+        limit_conn ergo_conn 30;
         proxy_pass http://ergo_media;
     }
 
     location /upload/ {
+        limit_req zone=ergo_upload burst=10 nodelay;
+        limit_conn ergo_conn 10;
         proxy_pass http://ergo_media;
         client_max_body_size 110m;
     }
 
     location /health/ {
+        allow 127.0.0.1;
+        allow ::1;
+        deny all;
+        limit_req zone=ergo_api burst=5 nodelay;
         proxy_pass http://ergo_media;
         access_log off;
     }

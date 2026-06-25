@@ -43,7 +43,7 @@ Service Management Commands:
   clean          Clean all dependencies (node_modules, venv, static) - keep media
 
 Nginx Commands (require root/sudo, except status/test):
-  install-nginx [server] [port]  Install nginx, generate config and start
+  install-nginx [server] [port] [ssl]  Install nginx (ssl=true or NGINX_USE_HTTPS for HTTPS)
   uninstall-nginx   Remove Ergo MS nginx config
   start-nginx       Start nginx service
   stop-nginx        Stop nginx service

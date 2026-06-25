@@ -69,8 +69,8 @@ function Read-NginxEnv {
 
     foreach ($line in $lines) {
         if ($line -match '^\s*#' -or [string]::IsNullOrWhiteSpace($line)) { continue }
-        if ($line -match '^(NGINX_[A-Z_]+)=(.*)$') {
-            $result[$Matches[1]] = $Matches[2].Trim()
+        if ($line -match '^(NGINX_[A-Z_]+|ERGO_SSL_CERT|ERGO_SSL_KEY)=(.*)$') {
+            $result[$Matches[1]] = $Matches[2].Trim().Trim('"').Trim("'")
         }
     }
     return $result
@@ -158,13 +158,64 @@ function Install-NginxBinary {
     return $nginxExe
 }
 
+function Test-NginxTruthy {
+    param([string]$Value)
+    if ([string]::IsNullOrWhiteSpace($Value)) { return $false }
+    $normalized = $Value.Trim().ToLowerInvariant()
+    return $normalized -in @('1', 'true', 'yes')
+}
+
+function Test-NginxUseHttps {
+    param([hashtable]$EnvVars, [string]$ListenPort = '80')
+    if (Test-NginxTruthy $EnvVars['NGINX_USE_HTTPS']) { return $true }
+    return $ListenPort -eq '443'
+}
+
+function Get-NginxTemplatePath {
+    param(
+        [string]$Root,
+        [hashtable]$EnvVars,
+        [string]$ListenPort = '80'
+    )
+
+    $nginxDir = Join-Path $Root "core\deployment\nginx"
+    if ((Test-NginxUseHttps -EnvVars $EnvVars -ListenPort $ListenPort) -and
+        (Test-Path (Join-Path $nginxDir "ergo_ms.conf.template"))) {
+        return Join-Path $nginxDir "ergo_ms.conf.template"
+    }
+    return Join-Path $nginxDir "ergo_ms_http.conf.template"
+}
+
+function Warn-NginxInsecureCerts {
+    param(
+        [string]$CertPath,
+        [string]$KeyPath
+    )
+
+    if ([string]::IsNullOrWhiteSpace($CertPath) -or [string]::IsNullOrWhiteSpace($KeyPath)) {
+        Write-ColorOutput "[WARN] ERGO_SSL_CERT / ERGO_SSL_KEY not set. HTTPS will fail nginx -t." Yellow
+        return
+    }
+    if ($CertPath -like '*snakeoil*' -or $KeyPath -like '*snakeoil*') {
+        Write-ColorOutput "[WARN] Self-signed snakeoil certificate. Use a trusted cert for production." Yellow
+    }
+    if (-not (Test-Path $CertPath)) {
+        Write-ColorOutput "[WARN] SSL certificate not found: $CertPath" Yellow
+    }
+    if (-not (Test-Path $KeyPath)) {
+        Write-ColorOutput "[WARN] SSL private key not found: $KeyPath" Yellow
+    }
+}
+
 function Render-NginxTemplate {
     param(
         [string]$TemplatePath,
         [string]$Root,
         [string]$ServerName = 'localhost',
         [string]$ListenHost = '0.0.0.0',
-        [string]$ListenPort = '80'
+        [string]$ListenPort = '80',
+        [string]$SslCert = '',
+        [string]$SslKey = ''
     )
 
     $snippetsDir = Join-Path $Root "core/deployment/nginx/snippets"
@@ -177,6 +228,8 @@ function Render-NginxTemplate {
     $content = $content -replace '\$\{ERGO_LISTEN_HOST\}', $ListenHost
     $content = $content -replace '\$\{ERGO_LISTEN_PORT\}', $ListenPort
     $content = $content -replace '\$\{ERGO_NGINX_SNIPPETS\}', $snippetsForward
+    $content = $content -replace '\$\{ERGO_SSL_CERT\}', ($SslCert -replace '\\', '/')
+    $content = $content -replace '\$\{ERGO_SSL_KEY\}', ($SslKey -replace '\\', '/')
 
     return $content
 }
@@ -186,16 +239,24 @@ function Install-NginxConfig {
         [string]$Root,
         [string]$ServerName = 'localhost',
         [string]$ListenHost = '0.0.0.0',
-        [string]$ListenPort = '80'
+        [string]$ListenPort = '80',
+        [hashtable]$EnvVars = @{}
     )
 
     $nginxDir = Get-NginxDir -Root $Root
     $nginxExe = Install-NginxBinary -Root $Root
 
-    $templatePath = Join-Path $Root "core\deployment\nginx\ergo_ms_http.conf.template"
+    $templatePath = Get-NginxTemplatePath -Root $Root -EnvVars $EnvVars -ListenPort $ListenPort
     if (-not (Test-Path $templatePath)) {
         Write-ColorOutput "[ERROR] Template not found: $templatePath" Red
         throw "Template not found"
+    }
+
+    $useHttps = Test-NginxUseHttps -EnvVars $EnvVars -ListenPort $ListenPort
+    $sslCert = if ($EnvVars['ERGO_SSL_CERT']) { $EnvVars['ERGO_SSL_CERT'] } else { '' }
+    $sslKey = if ($EnvVars['ERGO_SSL_KEY']) { $EnvVars['ERGO_SSL_KEY'] } else { '' }
+    if ($useHttps) {
+        Warn-NginxInsecureCerts -CertPath $sslCert -KeyPath $sslKey
     }
 
     $distPath = Join-Path $Root "core\client\dist"
@@ -208,7 +269,8 @@ function Install-NginxConfig {
     }
 
     $rendered = Render-NginxTemplate -TemplatePath $templatePath -Root $Root `
-        -ServerName $ServerName -ListenHost $ListenHost -ListenPort $ListenPort
+        -ServerName $ServerName -ListenHost $ListenHost -ListenPort $ListenPort `
+        -SslCert $sslCert -SslKey $sslKey
 
     $confDir = Join-Path $nginxDir "conf"
     $confPath = Join-Path $confDir "${script:NginxConfName}.conf"
@@ -317,7 +379,8 @@ function Install-Nginx {
     Write-ColorOutput "=== Nginx: Install ===" Cyan
     Write-ColorOutput "" White
 
-    $config = Install-NginxConfig -Root $Root -ServerName $ServerName -ListenHost $ListenHost -ListenPort $ListenPort
+    $config = Install-NginxConfig -Root $Root -ServerName $ServerName -ListenHost $ListenHost `
+        -ListenPort $ListenPort -EnvVars $envVars
 
     if ($AsService) {
         Install-NginxService -Root $Root
@@ -327,9 +390,14 @@ function Install-Nginx {
     }
 
     $nginxDir = Get-NginxDir -Root $Root
+    $useHttps = Test-NginxUseHttps -EnvVars $envVars -ListenPort $ListenPort
     Write-ColorOutput "" White
     Write-ColorOutput "[OK] Nginx installed and running" Green
-    Write-ColorOutput "    Listening: http://${ServerName}:${ListenPort} (bind ${ListenHost})" Cyan
+    if ($useHttps) {
+        Write-ColorOutput "    Listening: https://${ServerName}:443" Cyan
+    } else {
+        Write-ColorOutput "    Listening: http://${ServerName}:${ListenPort} (bind ${ListenHost})" Cyan
+    }
     Write-ColorOutput "    Path: $nginxDir" Cyan
     Write-ColorOutput "    Config: $($config.SiteConf)" Cyan
     Write-ColorOutput "    Logs: $(Join-Path $nginxDir 'logs')" Cyan

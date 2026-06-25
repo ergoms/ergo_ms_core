@@ -1,5 +1,5 @@
 """
-Дополняет .env для nginx-сценария: публичный IP, listen 0.0.0.0, relative API.
+Дополняет .env для nginx-сценария: публичный IP, listen, relative API.
 
 Вызывается из install-nginx перед генерацией конфига.
 """
@@ -40,10 +40,26 @@ def _set_env_var(content: str, key: str, value: str) -> str:
     return content + line + '\n'
 
 
+def _truthy(value: str) -> bool:
+    return value.strip().lower() in ('1', 'true', 'yes')
+
+
+def _use_https(values: dict[str, str]) -> bool:
+    if _truthy(values.get('NGINX_USE_HTTPS', '')):
+        return True
+    return values.get('NGINX_LISTEN_PORT', '').strip() == '443'
+
+
+def _default_listen_host(values: dict[str, str]) -> str:
+    if _use_https(values):
+        return '127.0.0.1'
+    return '0.0.0.0'
+
+
 def main() -> int:
     env_path = PROJECT_ROOT / '.env'
     values = _read_env(env_path)
-    if values.get('NGINX_ENABLED', 'false').lower() not in ('1', 'true', 'yes'):
+    if not _truthy(values.get('NGINX_ENABLED', '')):
         return 0
 
     content = env_path.read_text(encoding='utf-8') if env_path.is_file() else ''
@@ -58,7 +74,8 @@ def main() -> int:
             changed = True
 
     if not values.get('NGINX_LISTEN_HOST', '').strip():
-        content = _set_env_var(content, 'NGINX_LISTEN_HOST', '0.0.0.0')
+        listen_host = _default_listen_host(values)
+        content = _set_env_var(content, 'NGINX_LISTEN_HOST', listen_host)
         changed = True
 
     server_name = values.get('NGINX_SERVER_NAME', '').strip()
@@ -66,7 +83,7 @@ def main() -> int:
         content = _set_env_var(content, 'NGINX_SERVER_NAME', public_host)
         changed = True
 
-    if values.get('VITE_USE_RELATIVE_API', 'false').lower() not in ('1', 'true', 'yes'):
+    if not _truthy(values.get('VITE_USE_RELATIVE_API', '')):
         content = _set_env_var(content, 'VITE_USE_RELATIVE_API', 'true')
         changed = True
 
