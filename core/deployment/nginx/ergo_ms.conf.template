@@ -1,0 +1,102 @@
+# ERGO MS — reverse proxy и раздача статики (production, один домен).
+#
+# Установка (Linux):
+#   export ERGO_ROOT=/var/www/ergo_ms
+#   export ERGO_SERVER_NAME=app.example.com
+#   export ERGO_SSL_CERT=/etc/letsencrypt/live/app.example.com/fullchain.pem
+#   export ERGO_SSL_KEY=/etc/letsencrypt/live/app.example.com/privkey.pem
+#   bash core/deployment/nginx/install.sh
+#
+# Перед запуском:
+#   ergoms build-all
+#   API_HOST=127.0.0.1, VITE_USE_RELATIVE_API=true, MEDIA_API_* — см. core/deployment/nginx/env.example
+#
+# Upstream-сервисы (ergoms dev / start-media) слушают только localhost.
+
+upstream ergo_api {
+    server 127.0.0.1:8000;
+    keepalive 32;
+}
+
+upstream ergo_media {
+    server 127.0.0.1:8003;
+    keepalive 8;
+}
+
+# Редирект HTTP -> HTTPS (закомментируйте блок server :80, если TLS только на балансировщике)
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${ERGO_SERVER_NAME};
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name ${ERGO_SERVER_NAME};
+
+    ssl_certificate     ${ERGO_SSL_CERT};
+    ssl_certificate_key ${ERGO_SSL_KEY};
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:ErgoSSL:10m;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    # Vue SPA (ergoms client-build -> core/client/dist)
+    root ${ERGO_ROOT}/core/client/dist;
+    index index.html;
+
+    # MEDIA_UPLOAD_MAX_SIZE по умолчанию 100 МБ + запас
+    client_max_body_size 110m;
+
+    include ${ERGO_NGINX_SNIPPETS}/proxy_params.conf;
+
+    # --- Клиент (Vue Router, history mode) ---
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # --- Django API ---
+    location /api/ {
+        proxy_pass http://ergo_api;
+    }
+
+    # --- WebSocket: мессенджер, уведомления (/ws/messenger/, /ws/notifications/) ---
+    location /ws/ {
+        proxy_pass http://ergo_api;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
+    }
+
+    # --- Django collectstatic (ergoms collectstatic -> virtual_env/static_api) ---
+    location /static/ {
+        alias ${ERGO_ROOT}/virtual_env/static_api/;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+        access_log off;
+    }
+
+    # --- Media API: подписанные URL /serve/..., загрузка /upload/ ---
+    location /serve/ {
+        proxy_pass http://ergo_media;
+    }
+
+    location /upload/ {
+        proxy_pass http://ergo_media;
+        client_max_body_size 110m;
+    }
+
+    location /health/ {
+        proxy_pass http://ergo_media;
+        access_log off;
+    }
+}

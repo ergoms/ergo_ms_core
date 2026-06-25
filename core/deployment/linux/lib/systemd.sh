@@ -117,7 +117,7 @@ After=network.target
 Type=simple
 EnvironmentFile=/etc/default/ergo_ms
 Environment=PYTHONUNBUFFERED=1
-ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && PYTHONPATH="$ERGO_ROOT/core/media_api/src" python -m media_server.manage runserver 0.0.0.0:8003'
+ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && python core/api/scripts/start_media_api.py'
 Restart=always
 RestartSec=5
 

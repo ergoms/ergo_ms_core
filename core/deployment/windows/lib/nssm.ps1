@@ -110,15 +110,15 @@ function New-BaseServiceWrapper {
         }
         'ergo-media-api' {
             $wrapperPath = Join-Path $wrapperDir "start_media_api.bat"
+            $scriptPath = Join-Path $corePath "api\scripts\start_media_api.py"
             $content = @(
                 '@echo off',
                 'chcp 65001 >nul',
                 'set PYTHONIOENCODING=utf-8',
                 'set PYTHONUTF8=1',
-                "set PYTHONPATH=$Root\core\media_api\src",
                 "cd /d `"$Root`"",
                 "call `"$venvActivate`"",
-                'python -m media_server.manage runserver 0.0.0.0:8003'
+                "python `"$scriptPath`""
             ) -join "`r`n"
         }
         default {
