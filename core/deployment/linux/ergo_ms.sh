@@ -21,6 +21,8 @@ source "$LIB_DIR/setup.sh"
 source "$LIB_DIR/cli.sh"
 # shellcheck source=lib/commands.sh
 source "$LIB_DIR/commands.sh"
+# shellcheck source=lib/nginx.sh
+source "$LIB_DIR/nginx.sh"
 # shellcheck source=lib/help.sh
 source "$LIB_DIR/help.sh"
 
@@ -53,7 +55,7 @@ main() {
   if (( $# > 0 )); then
     command="$1"
     case "$command" in
-      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|update-submodules|clean|poetry|api|media_api|npm)
+      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|update-submodules|clean|poetry|api|media_api|npm|install-nginx|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx)
         shift ;;
       *:poetry)
         shift ;;  # module:poetry command, handled below
@@ -101,7 +103,7 @@ main() {
   
   # Check if it's a custom command (doesn't require root)
   # Exclude built-in commands to avoid recursion (e.g. install-cli would re-invoke self via commands.conf)
-  local builtin_override="install-cli|uninstall-cli|install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|start|stop|restart|status|uninstall-services|setup-full"
+  local builtin_override="install-cli|uninstall-cli|install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|start|stop|restart|status|uninstall-services|setup-full|install-nginx|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx"
   local is_custom_command=false
   if [[ -v "available_custom_cmds[$command]" ]] && [[ ! "$command" =~ ^($builtin_override)$ ]]; then
     is_custom_command=true
@@ -126,8 +128,15 @@ main() {
     is_update_submodules_command=true
   fi
 
-  # Parse flags/positional root for proxy, custom, logs, deploy, clean, and update-submodules commands
-  if [[ "$is_proxy_command" == true ]] || [[ "$is_module_poetry_command" == true ]] || [[ "$is_custom_command" == true ]] || [[ "$is_logs_command" == true ]] || [[ "$is_deploy_command" == true ]] || [[ "$is_clean_command" == true ]] || [[ "$is_update_submodules_command" == true ]]; then
+  # Check if it's a nginx command (requires root for install/uninstall, not for others)
+  local is_nginx_command=false
+  case "$command" in
+    install-nginx|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx)
+      is_nginx_command=true ;;
+  esac
+
+  # Parse flags/positional root for proxy, custom, logs, deploy, clean, update-submodules, and nginx commands
+  if [[ "$is_proxy_command" == true ]] || [[ "$is_module_poetry_command" == true ]] || [[ "$is_custom_command" == true ]] || [[ "$is_logs_command" == true ]] || [[ "$is_deploy_command" == true ]] || [[ "$is_clean_command" == true ]] || [[ "$is_update_submodules_command" == true ]] || [[ "$is_nginx_command" == true ]]; then
     while (( "$#" )); do
       case "$1" in
         --root)
@@ -160,6 +169,24 @@ main() {
     fi
     if [[ "$is_update_submodules_command" == true ]]; then
       update_submodules "$ERGO_ROOT"
+      exit 0
+    fi
+
+    # Execute nginx command
+    if [[ "$is_nginx_command" == true ]]; then
+      case "$command" in
+        install-nginx)
+          require_root_or_sudo
+          nginx_install "$ERGO_ROOT" "${1:-}" "${2:-}" "${3:-false}"
+          ;;
+        uninstall-nginx)  require_root_or_sudo; nginx_uninstall ;;
+        start-nginx)      require_root_or_sudo; nginx_start_service ;;
+        stop-nginx)       require_root_or_sudo; nginx_stop_service ;;
+        restart-nginx)    require_root_or_sudo; nginx_stop_service; nginx_start_service ;;
+        reload-nginx)     require_root_or_sudo; nginx_reload_service ;;
+        status-nginx)     nginx_status_service ;;
+        test-nginx)       nginx_test_config ;;
+      esac
       exit 0
     fi
 

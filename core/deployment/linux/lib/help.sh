@@ -42,6 +42,16 @@ Service Management Commands:
   update-submodules Update all git submodules and switch to dev branch
   clean          Clean all dependencies (node_modules, venv, static) - keep media
 
+Nginx Commands (require root/sudo, except status/test):
+  install-nginx [server] [port]  Install nginx, generate config and start
+  uninstall-nginx   Remove Ergo MS nginx config
+  start-nginx       Start nginx service
+  stop-nginx        Stop nginx service
+  restart-nginx     Restart nginx service
+  reload-nginx      Test config and reload nginx
+  status-nginx      Show nginx status (no root required)
+  test-nginx        Test nginx configuration (no root required)
+
 Deployment Commands (no root required):
   deploy-api     Deploy API only (install deps, migrate, collect static)
   deploy-client  Deploy Client only (install deps, build)
@@ -151,6 +161,17 @@ Examples:
     ergoms db-migrate           (alias for: api migrate)
     ergoms update-submodules    (update all git submodules and switch to dev branch)
     ergoms clean                (removes all dependencies - works on both Windows and Linux)
+
+  Nginx (optional, not part of standard install):
+    1. Set NGINX_ENABLED=true in .env
+    2. ergoms build-all && ergoms collectstatic
+    3. sudo ergoms install-nginx         (auto-detects LAN IP, updates .env)
+    4. sudo ergoms install-nginx myhost 8080  (override .env)
+    Open http://<NGINX_PUBLIC_HOST> — not :8001 (Vite skipped when NGINX_ENABLED=true)
+    ergoms status-nginx
+    sudo ergoms reload-nginx             (after config changes)
+    sudo ergoms stop-nginx
+    sudo ergoms uninstall-nginx
 
   Deployment Commands:
     ergoms deploy-api           (deploy API only)

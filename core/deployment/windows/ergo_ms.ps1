@@ -57,6 +57,7 @@ function Load-HeavyModules {
     . (Join-Path $LibPath "setup.ps1")
     . (Join-Path $LibPath "cli.ps1")
     . (Join-Path $LibPath "help.ps1")
+    . (Join-Path $LibPath "nginx.ps1")
     $script:HeavyModulesLoaded = $true
 }
 
@@ -71,12 +72,14 @@ function Main {
         'install', 'install-services', 'install-api-service', 'install-client-service', 
         'install-worker-service', 'install-beat-service', 'install-media-service', 
         'start', 'stop', 'restart', 'status', 
-        'uninstall-services', 'install-cli', 'uninstall-cli', 'setup-full'
+        'uninstall-services', 'install-cli', 'uninstall-cli', 'setup-full',
+        'install-nginx', 'install-nginx-service', 'uninstall-nginx',
+        'start-nginx', 'stop-nginx', 'restart-nginx', 'reload-nginx'
     )
     $requiresAdmin = $adminCommands -contains $Command.ToLower()
     
     # Commands that don't require admin
-    $noAdminCommands = @('logs', 'help', 'clean', 'update-submodules')
+    $noAdminCommands = @('logs', 'help', 'clean', 'update-submodules', 'status-nginx', 'test-nginx')
     
     # Check if it's a custom command
     $projectRoot = $null
@@ -110,6 +113,17 @@ function Main {
             Clear-ProjectDependencies -Root $projectRoot
         } else {
             Update-Submodules -Root $projectRoot
+        }
+        return
+    }
+
+    # Handle nginx noAdmin commands (status-nginx, test-nginx) before custom commands
+    if ($Command -in @('status-nginx', 'test-nginx')) {
+        . Load-HeavyModules
+        $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+        switch ($Command) {
+            'status-nginx' { Show-NginxStatus -Root $projectRoot }
+            'test-nginx'   { Test-NginxConfig -Root $projectRoot }
         }
         return
     }
@@ -314,6 +328,38 @@ function Main {
         'update-submodules' {
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
             Update-Submodules -Root $projectRoot
+        }
+        'install-nginx' {
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+            $serverName = if ($RemainingArgs.Count -ge 1) { $RemainingArgs[0] } else { '' }
+            $listenPort = if ($RemainingArgs.Count -ge 2) { $RemainingArgs[1] } else { '' }
+            Install-Nginx -Root $projectRoot -ServerName $serverName -ListenPort $listenPort
+        }
+        'install-nginx-service' {
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+            $serverName = if ($RemainingArgs.Count -ge 1) { $RemainingArgs[0] } else { '' }
+            $listenPort = if ($RemainingArgs.Count -ge 2) { $RemainingArgs[1] } else { '' }
+            Install-Nginx -Root $projectRoot -ServerName $serverName -ListenPort $listenPort -AsService
+        }
+        'uninstall-nginx' {
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+            Uninstall-Nginx -Root $projectRoot -PurgeData:$Purge
+        }
+        'start-nginx' {
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+            Start-NginxProcess -Root $projectRoot
+        }
+        'stop-nginx' {
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+            Stop-NginxProcess -Root $projectRoot
+        }
+        'restart-nginx' {
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+            Restart-NginxProcess -Root $projectRoot
+        }
+        'reload-nginx' {
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+            Invoke-NginxReload -Root $projectRoot
         }
         'help' {
             try {

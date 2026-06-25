@@ -200,6 +200,77 @@
             "problemMatcher": []
         },
         {
+            "label": "Nginx: Install & Start",
+            "type": "shell",
+            "command": "ergoms install-nginx",
+            "options": { "cwd": "${workspaceFolder}" },
+            "windows": {
+                "options": {
+                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                }
+            },
+            "linux": {
+                "options": {
+                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                },
+                "command": "sudo bash core/deployment/linux/ergo_ms.sh install-nginx"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new"
+            },
+            "group": { "kind": "build", "isDefault": false },
+            "problemMatcher": []
+        },
+        {
+            "label": "Nginx: Stop",
+            "type": "shell",
+            "command": "ergoms stop-nginx",
+            "options": { "cwd": "${workspaceFolder}" },
+            "windows": {
+                "options": {
+                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                }
+            },
+            "linux": {
+                "options": {
+                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                },
+                "command": "sudo bash core/deployment/linux/ergo_ms.sh stop-nginx"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Nginx: Reload",
+            "type": "shell",
+            "command": "ergoms reload-nginx",
+            "options": { "cwd": "${workspaceFolder}" },
+            "windows": {
+                "options": {
+                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                }
+            },
+            "linux": {
+                "options": {
+                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                },
+                "command": "sudo bash core/deployment/linux/ergo_ms.sh reload-nginx"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
             "label": "Logs: All Services",
             "type": "multi-terminal",
             "sources": [

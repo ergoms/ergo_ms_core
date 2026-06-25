@@ -1,0 +1,75 @@
+# ERGO MS — reverse proxy и раздача статики (HTTP, без SSL).
+#
+# Используется для локальной разработки и тестирования на Windows/Linux.
+# Для production с HTTPS используйте ergo_ms.conf.template.
+#
+# Переменные шаблона:
+#   ${ERGO_SERVER_NAME}  — публичный host (IP или hostname)
+#   ${ERGO_LISTEN_HOST}  — bind (0.0.0.0 для LAN)
+#   ${ERGO_LISTEN_PORT}  — порт (например, 80 или 8080)
+#   ${ERGO_ROOT}        — корень проекта (например, C:/projects/ergo_ms)
+#   ${ERGO_NGINX_SNIPPETS} — путь к snippets (proxy_params.conf)
+
+upstream ergo_api {
+    server 127.0.0.1:8000;
+    keepalive 32;
+}
+
+upstream ergo_media {
+    server 127.0.0.1:8003;
+    keepalive 8;
+}
+
+server {
+    listen ${ERGO_LISTEN_HOST}:${ERGO_LISTEN_PORT};
+    server_name ${ERGO_SERVER_NAME};
+
+    root ${ERGO_ROOT}/core/client/dist;
+    index index.html;
+
+    client_max_body_size 110m;
+
+    include ${ERGO_NGINX_SNIPPETS}/proxy_params.conf;
+
+    # --- Vue SPA (Vue Router, history mode) ---
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # --- Django API ---
+    location /api/ {
+        proxy_pass http://ergo_api;
+    }
+
+    # --- WebSocket ---
+    location /ws/ {
+        proxy_pass http://ergo_api;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
+    }
+
+    # --- Django collectstatic ---
+    location /static/ {
+        alias ${ERGO_ROOT}/virtual_env/static_api/;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+        access_log off;
+    }
+
+    # --- Media API ---
+    location /serve/ {
+        proxy_pass http://ergo_media;
+    }
+
+    location /upload/ {
+        proxy_pass http://ergo_media;
+        client_max_body_size 110m;
+    }
+
+    location /health/ {
+        proxy_pass http://ergo_media;
+        access_log off;
+    }
+}

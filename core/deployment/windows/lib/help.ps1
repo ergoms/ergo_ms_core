@@ -45,6 +45,17 @@ Service Management Commands:
     update-submodules Update all git submodules and switch to dev branch
     help           Show this help
 
+Nginx Commands (separate from standard install, requires admin except status/test):
+    install-nginx [server] [port]  Download nginx to virtual_env/packages/nginx, generate config, start
+    install-nginx-service [s] [p]  Same but as Windows service (auto-start)
+    uninstall-nginx   Remove nginx config and optionally binaries (-Purge)
+    start-nginx       Start nginx process
+    stop-nginx        Stop nginx process
+    restart-nginx     Restart nginx
+    reload-nginx      Test config and reload nginx
+    status-nginx      Show nginx status (no admin required)
+    test-nginx        Test nginx configuration (no admin required)
+
 Deployment Commands (no admin required):
     deploy-api     Deploy API only (install deps, migrate, collect static)
     deploy-client  Deploy Client only (install deps, build)
@@ -155,6 +166,17 @@ Examples:
         ergoms db-migrate           (alias for: api migrate)
         ergoms update-submodules    (update all git submodules and switch to dev branch)
         ergoms clean                (removes all dependencies - works on both Windows and Linux)
+
+    Nginx (optional, not part of standard install):
+        1. Set NGINX_ENABLED=true in .env
+        2. ergoms build-all && ergoms collectstatic
+        3. ergoms install-nginx          (auto-detects LAN IP, updates .env, generates config)
+        4. ergoms install-nginx myhost 8080  (override .env)
+        Open http://<NGINX_PUBLIC_HOST> — not :8001 (Vite skipped when NGINX_ENABLED=true)
+        ergoms reload-nginx             (after config changes)
+        ergoms status-nginx
+        ergoms stop-nginx
+        ergoms uninstall-nginx
 
     Deployment Commands:
         ergoms deploy-api           (deploy API only)
