@@ -42,6 +42,9 @@ _nginx_should_use_ssl() {
   if [[ "$explicit" == "true" ]]; then
     return 0
   fi
+  if [[ "$explicit" == "false" ]]; then
+    return 1
+  fi
   if _nginx_truthy "${NGINX_USE_HTTPS:-}"; then
     return 0
   fi
@@ -203,11 +206,11 @@ _nginx_render_template() {
     --listen-port "$listen_port"
     --use-https "$use_ssl"
   )
-  if [[ -n "${ERGO_SSL_CERT:-}" ]]; then
-    args+=(--ssl-cert "${ERGO_SSL_CERT}")
-  fi
-  if [[ -n "${ERGO_SSL_KEY:-}" ]]; then
-    args+=(--ssl-key "${ERGO_SSL_KEY}")
+  if [[ "$use_ssl" == "true" ]]; then
+    args+=(
+      --ssl-cert "${ERGO_SSL_CERT:-/etc/ssl/certs/ssl-cert-snakeoil.pem}"
+      --ssl-key "${ERGO_SSL_KEY:-/etc/ssl/private/ssl-cert-snakeoil.key}"
+    )
   fi
 
   "$py" "${args[@]}"

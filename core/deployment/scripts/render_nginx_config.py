@@ -62,6 +62,11 @@ def render_template(
         use_https=use_https,
     )
 
+    if use_https and not ssl_cert:
+        ssl_cert = '/etc/ssl/certs/ssl-cert-snakeoil.pem'
+    if use_https and not ssl_key:
+        ssl_key = '/etc/ssl/private/ssl-cert-snakeoil.key'
+
     content = template_path.read_text(encoding='utf-8')
     replacements = {
         '${ERGO_ROOT}': root_forward,
@@ -74,14 +79,15 @@ def render_template(
         '${ERGO_HOST_POLICY_BLOCKS}': extra['ERGO_HOST_POLICY_BLOCKS'],
         '${ERGO_HTTP_CANONICAL_REDIRECT}': extra['ERGO_HTTP_CANONICAL_REDIRECT'],
     }
+
+    content = re.sub(
+        r'^\$\{ERGO_HOST_POLICY_BLOCKS\}\s*$',
+        replacements['${ERGO_HOST_POLICY_BLOCKS}'],
+        content,
+        flags=re.MULTILINE,
+    )
     for needle, value in replacements.items():
         if needle == '${ERGO_HOST_POLICY_BLOCKS}':
-            content = re.sub(
-                r'^\$\{ERGO_HOST_POLICY_BLOCKS\}\s*$',
-                value,
-                content,
-                flags=re.MULTILINE,
-            )
             continue
         content = content.replace(needle, value)
     return content
