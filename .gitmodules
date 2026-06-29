@@ -100,13 +100,6 @@
 	update = merge
 	ignore = all
 
-[submodule "version_management"]
-	path = modules/version_management
-	url = https://github.com/SKB-AI/ergo_ms_version_management.git
-	branch = dev
-	update = merge
-	ignore = all
-
 [submodule "modules/organizations"]
 	path = modules/organizations
 	url = https://github.com/SKB-AI/ergo_ms_organizations.git
