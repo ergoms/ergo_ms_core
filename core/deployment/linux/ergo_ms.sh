@@ -23,6 +23,8 @@ source "$LIB_DIR/cli.sh"
 source "$LIB_DIR/commands.sh"
 # shellcheck source=lib/nginx.sh
 source "$LIB_DIR/nginx.sh"
+# shellcheck source=lib/tls.sh
+source "$LIB_DIR/tls.sh"
 # shellcheck source=lib/help.sh
 source "$LIB_DIR/help.sh"
 
@@ -55,7 +57,7 @@ main() {
   if (( $# > 0 )); then
     command="$1"
     case "$command" in
-      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|update-submodules|clean|poetry|api|media_api|npm|install-nginx|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx)
+      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|update-submodules|clean|poetry|api|media_api|npm|install-nginx|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx|install-tls|renew-tls|status-tls)
         shift ;;
       *:poetry)
         shift ;;  # module:poetry command, handled below
@@ -103,7 +105,7 @@ main() {
   
   # Check if it's a custom command (doesn't require root)
   # Exclude built-in commands to avoid recursion (e.g. install-cli would re-invoke self via commands.conf)
-  local builtin_override="install-cli|uninstall-cli|install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|start|stop|restart|status|uninstall-services|setup-full|install-nginx|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx"
+  local builtin_override="install-cli|uninstall-cli|install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|start|stop|restart|status|uninstall-services|setup-full|install-nginx|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx|install-tls|renew-tls|status-tls"
   local is_custom_command=false
   if [[ -v "available_custom_cmds[$command]" ]] && [[ ! "$command" =~ ^($builtin_override)$ ]]; then
     is_custom_command=true
@@ -131,7 +133,7 @@ main() {
   # Check if it's a nginx command (requires root for install/uninstall, not for others)
   local is_nginx_command=false
   case "$command" in
-    install-nginx|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx)
+    install-nginx|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx|install-tls|renew-tls|status-tls)
       is_nginx_command=true ;;
   esac
 
@@ -178,6 +180,26 @@ main() {
         install-nginx)
           require_root_or_sudo
           nginx_install "$ERGO_ROOT" "${1:-}" "${2:-}" "${3:-false}"
+          ;;
+        install-tls)
+          require_root_or_sudo
+          _nginx_read_env "$ERGO_ROOT"
+          staging="${3:-false}"
+          if _nginx_truthy "${ERGO_TLS_STAGING:-}"; then
+            staging="true"
+          fi
+          tls_install "$ERGO_ROOT" "${1:-}" "${2:-}" "$staging"
+          ;;
+        renew-tls)
+          require_root_or_sudo
+          dry_run="false"
+          if [[ "${1:-}" == "--dry-run" ]]; then
+            dry_run="true"
+          fi
+          tls_renew "$ERGO_ROOT" "$dry_run"
+          ;;
+        status-tls)
+          tls_status "$ERGO_ROOT"
           ;;
         uninstall-nginx)  require_root_or_sudo; nginx_uninstall ;;
         start-nginx)      require_root_or_sudo; nginx_start_service ;;

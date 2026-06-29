@@ -96,6 +96,20 @@ def main() -> int:
         content = _set_env_var(content, 'MEDIA_API_HOST', public_host)
         changed = True
 
+    if _truthy(values.get('NGINX_USE_HTTPS', '')):
+        sys.path.insert(0, str(DEPLOYMENT_DIR / 'nginx'))
+        from tls_config import cert_exists, cert_paths, is_valid_hostname  # noqa: E402
+
+        tls_domain = public_host if is_valid_hostname(public_host) else ''
+        if tls_domain and cert_exists(tls_domain):
+            fullchain, privkey = cert_paths(tls_domain)
+            if values.get('ERGO_SSL_CERT', '').strip() != fullchain:
+                content = _set_env_var(content, 'ERGO_SSL_CERT', fullchain)
+                changed = True
+            if values.get('ERGO_SSL_KEY', '').strip() != privkey:
+                content = _set_env_var(content, 'ERGO_SSL_KEY', privkey)
+                changed = True
+
     if changed:
         env_path.write_text(content, encoding='utf-8')
         print(f'[ergoms] .env updated for nginx (public host: {public_host or "localhost"})')

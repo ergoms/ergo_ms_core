@@ -44,6 +44,10 @@ server {
         log_not_found off;
     }
 
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
     # --- Vue SPA (Vue Router, history mode) ---
     location / {
         limit_conn ergo_conn 50;

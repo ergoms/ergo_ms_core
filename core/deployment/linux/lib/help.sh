@@ -52,6 +52,11 @@ Nginx Commands (require root/sudo, except status/test):
   status-nginx      Show nginx status (no root required)
   test-nginx        Test nginx configuration (no root required)
 
+TLS Commands (Linux only, Let's Encrypt, require root/sudo except status-tls):
+  install-tls [domain] [email] [staging]  Issue cert, configure HTTPS nginx, auto-renew hook
+  renew-tls [--dry-run]                   Renew certificates (certbot renew)
+  status-tls                              Show certificate expiry and paths
+
 Deployment Commands (no root required):
   deploy-api     Deploy API only (install deps, migrate, collect static)
   deploy-client  Deploy Client only (install deps, build)
@@ -172,6 +177,14 @@ Examples:
     sudo ergoms reload-nginx             (after config changes)
     sudo ergoms stop-nginx
     sudo ergoms uninstall-nginx
+
+  TLS (Linux, Let's Encrypt):
+    1. NGINX_ENABLED=true, NGINX_PUBLIC_HOST=app.example.com, ERGO_TLS_EMAIL=you@example.com
+    2. ergoms client-build && ergoms collectstatic
+    3. sudo ergoms install-tls
+    4. ergoms status-tls
+    sudo ergoms renew-tls --dry-run
+    sudo ergoms renew-tls
 
   Deployment Commands:
     ergoms deploy-api           (deploy API only)
