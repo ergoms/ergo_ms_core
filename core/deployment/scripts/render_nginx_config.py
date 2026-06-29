@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
@@ -74,6 +75,14 @@ def render_template(
         '${ERGO_HTTP_CANONICAL_REDIRECT}': extra['ERGO_HTTP_CANONICAL_REDIRECT'],
     }
     for needle, value in replacements.items():
+        if needle == '${ERGO_HOST_POLICY_BLOCKS}':
+            content = re.sub(
+                r'^\$\{ERGO_HOST_POLICY_BLOCKS\}\s*$',
+                value,
+                content,
+                flags=re.MULTILINE,
+            )
+            continue
         content = content.replace(needle, value)
     return content
 

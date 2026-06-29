@@ -194,15 +194,23 @@ _nginx_render_template() {
     return 1
   fi
 
-  "$py" "$script" \
-    --template "$template" \
-    --root "$root" \
-    --server-name "$server_name" \
-    --listen-host "$listen_host" \
-    --listen-port "$listen_port" \
-    --use-https "$use_ssl" \
-    --ssl-cert "${ERGO_SSL_CERT:-}" \
-    --ssl-key "${ERGO_SSL_KEY:-}"
+  local -a args=(
+    "$script"
+    --template "$template"
+    --root "$root"
+    --server-name "$server_name"
+    --listen-host "$listen_host"
+    --listen-port "$listen_port"
+    --use-https "$use_ssl"
+  )
+  if [[ -n "${ERGO_SSL_CERT:-}" ]]; then
+    args+=(--ssl-cert "${ERGO_SSL_CERT}")
+  fi
+  if [[ -n "${ERGO_SSL_KEY:-}" ]]; then
+    args+=(--ssl-key "${ERGO_SSL_KEY}")
+  fi
+
+  "$py" "${args[@]}"
 }
 
 _nginx_select_template() {

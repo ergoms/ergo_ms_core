@@ -223,17 +223,32 @@ function Render-NginxTemplate {
     $renderScript = Join-Path $Root "core\deployment\scripts\render_nginx_config.py"
     if ((Test-Path $pythonExe) -and (Test-Path $renderScript)) {
         $useHttpsArg = if ($UseHttps) { 'true' } else { 'false' }
-        $output = & $pythonExe $renderScript `
-            --template $TemplatePath `
-            --root $Root `
-            --server-name $ServerName `
-            --listen-host $ListenHost `
-            --listen-port $ListenPort `
-            --use-https $useHttpsArg `
-            --ssl-cert $SslCert `
-            --ssl-key $SslKey 2>$null
+        $arguments = @(
+            $renderScript,
+            '--template', $TemplatePath,
+            '--root', $Root,
+            '--server-name', $ServerName,
+            '--listen-host', $ListenHost,
+            '--listen-port', $ListenPort,
+            '--use-https', $useHttpsArg
+        )
+        if ($SslCert) {
+            $arguments += @('--ssl-cert', $SslCert)
+        }
+        if ($SslKey) {
+            $arguments += @('--ssl-key', $SslKey)
+        }
+
+        $output = & $pythonExe @arguments 2>&1
         if ($LASTEXITCODE -eq 0 -and $output) {
-            return ($output -join "`n")
+            if ($output -is [System.Array]) {
+                return ($output -join "`n")
+            }
+            return [string]$output
+        }
+        if ($LASTEXITCODE -ne 0 -and $output) {
+            Write-ColorOutput "[WARN] render_nginx_config.py failed, using fallback renderer" Yellow
+            $output | ForEach-Object { Write-ColorOutput $_ Yellow }
         }
     }
 

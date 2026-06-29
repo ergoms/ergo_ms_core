@@ -9,7 +9,7 @@
 #   ${ERGO_LISTEN_PORT}  — порт (например, 80 или 8080)
 #   ${ERGO_ROOT}        — корень проекта (например, C:/projects/ergo_ms)
 #   ${ERGO_NGINX_SNIPPETS} — путь к snippets (proxy_params.conf)
-#   ${ERGO_HOST_POLICY_BLOCKS} — блоки redirect/deny (NGINX_HOST_POLICY в .env)
+#   ERGO_HOST_POLICY_BLOCKS - блоки redirect/deny (NGINX_HOST_POLICY в .env)
 
 include ${ERGO_NGINX_SNIPPETS}/http_hardening.conf;
 include ${ERGO_NGINX_SNIPPETS}/rate_limit.conf;
