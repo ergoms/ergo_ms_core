@@ -22,7 +22,7 @@ _nginx_read_env() {
       value="${value#\'}"
       value="${value%\'}"
       case "$key" in
-        NGINX_ENABLED|NGINX_SERVER_NAME|NGINX_PUBLIC_HOST|NGINX_LISTEN_HOST|NGINX_LISTEN_PORT|NGINX_USE_HTTPS|ERGO_SSL_CERT|ERGO_SSL_KEY)
+        NGINX_ENABLED|NGINX_SERVER_NAME|NGINX_PUBLIC_HOST|NGINX_LISTEN_HOST|NGINX_LISTEN_PORT|NGINX_USE_HTTPS|NGINX_HOST_POLICY|NGINX_ALT_HOSTS|ERGO_SSL_CERT|ERGO_SSL_KEY)
           export "$key=$value"
           ;;
       esac
@@ -184,19 +184,25 @@ _nginx_render_template() {
   local server_name="${3:-localhost}"
   local listen_host="${4:-0.0.0.0}"
   local listen_port="${5:-80}"
-  local snippets_dir
-  snippets_dir="$(_nginx_detect_snippets_dir "$root")"
+  local use_ssl="${6:-false}"
+  local py="$root/virtual_env/python/bin/python"
+  [[ -x "$py" ]] || py="python3"
 
-  local content
-  content="$(cat "$template")"
-  content="${content//\$\{ERGO_ROOT\}/$root}"
-  content="${content//\$\{ERGO_SERVER_NAME\}/$server_name}"
-  content="${content//\$\{ERGO_LISTEN_HOST\}/$listen_host}"
-  content="${content//\$\{ERGO_LISTEN_PORT\}/$listen_port}"
-  content="${content//\$\{ERGO_NGINX_SNIPPETS\}/$snippets_dir}"
-  content="${content//\$\{ERGO_SSL_CERT\}/${ERGO_SSL_CERT:-}}"
-  content="${content//\$\{ERGO_SSL_KEY\}/${ERGO_SSL_KEY:-}}"
-  printf '%s' "$content"
+  local script="$root/core/deployment/scripts/render_nginx_config.py"
+  if [[ ! -f "$script" ]]; then
+    echo "[ERROR] render_nginx_config.py not found" >&2
+    return 1
+  fi
+
+  "$py" "$script" \
+    --template "$template" \
+    --root "$root" \
+    --server-name "$server_name" \
+    --listen-host "$listen_host" \
+    --listen-port "$listen_port" \
+    --use-https "$use_ssl" \
+    --ssl-cert "${ERGO_SSL_CERT:-}" \
+    --ssl-key "${ERGO_SSL_KEY:-}"
 }
 
 _nginx_select_template() {
@@ -262,7 +268,7 @@ nginx_install() {
   fi
 
   local rendered
-  rendered="$(_nginx_render_template "$template" "$root" "$server_name" "$listen_host" "$listen_port")"
+  rendered="$(_nginx_render_template "$template" "$root" "$server_name" "$listen_host" "$listen_port" "$use_ssl")"
 
   local conf_path="$NGINX_SITES_AVAILABLE/${NGINX_CONF_NAME}.conf"
   local tmp_file

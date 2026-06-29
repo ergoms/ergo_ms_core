@@ -215,8 +215,27 @@ function Render-NginxTemplate {
         [string]$ListenHost = '0.0.0.0',
         [string]$ListenPort = '80',
         [string]$SslCert = '',
-        [string]$SslKey = ''
+        [string]$SslKey = '',
+        [bool]$UseHttps = $false
     )
+
+    $pythonExe = Join-Path $Root "virtual_env\python\Scripts\python.exe"
+    $renderScript = Join-Path $Root "core\deployment\scripts\render_nginx_config.py"
+    if ((Test-Path $pythonExe) -and (Test-Path $renderScript)) {
+        $useHttpsArg = if ($UseHttps) { 'true' } else { 'false' }
+        $output = & $pythonExe $renderScript `
+            --template $TemplatePath `
+            --root $Root `
+            --server-name $ServerName `
+            --listen-host $ListenHost `
+            --listen-port $ListenPort `
+            --use-https $useHttpsArg `
+            --ssl-cert $SslCert `
+            --ssl-key $SslKey 2>$null
+        if ($LASTEXITCODE -eq 0 -and $output) {
+            return ($output -join "`n")
+        }
+    }
 
     $snippetsDir = Join-Path $Root "core/deployment/nginx/snippets"
     $rootForward = $Root -replace '\\', '/'
@@ -230,6 +249,8 @@ function Render-NginxTemplate {
     $content = $content -replace '\$\{ERGO_NGINX_SNIPPETS\}', $snippetsForward
     $content = $content -replace '\$\{ERGO_SSL_CERT\}', ($SslCert -replace '\\', '/')
     $content = $content -replace '\$\{ERGO_SSL_KEY\}', ($SslKey -replace '\\', '/')
+    $content = $content -replace '\$\{ERGO_HOST_POLICY_BLOCKS\}', ''
+    $content = $content -replace '\$\{ERGO_HTTP_CANONICAL_REDIRECT\}', 'https://$host$request_uri'
 
     return $content
 }
@@ -270,7 +291,7 @@ function Install-NginxConfig {
 
     $rendered = Render-NginxTemplate -TemplatePath $templatePath -Root $Root `
         -ServerName $ServerName -ListenHost $ListenHost -ListenPort $ListenPort `
-        -SslCert $sslCert -SslKey $sslKey
+        -SslCert $sslCert -SslKey $sslKey -UseHttps:$useHttps
 
     $confDir = Join-Path $nginxDir "conf"
     $confPath = Join-Path $confDir "${script:NginxConfName}.conf"

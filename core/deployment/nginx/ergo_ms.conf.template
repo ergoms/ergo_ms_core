@@ -28,6 +28,7 @@ upstream ergo_media {
     keepalive 8;
 }
 
+${ERGO_HOST_POLICY_BLOCKS}
 # Редирект HTTP -> HTTPS (закомментируйте блок server :80, если TLS только на балансировщике)
 server {
     listen 80;
@@ -39,7 +40,7 @@ server {
     }
 
     location / {
-        return 301 https://$host$request_uri;
+        return 301 ${ERGO_HTTP_CANONICAL_REDIRECT};
     }
 }
 
