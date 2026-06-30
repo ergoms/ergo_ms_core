@@ -1,0 +1,47 @@
+---
+description: Поиск пользователей по ФИО, email, username — только через user_search в ядре ADP
+globs:
+  - core/api/**/*.py
+  - modules/**/api/**/*.py
+alwaysApply: false
+---
+
+# Поиск пользователей — user_search
+
+Единый источник: [`core/api/src/core/cms/adp/services/user_search.py`](core/api/src/core/cms/adp/services/user_search.py).
+
+```python
+from src.core.cms.adp.services.user_search import (
+    apply_user_search,
+    build_user_search_q,
+    resolve_user_by_search,
+)
+```
+
+Логика: каждое слово из строки должно совпасть хотя бы с одним полем (AND между словами, OR между полями). Поля по умолчанию: `username`, `email`, `first_name`, `last_name`, `middle_name`.
+
+## Когда какую функцию использовать
+
+| Задача | Функция |
+|--------|---------|
+| Фильтрация queryset (списки, picker, admin) | `apply_user_search(qs, search)` |
+| Поиск через связь (`OrganizationMember`, owner проекта) | `apply_user_search(qs, search, prefix='user__')` или `prefix='owner__'` |
+| Доп. поля модели (роль, подразделение) | `extra_fields=('role__name', 'department__name')` — **без** prefix |
+| OR с другими полями (название проекта + владелец) | `build_user_search_q(search, prefix='owner__')` |
+| Найти одного User по строке (импорт, резолв manager/customer) | `resolve_user_by_search(text)` |
+
+## Запрещено
+
+- Inline `Q(first_name__icontains=...)` / `Q(last_name__icontains=...)` / `Q(email__icontains=...)` для поиска пользователей
+- Локальные циклы `for token in search.split()` с теми же полями User
+- Дублировать токенизацию в модулях
+
+## Расширение
+
+Новые поля User для поиска — только в `user_search.py` (`DEFAULT_USER_SEARCH_FIELDS`), не в модулях.
+
+## Эталон
+
+- Админ-пользователи: [`views_roles.py`](core/api/src/core/cms/adp/views_roles.py) — `apply_user_search`
+- Участники организации: [`members.py`](modules/organizations/api/views/members.py) — `prefix='user__'` + `extra_fields`
+- Смешанный поиск: [`projects/views.py`](modules/projects/api/views.py) — `build_user_search_q(..., prefix='owner__')`
