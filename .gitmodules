@@ -39,7 +39,7 @@
 
 [submodule "crm"]
 	path = modules/crm
-	url = https://github.com/SKB-AI/ergo_ms_crm.git
+	url = https://github.com/Wyaro/dealflow-crm.git
 	branch = dev
 	update = merge
 	ignore = all
