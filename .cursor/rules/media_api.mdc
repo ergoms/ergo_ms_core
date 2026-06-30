@@ -64,8 +64,67 @@ const result = await mediaApiClient.upload(file, { targetDir: 'tasks/attachments
 
 ## Ключевые модули
 
-- `core/api/src/core/utils/media_storage.py` — `MediaApiStorage` (кастомный Django Storage)
+- `core/api/src/core/utils/media_client/` — прослойка доступа (`local` / `remote`)
+- `core/api/src/core/utils/media_client/pipeline.py` — `localize`, `commit_local`, `LocalizedFile`
+- `core/api/src/core/utils/media_client/scratch.py` — `ScratchStore`, `get_scratch_store`
+- `core/api/src/core/utils/media_storage.py` — `MediaApiStorage` (Django Storage → MediaClient)
 - `core/api/src/core/utils/media_signing.py` — `get_signed_media_url`, `get_upload_info`
 - `core/api/src/core/utils/media_views.py` — `MediaUploadTokenView` (POST `/api/utils/media/upload-token/`)
 - `core/api/src/core/utils/mixins.py` — `MediaApiFileMixin`
 - `core/client/src/js/api/media-api-client.js` — `mediaApiClient`
+
+## Три слоя данных (КРИТИЧЕСКИ ВАЖНО)
+
+Никогда не смешивай в одной папке `media/` разные типы данных:
+
+| Слой | Что это | Где | API |
+|------|---------|-----|-----|
+| **Canonical** | Постоянные файлы (БД, UI) | media_api | `MediaClient` / signed URL |
+| **Scratch** | Временные файлы обработки | локально на воркере | `ScratchStore` |
+| **Artifacts** | Результаты пайплайна | снова canonical | `commit_local` |
+
+## Запрещено (compute-пайплайны)
+
+- `os.path.join(settings.MEDIA_ROOT, ...)` в бизнес-коде модулей — привязывает к local-режиму, ломается при `remote`
+- Хранить temp/staging (`*_temp`, `input_files`, `uploads`) внутри `MEDIA_ROOT` рядом с пользовательскими медиа
+- Гонять видео/большие файлы через signed URL внутри ffmpeg/циклов обработки
+- Писать результат обработки напрямую в `MEDIA_ROOT` через `open()`
+
+## Compute-пайплайн (видео, документы, FAISS и т.п.)
+
+Для нативной обработки файлов (ffmpeg, faiss, парсеры) используй контракт `MediaClient`:
+
+```python
+from src.core.utils.media_client import get_media_client, get_scratch_store
+
+client = get_media_client()
+scratch = get_scratch_store()
+
+with scratch.session('video') as workdir:           # авто-очистка временных файлов
+    src = client.localize(video.file.name)           # local: тот же файл (0 копий); remote: cache
+    out = workdir / 'result.mp4'
+    run_ffmpeg(src.path, str(out))                   # нативные пути в обоих режимах
+    stored_path = client.commit_local(str(out), f'video_analysis/results/{pk}.mp4')
+    src.release()                                    # удалить cache-копию (no-op в local)
+# stored_path → в БД; client.url / signed URL → пользователю
+```
+
+- `localize(path) -> LocalizedFile` — локальный путь к canonical-файлу (`.path`, `os.fspath()`).
+- `commit_local(local_path, target) -> str` — залить результат в canonical, вернуть storage-путь.
+- `ScratchStore` (`get_scratch_store()`) — `new_dir()`, `new_path()`, `session()` (контекст с очисткой).
+- Staging загрузки перед Celery: пиши в `scratch`, не в `MEDIA_ROOT`. После валидации — `commit_local`.
+
+Тяжёлый compute — Celery-воркер; по возможности разворачивай его рядом со storage (`MEDIA_ACCESS_MODE=local`), web-tier при этом может быть `remote`. Режим — свойство процесса, а не системы.
+
+## Режимы доступа (MEDIA_ACCESS_MODE)
+
+- **`local`** (по умолчанию) — core/api читает/пишет файлы напрямую в `MEDIA_ROOT` на том же сервере. Клиент по-прежнему скачивает через подписанные URL media_api.
+- **`remote`** — core/api обращается к media_api по HTTP через internal API (`/internal/*`). Требует `MEDIA_API_INTERNAL_KEY` на обоих сервисах.
+
+## Конфигурация URL (упрощённо)
+
+- **`MEDIA_API_URL`** — публичный base URL для подписанных ссылок (вместо `MEDIA_API_HOST` + `PORT` + `PROTOCOL`).
+- **`MEDIA_API_BIND_PORT`** — порт процесса media_api; без nginx и без `MEDIA_API_URL` из него выводится публичный адрес.
+- **`MEDIA_API_INTERNAL_URL`** — служебный URL core/api → media_api при `remote` (вместо `MEDIA_API_INTERNAL_BASE_URL`).
+
+Публичные URL (`/serve/`, `/upload/`) для браузера всегда идут на media_api (отдельный сервер или nginx).
