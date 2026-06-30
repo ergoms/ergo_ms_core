@@ -33,8 +33,14 @@ from src.core.cms.adp.services.user_search import (
 ## Запрещено
 
 - Inline `Q(first_name__icontains=...)` / `Q(last_name__icontains=...)` / `Q(email__icontains=...)` для поиска пользователей
+- DRF `SearchFilter` + `search_fields` на модели User — использовать `apply_user_search` в `get_queryset`
 - Локальные циклы `for token in search.split()` с теми же полями User
 - Дублировать токенизацию в модулях
+
+## Исключения
+
+- [`get_user_by_name`](modules/project_ed/api/api_views/import_projects/helpers.py) — парсинг ФИО из DOCX (инициалы, Ё/Е, fuzzy по фамилии); в конце допустим fallback через `resolve_user_by_search`
+- Поиск не по User (приглашения, курсы LMS, проекты) — `user_search` только для полей пользователя
 
 ## Расширение
 
