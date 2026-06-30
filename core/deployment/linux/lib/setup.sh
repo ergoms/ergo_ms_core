@@ -132,18 +132,14 @@ setup_full_system() {
   fi
   create_cli_wrapper "$target_script"
   
-  # Step 5: Run setup (poetry install + npm) — без ergoms/api, только venv + poetry
-  echo "-> Step 5/7: Installing dependencies (poetry + npm)..."
+  # Step 5: Python (ядро + модули через commands install) + npm
+  echo "-> Step 5/7: Installing dependencies (python + npm)..."
   cd "$root" || exit 1
   export POETRY_VIRTUALENVS_CREATE=false
-  # Call Poetry via module so we don't depend on a "poetry" console script existing.
-  if ! python -m poetry install --only main --no-root; then
-    echo "[ERROR] poetry install failed" >&2
-    exit 1
-  fi
-  echo "  Running: python -m commands install (module deps)..."
+  echo "  Running: python -m commands install (core + module deps)..."
   if ! (cd "$root/core/api" && export PYTHONPATH="$root" && python -m commands install); then
-    echo "[WARNING] commands install (module deps) failed, continuing" >&2
+    echo "[ERROR] commands install failed" >&2
+    exit 1
   fi
   if ! npm run install:all; then
     echo "[ERROR] npm run install:all failed" >&2

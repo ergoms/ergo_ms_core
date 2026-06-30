@@ -263,28 +263,21 @@ function Setup-FullSystem {
     Write-ColorOutput "-> Step 4/8: Installing ErgoMS CLI..." Yellow
     Install-CliWrapper
     
-    # Step 5: Run setup (poetry install + npm install && npm run build) — без ergoms/api, только venv + poetry
-    Write-ColorOutput "-> Step 5/8: Installing dependencies (poetry + npm)..." Yellow
+    # Step 5: Python (ядро + модули через commands install) + npm
+    Write-ColorOutput "-> Step 5/8: Installing dependencies (python + npm)..." Yellow
     Push-Location $Root
     try {
         $env:VIRTUAL_ENV = $venvPath
         $env:PATH = "$venvPath\Scripts;$env:PATH"
         $env:POETRY_VIRTUALENVS_CREATE = "false"
         
-        $poetryExe = Join-Path $venvPath "Scripts\poetry.exe"
-        if (-not (Test-Path $poetryExe)) {
-            throw "poetry not found in virtual environment at $poetryExe"
-        }
-        Write-ColorOutput "  Running: poetry install --only main --no-root (from project root)..." Gray
-        & $poetryExe install --only main --no-root
-        if ($LASTEXITCODE -ne 0) { throw "poetry install failed" }
-        Write-ColorOutput "  Running: python -m commands install (module deps)..." Gray
+        Write-ColorOutput "  Running: python -m commands install (core + module deps)..." Gray
         $env:PYTHONPATH = $Root
         $env:PYTHONIOENCODING = "utf-8"
         Push-Location (Join-Path $Root "core\api")
         try {
             & $pythonExe -m commands install
-            if ($LASTEXITCODE -ne 0) { Write-ColorOutput "[WARNING] commands install (module deps) failed, continuing" Yellow }
+            if ($LASTEXITCODE -ne 0) { throw "commands install failed" }
         }
         finally {
             Pop-Location
