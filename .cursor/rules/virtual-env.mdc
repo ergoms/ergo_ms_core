@@ -1,36 +1,24 @@
 ---
-description: Виртуальное окружение Python — только virtual_env/python, не создавать новые venv
+description: Виртуальное окружение Python — только virtual_env/python
 alwaysApply: true
 ---
-# Виртуальное окружение Python
+# Python-окружение
 
-В проекте **уже есть** единое виртуальное окружение. Не создавай новые.
-
-## Где лежит venv
-
-```
-virtual_env/python/
-```
+Одно окружение на проект: `virtual_env/python/`.
 
 - Windows: `virtual_env\python\Scripts\python.exe`
 - Linux: `virtual_env/python/bin/python`
 
-Папка `virtual_env/` — не только venv: там же `static_api/`, `celery/`, `cache/`, `resources/` и др. (см. `VIRTUAL_ENV_DIR` в `core/api/src/config/settings/base.py`).
+В `virtual_env/` также лежат celery, cache, resources и др. — не удаляй папку целиком.
 
 ## Запрещено
 
-- `python -m venv .venv`, `python -m venv venv`, `python -m venv virtual_env` и любые другие новые venv в корне или подпапках
-- Создавать или пересоздавать `virtual_env/python/` вручную
-- Предлагать пользователю «сначала создайте venv» — оно уже предусмотрено проектом
-- Запускать `pip install` / `poetry install` вне ergoms (см. **no-direct-manage-py.mdc**)
-- Полагаться на `.venv/` в корне — в проекте это не стандартный путь
+- Создавать `.venv`, `venv`, новый `python -m venv`
+- Пересоздавать `virtual_env/python/` вручную
+- `pip install` / `poetry install` мимо ergoms
 
-## Разрешено
+## Если Python не найден
 
-- Зависимости и окружение — **только через ergoms**: `ergoms setup`, `ergoms python-install`, `ergoms poetry install`
-- В скриптах и командах использовать интерпретатор из `virtual_env/python/` (как в `core/deployment/commands.conf`)
-- Если Python «не найден» — проверить наличие `virtual_env/python/` и предложить `ergoms setup` / `ergoms python-install`, а не `python -m venv`
+`ergoms setup` или `ergoms python-install` — не предлагай создать venv вручную.
 
-## Кратко
-
-**Одно окружение — `virtual_env/python/`. Не дублируй и не пересоздавай.**
+Зависимости: `ergoms python-install`, `ergoms poetry install`, полная настройка — `ergoms setup`.

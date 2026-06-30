@@ -1,11 +1,14 @@
-# Разворачивание системных служб (Linux)
+# Развёртывание системных служб (Linux)
 
-Скрипт `core/deployment/linux/ergo_ms.sh` осуществляет регистрацию и управление службами systemd. Путь к корню проекта задаётся в `/etc/default/ergo_ms` (переменная `ERGO_ROOT`) или через параметр `--root`.
+На Linux ERGO MS можно зарегистрировать как набор служб **systemd**, чтобы API, клиент, Celery и media_api поднимались при старте сервера и перезапускались после сбоев. Для этого используется скрипт **`core/deployment/linux/ergo_ms.sh`**.
 
-## Поддерживаемые операции
+Путь к корню проекта задаётся переменной **`ERGO_ROOT`** в файле `/etc/default/ergo_ms` или передаётся флагом **`--root`** при установке.
+
+## Установка и управление службами
+
+Из корня репозитория (или с указанием `--root`):
 
 ```bash
-# Выполнять из корня проекта или указать --root
 sudo bash core/deployment/linux/ergo_ms.sh install [--root /var/www/ergo_ms]
 sudo bash core/deployment/linux/ergo_ms.sh start
 sudo bash core/deployment/linux/ergo_ms.sh stop
@@ -14,38 +17,44 @@ sudo bash core/deployment/linux/ergo_ms.sh status
 sudo bash core/deployment/linux/ergo_ms.sh uninstall-services [--purge]
 ```
 
-## CLI-обёртка `ergoms`
+Команда **`install`** создаёт unit-файлы systemd и подготавливает окружение. **`uninstall-services`** снимает службы; с **`--purge`** удаляются и связанные данные конфигурации — используйте осторожно.
+
+Чтобы вызывать **`ergoms`** из любого каталога под sudo:
 
 ```bash
-# Установка CLI-обёртки (путь — относительно корня проекта)
 sudo bash core/deployment/linux/ergo_ms.sh install-cli
-
-# Использование CLI
-sudo ergoms install --root /var/www/ergo_ms
-sudo ergoms start | stop | restart | status
-sudo ergoms uninstall-services [--purge]
-
-# Удаление CLI-обёртки
-sudo ergoms uninstall-cli
+sudo ergoms start
+sudo ergoms status
 ```
 
-## Идентификаторы служб systemd
+## Имена служб
 
-- `ergo-api-dev.service` — Django API
-- `ergo-client-dev.service` — Vue.js клиент
-- `ergo-celery-worker-all.service` — Celery Worker (по умолчанию один воркер «all»)
-- `ergo-celery-beat.service` — Celery Beat
-- `ergo-media-api.service` — Media API (CDN)
+| Служба systemd | Компонент |
+|----------------|-----------|
+| `ergo-api-dev` | Django API |
+| `ergo-client-dev` | Vue-клиент (dev-сборка) |
+| `ergo-celery-worker-all` | Celery worker |
+| `ergo-celery-beat` | Celery beat |
+| `ergo-media-api` | Media API |
 
-## Инспекция журналов systemd
+Точные имена могут отличаться, если вы меняли конфигурацию worker'ов в `celery_workers.yaml`; список актуальных служб покажет `ergoms status`.
+
+## Просмотр логов
+
+Через systemd:
 
 ```bash
 journalctl -u ergo-api-dev -n 500 -f
-journalctl -u ergo-client-dev -n 500 -f
-journalctl -u ergo-celery-worker-all -n 500 -f
-journalctl -u ergo-celery-beat -n 500 -f
-journalctl -u ergo-media-api -n 500 -f
 ```
 
-Для просмотра логов через ergoms: `ergoms logs <service-name>`.
+Через ergoms (если CLI установлен):
 
+```bash
+ergoms logs ergo-api-dev
+```
+
+Дополнительно файловые логи пишутся в каталог **`logs/`** в корне проекта — см. [development.md](development.md).
+
+## Windows
+
+Аналогичные сценарии для Windows описаны в **`core/deployment/windows/`** — там свои PowerShell-скрипты и службы. Принцип тот же: сначала `setup-full` или `install`, затем управление через ergoms.

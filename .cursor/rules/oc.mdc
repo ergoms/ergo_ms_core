@@ -1,15 +1,16 @@
 ---
 alwaysApply: true
 ---
-# КРИТИЧЕСКИ ВАЖНО: Кроссплатформенность
+# Windows и Linux
 
-Разрабатывай любой функционал системы так, чтобы он работал и на Windows и на Linux.
+Код должен работать на обеих ОС.
 
-## Слой абстракции
+Если логика зависит от системы (пути, процессы, shell) — делай абстракцию, не разбрасывай `sys.platform` по бизнес-коду.
 
-В любом функционале, который может зависеть от ОС (пути, процессы, исполняемые файлы, shell-команды и т.п.), необходимо реализовывать **слой абстракции**. Вместо прямых проверок `sys.platform` или `os.name` в бизнес-логике — описывай интерфейс (Protocol/стратегию) и отдельные реализации для Windows и Linux.
+Готовые места в проекте:
 
-**Примеры в проекте:**
-- **API (Python)**: `core/api/src/core/utils/os_abstraction/` — интерфейс `OSAbstraction`, реализации `WindowsImpl`, `LinuxImpl`, получение через `get_os_abstraction()`
-- **Client (JavaScript)**: `core/client/scripts/lib/process-ops.js` — стратегии `createWindowsStrategy` / `createUnixStrategy` для поиска и остановки процессов
-- **Ergoms/deployment**: отдельные скрипты `core/deployment/windows/` и `core/deployment/linux/`, команды с префиксами `win:` и `linux:`
+| Область | Где |
+|---------|-----|
+| Python | `core/api/src/core/utils/os_abstraction/` |
+| Node (процессы) | `core/client/scripts/lib/process-ops.js` |
+| Скрипты ergoms | `core/deployment/windows/`, `core/deployment/linux/`, префиксы `win:` / `linux:` в `commands.conf` |

@@ -1,302 +1,100 @@
 ---
 alwaysApply: true
 ---
-# КРИТИЧЕСКИ ВАЖНО: Правила работы с модулями
+# Модули
 
-## Архитектура модулей
-
-Система ERGO MS построена на модульной архитектуре "ядро + модули":
-- **Ядро** (`core/`) - базовый функционал системы, не может иметь зависимости от сторонних модулей
-- **Модули** (`modules/<имя>`) - независимые доменные компоненты, подключаемые через Git submodules
-
-Ядро контролирует и оркестрирует модули, но не зависит от них. Модули взаимодействуют с ядром через унифицированные API-контракты.
-
-## Структура модуля
-
-Каждый модуль должен иметь следующую базовую структуру:
+## Структура
 
 ```
-modules/<имя_модуля>/
-├── api/                    # Серверная часть (Django приложение)
-│   ├── __init__.py
-│   ├── apps.py            # Обязательно: конфигурация AppConfig
-│   ├── models.py          # Модели данных
-│   ├── urls.py            # URL маршруты
-│   ├── views.py            # ViewSet'ы и представления
-│   ├── serializers.py      # DRF сериализаторы
-│   ├── tasks.py            # Celery задачи (если нужны)
-│   ├── celery_config.py    # Конфигурация Celery (если нужны задачи)
-│   └── celery_beat_config.py # Периодические задачи (если нужны)
-├── client/                 # Клиентская часть (Vue.js)
-│   └── src/
-│       ├── js/
-│       │   ├── routes.js          # Обязательно: маршруты Vue Router
-│       │   ├── menu-config.json   # Обязательно: конфигурация меню
-│       │   └── endpoints.js       # Обязательно: API эндпоинты
-│       └── components/            # Vue компоненты
-├── .env                     # Переменные окружения модуля (опционально)
-├── ergoms.conf              # Команды ergoms для модуля (опционально)
-└── README.md                 # Документация модуля
+modules/<имя>/
+├── api/
+│   ├── apps.py              # обязательно для регистрации
+│   ├── models.py, views.py, urls.py, serializers.py
+│   ├── tasks.py             # фоновые задачи (если нужны)
+│   ├── celery_config.py     # очереди Celery (если нужны)
+│   └── integrations.py      # операции для моста (если нужны)
+├── client/
+│   ├── js/
+│   │   ├── routes.js        # страницы (если есть UI)
+│   │   ├── menu-config.json # пункты меню (если нужны)
+│   │   ├── endpoints.js     # адреса API для клиента (если нужны)
+│   │   ├── permission-rules.js
+│   │   └── integrations.js  # операции моста на клиенте
+│   ├── pages/ или components/
+│   └── ui/                  # общий UI-kit (по образцу competence_core, lms)
+├── ergoms.conf              # команды модуля (необязательно)
+└── README.md
 ```
 
-## Обязательные файлы модуля
+Папка клиента: `client/js/`, **не** `client/src/js/`.
 
-### API часть (`api/apps.py`)
+Вложенные подприложения (`client/<раздел>/js/routes.js`) подхватываются для маршрутов и `integrations.js`. Файлы `endpoints.js`, `menu-config.json`, `permission-rules.js` — только из `client/js/` (или re-export оттуда).
 
-Всегда создавай класс `AppConfig` для регистрации модуля:
+## Регистрация на сервере
 
 ```python
-from django.apps import AppConfig
-
+# api/apps.py
 class MyModuleConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'src.modules.my_module'  # Полный путь к модулю
-    verbose_name = 'My Module'
-    
+    name = 'modules.my_module.api'
+
     def ready(self):
-        """Инициализация модуля при загрузке"""
-        # Подключение сигналов, инициализация и т.д.
-        pass
+        from . import integrations  # если есть мост
 ```
 
-Система автоматически обнаруживает модули через `ModuleDiscoverer` - не нужно регистрировать их вручную в `INSTALLED_APPS`.
+Регистрация в `INSTALLED_APPS` вручную не нужна — находит `ModuleDiscoverer`.
 
-### Клиентская часть
+## Регистрация на клиенте
 
-**`client/src/js/routes.js`** - обязателен для модулей с клиентской частью:
+Файлы из `client/js/` подхватывает `ModuleLoader`. Регистрировать вручную не нужно.
 
-```javascript
-export default [
-  {
-    path: '/my-module',
-    name: 'MyModule',
-    component: () => import('../components/MyModule.vue'),
-    meta: {
-      title: 'My Module',
-      requiresAuth: true
-    }
-  }
-]
-```
+Не все файлы обязательны: бывает только API, только права на маршруты, маршруты без меню.
 
-**`client/src/js/menu-config.json`** - обязателен для модулей с навигацией:
+## Имена
 
-```json
-{
-  "menuSections": [
-    {
-      "icon": "IconName",
-      "routeName": "MyModule",
-      "name": "Мой модуль",
-      "parentRoute": null,
-      "children": []
-    }
-  ]
-}
-```
+- Папка модуля: `kebab-case` (`video-analysis`)
+- В Python: `snake_case` (`video_analysis`)
 
-**`client/src/js/endpoints.js`** - обязателен для модулей с API:
+## Импорты
 
-```javascript
-export const endpoints = {
-  myEndpoint: '/api/my-module/endpoint/'
-}
-```
+**Сервер:** внутри модуля — относительные; из ядра — `from src.core...`; из другого модуля — **запрещено**.
 
-Система автоматически обнаруживает эти файлы через `ModuleManager` - не нужно регистрировать их вручную.
+**Клиент:** из ядра — `@/...`; из другого модуля — **запрещено**.
 
-## Git Submodules
+## Мост между модулями (ModuleBridge)
 
-Модули подключаются через Git submodules. При работе с модулями:
+Единственный способ связи модулей друг с другом.
 
-- **Не изменяй** содержимое `modules/` напрямую - модули это отдельные репозитории
-- **Используй** `git submodule update` для обновления модулей
-- **Создавай** новые модули как отдельные репозитории, затем добавляй через `git submodule add`
-
-## Переменные окружения модулей
-
-Каждый модуль может иметь свой файл `.env` в корне модуля. Система автоматически объединяет модульные переменные с глобальными:
-
-- Модульные `.env` файлы имеют приоритет над глобальными
-- Указывай только отличия от базовой конфигурации
-- Используй стандартизированные пути из `core/api/src/config/settings/base.py`
-
-## Celery конфигурация модулей
-
-Если модуль использует Celery задачи:
-
-1. **Создай `celery_config.py`** - наследуй от `CeleryModuleConfig`:
-
-```python
-from src.core.utils.celery.base import CeleryModuleConfig
-
-class MyModuleCeleryConfig(CeleryModuleConfig):
-    def get_task_routes(self):
-        return {
-            'src.modules.my_module.tasks.*': {'queue': 'my_module'},
-        }
-    
-    def get_task_queues(self):
-        return {
-            'my_module': {
-                'exchange': 'my_module',
-                'routing_key': 'my_module',
-            }
-        }
-```
-
-2. **Создай `celery_beat_config.py`** - для периодических задач (если нужны)
-
-Система автоматически обнаруживает и загружает эти конфигурации - не нужно регистрировать их вручную.
-
-## Именование модулей
-
-- Используй **kebab-case** для имен модулей: `my-module`, `video-analysis`
-- Имя модуля должно совпадать с именем папки в `modules/`
-- В коде используй **snake_case**: `my_module`, `video_analysis`
-
-## Импорты в модулях
-
-### API (Python)
-
-- **Внутри модуля**: используй относительные импорты
-- **Из ядра**: используй полные пути `from src.core...`
-- **Из других модулей**: ЗАПРЕЩЕНЫ. Все межмодульные обращения только через `bridge.call(...)` / `bridge.emit(...)` (см. раздел «Межмодульное взаимодействие через ModuleBridge»). Исключение — ORM ForeignKey на уровне миграций с `db_constraint=False`.
-
-### Client (JavaScript/Vue)
-
-- **Из ядра**: используй абсолютные пути с `@/` префиксом
-- **Внутри модуля**: используй относительные импорты
-- **Из других модулей**: ЗАПРЕЩЕНЫ. Используй `bridge.call('<module>.<operation>', ...)` из `@/integrations/ModuleBridge`.
-
-## Изоляция модулей
-
-- Модули **не должны** иметь прямые зависимости друг от друга
-- Взаимодействие между модулями происходит через ядро системы
-- Ядро **не может** иметь зависимости от сторонних модулей
-- Модули могут использовать только публичные API ядра
-
-## Межмодульное взаимодействие через ModuleBridge
-
-Любое взаимодействие между модулями (как backend, так и frontend) выполняется **только через ModuleBridge** — динамический RPC-реестр операций и шину событий со строковыми именами. Прямые импорты между модулями **запрещены**.
-
-Ядро `core/integrations/` намеренно ничего не знает о конкретных модулях: оно предоставляет только `bridge.provide / call / has / subscribe / emit / provide_many / all`. Сами имена операций живут в модулях-провайдерах.
-
-### Backend (`src.core.integrations`)
-
-**Запрещено:**
-
-```python
-from modules.organizations.api.models import Organization  # НЕЛЬЗЯ
-from modules.projects.api.models import Project            # НЕЛЬЗЯ
-```
-
-**Правильно — потребитель:**
+**Сервер** — `core/api/src/core/integrations/`:
 
 ```python
 from src.core.integrations import bridge
 
-dept_ids = bridge.call(
-    'organizations.get_user_department_ids',
-    user=request.user,
-    default=[],
-)
+# вызов
+ids = bridge.call('organizations.get_user_department_ids', user=request.user, default=[])
 
-if bridge.has('organizations.get_organization'):
-    org = bridge.call('organizations.get_organization', org_id)
-
-# Голосование подписчиков — первый non-None результат
-allowed = bridge.emit_first(
-    'adp.permission_check',
-    user=user, module_name='projects', permission_key='projects_view',
-    kwargs={'organization_id': org_id},
-)
-```
-
-`bridge.call(name, ..., default=...)` тихо возвращает `default`, если провайдера нет.
-`bridge.emit(event, **payload)` возвращает `[]`, если подписчиков нет.
-`bridge.all(group)` возвращает `{}`, если провайдеров группы нет.
-
-**Правильно — провайдер (`modules/<X>/api/integrations.py`):**
-
-```python
-from src.core.integrations import bridge
-from .models import OrganizationMember
-
+# регистрация (в modules/<м>/api/integrations.py)
 @bridge.provide_op('organizations.get_user_department_ids')
-def _get_user_department_ids(user):
-    if not user or not getattr(user, 'is_authenticated', False):
-        return []
-    return list(
-        OrganizationMember.objects
-        .filter(user=user, department__isnull=False)
-        .values_list('department_id', flat=True)
-    )
-
-@bridge.subscribe_to('adp.permission_check')
-def _on_permission_check(*, user, module_name, permission_key, kwargs=None, **_):
+def _handler(user):
     ...
 ```
 
-И в `apps.ready()` модуля-провайдера:
+Имена операций: `'модуль.действие'`. Если провайдера нет — `call` вернёт `default`.
 
-```python
-def ready(self):
-    from . import integrations  # noqa: F401  — триггерит регистрации декораторов
-```
+**Клиент** — `@/integrations/ModuleBridge.js`, регистрация в `client/js/integrations.js`.
 
-### Конвенции именования
+В `integrations.js` на верхнем уровне импортируй **только** `bridge`. Остальное — ленивый `import()` внутри обработчика (иначе цикл при старте).
 
-- Операции: `'<module>.<operation>'` — `'organizations.get_department'`, `'workers.ensure_worker_for_user'`, `'projects.user_has_project_access'`.
-- События: `'<module>.<event>'` или `'core.<event>'` — `'adp.permission_check'`.
-- Multi-provider группы: `'<group>'` — `'bi.data_source'` (ключ провайдера передаётся отдельно: `bridge.provide_many('bi.data_source', key='my_module', obj=src)`).
+## Celery в модуле
 
-### Multi-provider
+- Задачи: `api/tasks.py`
+- Конфиг: `api/celery_config.py`, маршрут `'modules.<имя>.api.tasks.*'`
 
-```python
-# Провайдер
-bridge.provide_many('bi.data_source', key='projects', obj=ProjectsBiSource())
+## Git
 
-# Потребитель
-sources = bridge.all('bi.data_source')   # {'projects': ProjectsBiSource(), ...}
-```
+Модули — отдельные репозитории (submodule). Обновление: `git submodule update`.
 
-### Транспорт
+## Запрещено
 
-`bridge` — фасад поверх абстракций `Transport` и `EventBus` (см. `core/integrations/transports/`). По умолчанию используется `LocalTransport` + `LocalEventBus` (in-process). Для микросервисного режима в settings меняется `BRIDGE_TRANSPORT='http'` и/или `BRIDGE_EVENT_BUS='celery'`. Публичный API `bridge` при этом не меняется.
-
-### Документация публичного API модуля
-
-Имена операций описывай в `modules/<X>/api/INTEGRATIONS.md` (опционально, но рекомендуется): что делает каждая операция, какие аргументы и тип возврата. Подробное поведение — в docstring функции-обработчика.
-
-### Frontend (`@/integrations/ModuleBridge`)
-
-- Файл `client/js/integrations.js` модуля-провайдера регистрирует фронтовые операции через `bridge.provide('module.operation', handler)`.
-- Потребитель: `import bridge from '@/integrations/ModuleBridge.js'`, затем `bridge.call('organizations.searchDepartments', { query })` или `bridge.has('organizations.searchDepartments')`. При отсутствии провайдера `call` тихо возвращает `default`/`null`.
-- ВАЖНО: в `integrations.js` на верхнем уровне допустим **только** импорт `bridge` из `@/integrations/ModuleBridge.js`. Нельзя статически импортировать `@/js/api/manager` (`apiClient`), `@/core/cms/js/tokenService` и `@/js/api/endpoints` — эти модули участвуют в top-level await на endpoints.js и создают циклический deadlock с инициализацией `moduleManager`. Зависимости загружай через fire-and-forget `import('...').then(...)` (с кешированием в переменную модуля) или через `await import(...)` внутри самого handler-а.
-
-## Автоматическое обнаружение
-
-Система автоматически обнаруживает модули через:
-
-- **API**: `ModuleDiscoverer` сканирует `modules/` и ищет `apps.py`
-- **Client**: `ModuleManager` сканирует `modules/*/client/src` и ищет `routes.js`, `menu-config.json`, `endpoints.js`
-- **Celery**: `CeleryModuleManager` сканирует `modules/` и ищет `celery_config.py`
-
-Не нужно регистрировать модули вручную - система делает это автоматически.
-
-## Создание нового модуля
-
-1. Создай структуру папок согласно шаблону выше
-2. Создай `api/apps.py` с классом `AppConfig`
-3. Создай обязательные файлы клиента (если нужен клиент)
-4. Добавь модуль как Git submodule (если это отдельный репозиторий)
-5. Система автоматически обнаружит и загрузит модуль
-
-## Важные ограничения
-
-- **Никогда не изменяй** файлы ядра для работы модуля
-- **Никогда не создавай** зависимости между модулями напрямую
-- **Всегда используй** стандартизированные пути из `core/api/src/config/settings/base.py`
-- **Всегда следуй** соглашениям именования и структуре папок
-- **Не регистрируй** модули вручную - система делает это автоматически
+- Менять ядро ради одного модуля
+- Прямые импорты между модулями
+- Регистрировать модуль вручную в настройках

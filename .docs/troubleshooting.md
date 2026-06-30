@@ -1,56 +1,57 @@
 # Решение проблем при установке
 
-## Проблема 1: Permission denied при установке Poetry пакетов
+Ниже — типичные сбои при первой настройке ERGO MS и что с ними делать. Если ошибка не из этого списка, начните с проверки `.env`, `databases.yaml` и каталога `logs/`.
 
-**Диагностическая сигнатура:**
+## Poetry: Permission denied
 
-```
-[Errno 13] Permission denied: Poetry Cache
-```
+Сообщение вроде `[Errno 13] Permission denied` при установке Python-зависимостей часто связано с повреждённым кэшем Poetry.
 
-**Процедура устранения:**
+На Windows удалите кэш и переустановите зависимости:
 
 ```cmd
-# Windows: очистка кеша Poetry
 rmdir /S /Q "%LOCALAPPDATA%\pypoetry\Cache"
-
-# Linux/macOS: очистка кеша Poetry
-rm -rf ~/.cache/pypoetry
-
-# Переустановка зависимостей (из корня проекта)
 ergoms python-install
-# Либо с отключением кеша: ergoms poetry install --no-cache
 ```
 
-## Проблема 2: Команда ergoms не найдена
+На Linux или macOS:
 
-**Процедура устранения:**
+```bash
+rm -rf ~/.cache/pypoetry
+ergoms python-install
+```
+
+## Команда ergoms не найдена
+
+Утилита ergoms ставится на шаге **setup-full** при первичной настройке. Если терминал её не видит, установите CLI отдельно:
+
+Windows (PowerShell):
 
 ```cmd
-# Windows (PowerShell с правами администратора)
 .\core\deployment\windows\ergo_ms.ps1 install-cli
+```
 
-# Linux (Bash с правами root)
+Linux:
+
+```bash
 sudo bash core/deployment/linux/ergo_ms.sh install-cli
 ```
 
-## Проблема 3: База данных не настроена
+Либо повторите полную настройку из README — `setup-full` создаст окружение, зависимости и обёртку ergoms.
 
-**Процедура устранения:**
+## База данных
 
-1. Создайте `databases.yaml` на основе `databases.yaml.example`
-2. Укажите параметры подключения к СУБД
-3. Примените миграции: `ergoms db-migrate`
+Если API падает с ошибкой подключения к PostgreSQL:
 
-## Проблема 4: Медленный первый запуск API
+1. Убедитесь, что файл **`databases.yaml`** создан из примера и параметры `host`, `port`, `user`, `password`, `name` соответствуют вашей СУБД.
+2. Создайте пустую базу с указанным именем, если её ещё нет.
+3. Выполните **`ergoms db-migrate`**.
 
-**Причина:** Кэши обнаружения приложений, Celery и модулей пусты.
+## Медленный первый запуск API
 
-**Процедура устранения:**
+При первом запуске система строит кэши списка приложений, модулей и конфигурации Celery. Это нормально. Ускорить можно явным прогревом:
 
 ```cmd
 ergoms warmup-caches
 ```
 
-Команда `ergoms dev` автоматически вызывает прогрев кэшей при необходимости.
-
+Команда **`ergoms dev`** сама вызывает прогрев, если кэш пустой или устарел — отдельно вызывать не обязательно.

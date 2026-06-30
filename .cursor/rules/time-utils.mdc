@@ -1,52 +1,24 @@
 ---
-description: Форматирование дат и относительного времени на русском — только через @/js/utils/timeUtils.js
-globs:
-  - core/client/**/*.vue
-  - core/client/**/*.js
-  - modules/**/client/**/*.vue
-  - modules/**/client/**/*.js
 alwaysApply: false
 ---
+# Даты и время на клиенте
 
-# Даты и время — timeUtils
+Файл: `core/client/src/js/utils/timeUtils.js`.
 
-Единый источник: [`core/client/src/js/utils/timeUtils.js`](core/client/src/js/utils/timeUtils.js).
-
-```js
+```javascript
 import { getRelativeTime, formatDateTime } from '@/js/utils/timeUtils.js'
 ```
 
-## Когда какую функцию использовать
+| Задача | Функция |
+|--------|---------|
+| «5 минут назад» | `getRelativeTime` |
+| Дата и время | `formatDateTime` |
+| Короткая дата | `formatDateShort` |
+| Диапазон | `formatDateRange` |
+| ISO для API | `toISODate` |
 
-| Задача | Функция | Пример |
-|--------|---------|--------|
-| «N минут/часов/дней назад» со склонением | `getRelativeTime(date)` | «5 минут назад», «2 часа назад» |
-| Относительное + полная дата | `getFormattedDateWithRelative(date)` | «3 дня назад (01.03.2026, 14:30)» |
-| Дата «01 января 2024» | `formatDate(date)` | длинный формат |
-| Дата `dd.mm.yyyy` | `formatDateShort(date)` | короткий формат |
-| Дата и время | `formatDateTime(date)` | `01.01.2024, 14:30` |
-| Диапазон дат | `formatDateRange` / `formatDateRangeShort` | |
-| Ключ `YYYY-MM` → «Март 2026» | `formatYearMonthKeyRu(monthKey)` | |
-| ISO для API | `toISODate(value)` / `formatDateLocal(date)` | |
-| Название месяца по номеру (1–12) | `getMonthNameByNumber(month)` | «март» |
-| Дата начала/конца по умолчанию | `getDefaultStartDate()` / `getDefaultEndDate(startDate)` | |
+Не копируй склонение «минут/минуты/минут» в модулях — уже в `getRelativeTime`.
 
-## Склонение времени
+Не используй старый путь `components/steps/js/timeUtils`.
 
-Для относительного времени на русском **всегда** используй `getRelativeTime` — внутри уже реализовано склонение (`минуту` / `минуты` / `минут`, `час` / `часа` / `часов` и т.д.).
-
-**Запрещено:**
-
-- Писать локальную логику склонения единиц времени
-- Дублировать `pluralizeRu` или аналоги в модулях и компонентах
-- Импортировать устаревший путь `components/steps/js/timeUtils`
-
-## Расширение
-
-Если нужен новый формат, которого нет в `timeUtils.js` — расширяй утилиту в ядре, а не создавай копию в модуле.
-
-**Исключение:** модульные хелперы с другим API (например, `formatMonthYearRu` для пары month+year) — только если `timeUtils` не покрывает кейс. Склонение относительного времени всё равно через `getRelativeTime`.
-
-## Эталон (Notifications)
-
-[`SidebarNotifications.vue`](core/client/src/components/menu/SidebarNotifications.vue) и [`UserNotifications.vue`](core/client/src/core/cms/adp/user/notifications/UserNotifications.vue) — используют `formatDateTime` для `created_at` / `read_at`.
+Новый формат — добавляй в `timeUtils.js` ядра, не в модуль.

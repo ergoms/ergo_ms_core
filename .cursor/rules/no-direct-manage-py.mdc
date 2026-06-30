@@ -2,65 +2,40 @@
 alwaysApply: true
 priority: critical
 ---
-# Стандарт утилиты ergoms — единственная точка входа для команд
+# Команды — только через ergoms
 
-Техническая справка (формат команд, конфигурация) — **ergoms-commands.mdc**.
+Любые операции (миграции, запуск, зависимости, сборка, Celery, статика) — **только** `ergoms`. В ответах и документации не предлагай `python manage.py`, `pip`, `poetry`, `npm` как основной способ.
 
-## Суть правила
+Формат команд и конфиг — в `ergoms-commands.mdc`.
 
-В проекте ERGO MS **все операции** (миграции, запуск сервера, зависимости, сборка, Celery, статика и т.д.) выполняются **только через утилиту `ergoms`**. В ответах, документации, примерах и подсказках пользователю **запрещено** предлагать прямые вызовы `python manage.py`, `pip`, `poetry`, `npm`, `api` — только команды `ergoms`.
+## Частые команды
 
-## Запрещено
-
-- В ответах, доке и примерах писать команды:
-  - `python manage.py ...`, `python src/manage.py ...`, `python core/api/src/manage.py ...`, `poetry run python manage.py ...`
-  - `pip install ...`, `poetry install`, `poetry add ...` (без явной оговорки «через ergoms»)
-  - `npm install`, `npm run dev/build` (без оговорки)
-  - `api migrate`, `api dev` и т.п. (в примерах для пользователя — только как `ergoms api ...` или алиасы ergoms)
-- Предлагать пользователю «запусти миграции» / «собери статику» и т.д. иначе как через **ergoms**.
-- Редактировать `core/api/src/manage.py` ради изменения способа запуска команд (обёртка — ergoms и Poetry-скрипт `api`).
-- В примерах для терминала давать прямые `pip`/`poetry`/`npm`/`api` как основной способ; стандарт проекта — ergoms (и init_terminal это усиливает).
-
----
-
-## Разрешено и обязательно
-
-- Для любых операций предлагать и писать **только команды ergoms** (см. таблицу ниже).
-- В документации, комментариях и подсказках указывать именно эти команды.
-- Новые команды ядра добавлять в `core/deployment/commands.conf`; модульные — в `modules/<модуль>/ergoms.conf`, формат: `command-name=type:command` или `name=type1:cmd1 && type2:cmd2`; имена в kebab-case.
-
----
-
-## Шпаргалка команд (что предлагать пользователю)
-
-| Действие | Команда ergoms |
-|----------|-----------------|
-| Создать миграции | `ergoms db-makemigrations` |
-| Применить миграции | `ergoms db-migrate` |
-| Создать и применить миграции | `ergoms migrate-all` |
-| Запустить API (dev) | `ergoms dev` |
-| Запустить клиент (Vue dev) | `ergoms start-client` |
-| Сбор статики Django | `ergoms collectstatic` |
-| Сборка клиента (prod) | `ergoms client-build` или `ergoms build-all` |
-| Celery worker | `ergoms start-worker` или `ergoms start-worker --worker=<name>` |
+| Задача | Команда |
+|--------|---------|
+| Миграции создать | `ergoms db-makemigrations` |
+| Миграции применить | `ergoms db-migrate` |
+| Создать и применить | `ergoms migrate-all` |
+| API (разработка) | `ergoms dev` |
+| Клиент (разработка) | `ergoms start-client` |
+| Статика Django | `ergoms collectstatic` |
+| Сборка клиента | `ergoms client-build` |
+| Celery worker | `ergoms start-worker` |
 | Celery beat | `ergoms start-beat` |
-| Установка Python-зависимостей | `ergoms python-install` или `ergoms poetry install` |
-| Обновление Python-зависимостей | `ergoms python-update` или `ergoms poetry update` |
-| Установка npm-зависимостей | `ergoms npm install`; полная установка — `ergoms install-deps` |
-| Любая management-команда | `ergoms api <command> [args]` |
-| Полная настройка проекта | `ergoms setup` |
-| Справка по командам | `ergoms help` |
+| Python-зависимости | `ergoms python-install` |
+| npm-зависимости | `ergoms npm install` или `ergoms npm run install:all` |
+| Всё сразу (Python + npm + migrate) | `ergoms install-deps` |
+| Любая команда Django | `ergoms api <имя_команды> [аргументы]` |
+| Первичная настройка | `ergoms setup` |
+| Справка | `ergoms help` |
 
-Модульные команды: `ergoms <module_name>:<command> [args]`.
+Модульные команды: `ergoms <имя_модуля>:<команда>`.
+
+## Запрещено в подсказках пользователю
+
+- `python manage.py …`, `pip install`, `poetry install`, `npm install` без оговорки «через ergoms»
+- Править `manage.py`, чтобы обходить ergoms
 
 ## Исключения
 
-- **Правка `manage.py`**: допустима, если нужно изменить настройки Django или логику точки входа; **инструкции по запуску** в проекте остаются через ergoms.
-- **Тесты / CI**: в скриптах, явно описанных как низкоуровневые, допустимы прямые вызовы при необходимости; в основной документации и подсказках пользователю — только ergoms.
-- **Отладка**: можно упомянуть `ergoms api <command> <args>` для прямого вызова management-команды через ergoms.
-
----
-
-## Кратко для ответов
-
-Если пользователь спрашивает «как запустить миграции», «как поднять сервер», «как поставить зависимости» и т.п. — отвечай **только** командами `ergoms ...`, без упоминания `python manage.py`, `pip`, `poetry`, `npm`, `api` как основного способа.
+- Правка `manage.py` для настроек Django — допустима, но инструкции по запуску всё равно через ergoms
+- Низкоуровневые CI-скрипты могут вызывать инструменты напрямую; пользовательская документация — нет

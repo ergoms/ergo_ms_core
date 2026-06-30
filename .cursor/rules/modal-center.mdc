@@ -1,42 +1,24 @@
 ---
-description: Модальные окна — только через ModalCenter (и ConfirmDialog поверх него). Запрет кастомных оверлеев и inline-модалок
+description: Модальные окна — ModalCenter; подтверждения — confirm.js
 globs:
   - core/client/**/*.vue
   - modules/**/client/**/*.vue
 alwaysApply: false
 ---
+# Модальные окна
 
-# Модальные окна — только ModalCenter
+## Контентные модалки — ModalCenter
 
-Единый компонент-обёртка для всех модальных окон: [`core/client/src/components/ModalCenter.vue`](core/client/src/components/ModalCenter.vue).
+Все модалки с формой, таблицей, настройками — через `ModalCenter.vue` (`@/components/ModalCenter.vue`).
 
-```js
-import ModalCenter from '@/components/ModalCenter.vue'
-```
+### Запрещено
 
-В модулях путь тот же — алиас `@/` указывает на `core/client/src`.
+- Свои оверлеи (`modal fade`, `position: fixed; inset: 0`)
+- Свой Teleport + backdrop
+- `document.body.style.overflow` ради модалки
+- Свои обработчики Esc и клика по фону
 
-## Когда что использовать
-
-| Задача | Компонент |
-|-----|---|
-| Любое модальное окно (форма, превью, мастер, инфо) | `ModalCenter` |
-| Подтверждение yes/no (удалить, применить и т.п.) | `ConfirmDialog` (построен поверх `ModalCenter`) |
-
-[`ConfirmDialog.vue`](core/client/src/components/ConfirmDialog.vue) — это обёртка над `ModalCenter`. Для подтверждений используй его, а не собственную разметку (см. также `client_code.mdc`).
-
-## Запрещено
-
-- Своя разметка модалки: `class="modal fade show d-block"`, `class="modal-overlay"`, `class="modal-window"` и любые кастомные оверлеи с `position: fixed; inset: 0`.
-- Ручной `<Teleport to="body">` + собственный backdrop-`<div>` для модалки.
-- Ручная блокировка прокрутки страницы (`document.body.style.overflow = 'hidden'`) ради модалки — это делает `ModalCenter`.
-- Собственные обработчики `Escape` и клика по фону — используй props `close-on-esc` / `close-on-backdrop`.
-- Локальные копии базовых обёрток (`BaseModal` и т.п.) в модулях. Если такая уже есть — она должна быть тонкой обёрткой над `ModalCenter`.
-- `alert()` / `confirm()` для подтверждений.
-
-## Как применять
-
-Для модалок, видимостью которых управляет родитель (флаг `show`/`visible`), используй **standalone-режим**:
+### Standalone (управление с родителя)
 
 ```vue
 <ModalCenter
@@ -46,44 +28,92 @@ import ModalCenter from '@/components/ModalCenter.vue'
   :visible="show"
   @close="show = false"
 >
-  <!-- тело модалки -->
-
-  <template #footer>
-    <button class="btn btn-secondary" @click="show = false">Отмена</button>
-    <button class="btn btn-primary" @click="save">Сохранить</button>
-  </template>
+  ...
+  <template #footer>...</template>
 </ModalCenter>
 ```
 
-### Ключевые props
+Полезные props: `size` (sm/md/lg/xl/fullscreen), `close-on-esc`, `close-on-backdrop`, `show-close-button`, `dialog-style`.
 
-- `modal-id` — уникальный id.
-- `title` (строка) или слот `#title` — для заголовка с иконкой используй слот `#title`.
-- `show-title` (default `true`); если заголовок не нужен — `:show-title="false"` (тогда рендерится плавающая кнопка закрытия, если `show-close-button`).
-- `show-close-button` (default `true`); `:show-close-button="false"` — скрыть крестик (блокирующие модалки, принудительный выбор).
-- `size`: `'sm' | 'md' | 'lg' | 'xl' | 'fullscreen'`.
-- `standalone` + `:visible` — для модалок с видимостью от родителя (overlay/Teleport `ModalCenter` берёт на себя).
-- `close-on-backdrop` (default `true`), `close-on-esc` (default `true`).
-- `dialog-class`, `body-class`, `custom-class` — для кастомных классов/ширины.
-- `dialog-style` (object|string) — инлайн-стиль `.modal-dialog` для **динамической** ширины.
-- `z-index` — при наложении модалок.
-- Слоты: `#title`, default (тело), `#footer` (футер рендерится только если слот передан). Эмиты: `close`, `closemodal`.
+---
 
-## Стили и scoped CSS
+## Подтверждения да/нет — confirm.js
 
-- Содержимое слотов (`#title`, default, `#footer`) рендерится в scope твоего компонента — scoped-стили на твои классы внутри слотов работают как обычно.
-- Внутренние обёртки `ModalCenter` (`.modal-header`, `.modal-body`, `.modal-footer`, `.modal-content`, `.modal-dialog`) из дочернего scope **не стилизуются** напрямую. Если нужно поправить их — задай `custom-class` и используй `:deep()`, либо оборачивай контент слотов в собственный div с нужным классом.
+**Не** подключай `<ConfirmDialog>` в компонентах. **Не** `window.confirm()` / `alert()`.
 
-## Исключения
+Единый API — `@/js/utils/confirm.js`. Диалоги рендерятся глобально в `NotificationProvider.vue` (подключён в `App.vue`).
 
-Следующие UI-паттерны **не переводятся** на `ModalCenter` без доработки самого `ModalCenter`:
+### Базовое использование
 
-- **Draggable / resizable** — модалки с перетаскиванием диалога мышью и/или ручками изменения размера (например `BIAnalysisModal`, `BIChartsModal` в `bi_analysis`). Конвертация сломает drag/resize.
-- **Выезжающие панели** — боковые чат-панели, сайдбары, drawer'ы (не центрированное модальное окно). Примеры: `TPAssistantChat`, `DocsAssistantChat`.
-- **Сложный составной layout** — двухпанельные модалки (форма + встроенный мессенджер), например `CreateTaskModal` — внутри использует только `ConfirmDialog`.
+```javascript
+import { confirmAction, confirmDelete } from '@/js/utils/confirm.js'
 
-Если нужен drag/resize в новом функционале — сначала расширяй `ModalCenter` в ядре, а не создавай отдельную реализацию.
+const ok = await confirmDelete('Удаление', 'Вы уверены, что хотите удалить запись?')
+if (!ok) return
 
-## Расширение
+// или с опциями
+const ok = await confirmAction({
+  title: 'Отправить на проверку',
+  message: 'После отправки редактирование будет ограничено.',
+  confirmText: 'Отправить',
+  cancelText: 'Отмена',
+  variant: 'primary',           // primary | danger | warning
+  confirmCountdownSeconds: 5,   // кнопка «Подтвердить» заблокирована N сек
+  zIndex: 1060,                 // при конфликте с другой модалкой
+})
+```
 
-Если `ModalCenter` чего-то не хватает (новый режим/проп) — расширяй сам `ModalCenter` в ядре (как добавленный `dialog-style`), а не создавай собственную модалку в модуле.
+### Выбор из нескольких действий
+
+```javascript
+import { confirmChoice } from '@/js/utils/confirm.js'
+
+const action = await confirmChoice({
+  title: 'Экспорт',
+  message: 'Выберите формат:',
+  choices: [
+    { label: 'Excel', value: 'xlsx' },
+    { label: 'CSV', value: 'csv' },
+  ],
+})
+if (!action) return
+```
+
+### Async-удаление с loading
+
+```javascript
+import { runWithConfirm } from '@/js/utils/confirm.js'
+
+await runWithConfirm(
+  { title: 'Удаление', message: 'Удалить элемент?', confirmText: 'Удалить', variant: 'danger' },
+  async () => { await apiClient.delete(url) },
+)
+```
+
+Для ручного loading: `setConfirmLoading(true/false)` + `closeConfirmDialog()`.
+
+### Где живёт UI
+
+| Слой | Файл |
+|------|------|
+| API | `@/js/utils/confirm.js` |
+| Re-export | `@/js/utils/notifications.js`, `@/js/utils/useNotifications.js` |
+| Рендер | `@/components/NotificationProvider.vue` → `ConfirmDialog`, `ChoiceDialog` |
+
+`<ConfirmDialog>` импортируется **только** в `NotificationProvider.vue`.
+
+### Исключения (свой confirm-UI)
+
+- Спецмодалки с таблицами/предпросмотром (`learning_analytics`: `ConfirmModal`, `DeleteRecordModal`, …)
+- Inline-modal внутри сложного виджета (`MultiVideoUploader.vue`)
+- Локальный метод `confirm()` в composable — не путать с browser API; предпочитай `confirmAction`
+
+---
+
+## Исключения (не ModalCenter)
+
+- Перетаскиваемые/ресайз модалки (BI)
+- Боковые панели (drawer, чат сбоку)
+- Сложный двухпанельный layout
+
+Нужен новый режим — расширяй `ModalCenter` в ядре, не копируй модалку в модуле.

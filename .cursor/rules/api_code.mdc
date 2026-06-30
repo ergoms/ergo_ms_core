@@ -1,13 +1,13 @@
 ---
-description: Правила API кода — SwaggerSafeMixin, пути, user_search
+description: API — Swagger, поиск пользователей, пути
 alwaysApply: false
 ---
-# КРИТИЧЕСКИ ВАЖНО: Правила API кода
+# Сервер (API)
 
-Всегда используй `SwaggerSafeMixin` для ViewSet'ов, которые фильтруют данные по пользователю. Это предотвратит ошибки при генерации документации Swagger и обеспечит корректную работу API. (Mixin находится в `core/api/src/core/utils/mixins.py`)
+ViewSet с данными пользователя — наследуй `SwaggerSafeMixin` (`core/api/src/core/utils/mixins.py`) и фильтруй queryset по `request.user`.
 
-Поиск пользователей по ФИО, email, username — только через [`user_search`](user_search.mdc) (`src.core.cms.adp.services.user_search`), не дублируй Q-фильтры.
+Поиск людей по ФИО/email — только `user_search` (`user_search.mdc`), не пиши свои `Q(...)` по полям User.
 
-Никогда не предлагай применить в чате команды связанные с python, пока я не попрошу.
+Пути к ресурсам проекта — из `core/api/src/config/settings/base.py`.
 
-Стандартные пути проекта (к ресурсам, корневым папкам и т.п.) определены в `core/api/src/config/settings/base.py` — используй их.
+Команды пользователю — только `ergoms`, не `python manage.py`.

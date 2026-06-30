@@ -1,130 +1,63 @@
 ---
-description: Правила работы с файлами через media_api (CDN-сервис)
+description: Файлы — только через media_api
 alwaysApply: false
 ---
-# КРИТИЧЕСКИ ВАЖНО: Работа с файлами только через media_api
+# Файлы и media_api
 
-Все медиафайлы в системе раздаются и загружаются через отдельный сервис `core/media_api` (порт 8003). Прямой доступ к `/media/` через основной API запрещён. Доступ к файлам контролируется HMAC-SHA256 подписанными URL с ограниченным сроком действия.
+Медиа раздаёт отдельный сервис `core/media_api` (порт 8003). Через основной API по `/media/` — **нельзя**.
 
-## Запрещено
+## Отдача файла
 
-- Строить URL файлов через `settings.MEDIA_URL`, `request.build_absolute_uri(obj.file.url)` или конкатенацию `/media/...`
-- Раздавать файлы из основного API через `django.views.static.serve` или `static(settings.MEDIA_URL, ...)`
-- Добавлять `/media/` в `EXCLUDED_URLS` middleware
-- Загружать файлы напрямую через `request.FILES` без поддержки альтернативного пути `*_path` из media_api
-
-## Отдача файлов (Backend)
-
-`MediaApiStorage` — дефолтный storage (`STORAGES['default']`). Вызов `obj.file.url` автоматически возвращает подписанный URL. Ничего дополнительно делать не нужно.
-
-Для полей-строк (не FileField), содержащих путь к файлу:
+По умолчанию storage уже подписанный URL. Для строкового пути:
 
 ```python
 from src.core.utils.media_signing import get_signed_media_url
-
-url = get_signed_media_url('path/relative/to/media_root/file.jpg')
+url = get_signed_media_url('path/to/file.jpg')
 ```
 
-## Загрузка файлов (Backend)
+## Загрузка (сервер)
 
-ViewSet должен наследовать `MediaApiFileMixin` и поддерживать оба способа загрузки:
+ViewSet + `MediaApiFileMixin`. Сериализатор принимает поле и `<поле>_path`.
 
-```python
-from src.core.utils.mixins import MediaApiFileMixin
-
-class MyViewSet(MediaApiFileMixin, ModelViewSet):
-    def perform_create(self, serializer):
-        instance = serializer.save()
-        file, file_path = self.get_file_or_path('file')
-        if file:
-            instance.file.save(file.name, file, save=False)
-        elif file_path:
-            instance.file.name = file_path
-        instance.save()
-```
-
-Сериализатор должен принимать `<field>_path` (StringField) наряду с `<field>` (FileField, required=False):
-
-```python
-class MySerializer(serializers.ModelSerializer):
-    file_path = serializers.CharField(write_only=True, required=False)
-    file = serializers.FileField(required=False)
-```
-
-## Загрузка файлов (Frontend)
-
-Используй `mediaApiClient` для загрузки через media_api:
+## Загрузка (клиент)
 
 ```javascript
 import { mediaApiClient } from '@/js/api/media-api-client'
-
-const result = await mediaApiClient.upload(file, { targetDir: 'tasks/attachments' })
-// result.path — путь для отправки в API как file_path
+const { path } = await mediaApiClient.upload(file, { targetDir: 'tasks/attachments' })
 ```
 
-## Ключевые модули
+## Три слоя (не смешивать)
 
-- `core/api/src/core/utils/media_client/` — прослойка доступа (`local` / `remote`)
-- `core/api/src/core/utils/media_client/pipeline.py` — `localize`, `commit_local`, `LocalizedFile`
-- `core/api/src/core/utils/media_client/scratch.py` — `ScratchStore`, `get_scratch_store`
-- `core/api/src/core/utils/media_storage.py` — `MediaApiStorage` (Django Storage → MediaClient)
-- `core/api/src/core/utils/media_signing.py` — `get_signed_media_url`, `get_upload_info`
-- `core/api/src/core/utils/media_views.py` — `MediaUploadTokenView` (POST `/api/utils/media/upload-token/`)
-- `core/api/src/core/utils/mixins.py` — `MediaApiFileMixin`
-- `core/client/src/js/api/media-api-client.js` — `mediaApiClient`
+| Слой | Назначение |
+|------|------------|
+| Постоянные файлы | media_api, signed URL |
+| Временные (обработка) | `ScratchStore` на воркере |
+| Результат пайплайна | снова в media_api через `commit_local` |
 
-## Три слоя данных (КРИТИЧЕСКИ ВАЖНО)
-
-Никогда не смешивай в одной папке `media/` разные типы данных:
-
-| Слой | Что это | Где | API |
-|------|---------|-----|-----|
-| **Canonical** | Постоянные файлы (БД, UI) | media_api | `MediaClient` / signed URL |
-| **Scratch** | Временные файлы обработки | локально на воркере | `ScratchStore` |
-| **Artifacts** | Результаты пайплайна | снова canonical | `commit_local` |
-
-## Запрещено (compute-пайплайны)
-
-- `os.path.join(settings.MEDIA_ROOT, ...)` в бизнес-коде модулей — привязывает к local-режиму, ломается при `remote`
-- Хранить temp/staging (`*_temp`, `input_files`, `uploads`) внутри `MEDIA_ROOT` рядом с пользовательскими медиа
-- Гонять видео/большие файлы через signed URL внутри ffmpeg/циклов обработки
-- Писать результат обработки напрямую в `MEDIA_ROOT` через `open()`
-
-## Compute-пайплайн (видео, документы, FAISS и т.п.)
-
-Для нативной обработки файлов (ffmpeg, faiss, парсеры) используй контракт `MediaClient`:
+## Тяжёлая обработка (видео, документы)
 
 ```python
 from src.core.utils.media_client import get_media_client, get_scratch_store
 
 client = get_media_client()
-scratch = get_scratch_store()
-
-with scratch.session('video') as workdir:           # авто-очистка временных файлов
-    src = client.localize(video.file.name)           # local: тот же файл (0 копий); remote: cache
-    out = workdir / 'result.mp4'
-    run_ffmpeg(src.path, str(out))                   # нативные пути в обоих режимах
-    stored_path = client.commit_local(str(out), f'video_analysis/results/{pk}.mp4')
-    src.release()                                    # удалить cache-копию (no-op в local)
-# stored_path → в БД; client.url / signed URL → пользователю
+with get_scratch_store().session('job') as workdir:
+    src = client.localize(path_in_db)
+    # обработка локальным путём src.path
+    stored = client.commit_local(str(out_file), 'module/results/name.ext')
+    src.release()
 ```
 
-- `localize(path) -> LocalizedFile` — локальный путь к canonical-файлу (`.path`, `os.fspath()`).
-- `commit_local(local_path, target) -> str` — залить результат в canonical, вернуть storage-путь.
-- `ScratchStore` (`get_scratch_store()`) — `new_dir()`, `new_path()`, `session()` (контекст с очисткой).
-- Staging загрузки перед Celery: пиши в `scratch`, не в `MEDIA_ROOT`. После валидации — `commit_local`.
+Не пиши в `MEDIA_ROOT` через `open()` из бизнес-кода модуля.
 
-Тяжёлый compute — Celery-воркер; по возможности разворачивай его рядом со storage (`MEDIA_ACCESS_MODE=local`), web-tier при этом может быть `remote`. Режим — свойство процесса, а не системы.
+## Режимы
 
-## Режимы доступа (MEDIA_ACCESS_MODE)
+- `local` — API читает/пишет файлы на том же сервере
+- `remote` — через internal API media_api, нужен `MEDIA_API_INTERNAL_KEY`
 
-- **`local`** (по умолчанию) — core/api читает/пишет файлы напрямую в `MEDIA_ROOT` на том же сервере. Клиент по-прежнему скачивает через подписанные URL media_api.
-- **`remote`** — core/api обращается к media_api по HTTP через internal API (`/internal/*`). Требует `MEDIA_API_INTERNAL_KEY` на обоих сервисах.
+Переменные: `MEDIA_API_PUBLIC_BASE_URL`, `MEDIA_API_INTERNAL_BASE_URL`, `MEDIA_API_BIND_PORT` — см. `core/api/src/config/settings/base.py`.
 
-## Конфигурация URL (упрощённо)
+## Запрещено
 
-- **`MEDIA_API_URL`** — публичный base URL для подписанных ссылок (вместо `MEDIA_API_HOST` + `PORT` + `PROTOCOL`).
-- **`MEDIA_API_BIND_PORT`** — порт процесса media_api; без nginx и без `MEDIA_API_URL` из него выводится публичный адрес.
-- **`MEDIA_API_INTERNAL_URL`** — служебный URL core/api → media_api при `remote` (вместо `MEDIA_API_INTERNAL_BASE_URL`).
-
-Публичные URL (`/serve/`, `/upload/`) для браузера всегда идут на media_api (отдельный сервер или nginx).
+- URL через `MEDIA_URL` или `/media/...` в основном API
+- `request.FILES` без поддержки `*_path` от media_api
+- Временные файлы внутри пользовательской папки media

@@ -1,32 +1,72 @@
 ---
 alwaysApply: false
 ---
-# КРИТИЧЕСКИ ВАЖНО: Правила клиентского кода
+# Клиент (Vue)
 
-Всю локализацию интерфейса всегда делай на русском языке, и только по отдельной просьбе пиши на другом языке.
+- Интерфейс на **русском**
+- Адаптивная вёрстка (мобильные тоже)
+- Иконки — **Lucide**, выравнивай по центру с текстом
+- Темы и цвета — через CSS-переменные ядра (`themes.mdc`), не хардкод hex
 
-Разрабатывай всегда интерфейс так, чтобы он был адаптивным, и подходил под мобильные устройства.
+## Toast-уведомления
 
-При реализации vue.js компонентов старайся декомпозировать компоненты и использовать стили bootstrap, а также существующую стилистику клиентского решения. Выноси CSS/SCSS и .js логику в отдельные файлы только когда компонент превышает 1000 строк.
+Единый слой — `@/js/utils/toast.js`. **Не** импортируй `vue-toastification` напрямую (кроме ядра: `main.js`, `toast.js`).
 
-Все иконки в client бери из библиотеки lucide, и делай их всегда по центру относительно текста, ты часто делаешь их чуть ниже текста. 
+```javascript
+import { useToast, showSuccess, showError, handleApiError } from '@/js/utils/toast.js'
 
-С всплывающими уведомлениями работай вот так всегда:
-import { useToast } from 'vue-toastification'
+// в setup / composable
 const toast = useToast()
+toast.success('Сохранено')
+toast.error('Ошибка сохранения')
 
-Всегда используй модальные окна (client/src/components/ConfirmDialog.vue) вместо алертов (alert) для подтверждения каких то операций.
+// вне setup (handlers, utils)
+showSuccess('Готово')
+showError('Не удалось загрузить')
 
-# Работа с импортами
-Если ты используешь зависимость из ядра системы (core/client) то пиши пути используя абсолютные пути:
+// ошибки API
+try { ... } catch (e) { await handleApiError(e, 'Не удалось сохранить') }
+```
 
+Полезные функции: `showWarning`, `showInfo`, `showToast`, `normalizeToastMessage`, `getToast`, `showValidationError`, `showSaveSuccess`, `showDeleteSuccess`.
+
+Re-export: `@/js/utils/notifications.js`.
+
+## Подтверждения действий
+
+Единый слой — `@/js/utils/confirm.js`. **Не** локальный `<ConfirmDialog>`, **не** `window.confirm()` / `alert()`.
+
+```javascript
+import { confirmAction, confirmDelete, runWithConfirm } from '@/js/utils/confirm.js'
+
+const ok = await confirmDelete('Удаление', 'Вы уверены?')
+if (!ok) return
+
+await runWithConfirm(
+  { title: 'Удаление', message: 'Удалить?', variant: 'danger', confirmText: 'Удалить' },
+  () => apiClient.delete(url),
+)
+```
+
+Подробности, `confirmChoice`, countdown — в `modal-center.mdc`.
+
+- Даты — `@/js/utils/timeUtils.js` (`time-utils.mdc`)
+
+## Импорты
+
+Из ядра — с `@/`:
+
+```javascript
 import { apiClient } from '@/js/api/manager'
 import { endpoints } from '@/js/api/endpoints'
+```
 
-Даты, время и склонение относительного времени на русском — только через `@/js/utils/timeUtils.js` (подробности в `time-utils.mdc`).
+Внутри модуля — относительные пути.
 
-Если ты используешь внутримодульные зависимости (modules/<имя_модуля>), то пиши пути используя относительные импорты.
+Между модулями — только мост (`ModuleBridge`), не прямой import.
 
+## Компоненты
 
-# defineProps и defineEmits
-В vue.js не делай данные импорты, потому что - [@vue/compiler-sfc] `defineProps` is a compiler macro and no longer needs to be imported.
+Декомpose крупные страницы. Стили Bootstrap + SCSS модуля. Вынос в отдельные `.scss`/`.js` — когда компонент > 1000 строк.
+
+`defineProps` / `defineEmits` не импортируй — макросы компилятора.

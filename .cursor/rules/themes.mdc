@@ -1,0 +1,49 @@
+---
+description: Темы light/dark — только система ядра
+globs:
+  - core/client/**/*.vue
+  - core/client/**/*.scss
+  - modules/**/client/**/*.vue
+  - modules/**/client/**/*.scss
+alwaysApply: false
+---
+# Темы оформления
+
+Переключение светлая / тёмная / авто — через настройки CMS и `theme-manager.js`. На `<html>` ставится `data-bs-theme`.
+
+## Цвета в стилях
+
+Не хардкодь `#fff`, `#212529` и т.п. Используй переменные:
+
+```scss
+.card {
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  border: 1px solid var(--ui-border);
+}
+```
+
+Приоритет: `--ui-*` → `--color-*` → `--bs-*`.
+
+Тёмная тема: селектор `[data-bs-theme='dark']`, не отдельный класс на компоненте.
+
+Токены ядра: `core/client/src/scss/_theme.scss`, `core/client/src/scss/ui/_tokens.scss`.  
+Не копируй `_tokens.scss` в модуль — не импортируй `ui/scss/index.scss` в `routes.js` (уже в `styles.scss`).
+
+## JavaScript
+
+```js
+import { useThemeMode } from '@/composables/useThemeMode.js'
+import { useApexTheme, buildApexOptions } from '@/composables/useApexTheme.js'
+```
+
+Не читай тему из `localStorage` вручную.  
+Графики (Apex/canvas) — пересобирай при смене темы через `useThemeMode` или событие `ergo:theme-change`.
+
+## Запрещено
+
+- Локальные палитры, не связанные с `--ui-*` / `--color-*`
+- Только `@media (prefers-color-scheme: dark)` без учёта выбора пользователя
+- Редактор тем в модуле (только в ядре)
+
+Новые UI-токены — только в `core/client/src/scss/ui/`.
