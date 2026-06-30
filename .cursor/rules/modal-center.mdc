@@ -1,0 +1,87 @@
+---
+description: Модальные окна — только через ModalCenter (и ConfirmDialog поверх него). Запрет кастомных оверлеев и inline-модалок
+globs:
+  - core/client/**/*.vue
+  - modules/**/client/**/*.vue
+alwaysApply: false
+---
+
+# Модальные окна — только ModalCenter
+
+Единый компонент-обёртка для всех модальных окон: [`core/client/src/components/ModalCenter.vue`](core/client/src/components/ModalCenter.vue).
+
+```js
+import ModalCenter from '@/components/ModalCenter.vue'
+```
+
+В модулях путь тот же — алиас `@/` указывает на `core/client/src`.
+
+## Когда что использовать
+
+| Задача | Компонент |
+|-----|---|
+| Любое модальное окно (форма, превью, мастер, инфо) | `ModalCenter` |
+| Подтверждение yes/no (удалить, применить и т.п.) | `ConfirmDialog` (построен поверх `ModalCenter`) |
+
+[`ConfirmDialog.vue`](core/client/src/components/ConfirmDialog.vue) — это обёртка над `ModalCenter`. Для подтверждений используй его, а не собственную разметку (см. также `client_code.mdc`).
+
+## Запрещено
+
+- Своя разметка модалки: `class="modal fade show d-block"`, `class="modal-overlay"`, `class="modal-window"` и любые кастомные оверлеи с `position: fixed; inset: 0`.
+- Ручной `<Teleport to="body">` + собственный backdrop-`<div>` для модалки.
+- Ручная блокировка прокрутки страницы (`document.body.style.overflow = 'hidden'`) ради модалки — это делает `ModalCenter`.
+- Собственные обработчики `Escape` и клика по фону — используй props `close-on-esc` / `close-on-backdrop`.
+- Локальные копии базовых обёрток (`BaseModal` и т.п.) в модулях. Если такая уже есть — она должна быть тонкой обёрткой над `ModalCenter`.
+- `alert()` / `confirm()` для подтверждений.
+
+## Как применять
+
+Для модалок, видимостью которых управляет родитель (флаг `show`/`visible`), используй **standalone-режим**:
+
+```vue
+<ModalCenter
+  standalone
+  modal-id="myModal"
+  title="Заголовок"
+  :visible="show"
+  @close="show = false"
+>
+  <!-- тело модалки -->
+
+  <template #footer>
+    <button class="btn btn-secondary" @click="show = false">Отмена</button>
+    <button class="btn btn-primary" @click="save">Сохранить</button>
+  </template>
+</ModalCenter>
+```
+
+### Ключевые props
+
+- `modal-id` — уникальный id.
+- `title` (строка) или слот `#title` — для заголовка с иконкой используй слот `#title`.
+- `show-title` (default `true`); если заголовок не нужен — `:show-title="false"` (тогда рендерится плавающая кнопка закрытия).
+- `size`: `'sm' | 'md' | 'lg' | 'xl' | 'fullscreen'`.
+- `standalone` + `:visible` — для модалок с видимостью от родителя (overlay/Teleport `ModalCenter` берёт на себя).
+- `close-on-backdrop` (default `true`), `close-on-esc` (default `true`).
+- `dialog-class`, `body-class`, `custom-class` — для кастомных классов/ширины.
+- `dialog-style` (object|string) — инлайн-стиль `.modal-dialog` для **динамической** ширины.
+- `z-index` — при наложении модалок.
+- Слоты: `#title`, default (тело), `#footer` (футер рендерится только если слот передан). Эмиты: `close`, `closemodal`.
+
+## Стили и scoped CSS
+
+- Содержимое слотов (`#title`, default, `#footer`) рендерится в scope твоего компонента — scoped-стили на твои классы внутри слотов работают как обычно.
+- Внутренние обёртки `ModalCenter` (`.modal-header`, `.modal-body`, `.modal-footer`, `.modal-content`, `.modal-dialog`) из дочернего scope **не стилизуются** напрямую. Если нужно поправить их — задай `custom-class` и используй `:deep()`, либо оборачивай контент слотов в собственный div с нужным классом.
+
+## Исключения
+
+Следующие UI-паттерны **не переводятся** на `ModalCenter` без доработки самого `ModalCenter`:
+
+- **Draggable / resizable** — модалки с перетаскиванием диалога мышью и/или ручками изменения размера (например `BIAnalysisModal`, `BIChartsModal` в `bi_analysis`). Конвертация сломает drag/resize.
+- **Выезжающие панели** — боковые чат-панели, сайдбары, drawer'ы (не центрированное модальное окно).
+
+Если нужен drag/resize в новом функционале — сначала расширяй `ModalCenter` в ядре, а не создавай отдельную реализацию.
+
+## Расширение
+
+Если `ModalCenter` чего-то не хватает (новый режим/проп) — расширяй сам `ModalCenter` в ядре (как добавленный `dialog-style`), а не создавай собственную модалку в модуле.
