@@ -1,0 +1,101 @@
+---
+description: Безопасность клиента и API — куки, хранилища, логи, токены, без утечки чувствительных данных
+alwaysApply: true
+---
+
+# Безопасность: хранилища, куки, логи
+
+## Что нельзя хранить в localStorage / sessionStorage / document.cookie
+
+**Запрещено** сохранять и читать из браузерных хранилищ:
+
+- JWT, refresh-токены, API-ключи, пароли, секреты
+- `user_id`, `organization_id`, `department_id` и прочие идентификаторы сессии/контекста доступа
+- PII (email, телефон, паспорт и т.п.) «на будущее» или для «удобства»
+- полные объекты пользователя / профиля / прав
+
+**Допустимо** только UI-преференсы без security-impact: тема, язык, свёрнутость меню, черновики форм без PII.
+
+Идентификаторы сессии — **только из JWT** через [`tokenStorage.js`](core/client/src/core/cms/js/tokenStorage.js): `getUserId()`, `getOrganizationId()`, `getPayload()`.  
+Токены — **только через** `getAccess()` / `setTokens()` / `clearTokens()` в том же модуле. Не дублировать логику в модулях.
+
+```js
+// ❌ BAD
+localStorage.setItem('user_id', user.id)
+sessionStorage.setItem('token', access)
+Cookies.set('refresh', refresh)
+
+// ✅ GOOD — UI-преференс
+localStorage.setItem('menu_collapsed', 'true')
+
+// ✅ GOOD — контекст из JWT
+import { getUserId } from '@/core/cms/js/tokenStorage.js'
+const userId = getUserId()
+```
+
+## Куки
+
+### Django (сессия, CSRF)
+
+В production — как в [`production.py`](core/api/src/config/patterns/production.py):
+
+- `HttpOnly: true`
+- `Secure: true` (если HTTPS / nginx с TLS)
+- `SameSite: Lax` (или `Strict` для чувствительных сценариев)
+
+Не ослабляй эти флаги в prod без явной причины.
+
+### JWT на клиенте
+
+- **Не** класть токены в `localStorage` / `sessionStorage`.
+- Не создавай новые cookie с токенами вне `tokenStorage.js`.
+- При доработке auth предпочитай **HttpOnly-cookie, выставляемые сервером** (клиентский JS не должен читать refresh).
+- Любые опции `js-cookie`: `secure: true` в prod, `sameSite: 'Lax'`, без `domain`-расширения без необходимости.
+
+## Логирование — клиент
+
+Единый источник: [`logError.js`](core/client/src/js/utils/logError.js) + [`logger.js`](core/client/src/js/utils/logger.js). Подробности — в [`log-error.mdc`](log-error.mdc).
+
+**Запрещено:**
+
+- `console.error(error)` / `console.warn(error)` с сырым axios/DOM-объектом — утекают headers, body, stack, токены
+- логировать `Authorization`, `token`, `refresh`, `password`, cookies, `localStorage`, полный `response.config`
+- `console.log(user)`, `console.log(token)`, `console.debug({ headers })`
+- логировать Vue-инternals: `$data`, `$refs`, `__VUE__`, полные props/emits с PII
+
+**Правильно:**
+
+```js
+logError('Ошибка загрузки профиля', error)
+logWarn('Кеш недоступен', err)
+```
+
+**Production:** `VITE_LOG_LEVEL=critical` (или `silent`).  
+Сборка: `sourcemap: false`, Vue DevTools не включать в prod ([`vite.config.js`](core/client/vite.config.js)).
+
+Отладочные `console.log` — только временно в dev; перед merge удалять или заменить на безопасный контекст без объектов запросов.
+
+## Логирование — API (Python)
+
+**Запрещено** писать в лог:
+
+- пароли, токены, `Authorization`, cookie-заголовки
+- полные тела запросов с credentials
+- traceback с request.META, содержащим секреты
+
+**Правильно:**
+
+```python
+logger.warning('Login failed for user=%s', username)  # без password
+logger.exception('Import failed: task_id=%s', task_id)  # без payload с PII
+```
+
+Маскируй чувствительные поля; не логируй `request.data` целиком на auth-эндпоинтах.
+
+## Новый код — чеклист
+
+1. Секреты и ID сессии — не в `localStorage` / `sessionStorage` / JS-cookie.
+2. Ошибки — через `logError` / `logWarn`, не через сырой `console.*`.
+3. Django session/CSRF cookies — HttpOnly + Secure + SameSite.
+4. Prod-клиент — минимальный уровень логов, без sourcemap и devtools.
+5. Расширение санитизации — только в `logError.js` (клиент), не локально в модулях.
