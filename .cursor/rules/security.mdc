@@ -1,16 +1,127 @@
 ---
-description: Безопасность клиента и API — куки, хранилища, логи, токены, без утечки чувствительных данных
+description: Стандарты безопасности ERGO MS — секреты, auth, API, файлы, логи, клиент; обязательный чеклист перед изменениями
 alwaysApply: true
 ---
 
-# Безопасность: хранилища, куки, логи
+# Безопасность ERGO MS
+
+**Перед** правками auth, API, прав доступа, файлов, env, CORS, cookies или логирования — **сверься с этим правилом**. Не ослабляй защиту «для удобства» и не обходи стандарты проекта.
+
+## Связанные правила (читай при затронутой теме)
+
+| Тема | Правило |
+|------|---------|
+| Токены, куки, логи (детали) | этот файл |
+| Безопасное логирование на клиенте | [`log-error.mdc`](log-error.mdc) |
+| Права маршрутов (только UX) | [`permission_rules.mdc`](permission_rules.mdc) |
+| Файлы и media_api | [`media_api.mdc`](media_api.mdc) |
+| Проверки прав в модулях | [`modules.mdc`](modules.mdc) → `adp.permission_check` |
+| Swagger и queryset по user | [`api_code.mdc`](api_code.mdc) → `SwaggerSafeMixin` |
+
+---
+
+## Секреты и конфигурация
+
+**Запрещено:**
+
+- Коммитить `.env`, ключи, пароли, `API_SECRET_KEY`, `MEDIA_API_INTERNAL_KEY`, приватные токены
+- Хардкодить секреты в коде, комментариях, README, примерах в чате
+- Предлагать `DEBUG = True`, `CORS_ALLOW_ALL_ORIGINS = True` при `CORS_ALLOW_CREDENTIALS = True`, отключение `ALLOWED_HOSTS` в prod
+- Ослаблять флаги cookies/HSTS из [`production.py`](core/api/src/config/patterns/production.py) без явной причины и согласования
+- Класть **серверные** секреты в `VITE_*` — они попадают в бандл клиента
+
+**Правильно:**
+
+- Секреты только через `.env` и [`env`](core/api/src/config/env.py); пути — из [`base.py`](core/api/src/config/settings/base.py)
+- CORS — явный список origin'ов ([`cors.py`](core/api/src/config/settings/cors.py)), не `*`
+- Prod: `DEBUG = False`, минимальные логи, `sourcemap: false` ([`vite.config.js`](core/client/vite.config.js))
+
+---
+
+## Авторизация и права (API — источник истины)
+
+Клиентские `permission-rules.js` — **только UX**. Любой эндпоинт **обязан** проверять права на сервере.
+
+**Запрещено:**
+
+- `AllowAny` / отключение `permission_classes` без явной бизнес-причины (публичная тема, healthcheck)
+- Возвращать чужие данные без фильтра по `request.user` / организации / правам
+- Пропускать проверку прав «временно» или «только для админов в dev»
+- Доверять `organization_id`, `user_id`, ролям из тела запроса без верификации на сервере
+- Обходить `PermissionService` / `bridge.call('adp.permission_check', ...)` локными хаками в модулях
+
+**Правильно:**
+
+- По умолчанию `IsAuthenticated`; админ — `IsGlobalAdmin` или `PermissionService`
+- ViewSet с данными пользователя — `SwaggerSafeMixin` + фильтр в `get_queryset` ([`api_code.mdc`](api_code.mdc))
+- Модульные права — `permissions.py` модуля + проверка через bridge / `PermissionService.check_module_permission`
+- `get_queryset`: при `swagger_fake_view` или неаутентифицированном user — `.none()`, не полный queryset
+
+```python
+# ❌ BAD — доверие client-side id
+org_id = request.data['organization_id']
+return Organization.objects.filter(id=org_id)
+
+# ✅ GOOD — контекст из проверенного membership / JWT / bridge
+org = get_organization_for_user(request.user, org_id)
+if org is None:
+    raise PermissionDenied
+```
+
+---
+
+## Публичные идентификаторы — не светить pk БД
+
+Последовательные `id` из PostgreSQL **не должны** попадать в адресную строку, query-параметры, shareable-ссылки и браузерные хранилища. Это упрощает перебор сущностей и связывает URL с внутренней схемой БД.
+
+**Запрещено (клиент и публичный API):**
+
+- Маршруты вида `/entities/42`, `/settings/organization/departments/7`, query `?organization_id=5&department_id=12`
+- `router.push({ params: { id: item.id } })`, `href`, `window.location` с числовым pk
+- `localStorage` / `sessionStorage` / `document.cookie` (кроме JWT в `tokenStorage.js`) с `*_id`, pk, «активная организация», «выбранный отдел» и т.п.
+- Отдавать в JSON для UI только `id`, если фронт строит из него URL или кладёт в storage — нужен **`public_id`** (UUID) или другой непредсказуемый opaque-ref
+- Новые cookie с business-id сущностей (`org_id`, `dept_id`, `project_id`)
+
+**Правильно:**
+
+- Поле **`public_id`** (`UUIDField`, unique, read-only в API) на сущностях, доступных по URL
+- Публичные URL и API lookup — по `public_id`; pk — только внутри сервера после resolve + проверки прав
+- Эталон модуля organizations:
+  - API: [`get_organization_by_ref`](modules/organizations/api/views/base.py)
+  - Client: [`getOrganizationPublicRef`](modules/organizations/client/js/organizationUtils.js), [`departmentDetailPath`](modules/organizations/client/js/organizationUtils.js)
+- Контекст сессии (org/dept/user) — **из JWT** через `tokenStorage.js`, не дублировать pk в storage «для удобства»
+
+```js
+// ❌ BAD — pk в URL и storage
+router.push(`/projects/${project.id}`)
+localStorage.setItem('active_project_id', String(project.id))
+Cookies.set('org_id', organization.id)
+
+// ✅ GOOD — opaque ref в URL; контекст из JWT
+router.push(`/projects/${project.public_id}`)
+const orgId = getOrganizationId() // из JWT, не из localStorage
+```
+
+```python
+# ❌ BAD — только pk в публичном эндпоинте
+# GET /api/organizations/42/
+
+# ✅ GOOD — lookup по public_id, pk после resolve
+org = get_organization_by_ref(kwargs['ref'])
+if org is None or not user_has_access(request.user, org):
+    raise NotFound
+```
+
+**Исключения (только с обоснованием):** внутренние admin/отладочные экраны, не попадающие в shareable URL; pk в теле POST между уже авторизованными внутренними сервисами — не в браузере.
+
+---
 
 ## Что нельзя хранить в localStorage / sessionStorage / document.cookie
 
 **Запрещено** сохранять и читать из браузерных хранилищ:
 
 - JWT, refresh-токены, API-ключи, пароли, секреты
-- `user_id`, `organization_id`, `department_id` и прочие идентификаторы сессии/контекста доступа
+- `user_id`, `organization_id`, `department_id`, pk сущностей и прочие идентификаторы сессии/контекста доступа (см. раздел **«Публичные идентификаторы»**)
 - PII (email, телефон, паспорт и т.п.) «на будущее» или для «удобства»
 - полные объекты пользователя / профиля / прав
 
@@ -33,6 +144,8 @@ import { getUserId } from '@/core/cms/js/tokenStorage.js'
 const userId = getUserId()
 ```
 
+---
+
 ## Куки
 
 ### Django (сессия, CSRF)
@@ -51,6 +164,28 @@ const userId = getUserId()
 - Не создавай новые cookie с токенами вне `tokenStorage.js`.
 - При доработке auth предпочитай **HttpOnly-cookie, выставляемые сервером** (клиентский JS не должен читать refresh).
 - Любые опции `js-cookie`: `secure: true` в prod, `sameSite: 'Lax'`, без `domain`-расширения без необходимости.
+- **Не** создавать cookie с pk/`public_id` сущностей для «запоминания контекста» — только JWT через `tokenStorage.js`.
+
+---
+
+## Файлы и медиа
+
+- Раздача и загрузка — **только через media_api** и подписанные URL ([`media_api.mdc`](media_api.mdc))
+- Не открывать `/media/` напрямую из основного API
+- Проверять право доступа к файлу **до** выдачи URL или path
+- Не принимать произвольные пути от клиента без валидации (path traversal, `../`)
+- Санитизировать имена в `Content-Disposition` (см. `_safe_content_disposition_filename` в [`settings/views.py`](core/api/src/core/settings/views.py))
+
+---
+
+## Ввод, вывод и инъекции
+
+- SQL — только ORM / параметризованные запросы; без f-string в raw SQL
+- Не отдавать клиенту stack trace, `request.META`, внутренние пути сервера в prod
+- Vue: избегать `v-html` с пользовательским контентом; если необходимо — санитизация
+- Не использовать `eval`, `Function()`, небезопасную десериализацию (`pickle` с недоверенными данными)
+
+---
 
 ## Логирование — клиент
 
@@ -75,6 +210,8 @@ logWarn('Кеш недоступен', err)
 
 Отладочные `console.log` — только временно в dev; перед merge удалять или заменить на безопасный контекст без объектов запросов.
 
+---
+
 ## Логирование — API (Python)
 
 **Запрещено** писать в лог:
@@ -90,12 +227,20 @@ logger.warning('Login failed for user=%s', username)  # без password
 logger.exception('Import failed: task_id=%s', task_id)  # без payload с PII
 ```
 
-Маскируй чувствительные поля; не логируй `request.data` целиком на auth-эндпоинтах.
+Маскируй чувствительные поля; не логируй `request.data` целиком на auth-эндпoинтах.
 
-## Новый код — чеклист
+---
 
-1. Секреты и ID сессии — не в `localStorage` / `sessionStorage` / JS-cookie.
-2. Ошибки — через `logError` / `logWarn`, не через сырой `console.*`.
-3. Django session/CSRF cookies — HttpOnly + Secure + SameSite.
-4. Prod-клиент — минимальный уровень логов, без sourcemap и devtools.
-5. Расширение санитизации — только в `logError.js` (клиент), не локально в модулях.
+## Чеклист перед завершением задачи
+
+1. Секреты и ID сессии — не в коде, git, localStorage / sessionStorage / JS-cookie (кроме `tokenStorage.js`).
+2. В URL, query и storage — **нет pk БД**; снаружи только `public_id` / opaque-ref; контекст сессии из JWT.
+3. API проверяет auth и права; queryset отфильтрован; клиент не единственная защита.
+4. Файлы — через media_api; пути от клиента валидированы.
+5. Ошибки — `logError` / `logWarn` (клиент); без утечки credentials (API).
+6. Django session/CSRF cookies — HttpOnly + Secure + SameSite в prod.
+7. Prod-клиент — минимальный уровень логов, без sourcemap и devtools.
+8. CORS, DEBUG, ALLOWED_HOSTS — не ослаблены.
+9. Санитизация ошибок — только в `logError.js` (клиент), не локально в модулях.
+
+При сомнении — **остановись и уточни** ([`clarifying-questions.mdc`](clarifying-questions.mdc)); не делай security-исключений молча.
