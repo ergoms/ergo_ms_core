@@ -100,6 +100,13 @@
 	update = merge
 	ignore = all
 
+[submodule "modules/crm"]
+	path = modules/crm
+	url = https://github.com/Wyaro/dealflow-crm.git
+	branch = dev
+	update = merge
+	ignore = all
+
 [submodule "modules/crm_remastered"]
 	path = modules/crm_remastered
 	url = https://github.com/SKB-AI/crm_remastered.git
