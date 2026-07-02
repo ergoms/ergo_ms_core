@@ -1,10 +1,15 @@
 ---
-description: Темы light/dark — только система ядра
+description: Темы light/dark, UI-токены и шрифты — только система ядра
 globs:
   - core/client/**/*.vue
   - core/client/**/*.scss
+  - core/client/**/*.css
+  - core/client/**/*.html
+  - core/client/**/*.js
   - modules/**/client/**/*.vue
   - modules/**/client/**/*.scss
+  - modules/**/client/**/*.css
+  - modules/**/client/**/*.js
 alwaysApply: false
 ---
 # Темы оформления
@@ -40,10 +45,49 @@ import { useApexTheme, buildApexOptions } from '@/composables/useApexTheme.js'
 Не читай тему из `localStorage` вручную.  
 Графики (Apex/canvas) — пересобирай при смене темы через `useThemeMode` или событие `ergo:theme-change`.
 
+Новые UI-токены — только в `core/client/src/scss/ui/`.
+
+## Шрифты — только локально / system stack
+
+**Запрещено** подключать шрифты с внешних CDN и сторонних доменов:
+
+- `@import url('https://fonts.googleapis.com/...')`, `fonts.gstatic.com`, Adobe Fonts, Fontshare и любые другие CDN
+- `<link href="https://...fonts..." rel="stylesheet">` в Vue/HTML
+- динамическое создание `<link>` / `@font-face` с `src: url(https://...)` в JS или SCSS
+- `@font-face` с URL вне репозитория (только файлы из проекта)
+
+Причины: CSP (`style-src` / `font-src 'self'`), приватность, офлайн, единый вид.
+
+**Правильно:**
+
+```scss
+.my-block {
+  font-family: var(--font-family-base);
+}
+
+code, pre {
+  font-family: var(--font-family-mono);
+}
+```
+
+Эталонные токены в `core/client/src/scss/ui/_tokens.scss`:
+
+- `--font-family-base` — системный stack (Segoe UI, Roboto, …)
+- `--font-family-mono` — monospace stack
+
+Модули **не** объявляют свой `@font-face` и **не** копируют font-family из Google Fonts (`Inter`, `Geologica` и т.п.) — только `var(--font-family-base)` / `var(--font-family-mono)` или `inherit`.
+
+**Self-host** (если когда-либо понадобится не-system шрифт):
+
+- файлы `.woff2` / `.woff` только в `core/client/src/assets/fonts/` (или `core/client/public/fonts/`)
+- `@font-face` с относительным `url()` на эти файлы — **только в ядре**, не в модулях
+- новый `--font-family-*` токен — только в `_tokens.scss`
+
+**В JS** (ApexCharts, canvas): `fontFamily: 'system-ui, sans-serif'` или CSS-переменная, не имя шрифта с CDN.
+
 ## Запрещено
 
 - Локальные палитры, не связанные с `--ui-*` / `--color-*`
 - Только `@media (prefers-color-scheme: dark)` без учёта выбора пользователя
 - Редактор тем в модуле (только в ядре)
-
-Новые UI-токены — только в `core/client/src/scss/ui/`.
+- **Любые внешние шрифты** (см. раздел «Шрифты» выше)

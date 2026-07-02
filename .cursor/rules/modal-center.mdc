@@ -35,6 +35,8 @@ alwaysApply: false
 
 Полезные props: `size` (sm/md/lg/xl/fullscreen), `close-on-esc`, `close-on-backdrop`, `show-close-button`, `dialog-style`.
 
+`ModalCenter` (standalone) автоматически управляет z-index через `@/js/utils/modalStack.js`: каждая открытая модалка получает уровень выше предыдущей. Подтверждения (`confirm.js`) и вложенные модалки работают без ручного `zIndex`.
+
 ---
 
 ## Подтверждения да/нет — confirm.js
@@ -59,7 +61,7 @@ const ok = await confirmAction({
   cancelText: 'Отмена',
   variant: 'primary',           // primary | danger | warning
   confirmCountdownSeconds: 5,   // кнопка «Подтвердить» заблокирована N сек
-  zIndex: 1060,                 // при конфликте с другой модалкой
+  zIndex: 1060,                 // только при нестандартном слое; обычно не нужен — стек в modalStack.js
 })
 ```
 

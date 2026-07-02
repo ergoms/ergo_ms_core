@@ -49,6 +49,10 @@ class MyModuleConfig(AppConfig):
 
 Не все файлы обязательны: бывает только API, только права на маршруты, маршруты без меню.
 
+## UI на клиенте
+
+Выпадающие списки — **только** `SelectBox` из ядра (`@/components/SelectBox.vue`). Не создавай в модуле свой select/dropdown для выбора из списка. Подробности: [`select-box.mdc`](select-box.mdc).
+
 ## Имена
 
 - Папка модуля: `kebab-case` (`video-analysis`)
@@ -92,6 +96,10 @@ def _handler(user):
 ## Git
 
 Модули — отдельные репозитории (submodule). Обновление: `git submodule update`.
+
+## Глобальный админ в модулях
+
+Роль «Администратор» и `is_superuser` **эквивалентны** по доступу в приложении. В модулях не проверяй `is_superuser` / `is_staff` напрямую — только `PermissionService.is_admin(user)` или `check_module_permission` (он уже пропускает глобального админа). Подробности — [`global-admin.mdc`](global-admin.mdc).
 
 ## Запрещено
 

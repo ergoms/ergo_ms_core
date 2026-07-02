@@ -26,6 +26,7 @@ alwaysApply: true
 | Права маршрутов (только UX) | [`permission_rules.mdc`](permission_rules.mdc) |
 | Файлы и media_api | [`media_api.mdc`](media_api.mdc) |
 | Проверки прав в модулях | [`modules.mdc`](modules.mdc) → `adp.permission_check` |
+| Глобальный админ (superuser ≡ роль «Администратор») | [`global-admin.mdc`](global-admin.mdc) |
 | Swagger и queryset по user | [`api_code.mdc`](api_code.mdc) → `SwaggerSafeMixin` |
 
 ---

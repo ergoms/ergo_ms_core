@@ -7,6 +7,7 @@ alwaysApply: false
 - Адаптивная вёрстка (мобильные тоже)
 - Иконки — **Lucide**, выравнивай по центру с текстом
 - Темы и цвета — через CSS-переменные ядра (`themes.mdc`), не хардкод hex
+- Шрифты — только `var(--font-family-base)` / `var(--font-family-mono)`; **без** Google Fonts и других CDN (`themes.mdc`)
 
 ## Toast-уведомления
 
@@ -68,5 +69,7 @@ import { endpoints } from '@/js/api/endpoints'
 ## Компоненты
 
 Декомpose крупные страницы. Стили Bootstrap + SCSS модуля. Вынос в отдельные `.scss`/`.js` — когда компонент > 1000 строк.
+
+**Выпадающие списки** — только `SelectBox` из `@/components/SelectBox.vue`, не `<select>` / `form-select`. Подробности: [`select-box.mdc`](select-box.mdc).
 
 `defineProps` / `defineEmits` не импортируй — макросы компилятора.

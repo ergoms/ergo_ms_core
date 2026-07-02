@@ -3,6 +3,10 @@ alwaysApply: false
 ---
 # Компоненты
 
+## Выпадающие списки (SelectBox)
+
+В `core/client` и `modules/**/client` — **только** `@/components/SelectBox.vue`, не `<select>`. Обязательное правило: [`select-box.mdc`](select-box.mdc).
+
 ## Аватар пользователя
 
 Всегда `@/components/UserAvatar.vue`.
