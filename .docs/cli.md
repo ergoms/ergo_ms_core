@@ -78,7 +78,6 @@ ergoms api <имя_команды> [аргументы]
 Модуль может добавить свои алиасы в `modules/<имя>/ergoms.conf`. Тогда они вызываются так:
 
 ```cmd
-ergoms project_ed:install-sidebar-menu
 ergoms video_analysis:install
 ```
 
