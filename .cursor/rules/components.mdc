@@ -17,13 +17,18 @@ alwaysApply: false
 
 ```vue
 <UserAvatar :size="40" />
+<UserAvatar :user-ref="user.public_id" :size="40" :title="user.name" />
 <UserAvatar :userId="user.id" :size="40" :title="user.name" />
 <UserAvatar :custom-avatar-url="url" :size="120" />
 <UserAvatar :clickable="true" @click="onClick" />
 ```
 
-Пропсы: `size` (число, по умолчанию 40), `clickable`, `title`, `customAvatarUrl`, `userId`.
+Пропсы: `size` (число, по умолчанию 40), `clickable`, `title`, `customAvatarUrl`, `userId`, `userRef`.
 
-При `userId` данные берутся через `getUserPublicInfo` и `resolveAvatar` — не пиши свой запрос аватара.
+**Приоритет — `userRef` (public_id пользователя, UUID), а не `userId`.** Если объект пользователя из API уже содержит `public_id` — передавай `:user-ref="user.public_id"`; `userId` — только fallback, пока `public_id` не проведён через конкретный сериализатор.
+
+Без явных `avatar-url`/`first-name`+`last-name` компонент сам запрашивает публичные данные пользователя. По `userId` это идёт через legacy числовой эндпоинт (подбор id, см. [`security.mdc`](security.mdc) → «Публичные идентификаторы»); по `userRef` — через безопасный lookup по `public_id`. Не пиши свой запрос аватара — используй `getUserPublicInfo`/`getUserPublicInfoByRef` из `@/js/userAvatar`.
+
+Если бэкенд-сериализатор ещё не отдаёт `public_id` пользователя — добавь его тем же паттерном (`SerializerMethodField`, `str(user.public_id) if getattr(user, 'public_id', None) else None`), а не пропускай `userRef`.
 
 Типичные размеры: 32 (списки), 40 (меню), 120 (профиль).

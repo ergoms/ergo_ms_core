@@ -100,6 +100,11 @@ if org is None:
 - Эталон модуля organizations:
   - API: [`get_organization_by_ref`](modules/organizations/api/views/base.py)
   - Client: [`getOrganizationPublicRef`](modules/organizations/client/js/organizationUtils.js), [`departmentDetailPath`](modules/organizations/client/js/organizationUtils.js)
+- Эталон пользователя (`auth.User`) — поле `public_id` есть на модели по умолчанию:
+  - Модель: `public_id` в `AbstractUser` (`core/django/django/contrib/auth/models.py`)
+  - API: [`UserPublicInfoView`](core/api/src/core/cms/views.py) — lookup по `users/by-ref/<uuid:ref>/public-info/`, числовой `users/<int:user_id>/...` — только legacy fallback, не использовать в новом коде
+  - Client: `@/components/UserAvatar.vue` — проп `user-ref` (не `userId`), см. [`components.mdc`](components.mdc) → «Аватар пользователя»
+  - Любой сериализатор/ответ, отдающий `user.id` для последующего показа аватара/публичных данных, должен рядом отдавать `public_id` (`SerializerMethodField`, `str(user.public_id) if getattr(user, 'public_id', None) else None`)
 - Контекст сессии (org/dept/user) — **из JWT** через `tokenStorage.js`, не дублировать pk в storage «для удобства»
 
 ```js
