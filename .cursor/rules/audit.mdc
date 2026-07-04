@@ -1,0 +1,117 @@
+---
+description: Аудит действий — запись через мост, автоаудит CRUD, каталог действий
+alwaysApply: false
+---
+# Журнал действий (аудит)
+
+Единый журнал действий пользователей живёт в ядре (`core/api/src/core/audit/`).
+Модули **не** заводят свою модель аудита, свой UI и свой формат — только пишут
+события. Инициатор, IP, User-Agent, организация и request_id подставляет ядро
+автоматически из контекста запроса.
+
+Смотреть журнал: админ-панель → «Журнал действий» (только глобальный админ).
+
+## Как писать из модуля
+
+### 1. CRUD — автоаудит через миксин ядра (0 ручных вызовов)
+
+Подмешай `AuditedModelMixin` перед `ModelViewSet` — create/update/destroy
+пишутся сами, с diff изменённых полей.
+
+```python
+from src.core.audit.mixin import AuditedModelMixin
+from src.core.utils.mixins import SwaggerSafeMixin
+from rest_framework import viewsets
+
+class CourseViewSet(AuditedModelMixin, SwaggerSafeMixin, viewsets.ModelViewSet):
+    queryset = Course.objects.all()
+    serializer_class = CourseSerializer
+    audit_module = 'lms'                 # опц.; по умолчанию app_label модели
+    # audit_entity_type = 'course'       # опц.; по умолчанию имя модели
+    # audit_action_map = {'create': 'course.created', ...}  # опц.
+```
+
+`entity.ref` берётся из `public_id` / `uuid` объекта (не pk БД — см. `security.mdc`).
+
+### 2. Доменное событие (не CRUD) — один вызов через мост
+
+```python
+from src.core.integrations import bridge
+
+bridge.call(
+    'audit.record',
+    action='lms.enrollment.cancelled',       # 'модуль.объект.действие'
+    source_module='lms',
+    entity={'type': 'enrollment', 'ref': enr.public_id, 'label': str(enr)},
+    changes=[{'field': 'status', 'label': 'Статус', 'old': 'active', 'new': 'cancelled'}],
+    meta={'reason': reason},                 # секреты вырежутся автоматически
+    severity='info',                         # info | security | critical
+)
+```
+
+- `actor`, `ip`, `organization_id`, `request_id` подставляются из запроса — **не передавай их**.
+- Передавай `actor=<user>` **только** если пишешь вне HTTP-запроса (Celery, команда).
+- Никогда не бросай наружу — вызов уже обёрнут и не ломает основной запрос.
+
+### 3. Каталог действий (опционально — для красивой ленты)
+
+Без каталога действие показывается generic-подписью. Чтобы был человекочитаемый
+label, иконка (Lucide) и важность — задекларируй секцию:
+
+```python
+# modules/<m>/api/audit_catalog.py
+AUDIT_SECTION = {
+    'module': 'lms',
+    'module_label': 'Обучение (LMS)',
+    'actions': [
+        {'action': 'lms.enrollment.cancelled', 'label': 'Зачисление отменено',
+         'icon': 'UserMinus', 'category': 'enrollment', 'category_label': 'Зачисления',
+         'severity': 'info'},
+    ],
+}
+
+# modules/<m>/api/integrations.py
+from src.core.integrations import bridge
+from .audit_catalog import AUDIT_SECTION
+bridge.provide_many('audit.action_definitions', key='lms', obj=AUDIT_SECTION)
+```
+
+## Правила именования действий
+
+- Формат `action`: `<модуль>.<объект>.<действие>`, например `tasks.task.status_changed`.
+- Глаголы CRUD по умолчанию: `created` / `updated` / `deleted`.
+- `severity='security'` — доступ, права, роли, аутентификация; `critical` — необратимое/массовое.
+
+## Запрещено
+
+- Заводить в модуле **свою** модель аудита / `*ActivityLog` / `*AuditLog` для того,
+  что покрывает центральный журнал. Новые — только с явной причиной (детальная
+  доменная история сверх общей ленты), и summary всё равно дублировать в `audit.record`.
+- Импортировать `from src.core.audit.models import ...` в модуле — только через мост
+  (`bridge.call('audit.record', ...)`) и миксин (`src.core.audit.mixin`).
+- Передавать в `audit.record` пароли/токены в открытом виде — движок их вырежет,
+  но и сам не клади (`security.mdc`).
+- Класть в `entity.ref` числовой pk БД — только `public_id` / UUID / opaque-ссылку.
+- Свой UI журнала в модуле. Нужен встроенный виджет «история объекта» — фильтруй
+  центральный API по `entity_type` + `entity_ref`, не копируй страницу.
+- Логировать в аудит шум (каждый GET, служебные модели) — только значимые действия.
+
+## Где что
+
+| Слой | Файл |
+|---|---|
+| Модель, сервис, redaction | `core/api/src/core/audit/` |
+| Операция моста `audit.record` | `core/api/src/core/audit/integrations.py` |
+| Автоаудит CRUD | `core/api/src/core/audit/mixin.py` → `AuditedModelMixin` |
+| Каталог действий | группа моста `audit.action_definitions` |
+| Контекст (actor/ip/org) | `core/api/src/core/audit/context.py` (middleware) |
+| UI (только ядро) | `core/client/src/core/cms/adp/admin/AuditLog.vue` |
+
+## Связанные правила
+
+| Тема | Файл |
+|---|---|
+| Уведомления (тот же паттерн моста) | [`notifications.mdc`](notifications.mdc) |
+| Безопасность, public_id вместо pk | [`security.mdc`](security.mdc) |
+| Мост между модулями | [`modules.mdc`](modules.mdc) |
+| Глобальный админ | [`global-admin.mdc`](global-admin.mdc) |

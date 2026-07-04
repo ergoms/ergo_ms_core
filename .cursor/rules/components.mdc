@@ -7,6 +7,10 @@ alwaysApply: false
 
 В `core/client` и `modules/**/client` — **только** `@/components/SelectBox.vue`, не `<select>`. Обязательное правило: [`select-box.mdc`](select-box.mdc).
 
+## Плавная загрузка списков (LoadingContentArea)
+
+Списки, таблицы и панели с поиском/фильтрами — через `@/components/LoadingContentArea.vue`, не через `v-if="loading"` + `v-else` с подменой контента. Подробности: [`loading-content-area.mdc`](loading-content-area.mdc).
+
 ## Аватар пользователя
 
 Всегда `@/components/UserAvatar.vue`.
