@@ -54,6 +54,92 @@ function Update-Submodules {
     }
 }
 
+function Get-ModuleSubmoduleEntries {
+    param(
+        [string]$Root
+    )
+
+    $gitmodules = Join-Path $Root ".gitmodules"
+    if (-not (Test-Path $gitmodules)) {
+        throw ".gitmodules not found at $gitmodules"
+    }
+
+    Push-Location $Root
+    try {
+        $output = & git config -f .gitmodules --get-regexp '^submodule\..*\.path$'
+        if (-not $output) {
+            return @()
+        }
+
+        $entries = @()
+        foreach ($line in @($output)) {
+            if ($line -match '^submodule\.(.+)\.path\s+(.+)$') {
+                $name = $Matches[1]
+                $path = $Matches[2]
+                if ($path -like 'modules/*') {
+                    $branch = & git config -f .gitmodules "submodule.$name.branch"
+                    if (-not $branch) {
+                        $branch = 'dev'
+                    }
+                    $entries += [PSCustomObject]@{
+                        Name   = $name
+                        Path   = $path
+                        Branch = $branch
+                    }
+                }
+            }
+        }
+        return $entries
+    }
+    finally {
+        Pop-Location
+    }
+}
+
+function Update-ModuleSubmodules {
+    param(
+        [string]$Root
+    )
+
+    Write-ColorOutput "`n=== Updating Module Git Submodules ===" Cyan
+    Write-ColorOutput ""
+
+    Push-Location $Root
+    try {
+        $entries = Get-ModuleSubmoduleEntries -Root $Root
+        if ($entries.Count -eq 0) {
+            Write-ColorOutput "[WARNING] No module submodules found in .gitmodules" Yellow
+            return
+        }
+
+        $paths = @($entries | ForEach-Object { $_.Path })
+        Write-ColorOutput "-> Updating $($paths.Count) module submodule(s)..." Yellow
+        & git submodule update --init --remote @paths
+        if ($LASTEXITCODE -ne 0) { throw "Git submodule update failed" }
+
+        Write-ColorOutput "-> Switching modules to configured branches..." Yellow
+        foreach ($entry in $entries) {
+            Write-ColorOutput "  $($entry.Path) -> $($entry.Branch)" Gray
+            Push-Location $entry.Path
+            & git checkout $entry.Branch
+            if ($LASTEXITCODE -ne 0) {
+                Write-ColorOutput "[WARNING] Failed to checkout $($entry.Branch) in $($entry.Path)" Yellow
+            }
+            Pop-Location
+        }
+
+        Write-ColorOutput "[OK] Module git submodules updated" Green
+    }
+    catch {
+        Write-ColorOutput "[ERROR] Failed to update module git submodules: $($_.Exception.Message)" Red
+        Pop-Location
+        exit 1
+    }
+    finally {
+        Pop-Location
+    }
+}
+
 function Invoke-ConfigScaffold {
     param(
         [string]$Root

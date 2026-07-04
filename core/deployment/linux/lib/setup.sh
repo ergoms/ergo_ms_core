@@ -47,6 +47,58 @@ update_submodules() {
   echo "[OK] Git submodules updated"
 }
 
+update_module_submodules() {
+  local root="$1"
+  local gitmodules="$root/.gitmodules"
+  local -a module_paths=()
+  local key path name branch
+
+  if [[ ! -f "$gitmodules" ]]; then
+    echo "[ERROR] .gitmodules not found at $gitmodules" >&2
+    exit 1
+  fi
+
+  echo ""
+  echo "=== Updating Module Git Submodules ==="
+  echo ""
+
+  cd "$root" || exit 1
+
+  while IFS=' ' read -r key path; do
+    if [[ "$path" == modules/* ]]; then
+      module_paths+=("$path")
+    fi
+  done < <(git config -f "$gitmodules" --get-regexp '^submodule\..*\.path$' | awk '{print $1, $2}')
+
+  if [[ ${#module_paths[@]} -eq 0 ]]; then
+    echo "[WARNING] No module submodules found in .gitmodules" >&2
+    exit 0
+  fi
+
+  echo "-> Updating ${#module_paths[@]} module submodule(s)..."
+  if ! git submodule update --init --remote "${module_paths[@]}"; then
+    echo "[ERROR] Failed to update module git submodules" >&2
+    exit 1
+  fi
+
+  echo "-> Switching modules to configured branches..."
+  while IFS=' ' read -r key path; do
+    [[ "$path" == modules/* ]] || continue
+    name="${key#submodule.}"
+    name="${name%.path}"
+    branch="$(git config -f "$gitmodules" "submodule.$name.branch")"
+    branch="${branch:-dev}"
+
+    echo "  $path -> $branch"
+    if ! (cd "$root/$path" && git checkout "$branch"); then
+      echo "[WARNING] Failed to checkout $branch in $path" >&2
+    fi
+  done < <(git config -f "$gitmodules" --get-regexp '^submodule\..*\.path$' | awk '{print $1, $2}')
+
+  cd "$root" || exit 1
+  echo "[OK] Module git submodules updated"
+}
+
 scaffold_config_files() {
   local root="$1"
   local script="$root/core/deployment/scripts/scaffold_config_files.py"
@@ -181,4 +233,5 @@ source "$LIB_DIR/clean.sh"
 
 export -f setup_full_system
 export -f update_submodules
+export -f update_module_submodules
 export -f scaffold_config_files

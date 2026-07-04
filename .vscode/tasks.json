@@ -59,6 +59,30 @@
             "problemMatcher": []
         },
         {
+            "label": "Update Module Submodules",
+            "type": "shell",
+            "command": "ergoms update-module-submodules",
+            "options": { "cwd": "${workspaceFolder}" },
+            "windows": {
+                "options": {
+                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                }
+            },
+            "linux": {
+                "options": {
+                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                }
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new"
+            },
+            "group": { "kind": "build" },
+            "problemMatcher": []
+        },
+        {
             "label": "Cache Warmup",
             "type": "shell",
             "command": "ergoms warmup-caches-if-needed",

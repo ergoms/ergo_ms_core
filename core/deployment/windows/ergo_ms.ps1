@@ -80,7 +80,7 @@ function Main {
     $requiresAdmin = $adminCommands -contains $Command.ToLower()
     
     # Commands that don't require admin
-    $noAdminCommands = @('logs', 'help', 'clean', 'update-submodules', 'status-nginx', 'test-nginx')
+    $noAdminCommands = @('logs', 'help', 'clean', 'update-submodules', 'update-module-submodules', 'status-nginx', 'test-nginx')
     
     # Check if it's a custom command
     $projectRoot = $null
@@ -107,13 +107,15 @@ function Main {
 
     # Handle built-in noAdminCommands before custom commands to avoid recursion
     # (clean/update-submodules are in commands.conf but must run as built-in when invoked via win: ergo_ms.ps1)
-    if ($Command -in @('clean', 'update-submodules')) {
+    if ($Command -in @('clean', 'update-submodules', 'update-module-submodules')) {
         . Load-HeavyModules
         $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
         if ($Command -eq 'clean') {
             Clear-ProjectDependencies -Root $projectRoot
-        } else {
+        } elseif ($Command -eq 'update-submodules') {
             Update-Submodules -Root $projectRoot
+        } else {
+            Update-ModuleSubmodules -Root $projectRoot
         }
         return
     }
@@ -329,6 +331,10 @@ function Main {
         'update-submodules' {
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
             Update-Submodules -Root $projectRoot
+        }
+        'update-module-submodules' {
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+            Update-ModuleSubmodules -Root $projectRoot
         }
         'install-nginx' {
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root

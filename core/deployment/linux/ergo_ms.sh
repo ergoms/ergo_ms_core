@@ -57,7 +57,7 @@ main() {
   if (( $# > 0 )); then
     command="$1"
     case "$command" in
-      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|update-submodules|clean|poetry|api|media_api|npm|install-nginx|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx|install-tls|renew-tls|status-tls)
+      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|update-submodules|update-module-submodules|clean|poetry|api|media_api|npm|install-nginx|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx|install-tls|renew-tls|status-tls)
         shift ;;
       *:poetry)
         shift ;;  # module:poetry command, handled below
@@ -130,6 +130,11 @@ main() {
     is_update_submodules_command=true
   fi
 
+  local is_update_module_submodules_command=false
+  if [[ "$command" == "update-module-submodules" ]]; then
+    is_update_module_submodules_command=true
+  fi
+
   # Check if it's a nginx command (requires root for install/uninstall, not for others)
   local is_nginx_command=false
   case "$command" in
@@ -138,7 +143,7 @@ main() {
   esac
 
   # Parse flags/positional root for proxy, custom, logs, deploy, clean, update-submodules, and nginx commands
-  if [[ "$is_proxy_command" == true ]] || [[ "$is_module_poetry_command" == true ]] || [[ "$is_custom_command" == true ]] || [[ "$is_logs_command" == true ]] || [[ "$is_deploy_command" == true ]] || [[ "$is_clean_command" == true ]] || [[ "$is_update_submodules_command" == true ]] || [[ "$is_nginx_command" == true ]]; then
+  if [[ "$is_proxy_command" == true ]] || [[ "$is_module_poetry_command" == true ]] || [[ "$is_custom_command" == true ]] || [[ "$is_logs_command" == true ]] || [[ "$is_deploy_command" == true ]] || [[ "$is_clean_command" == true ]] || [[ "$is_update_submodules_command" == true ]] || [[ "$is_update_module_submodules_command" == true ]] || [[ "$is_nginx_command" == true ]]; then
     while (( "$#" )); do
       case "$1" in
         --root)
@@ -171,6 +176,10 @@ main() {
     fi
     if [[ "$is_update_submodules_command" == true ]]; then
       update_submodules "$ERGO_ROOT"
+      exit 0
+    fi
+    if [[ "$is_update_module_submodules_command" == true ]]; then
+      update_module_submodules "$ERGO_ROOT"
       exit 0
     fi
 

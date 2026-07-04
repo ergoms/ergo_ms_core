@@ -43,6 +43,7 @@ Service Management Commands:
     setup-full     Full system setup (git, venv, poetry, npm) - no services
     clean          Clean all dependencies (node_modules, venv, static) - keep media
     update-submodules Update all git submodules and switch to dev branch
+    update-module-submodules Update module git submodules from .gitmodules
     help           Show this help
 
 Nginx Commands (separate from standard install, requires admin except status/test):
@@ -165,6 +166,7 @@ Examples:
         ergoms install-deps         (quick install: poetry install && npm install && api migrate)
         ergoms db-migrate           (alias for: api migrate)
         ergoms update-submodules    (update all git submodules and switch to dev branch)
+        ergoms update-module-submodules (update module git submodules from .gitmodules)
         ergoms clean                (removes all dependencies - works on both Windows and Linux)
 
     Nginx (optional, not part of standard install):
