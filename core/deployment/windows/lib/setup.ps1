@@ -12,7 +12,7 @@ function Update-Submodules {
     Push-Location $Root
     try {
         Write-ColorOutput "-> Updating git submodules..." Yellow
-        & git submodule update --init --remote core/api core/client core/django core/django_rest_framework core/media_api
+        & git submodule update --init --remote core/api core/client core/media_api
         if ($LASTEXITCODE -ne 0) { throw "Git submodule update failed" }
         
         Write-ColorOutput "-> Switching submodules to dev branch..." Yellow
@@ -25,16 +25,6 @@ function Update-Submodules {
         Push-Location "core\client"
         & git checkout dev
         if ($LASTEXITCODE -ne 0) { Write-ColorOutput "[WARNING] Failed to checkout dev branch in core/client" Yellow }
-        Pop-Location
-        
-        Push-Location "core\django"
-        & git checkout dev
-        if ($LASTEXITCODE -ne 0) { Write-ColorOutput "[WARNING] Failed to checkout dev branch in core/django" Yellow }
-        Pop-Location
-
-        Push-Location "core\django_rest_framework"
-        & git checkout dev
-        if ($LASTEXITCODE -ne 0) { Write-ColorOutput "[WARNING] Failed to checkout dev branch in core/django_rest_framework" Yellow }
         Pop-Location
         
         Push-Location "core\media_api"

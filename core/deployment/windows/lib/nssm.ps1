@@ -72,15 +72,15 @@ function New-BaseServiceWrapper {
     switch ($ServiceName) {
         'ergo-api-dev' {
             $wrapperPath = Join-Path $wrapperDir "start_api.bat"
+            $pythonExe = Join-Path $Root "virtual_env\python\Scripts\python.exe"
+            $scriptPath = Join-Path $Root "core\api\scripts\start_api.py"
             $content = @(
                 '@echo off',
                 'chcp 65001 >nul',
                 'set PYTHONIOENCODING=utf-8',
                 'set PYTHONUTF8=1',
-                "set PYTHONPATH=$Root",
-                "cd /d `"$apiPath`"",
-                "call `"$venvActivate`"",
-                'python -m commands dev'
+                "cd /d `"$Root`"",
+                "call `"$pythonExe`" `"$scriptPath`""
             ) -join "`r`n"
         }
         'ergo-client-dev' {

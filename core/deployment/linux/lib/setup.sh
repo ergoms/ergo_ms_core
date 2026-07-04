@@ -11,7 +11,7 @@ update_submodules() {
   
   cd "$root" || exit 1
   echo "-> Updating git submodules..."
-  if ! git submodule update --init --remote core/api core/client core/django core/django_rest_framework core/media_api; then
+  if ! git submodule update --init --remote core/api core/client core/media_api; then
     echo "[ERROR] Failed to update git submodules" >&2
     exit 1
   fi
@@ -26,16 +26,6 @@ update_submodules() {
   cd "$root/core/client" || exit 1
   if ! git checkout dev; then
     echo "[WARNING] Failed to checkout dev branch in core/client" >&2
-  fi
-  
-  cd "$root/core/django" || exit 1
-  if ! git checkout dev; then
-    echo "[WARNING] Failed to checkout dev branch in core/django" >&2
-  fi
-
-  cd "$root/core/django_rest_framework" || exit 1
-  if ! git checkout dev; then
-    echo "[WARNING] Failed to checkout dev branch in core/django_rest_framework" >&2
   fi
   
   cd "$root/core/media_api" || exit 1

@@ -55,13 +55,13 @@ enable_and_start() {
 get_base_unit_definitions() {
   API_UNIT=$(cat <<'UNIT'
 [Unit]
-Description=Ergo API (dev)
+Description=Ergo API (mode from API_DEPLOY_TYPE)
 After=network.target
 
 [Service]
 Type=simple
 EnvironmentFile=/etc/default/ergo_ms
-ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core/api" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && export PYTHONPATH="$ERGO_ROOT" && python -m commands dev'
+ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && python core/api/scripts/start_api.py'
 Restart=always
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1

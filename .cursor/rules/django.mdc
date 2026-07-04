@@ -1,10 +1,13 @@
 ---
 alwaysApply: false
 ---
-# Django (форк проекта)
+# Django (PyPI)
 
-Django лежит в submodule `core/django` — модели могут отличаться от стандартных.
+Django и DRF — стандартные пакеты из Poetry (`django`, `djangorestframework`), не submodule.
 
-В `AbstractUser` добавлено поле `middle_name`. Перед правками auth смотри форк.
+Расширения `auth.User` (`middle_name`, `public_id`, `get_initials_name`) — в ядре:
+`core/api/src/core/cms/adp/user_extensions.py` и миграция `cms_adp.0038_user_extension_fields`.
+
+Перед правками auth смотри `user_extensions.py` и миграцию.
 
 Админ-панель Django **отключена** — не создавай `admin.py` и admin-регистрации.
