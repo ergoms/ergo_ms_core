@@ -1,0 +1,89 @@
+---
+description: Realtime — WebSocket Channels, JWT auth, REALTIME_TRANSPORT, http_polling
+globs: "**/ws/**,**/realtime/**,**/consumers/**,**/routing.py,**/asgi.py"
+alwaysApply: false
+---
+
+# Realtime (WebSocket и polling)
+
+Уведомления in_app, presence, мессенджер и часть админ-лент используют **realtime-транспорт**. Режим задаётся в `.env`.
+
+## Кратко
+
+- `REALTIME_TRANSPORT=websocket` — Django Channels (ASGI), клиент — `openAuthenticatedWebSocket`
+- `REALTIME_TRANSPORT=http_polling` — REST + короткий polling (если прокси не пропускает WebSocket)
+- JWT **не** передаётся в URL WebSocket — только в первом JSON-сообщении `{ type: 'auth', token: '...' }`
+- Сервер: базовый consumer — `JwtMessageAuthConsumer` (`core/api/src/core/cms/adp/ws_consumer.py`)
+- Клиент: `@/js/ws/authenticatedWebSocket.js`, URL — `buildWebSocketUrl` из `@/js/api/baseUrl.js`
+
+## Обязательно
+
+- Новый WebSocket в ядре — наследник `JwtMessageAuthConsumer`, маршрут в `routing.py` модуля/ядра, подключение в `asgi.py`
+- На клиенте — `openAuthenticatedWebSocket(path, handlers)`, не `new WebSocket(url + '?token=')`
+- При `http_polling` интервалы — в `.env` (`REALTIME_POLL_*`); для клиента при сборке — `VITE_REALTIME_*` (мс)
+
+## Запрещено
+
+```js
+// BAD — токен в query (логи прокси, Referer)
+new WebSocket(`${wsUrl}/ws/notifications/?token=${accessToken}`)
+
+// BAD — свой polling без учёта REALTIME_TRANSPORT
+setInterval(() => fetch('/api/...'), 1000)
+```
+
+```python
+# BAD — AllowAny на WebSocket без auth-сообщения
+class MyConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        await self.accept()  # без проверки JWT
+```
+
+## Переменные окружения
+
+| Переменная | Назначение |
+|------------|------------|
+| `REALTIME_TRANSPORT` | `websocket` (по умолчанию) или `http_polling` |
+| `REALTIME_POLL_PRESENCE_INTERVAL` | polling presence, сек |
+| `REALTIME_POLL_NOTIFICATIONS_INTERVAL` | polling уведомлений, сек |
+| `REALTIME_POLL_ADMIN_PRESENCE_INTERVAL` | polling админ-ленты, сек |
+| `REALTIME_POLL_MESSENGER_INTERVAL` | polling мессенджера, сек |
+| `VITE_REALTIME_TRANSPORT` | override для клиента при сборке |
+| `VITE_REALTIME_POLL_*` | интервалы polling на клиенте, **миллисекунды** |
+
+Подробнее для людей — [`.docs/configuration.md`](../../.docs/configuration.md). За nginx без WS — `core/deployment/nginx/env.example`.
+
+## Handshake (клиент)
+
+```js
+import { openAuthenticatedWebSocket } from '@/js/ws/authenticatedWebSocket.js'
+
+const conn = openAuthenticatedWebSocket('/ws/presence/', {
+  onAuthenticated: () => { /* канал готов */ },
+  onMessage: (data) => { /* JSON от сервера */ },
+})
+```
+
+Ответ сервера после успеха: `{ type: 'auth_ok' }`. Таймаут auth — 10 с, код закрытия 4401.
+
+## Handshake (сервер)
+
+```python
+from src.core.cms.adp.ws_consumer import JwtMessageAuthConsumer
+
+class PresenceConsumer(JwtMessageAuthConsumer):
+    async def on_authenticated(self, user):
+        await self.channel_layer.group_add(...)
+
+    async def receive_authenticated_json(self, content, **kwargs):
+        ...
+```
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Уведомления (in_app + WS) | [`notifications.mdc`](notifications.mdc) |
+| JWT, токены | [`security.mdc`](security.mdc) |
+| ASGI, Channels | [`django.mdc`](django.mdc) |
+| Запуск API (ASGI) | [`.docs/development.md`](../../.docs/development.md) |

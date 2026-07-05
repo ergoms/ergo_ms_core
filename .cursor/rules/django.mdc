@@ -16,6 +16,24 @@ Django и DRF — пакеты Poetry (`pyproject.toml`), устанавлива
 
 Перед правками auth смотри эти файлы. В новом API для пользователей в URL и клиенте — **`public_id`**, не числовой pk ([`security.mdc`](security.mdc)).
 
+## Регистрация и ADP
+
+Режим регистрации — `.env` → `API_REGISTRATION_MODE`:
+
+| Значение | Поведение |
+|----------|-----------|
+| `open` | свободная регистрация (по умолчанию) |
+| `invitation` | только по приглашению глобального админа |
+| `closed` | регистрация отключена |
+
+При `invitation`: `API_REGISTRATION_INVITATION_TTL_DAYS`, API в `views_invitations.py`, UI — `Invitations.vue`. Проверка прав — `PermissionService.is_admin`, не `is_superuser` ([`global-admin.mdc`](global-admin.mdc)).
+
+Самостоятельное изменение профиля — `API_USER_PROFILE_SELF_EDIT_ENABLED`; заявки на изменение — `UserProfileChangeRequest`.
+
+## Realtime (ASGI)
+
+API для разработки запускается через ASGI (Channels). WebSocket-маршруты собираются в `core/api/src/config/asgi.py`. Новый consumer — наследник `JwtMessageAuthConsumer` ([`realtime.mdc`](realtime.mdc)).
+
 ## Запрещено
 
 - Создавать `admin.py` и регистрации в Django Admin — админ-панель Django **отключена**; управление — через CMS приложения.
@@ -32,3 +50,5 @@ admin.site.register(MyModel)
 |------|---------|
 | API, ViewSet | [`api_code.mdc`](api_code.mdc) |
 | Миграции | [`database.mdc`](database.mdc) |
+| WebSocket, polling | [`realtime.mdc`](realtime.mdc) |
+| Глобальный админ | [`global-admin.mdc`](global-admin.mdc) |

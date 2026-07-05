@@ -34,7 +34,7 @@ bridge.call(
 
 ## Каналы
 
-- in_app — лента + WebSocket
+- in_app — лента + realtime (`websocket` или `http_polling`, см. [`realtime.mdc`](realtime.mdc))
 - email — через Celery после commit
 
 Пользователь включает каналы в настройках. Событие вне каталога — in_app может уйти, email нет.
@@ -55,3 +55,4 @@ Lucide, PascalCase (`BookOpen`). Резолвер: `core/client/src/core/notific
 | Аудит (тот же паттерн) | [`audit.mdc`](audit.mdc) |
 | public_id в URL | [`security.mdc`](security.mdc) |
 | Celery (email-канал) | [`celery.mdc`](celery.mdc) |
+| WebSocket / polling | [`realtime.mdc`](realtime.mdc) |

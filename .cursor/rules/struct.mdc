@@ -17,7 +17,7 @@ alwaysApply: true
 
 Связь «модуль ↔ модуль» — только через мост (см. [`modules.mdc`](modules.mdc)), не через прямые импорты.
 
-Подробности по модулям — в [`modules.mdc`](modules.mdc). Нюансы развёртывания — в [`core/deployment/logic.md`](../../core/deployment/logic.md) и [`.docs/architecture.md`](../../.docs/architecture.md).
+Подробности по модулям — в [`modules.mdc`](modules.mdc). Боковое меню — [`menu.mdc`](menu.mdc). Realtime — [`realtime.mdc`](realtime.mdc). Нюансы развёртывания — в [`core/deployment/logic.md`](../../core/deployment/logic.md) и [`.docs/architecture.md`](../../.docs/architecture.md).
 
 ## Связанные правила
 
@@ -28,3 +28,5 @@ alwaysApply: true
 | Безопасность | [`security.mdc`](security.mdc) |
 | ergoms | [`no-direct-manage-py.mdc`](no-direct-manage-py.mdc) |
 | Структура каталогов | [`.docs/structure.md`](../../.docs/structure.md) |
+| Боковое меню | [`menu.mdc`](menu.mdc) |
+| Realtime | [`realtime.mdc`](realtime.mdc) |

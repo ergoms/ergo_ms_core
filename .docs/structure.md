@@ -28,7 +28,7 @@
 
 У модулей могут быть свои **`.env`** и **`ergoms.conf`** — локальные переопределения и команды, которые ergoms регистрирует с префиксом имени модуля.
 
-Пункты бокового меню модуль объявляет в `modules/<имя>/client/js/menu-config.json`. Порядок и видимость пунктов настраиваются уже в админ-панели CMS, а не отдельным JSON в корне проекта.
+Пункты бокового меню модуль регистрирует в **миграции API** (`MenuMigrationHelper` → таблицы `MenuItem` / `MenuSeparator`). Порядок и видимость настраиваются в админ-панели CMS (`MenuPanel.vue`). Маршруты страниц — `client/js/routes.js`. Подробнее — [architecture.md](architecture.md#боковое-меню).
 
 ## Документация и правила
 
@@ -43,7 +43,7 @@
 | [`core/api/README.md`](../core/api/README.md) | Django API, структура, запуск |
 | [`core/client/README.md`](../core/client/README.md) | Vue-клиент, компоненты |
 | [`core/media_api/README.md`](../core/media_api/README.md) | файловый сервис |
-| [`core/deployment/logic.md`](../core/deployment/logic.md) | ergoms, commands.conf, GeoIP |
+| [`core/deployment/logic.md`](../core/deployment/logic.md) | ergoms, commands.conf, GeoIP, realtime за nginx |
 | `modules/<имя>/logic.md` | контракты конкретного модуля (если есть) |
 
 ## Куда смотреть дальше

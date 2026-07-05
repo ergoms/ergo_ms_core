@@ -1,0 +1,93 @@
+---
+description: Боковое меню — миграции MenuMigrationHelper, MenuItem в БД, MenuList, MenuPanel
+globs: "**/core/client/src/components/menu/**,**/menu/migration_utils.py,**/*_menu*.py,**/menuService.js,**/MenuPanel.vue"
+alwaysApply: false
+---
+
+# Боковое меню
+
+Боковое меню — часть ядра. Модули **не** создают свой sidebar. Пункты sidebar хранятся в БД (`MenuItem`, `MenuSeparator`) и отдаются API; клиент только отображает их в `MenuList`.
+
+## Кратко
+
+- **Регистрация пунктов модуля** — миграция данных API через `MenuMigrationHelper` (`core/api/src/core/cms/adp/menu/migration_utils.py`)
+- **Маршруты Vue** — `modules/<имя>/client/js/routes.js` (обязательно для навигации)
+- **Рантайм** — `UserMenuView` → `getUserMenu()` → `MenuList`
+- Порядок, видимость, разделители — в CMS (`MenuPanel.vue`), поверх данных в БД
+- Свёрнутость sidebar — UI-преференс в `localStorage` (`menu-sidebar-collapsed`), см. [`security.mdc`](security.mdc)
+- Тип `offcanvas` — боковая панель через `openOffcanvasSidebar`, не отдельный маршрут
+
+## Обязательно
+
+- Новые пункты sidebar модуля — **миграция API** с `MenuMigrationHelper` и `module_source='modules/<имя>'`
+- Эталон: [`modules/module_template/api/migrations/0004_add_menu.py`](../../modules/module_template/api/migrations/0004_add_menu.py)
+- Ядро CMS: [`0007_populate_core_menu.py`](../../core/api/src/core/cms/adp/migrations/0007_populate_core_menu.py)
+- Каждый пункт меню ссылается на **`routeName`** из `routes.js` модуля
+- Иконки — имена Lucide (PascalCase); на клиенте резолвер — `@/config/icons-mapping.js`
+- После правок в админке — событие `menu-updated` или перезагрузка страницы
+- Навигация из меню — `safeNavigateByName` / `routeName`, не хардкод path с pk
+- После добавления миграции меню — `ergoms migrate-all`
+
+## Запрещено
+
+```vue
+<!-- BAD — свой sidebar в модуле -->
+<aside class="my-module-sidebar">...</aside>
+
+<!-- BAD — числовой id в ссылке из пункта меню -->
+router.push(`/users/${user.id}`)
+```
+
+Дублировать `MenuList`, `MenuGroup`, `MenuItem` в модуле.
+
+## Цепочка данных
+
+1. **Миграция**: `MenuItem` / `MenuSeparator` в PostgreSQL
+2. **API**: `UserMenuView` — фильтр по правам, дерево через `MenuItemTreeSerializer`
+3. **Клиент**: `getUserMenu()` → `transformMenuData()` → `MenuList` → `MenuGroup` / `MenuItem`
+4. In-memory кеш прогревается в `main.js`; `peekCachedMenu()` — отрисовка без мигания
+
+Composables layout: `useMenuWidth`, `useMenuNavigation`, `useMenuCollapsedPreference`, `menuLayoutMeasure.js`.
+
+## Миграция меню — базовый пример
+
+```python
+# modules/my_module/api/migrations/0002_menu_data.py
+from django.db import migrations
+
+
+def populate_menu(apps, schema_editor):
+    from src.core.cms.adp.menu.migration_utils import MenuMigrationHelper
+
+    helper = MenuMigrationHelper(apps, 'modules/my_module')
+    helper.clear_module_items()
+    root = helper.create_group('Мой модуль', 'MyModuleHome', icon='LayoutGrid')
+    helper.create_routes_batch([
+        ('Список', 'MyModuleList', 'List'),
+    ], parent=root)
+
+
+def reverse_populate_menu(apps, schema_editor):
+    from src.core.cms.adp.menu.migration_utils import MenuMigrationHelper
+    MenuMigrationHelper(apps, 'modules/my_module').clear_module_items()
+
+
+class Migration(migrations.Migration):
+    dependencies = [('cms_adp', '0007_populate_core_menu')]
+    operations = [migrations.RunPython(populate_menu, reverse_populate_menu)]
+```
+
+## Админка меню
+
+- UI: `core/client/src/core/cms/adp/admin/MenuPanel.vue`
+- CRUD и reorder — API в `core/api/src/core/cms/adp/menu/views.py`
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Структура модуля, routes.js | [`modules.mdc`](modules.mdc) |
+| Миграции Django | [`database.mdc`](database.mdc) |
+| Права на маршруты (UX) | [`permission_rules.mdc`](permission_rules.mdc) |
+| public_id в URL | [`security.mdc`](security.mdc) |
+| Архитектура | [`.docs/architecture.md`](../../.docs/architecture.md) |

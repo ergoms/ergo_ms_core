@@ -97,6 +97,18 @@ ergoms api module-list
 
 `module-add` без явной версии сам подбирает последнюю совместимую; флаг `--install` сразу устанавливает пакет. После добавления или удаления без `--install` нужно выполнить `ergoms python-install`, чтобы применить изменения.
 
+## GeoIP (геолокация IP)
+
+Локальная база DB-IP City Lite для city/country в сессиях и журнале аудита:
+
+```cmd
+ergoms geoip-download
+ergoms geoip-backfill
+ergoms geoip-backfill --dry-run
+```
+
+Перед первым использованием включите **`GEOIP_ENABLED=true`** в `.env` и скачайте MMDB. Подробнее — [`core/deployment/logic.md`](../core/deployment/logic.md#geoip-db-ip-city-lite) и [configuration.md](configuration.md#geoip-геолокация-ip).
+
 ## Системные службы (Linux / Windows)
 
 Чтобы зарегистрировать API, клиент, Celery и media_api как службы операционной системы, нужны права администратора:

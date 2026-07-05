@@ -168,13 +168,21 @@ localStorage.setItem('user_id', user.id)
 sessionStorage.setItem('token', access)
 Cookies.set('refresh', refresh)
 
-// ✅ GOOD — UI-преференс
-localStorage.setItem('menu_collapsed', 'true')
+// ✅ GOOD — UI-преференс (ключ из useMenuCollapsedPreference.js)
+localStorage.setItem('menu-sidebar-collapsed', 'true')
 
 // ✅ GOOD — контекст из JWT
 import { getUserId } from '@/core/cms/js/tokenStorage.js'
 const userId = getUserId()
 ```
+
+---
+
+## WebSocket
+
+- JWT **не** в query WebSocket — только первое JSON `{ type: 'auth', token }` ([`realtime.mdc`](realtime.mdc))
+- Клиент: `openAuthenticatedWebSocket` из `@/js/ws/authenticatedWebSocket.js`
+- Сервер: `JwtMessageAuthConsumer` — без `AllowAny` на connect до проверки токена
 
 ---
 

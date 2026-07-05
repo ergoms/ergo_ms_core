@@ -17,7 +17,6 @@ modules/<имя>/
 ├── client/
 │   ├── js/
 │   │   ├── routes.js        # страницы (если есть UI)
-│   │   ├── menu-config.json # пункты меню (если нужны)
 │   │   ├── endpoints.js     # адреса API для клиента (если нужны)
 │   │   ├── permission-rules.js
 │   │   └── integrations.js  # операции моста на клиенте
@@ -29,7 +28,7 @@ modules/<имя>/
 
 Папка клиента: `client/js/`, **не** `client/src/js/`.
 
-Вложенные подприложения (`client/<раздел>/js/routes.js`) подхватываются для маршрутов и `integrations.js`. Файлы `endpoints.js`, `menu-config.json`, `permission-rules.js` — только из `client/js/` (или re-export оттуда).
+Вложенные подприложения (`client/<раздел>/js/routes.js`) подхватываются для маршрутов и `integrations.js`. Файлы `endpoints.js`, `permission-rules.js` — только из `client/js/` (или re-export оттуда).
 
 ## Регистрация на сервере
 
@@ -53,6 +52,8 @@ class MyModuleConfig(AppConfig):
 ## UI на клиенте
 
 Выпадающие списки — **только** `SelectBox` из ядра (`@/components/SelectBox.vue`). Не создавай в модуле свой `<select>` или выпадающий список для обычного выбора. Подробности: [`select-box.mdc`](select-box.mdc).
+
+Пункты бокового меню — **миграция API** (`MenuMigrationHelper`, эталон `module_template/api/migrations/0004_add_menu.py`); маршруты — `client/js/routes.js`. Порядок и видимость — в CMS. Подробности: [`menu.mdc`](menu.mdc).
 
 ## Имена
 
@@ -119,3 +120,4 @@ def _handler(user):
 | Безопасность, public_id | [`security.mdc`](security.mdc) |
 | Уведомления, аудит | [`notifications.mdc`](notifications.mdc), [`audit.mdc`](audit.mdc) |
 | Человекочитаемо | [`.docs/architecture.md`](../../.docs/architecture.md) |
+| Боковое меню | [`menu.mdc`](menu.mdc) |
