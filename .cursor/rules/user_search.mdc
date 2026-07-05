@@ -1,4 +1,5 @@
 ---
+description: Поиск пользователей в API — user_search.py, apply_user_search, build_user_search_q
 alwaysApply: false
 ---
 # Поиск пользователей (API)
@@ -18,6 +19,21 @@ from src.core.cms.adp.services.user_search import apply_user_search, build_user_
 
 Не дублируй `Q(first_name__icontains=...)` и не используй `SearchFilter` на User — только эти функции.
 
+```python
+# BAD — свой поиск по User
+User.objects.filter(Q(first_name__icontains=q) | Q(email__icontains=q))
+
+# GOOD
+apply_user_search(qs, search)
+```
+
 Новые поля для поиска — добавляй в `user_search.py`, не в модулях.
 
 Эталоны: `views_roles.py` (ядро), `organizations/api/views/members.py`, `projects/api/views.py`.
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| API, ViewSet | [`api_code.mdc`](api_code.mdc) |
+| Поиск на клиенте | [`search-input.mdc`](search-input.mdc) |

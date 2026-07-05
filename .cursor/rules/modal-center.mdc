@@ -119,3 +119,11 @@ await runWithConfirm(
 - Сложный двухпанельный layout
 
 Нужен новый режим — расширяй `ModalCenter` в ядре, не копируй модалку в модуле.
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Клиент, toast, confirm | [`client_code.mdc`](client_code.mdc) |
+| Компоненты ядра | [`components.mdc`](components.mdc) |
+| Уведомления (ConfirmDialog в Provider) | [`notifications.mdc`](notifications.mdc) |

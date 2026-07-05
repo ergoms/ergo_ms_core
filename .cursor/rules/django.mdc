@@ -1,13 +1,34 @@
 ---
+description: Django и DRF в ERGO MS — PyPI-пакеты, расширение User, admin отключён
 alwaysApply: false
 ---
+
 # Django (PyPI)
 
-Django и DRF — стандартные пакеты из Poetry (`django`, `djangorestframework`), не submodule.
+Django и DRF — пакеты Poetry (`pyproject.toml`), устанавливаются через `ergoms python-install` в `virtual_env/python/`.
 
-Расширения `auth.User` (`middle_name`, `public_id`, `get_initials_name`) — в ядре:
-`core/api/src/core/cms/adp/user_extensions.py` и миграция `cms_adp.0038_user_extension_fields`.
+## Расширение User
 
-Перед правками auth смотри `user_extensions.py` и миграцию.
+Поля `middle_name`, `public_id`, `get_initials_name` — в ядре:
 
-Админ-панель Django **отключена** — не создавай `admin.py` и admin-регистрации.
+- `core/api/src/core/cms/adp/user_extensions.py`
+- миграция `cms_adp.0038_user_extension_fields`
+
+Перед правками auth смотри эти файлы. В новом API для пользователей в URL и клиенте — **`public_id`**, не числовой pk ([`security.mdc`](security.mdc)).
+
+## Запрещено
+
+- Создавать `admin.py` и регистрации в Django Admin — админ-панель Django **отключена**; управление — через CMS приложения.
+
+```python
+# BAD — регистрация в django.contrib.admin
+from django.contrib import admin
+admin.site.register(MyModel)
+```
+
+## Связанные правила
+
+| Тема | Правило |
+|------|---------|
+| API, ViewSet | [`api_code.mdc`](api_code.mdc) |
+| Миграции | [`database.mdc`](database.mdc) |

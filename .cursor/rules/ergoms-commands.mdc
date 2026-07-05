@@ -1,10 +1,11 @@
 ---
+description: Техническая справка ergoms — commands.conf, префиксы api/npm/win/linux, новые команды
 alwaysApply: false
-description: Техническая справка по ergoms
 ---
-# Команды ergoms
 
-Поведение для пользователя — в `no-direct-manage-py.mdc`.
+# Команды ergoms (для разработчиков)
+
+Поведение для пользователя и ассистента — [`no-direct-manage-py.mdc`](no-direct-manage-py.mdc). Справочник команд — [`.docs/cli.md`](../../.docs/cli.md). Устройство развёртывания — [`core/deployment/logic.md`](../../core/deployment/logic.md).
 
 ## Где описаны команды
 
@@ -12,6 +13,13 @@ description: Техническая справка по ergoms
 - Модули: `modules/<имя>/ergoms.conf` → вызов `ergoms <имя>:<команда>`
 
 Формат строки: `имя-команды=тип:команда`. Несколько шагов: `&&`.
+
+## Точки входа Django-команд ядра
+
+Помимо management-команд Django (discovery, вызов через `ergoms api <команда>`), в `core/api/` есть два отдельных механизма:
+
+- `core/api/commands/` — реализация команд `ergoms api install`, `module-add`, `module-remove`, `module-list` (управление зависимостями модулей в `modules/<имя>/pyproject.toml`, точка входа — `commands/__main__.py`).
+- `core/api/scripts/` — точки входа процессов (`start_api.py`, `start_celery_worker.py`, `start_celery_beat.py`, `start_media_api.py`, `start_jupyter.py`, `warmup_caches_if_needed.py`), которые `commands.conf` вызывает напрямую через `virtual_env/python/.../python.exe core/api/scripts/<файл>.py` (без прокси `api:`).
 
 ## Типы префиксов
 
@@ -37,16 +45,30 @@ description: Техническая справка по ergoms
 migrate-all=api:makemigrations && api:migrate
 install-deps=api:install && npm:run install:all && api:migrate && api:warmup_caches
 db-migrate=api:migrate
+dev=api:dev
+start-client=npm:run dev
 ```
 
 Имена команд — kebab-case (`db-migrate`, не `db_migrate` при вызове через ergoms).
 
 ## Новая команда ядра
 
-Добавь строку в `core/deployment/commands.conf`. Модульную — в `modules/<имя>/ergoms.conf`.
+1. Добавь строку в `core/deployment/commands.conf`.
+2. При необходимости — скрипт в `core/deployment/windows/` или `linux/`.
+3. Проверь на обеих ОС ([`oc.mdc`](oc.mdc)).
+
+Модульную команду — в `modules/<имя>/ergoms.conf`.
 
 ## Если команда не работает
 
 1. `ergoms help` — есть ли команда
 2. Проверь `commands.conf` / `ergoms.conf`
 3. Для отладки: `ergoms api <команда_django> <аргументы>`
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Только ergoms, не manage.py | [`no-direct-manage-py.mdc`](no-direct-manage-py.mdc) |
+| Python-окружение | [`virtual-env.mdc`](virtual-env.mdc) |
+| Windows / Linux | [`oc.mdc`](oc.mdc) |

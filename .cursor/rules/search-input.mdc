@@ -33,7 +33,7 @@ alwaysApply: true
 <!-- BAD — свой SearchInput в модуле без явной причины -->
 ```
 
-**Исключения:** спецкомпоненты с dropdown-результатами (например `HeaderSearch.vue`), поле поиска внутри `SelectBox` (`searchable`), не-text поля (`type="date"`, `type="number"`).
+**Исключения:** спецкомпоненты с выпадающими результатами (например `HeaderSearch.vue`), поле поиска внутри `SelectBox` (`searchable`), не-text поля (`type="date"`, `type="number"`).
 
 ## Базовый пример
 

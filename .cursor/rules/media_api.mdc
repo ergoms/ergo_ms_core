@@ -61,3 +61,11 @@ with get_scratch_store().session('job') as workdir:
 - URL через `MEDIA_URL` или `/media/...` в основном API
 - `request.FILES` без поддержки `*_path` от media_api
 - Временные файлы внутри пользовательской папки media
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Безопасность файлов | [`security.mdc`](security.mdc) |
+| README сервиса | [`core/media_api/README.md`](../../core/media_api/README.md) |
+| Архитектура | [`.docs/architecture.md`](../../.docs/architecture.md) |

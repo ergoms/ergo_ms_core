@@ -1,4 +1,5 @@
 ---
+description: Даты и время на клиенте — timeUtils.js, getRelativeTime, formatDateTime
 alwaysApply: false
 ---
 # Даты и время на клиенте
@@ -22,3 +23,9 @@ import { getRelativeTime, formatDateTime } from '@/js/utils/timeUtils.js'
 Не используй старый путь `components/steps/js/timeUtils`.
 
 Новый формат — добавляй в `timeUtils.js` ядра, не в модуль.
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Клиент Vue | [`client_code.mdc`](client_code.mdc) |

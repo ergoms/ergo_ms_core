@@ -20,7 +20,7 @@ Composable позиционирования: `@/composables/useFilterMenuFlyout.
 | Текстовый поиск | `SearchInput` рядом — [`search-input.mdc`](search-input.mdc) |
 | Multi-select теги + поиск (organizations) | `FiltersBar` модуля — без замены на FilterMenu |
 
-**FilterMenu не заменяет `SelectBox`** для простого выбора. Не делай свой dropdown с подменю в модуле.
+**FilterMenu не заменяет `SelectBox`** для простого выбора. Не делай свой выпадающий список с подменю в модуле.
 
 ## Обязательно
 
@@ -38,7 +38,7 @@ Composable позиционирования: `@/composables/useFilterMenuFlyout.
 <SelectBox v-model="action" ... />
 <input type="date" v-model="dateFrom" />
 
-<!-- BAD — свой multi-level filter dropdown в модуле -->
+<!-- BAD — свой многоуровневый выпадающий список фильтров в модуле -->
 <div class="my-filter-menu">...</div>
 ```
 
@@ -79,7 +79,7 @@ const filterFields = computed(() => [
 </template>
 ```
 
-Эталон: [`AuditLog.vue`](core/client/src/core/cms/adp/admin/AuditLog.vue).
+Эталон: [`AuditLog.vue`](../../core/client/src/core/cms/adp/admin/AuditLog.vue).
 
 ## Схема `fields`
 

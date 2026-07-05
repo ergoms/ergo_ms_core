@@ -1,4 +1,5 @@
 ---
+description: Клиент Vue — русский UI, toast, confirm, импорты, компоненты ядра
 alwaysApply: false
 ---
 # Клиент (Vue)
@@ -68,8 +69,19 @@ import { endpoints } from '@/js/api/endpoints'
 
 ## Компоненты
 
-Декомpose крупные страницы. Стили Bootstrap + SCSS модуля. Вынос в отдельные `.scss`/`.js` — когда компонент > 1000 строк.
+Разбивай крупные страницы на части. Стили — Bootstrap + SCSS модуля. Вынос в отдельные `.scss`/`.js` — когда компонент больше 1000 строк.
 
-**Выпадающие списки** — только `SelectBox` из `@/components/SelectBox.vue`, не `<select>` / `form-select`. Подробности: [`select-box.mdc`](select-box.mdc).
+Общие компоненты ядра — [`components.mdc`](components.mdc) (SelectBox, SearchInput, UserAvatar и др.).
 
-`defineProps` / `defineEmits` не импортируй — макросы компилятора.
+`defineProps` / `defineEmits` не импортируй — это макросы компилятора.
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Компоненты UI | [`components.mdc`](components.mdc) |
+| Темы, шрифты | [`themes.mdc`](themes.mdc) |
+| Модалки, confirm | [`modal-center.mdc`](modal-center.mdc) |
+| Ошибки API | [`log-error.mdc`](log-error.mdc) |
+| Права маршрутов (UX) | [`permission_rules.mdc`](permission_rules.mdc) |
+| Модули, мост | [`modules.mdc`](modules.mdc) |

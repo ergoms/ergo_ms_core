@@ -1,5 +1,5 @@
 ---
-description: Стандарты безопасности ERGO MS — секреты, auth, API, файлы, логи, клиент; обязательный чеклист перед изменениями
+description: Стандарты безопасности ERGO MS — конфиденциальные данные, auth, API, файлы, логи, клиент; обязательный чеклист перед изменениями
 alwaysApply: true
 ---
 
@@ -9,13 +9,28 @@ alwaysApply: true
 
 ## Кратко
 
-- Секреты только в `.env`, не в коде и не в `VITE_*` для серверных ключей
+- Конфиденциальные данные только в `.env`, не в коде и не в `VITE_*` для серверных ключей
 - Токены и контекст сессии — через `tokenStorage.js`, не в localStorage
 - В URL и ссылках — не числовые id из БД, а `public_id` (UUID)
 - API проверяет права сам; клиентские `permission-rules` — только UX
 - Файлы — через media_api, не `/media/` на основном API
 - Ошибки на клиенте — `logError`, не `console.error(axiosObject)`
 - Prod: `DEBUG=False`, secure cookies, без sourcemap
+
+## Оглавление
+
+| Раздел | Тема |
+|--------|------|
+| [Конфиденциальные данные](#конфиденциальные-данные-и-конфигурация) | `.env`, CORS, prod |
+| [Авторизация](#авторизация-и-права-api--источник-истины) | API, права |
+| [public_id](#публичные-идентификаторы--не-светить-pk-бд) | UUID в URL |
+| [Хранилища браузера](#что-нельзя-хранить-в-localstorage--sessionstorage--documentcookie) | localStorage |
+| [Куки](#куки) | HttpOnly, JWT |
+| [Файлы](#файлы-и-медиа) | media_api |
+| [Инъекции](#ввод-вывод-и-инъекции) | SQL, v-html |
+| [Логи клиент](#логирование--клиент) | logError |
+| [Логи API](#логирование--api-python) | Python |
+| [Чеклист](#чеклист-перед-завершением-задачи) | перед merge |
 
 ## Связанные правила
 
@@ -28,24 +43,25 @@ alwaysApply: true
 | Проверки прав в модулях | [`modules.mdc`](modules.mdc) → `adp.permission_check` |
 | Глобальный админ (superuser ≡ роль «Администратор») | [`global-admin.mdc`](global-admin.mdc) |
 | Swagger и queryset по user | [`api_code.mdc`](api_code.mdc) → `SwaggerSafeMixin` |
+| Аудит действий | [`audit.mdc`](audit.mdc) |
 
 ---
 
-## Секреты и конфигурация
+## Конфиденциальные данные и конфигурация
 
 **Запрещено:**
 
 - Коммитить `.env`, ключи, пароли, `API_SECRET_KEY`, `MEDIA_API_INTERNAL_KEY`, приватные токены
-- Хардкодить секреты в коде, комментариях, README, примерах в чате
+- Хардкодить конфиденциальные данные в коде, комментариях, README, примерах в чате
 - Предлагать `DEBUG = True`, `CORS_ALLOW_ALL_ORIGINS = True` при `CORS_ALLOW_CREDENTIALS = True`, отключение `ALLOWED_HOSTS` в prod
-- Ослаблять флаги cookies/HSTS из [`production.py`](core/api/src/config/patterns/production.py) без явной причины и согласования
-- Класть **серверные** секреты в `VITE_*` — они попадают в бандл клиента
+- Ослаблять флаги cookies/HSTS из [`production.py`](../../core/api/src/config/patterns/production.py) без явной причины и согласования
+- Класть **серверные** конфиденциальные данные в `VITE_*` — они попадают в бандл клиента
 
 **Правильно:**
 
-- Секреты только через `.env` и [`env`](core/api/src/config/env.py); пути — из [`base.py`](core/api/src/config/settings/base.py)
-- CORS — явный список origin'ов ([`cors.py`](core/api/src/config/settings/cors.py)), не `*`
-- Prod: `DEBUG = False`, минимальные логи, `sourcemap: false` ([`vite.config.js`](core/client/vite.config.js))
+- Конфиденциальные данные только через `.env` и [`env`](../../core/api/src/config/env.py); пути — из [`base.py`](../../core/api/src/config/settings/base.py)
+- CORS — явный список origin'ов ([`cors.py`](../../core/api/src/config/settings/cors.py)), не `*`
+- Prod: `DEBUG = False`, минимальные логи, `sourcemap: false` ([`vite.config.js`](../../core/client/vite.config.js))
 
 ---
 
@@ -59,7 +75,7 @@ alwaysApply: true
 - Возвращать чужие данные без фильтра по `request.user` / организации / правам
 - Пропускать проверку прав «временно» или «только для админов в dev»
 - Доверять `organization_id`, `user_id`, ролям из тела запроса без верификации на сервере
-- Обходить `PermissionService` / `bridge.call('adp.permission_check', ...)` локными хаками в модулях
+- Обходить `PermissionService` / `bridge.call('adp.permission_check', ...)` локальными обходными проверками в модулях
 
 **Правильно:**
 
@@ -83,26 +99,26 @@ if org is None:
 
 ## Публичные идентификаторы — не светить pk БД
 
-Последовательные `id` из PostgreSQL **не должны** попадать в адресную строку, query-параметры, shareable-ссылки и браузерные хранилища. Это упрощает перебор сущностей и связывает URL с внутренней схемой БД.
+Последовательные `id` из PostgreSQL **не должны** попадать в адресную строку, query-параметры, ссылки для обмена и браузерные хранилища. Это упрощает перебор сущностей и связывает URL с внутренней схемой БД.
 
 **Запрещено (клиент и публичный API):**
 
 - Маршруты вида `/entities/42`, `/settings/organization/departments/7`, query `?organization_id=5&department_id=12`
 - `router.push({ params: { id: item.id } })`, `href`, `window.location` с числовым pk
 - `localStorage` / `sessionStorage` / `document.cookie` (кроме JWT в `tokenStorage.js`) с `*_id`, pk, «активная организация», «выбранный отдел» и т.п.
-- Отдавать в JSON для UI только `id`, если фронт строит из него URL или кладёт в storage — нужен **`public_id`** (UUID) или другой непредсказуемый opaque-ref
-- Новые cookie с business-id сущностей (`org_id`, `dept_id`, `project_id`)
+- Отдавать в JSON для UI только `id`, если клиент строит из него URL или кладёт в storage — нужен **`public_id`** (UUID) или другая непредсказуемая непрозрачная ссылка
+- Новые cookie с идентификаторами организаций и сущностей (`org_id`, `dept_id`, `project_id`)
 
 **Правильно:**
 
 - Поле **`public_id`** (`UUIDField`, unique, read-only в API) на сущностях, доступных по URL
 - Публичные URL и API lookup — по `public_id`; pk — только внутри сервера после resolve + проверки прав
 - Эталон модуля organizations:
-  - API: [`get_organization_by_ref`](modules/organizations/api/views/base.py)
-  - Client: [`getOrganizationPublicRef`](modules/organizations/client/js/organizationUtils.js), [`departmentDetailPath`](modules/organizations/client/js/organizationUtils.js)
+  - API: [`get_organization_by_ref`](../../modules/organizations/api/views/base.py)
+  - Client: [`getOrganizationPublicRef`](../../modules/organizations/client/js/organizationUtils.js), [`departmentDetailPath`](../../modules/organizations/client/js/organizationUtils.js)
 - Эталон пользователя (`auth.User`) — поле `public_id` есть на модели по умолчанию:
   - Поле `public_id`: колонка в `auth_user`, ORM — `user_extensions.py` (`core/api/src/core/cms/adp/user_extensions.py`)
-  - API: [`UserPublicInfoView`](core/api/src/core/cms/views.py) — lookup по `users/by-ref/<uuid:ref>/public-info/`, числовой `users/<int:user_id>/...` — только legacy fallback, не использовать в новом коде
+  - API: [`UserPublicInfoView`](../../core/api/src/core/cms/views.py) — lookup по `users/by-ref/<uuid:ref>/public-info/`; числовой `users/<int:user_id>/...` — только устаревший запасной путь, не использовать в новом коде
   - Client: `@/components/UserAvatar.vue` — проп `user-ref` (не `userId`), см. [`components.mdc`](components.mdc) → «Аватар пользователя»
   - Любой сериализатор/ответ, отдающий `user.id` для последующего показа аватара/публичных данных, должен рядом отдавать `public_id` (`SerializerMethodField`, `str(user.public_id) if getattr(user, 'public_id', None) else None`)
 - Контекст сессии (org/dept/user) — **из JWT** через `tokenStorage.js`, не дублировать pk в storage «для удобства»
@@ -113,7 +129,7 @@ router.push(`/projects/${project.id}`)
 localStorage.setItem('active_project_id', String(project.id))
 Cookies.set('org_id', organization.id)
 
-// ✅ GOOD — opaque ref в URL; контекст из JWT
+// GOOD — непрозрачная ссылка в URL; контекст из JWT
 router.push(`/projects/${project.public_id}`)
 const orgId = getOrganizationId() // из JWT, не из localStorage
 ```
@@ -128,7 +144,7 @@ if org is None or not user_has_access(request.user, org):
     raise NotFound
 ```
 
-**Исключения (только с обоснованием):** внутренние admin/отладочные экраны, не попадающие в shareable URL; pk в теле POST между уже авторизованными внутренними сервисами — не в браузере.
+**Исключения (только с обоснованием):** внутренние admin/отладочные экраны, не попадающие в ссылки для обмена; pk в теле POST между уже авторизованными внутренними сервисами — не в браузере.
 
 ---
 
@@ -136,14 +152,14 @@ if org is None or not user_has_access(request.user, org):
 
 **Запрещено** сохранять и читать из браузерных хранилищ:
 
-- JWT, refresh-токены, API-ключи, пароли, секреты
+- JWT, refresh-токены, API-ключи, пароли, прочие конфиденциальные данные
 - `user_id`, `organization_id`, `department_id`, pk сущностей и прочие идентификаторы сессии/контекста доступа (см. раздел **«Публичные идентификаторы»**)
 - PII (email, телефон, паспорт и т.п.) «на будущее» или для «удобства»
 - полные объекты пользователя / профиля / прав
 
-**Допустимо** только UI-преференсы без security-impact: тема, язык, свёрнутость меню, черновики форм без PII.
+**Допустимо** только UI-преференсы без влияния на безопасность: тема, язык, свёрнутость меню, черновики форм без персональных данных.
 
-Идентификаторы сессии — **только из JWT** через [`tokenStorage.js`](core/client/src/core/cms/js/tokenStorage.js): `getUserId()`, `getOrganizationId()`, `getPayload()`.  
+Идентификаторы сессии — **только из JWT** через [`tokenStorage.js`](../../core/client/src/core/cms/js/tokenStorage.js): `getUserId()`, `getOrganizationId()`, `getPayload()`.  
 Токены — **только через** `getAccess()` / `setTokens()` / `clearTokens()` в том же модуле. Не дублировать логику в модулях.
 
 ```js
@@ -166,7 +182,7 @@ const userId = getUserId()
 
 ### Django (сессия, CSRF)
 
-В production — как в [`production.py`](core/api/src/config/patterns/production.py):
+В production — как в [`production.py`](../../core/api/src/config/patterns/production.py):
 
 - `HttpOnly: true`
 - `Secure: true` (если HTTPS / nginx с TLS)
@@ -190,7 +206,7 @@ const userId = getUserId()
 - Не открывать `/media/` напрямую из основного API
 - Проверять право доступа к файлу **до** выдачи URL или path
 - Не принимать произвольные пути от клиента без валидации (path traversal, `../`)
-- Санитизировать имена в `Content-Disposition` (см. `_safe_content_disposition_filename` в [`settings/views.py`](core/api/src/core/settings/views.py))
+- Санитизировать имена в `Content-Disposition` (см. `_safe_content_disposition_filename` в [`settings/views.py`](../../core/api/src/core/settings/views.py))
 
 ---
 
@@ -205,26 +221,9 @@ const userId = getUserId()
 
 ## Логирование — клиент
 
-Единый источник: [`logError.js`](core/client/src/js/utils/logError.js) + [`logger.js`](core/client/src/js/utils/logger.js). Подробности — в [`log-error.mdc`](log-error.mdc).
+Единый источник: [`logError.js`](../../core/client/src/js/utils/logError.js) + [`logger.js`](../../core/client/src/js/utils/logger.js). **Подробности, BAD/GOOD и prod-уровни — в [`log-error.mdc`](log-error.mdc).**
 
-**Запрещено:**
-
-- `console.error(error)` / `console.warn(error)` с сырым axios/DOM-объектом — утекают headers, body, stack, токены
-- логировать `Authorization`, `token`, `refresh`, `password`, cookies, `localStorage`, полный `response.config`
-- `console.log(user)`, `console.log(token)`, `console.debug({ headers })`
-- логировать Vue-инternals: `$data`, `$refs`, `__VUE__`, полные props/emits с PII
-
-**Правильно:**
-
-```js
-logError('Ошибка загрузки профиля', error)
-logWarn('Кеш недоступен', err)
-```
-
-**Production:** `VITE_LOG_LEVEL=critical` (или `silent`).  
-Сборка: `sourcemap: false`, Vue DevTools не включать в prod ([`vite.config.js`](core/client/vite.config.js)).
-
-Отладочные `console.log` — только временно в dev; перед merge удалять или заменить на безопасный контекст без объектов запросов.
+Кратко: не используй `console.error(error)` с объектом axios; не логируй токены и `Authorization`. В production — `VITE_LOG_LEVEL=critical`, `sourcemap: false`.
 
 ---
 
@@ -234,7 +233,7 @@ logWarn('Кеш недоступен', err)
 
 - пароли, токены, `Authorization`, cookie-заголовки
 - полные тела запросов с credentials
-- traceback с request.META, содержащим секреты
+- traceback с request.META, содержащим конфиденциальные данные
 
 **Правильно:**
 
@@ -249,7 +248,7 @@ logger.exception('Import failed: task_id=%s', task_id)  # без payload с PII
 
 ## Чеклист перед завершением задачи
 
-1. Секреты и ID сессии — не в коде, git, localStorage / sessionStorage / JS-cookie (кроме `tokenStorage.js`).
+1. Конфиденциальные данные и ID сессии — не в коде, git, localStorage / sessionStorage / JS-cookie (кроме `tokenStorage.js`).
 2. В URL, query и storage — **нет pk БД**; снаружи только `public_id` / opaque-ref; контекст сессии из JWT.
 3. API проверяет auth и права; queryset отфильтрован; клиент не единственная защита.
 4. Файлы — через media_api; пути от клиента валидированы.

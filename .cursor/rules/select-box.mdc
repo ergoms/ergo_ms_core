@@ -25,7 +25,7 @@ alwaysApply: true
 <!-- BAD — bootstrap select без SelectBox -->
 <b-form-select v-model="value" :options="options" />
 
-<!-- BAD — свой dropdown только ради выбора из списка -->
+<!-- BAD — свой выпадающий список только ради выбора из списка -->
 <div class="dropdown" @click="toggle">...</div>
 
 <!-- BAD — сторонние select-компоненты (vue-select, multiselect и т.п.) -->
@@ -78,7 +78,7 @@ const STATUS_OPTIONS = [
 | `show-checkboxes-when-multiple` | чекбоксы в multi-режиме |
 | `multiple-label-format="count"` | «N выбрано» вместо длинного списка |
 | `fixed-trigger-label-font-size` | не уменьшать подпись в триггере при нехватке ширины |
-| `uniform-dropdown-list-font` | одинаковый `font-weight` у active/обычных пунктов (размер — как у списка) |
+| `uniform-dropdown-list-font` | одинаковый `font-weight` у пунктов списка (имя prop в коде) |
 | `depth-key` + `secondary-label-key` | иерархические списки (подразделения и т.п.) |
 | `option-indent-per-level` | доп. отступ вложенных пунктов, rem; по умолчанию **`0`** |
 | `nested-option-font-size` / `nested-secondary-font-size` | размер шрифта вложенных строк; пусто — как у списка |

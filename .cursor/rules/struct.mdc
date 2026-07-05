@@ -1,6 +1,8 @@
 ---
+description: Архитектура ERGO MS — ядро core/, модули modules/, сервер Django и клиент Vue
 alwaysApply: true
 ---
+
 # Архитектура ERGO MS
 
 Веб-приложение из двух частей:
@@ -9,10 +11,20 @@ alwaysApply: true
 
 ## Ядро и модули
 
-**Ядро** (`core/`) — базовая система: CMS, настройки, уведомления, интеграции между модулями и др. Ядро **не импортирует** код из `modules/`.
+**Ядро** (`core/`) — `api/`, `client/`, `media_api/`, `deployment/`. Ядро **не импортирует** код из `modules/`.
 
 **Модули** (`modules/<имя>/`) — отдельные доменные блоки. Подключаются как git-submodule. У модуля может быть сервер (`api/`), клиент (`client/`) или оба.
 
-Связь «модуль ↔ модуль» — только через мост (см. `modules.mdc`), не через прямые импорты.
+Связь «модуль ↔ модуль» — только через мост (см. [`modules.mdc`](modules.mdc)), не через прямые импорты.
 
-Подробности по модулям — в `modules.mdc`. Нюансы деплоя — в `core/deployment/logic.md`.
+Подробности по модулям — в [`modules.mdc`](modules.mdc). Нюансы развёртывания — в [`core/deployment/logic.md`](../../core/deployment/logic.md) и [`.docs/architecture.md`](../../.docs/architecture.md).
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Модули (детали) | [`modules.mdc`](modules.mdc) |
+| Django, DRF | [`django.mdc`](django.mdc) |
+| Безопасность | [`security.mdc`](security.mdc) |
+| ergoms | [`no-direct-manage-py.mdc`](no-direct-manage-py.mdc) |
+| Структура каталогов | [`.docs/structure.md`](../../.docs/structure.md) |

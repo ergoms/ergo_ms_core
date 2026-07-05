@@ -1,4 +1,5 @@
 ---
+description: Celery — ergoms start-worker/beat, задачи в modules/, celery_config, логи
 alwaysApply: false
 ---
 # Фоновые задачи (Celery)
@@ -34,6 +35,14 @@ Worker и Beat должны смотреть на **один** брокер (н�
 ## После смены расписания
 
 Перезапусти Beat — он синхронизирует задачи с БД.
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Команды ergoms | [`no-direct-manage-py.mdc`](no-direct-manage-py.mdc) |
+| Модули, tasks.py | [`modules.mdc`](modules.mdc) |
+| Брокер в databases.yaml | [`.docs/configuration.md`](../../.docs/configuration.md) |
 
 ## Не делай
 

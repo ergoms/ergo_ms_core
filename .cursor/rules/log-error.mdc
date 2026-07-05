@@ -1,11 +1,15 @@
 ---
+description: Логирование ошибок на клиенте — logError, logWarn, без console.error(axios)
 alwaysApply: false
 ---
+
 # Логирование ошибок на клиенте
 
-Файл: `core/client/src/js/utils/logError.js`.
+Файл: `core/client/src/js/utils/logError.js`. Общий контекст безопасности — [`security.mdc`](security.mdc) → «Логирование — клиент».
 
 `logError`, `logWarn`, `sanitizeError` подключаются **автоматически** (vite auto-import). **Не импортируй** их вручную.
+
+## Базовый пример
 
 ```javascript
 logError('Не удалось загрузить профиль', error)
@@ -14,10 +18,34 @@ logWarn('Кеш недоступен', err)
 
 ## Запрещено
 
-- `console.error(error)` с объектом ответа axios — утекают заголовки и токены
+```javascript
+// BAD — в лог утекают headers, body, токены
+console.error(error)
+console.warn(response)
+
+// BAD — конфиденциальные данные и идентификаторы сессии
+console.log(localStorage)
+console.debug({ headers: config.headers })
+```
+
+```javascript
+// GOOD
+logError('Ошибка сохранения', error)
+```
+
+- Дублировать санитизацию в модулях — только `logError.js`
 - Логировать `Authorization`, пароли, токены, `localStorage`
-- Дублировать санитизацию в модулях
 
-Уровень логов в prod: `VITE_LOG_LEVEL=critical` или `silent`.
+## Production
 
-Эталон: `core/client/src/js/api/manager.js`.
+- `VITE_LOG_LEVEL=critical` или `silent`
+- `sourcemap: false` в сборке ([`vite.config.js`](../../core/client/vite.config.js))
+
+Эталон использования: `core/client/src/js/api/manager.js`.
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Полный чеклист безопасности | [`security.mdc`](security.mdc) |
+| Клиент Vue | [`client_code.mdc`](client_code.mdc) |

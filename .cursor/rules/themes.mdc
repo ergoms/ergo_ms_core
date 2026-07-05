@@ -77,7 +77,7 @@ code, pre {
 
 Модули **не** объявляют свой `@font-face` и **не** копируют font-family из Google Fonts (`Inter`, `Geologica` и т.п.) — только `var(--font-family-base)` / `var(--font-family-mono)` или `inherit`.
 
-**Self-host** (если когда-либо понадобится не-system шрифт):
+**Локальное размещение шрифтов** (если понадобится не-system шрифт):
 
 - файлы `.woff2` / `.woff` только в `core/client/src/assets/fonts/` (или `core/client/public/fonts/`)
 - `@font-face` с относительным `url()` на эти файлы — **только в ядре**, не в модулях
@@ -91,3 +91,11 @@ code, pre {
 - Только `@media (prefers-color-scheme: dark)` без учёта выбора пользователя
 - Редактор тем в модуле (только в ядре)
 - **Любые внешние шрифты** (см. раздел «Шрифты» выше)
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Клиент Vue | [`client_code.mdc`](client_code.mdc) |
+| Компоненты UI | [`components.mdc`](components.mdc) |
+| Безопасность (CSP) | [`security.mdc`](security.mdc) |

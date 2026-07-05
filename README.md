@@ -1,37 +1,48 @@
 # ERGO MS
 
-ERGO MS — модульный фреймворк для корпоративных веб-приложений. Ядро даёт общую инфраструктуру (авторизация, CMS, меню, файлы, фоновые задачи), а доменная логика подключается отдельными модулями в каталоге `modules/`.
+ERGO MS — модульный фреймворк для корпоративных веб-приложений. Ядро даёт общую инфраструктуру (аутентификация и профиль, роли и права, меню и оболочка клиента, управление контентом, уведомления, журнал действий, файлы, мост между модулями, фоновые задачи, ergoms), а расширять логику работы системы можно с помощью модулей в папке `modules/`.
 
-Стек: Django 5 и DRF на сервере, Vue 3 и Vite на клиенте, PostgreSQL (или SQLite/MySQL) как основная БД, Celery для асинхронной работы, Poetry и npm для зависимостей.
+Стек: Django 5 и DRF на сервере, Vue 3 и Vite на клиенте, PostgreSQL (или SQLite/MySQL) как основная БД, Celery (worker и beat) для фоновых, отложенных и периодических вычислительных операций — долгие расчёты и тяжёлая обработка данных, Poetry и npm (управление библиотеками сервера и клиента).
 
 ## Документация
 
-- [Архитектура](.docs/architecture.md) — как устроены ядро, модули и интеграции
-- [Структура проекта](.docs/structure.md) — каталоги и конфигурационные файлы
+- [Архитектура](.docs/architecture.md) — ядро, модули, интеграции
+- [Структура проекта](.docs/structure.md) — каталоги и конфигурация
 - [Настройка .env и БД](.docs/configuration.md) — первичная конфигурация
-- [Разработка](.docs/development.md) — запуск стенда и логи
-- [Команды ergoms](.docs/cli.md) — справочник CLI
+- [Разработка](.docs/development.md) — запуск для разработки и логи
+- [Команды ergoms](.docs/cli.md) — справочник команд
 - [Проблемы при установке](.docs/troubleshooting.md) — типичные ошибки
-- [Службы Linux](.docs/deployment.md) — systemd и production-подобный запуск
+- [Службы Linux](.docs/deployment.md) — systemd и запуск как на сервере
+- [Развёртывание ergoms](core/deployment/logic.md) — commands.conf, GeoIP, кроссплатформенность
+- [Ядро API](core/api/README.md) · [Клиент](core/client/README.md) · [Media API](core/media_api/README.md)
 
 ## Быстрый старт
 
 Путь к проекту на диске должен содержать только латиницу, цифры, дефис и подчёркивание — без кириллицы и пробелов. Например: `C:\projects\ergo_ms\`.
 
-Понадобятся Python 3.12, Node.js 18+, PostgreSQL 14+ и Git.
+Заранее на компьютере должны быть **установлены** Python 3.12, Node.js 18+, PostgreSQL 14+ и Git — без них полная настройка не начнётся.
 
 ```cmd
-git clone <repository-url> ergo_ms
+git clone https://github.com/SKB-AI/ergo_ms_core ergo_ms
 cd ergo_ms
-copy .env.example .env
-copy databases.yaml.example databases.yaml
 ```
 
-Отредактируйте `.env` и `databases.yaml` под свою среду — см. [configuration.md](.docs/configuration.md).
+Откройте каталог **`ergo_ms`** в **Cursor** или **VS Code** — в проекте уже настроены задачи (`.vscode/tasks.json`), через них проще всего установить окружение и запустить сервисы.
 
-**Первая установка.** Пока утилита `ergoms` не установлена, выполните полную настройку скриптом:
+### 1. Первая установка (задача)
 
-Windows (один раз разрешите выполнение скриптов в PowerShell):
+1. Меню **Terminal → Run Task…** (или **Терминал → Выполнить задачу…**).
+2. Выберите **`Setup Full System`**.
+
+Задача выполнит полную настройку (`setup-full`): виртуальное окружение, зависимости Python и npm, утилиту `ergoms`, расширения редактора. На Windows политика выполнения скриптов обходится автоматически; на Linux потребуются права администратора (`sudo`).
+
+После установки появятся файлы `.env`, `databases.yaml` и `celery_workers.yaml` (из примеров, если их ещё не было). Проверьте их и при необходимости отредактируйте под свою среду — см. [configuration.md](.docs/configuration.md). Если параметры БД отличались от примера и миграции не применились, поправьте `databases.yaml` и снова выполните задачу **`Setup Full System`** или в терминале: `ergoms migrate-all`.
+
+Подробнее о командах установки — [cli.md](.docs/cli.md#зависимости-и-первичная-настройка).
+
+**Альтернатива без редактора** — из корня проекта в терминале:
+
+Windows (PowerShell):
 
 ```powershell
 Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
@@ -44,14 +55,16 @@ Linux:
 sudo bash core/deployment/linux/ergo_ms.sh setup-full
 ```
 
-Дальнейшие операции — только через **`ergoms`**. Быстрая установка зависимостей после настройки: `ergoms install-deps`.
+### 2. Запуск для разработки
 
-**Запуск для разработки.** В Cursor или VS Code удобнее всего нажать **`Ctrl+Shift+B`** — поднимутся API, клиент, Celery и media_api. Альтернатива в терминале: `ergoms start-all` и в втором окне `ergoms start-client`.
+После установки нажмите **`Ctrl+Shift+B`** — задача **`Start All Services`** запустит API, клиент, Celery worker и beat, media_api (с предварительным прогревом кэшей). Отдельные сервисы можно запустить через **Run Task…** — **`Client`**, **`API`**, **`Media API`** и т.д.
+
+В терминале то же самое: `ergoms start-all` и в отдельном окне `ergoms start-client`. Дальнейшие операции обслуживания — через **`ergoms`**; обновить зависимости без полной переустановки: `ergoms install-deps`.
 
 После запуска:
 
-- интерфейс: http://localhost:8001  
+- клиент: http://localhost:8001  
 - API: http://localhost:8000  
 - media_api: http://localhost:8003  
 
-Подробнее о повседневной работе — в [development.md](.docs/development.md).
+Подробнее о разработке — в [development.md](.docs/development.md).

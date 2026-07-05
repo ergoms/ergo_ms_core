@@ -1,44 +1,71 @@
-# Тестирование развертывания (Linux и Windows)
+# Тестирование развёртывания (Linux и Windows)
 
-Набор тестов для проверки установки, запуска и базовых команд системы. Тесты разделены на платформы (Linux — скрипты `.sh`, Windows — скрипты `.ps1`), но имеют полностью аналогичную структуру и логику.
+Набор скриптов проверяет установку, запуск и базовые команды ERGO MS на обеих ОС. Структура на Linux (`.sh`) и Windows (`.ps1`) **одинакова по смыслу** — отличаются только оболочка и вызовы служб.
 
-Всё разбито на логические модули:
+Документ для разработчиков deployment; конечному пользователю достаточно [`.docs/troubleshooting.md`](../../../../.docs/troubleshooting.md).
 
-1. **`lib`** (`lib.sh` / `lib.ps1`) — библиотека общих функций.
-   - Содержит функции логирования `log` и `step` (с автоматической записью в общий журнал `logs/test.log`).
-   - Функция `run_task` / `Run-Task` парсит `.vscode/tasks.json` и запускает команды (эмулируя запуск через VS Code).
-   - Функции для работы со службами (`systemctl` в Linux / `Get-Service` в Windows) и Celery (`celery inspect ping`, `show_next_tasks`).
-   - Функции для очистки процессов перед тестами (`stop_all_ergoms`).
+## Быстрый запуск
 
-2. **`install_test`** (`install_test.sh` / `install_test.ps1`) — тесты установки:
-   - Установка через `Setup Full System` (`setup-full`).
-   - Установка через команду `ergoms setup`.
-   - Установка всех служб сразу (`ergoms install-all-services`).
-   - Поочередная установка каждой службы (`install-api-service`, `install-client-service`, `install-worker-service`, `install-beat-service`, `install-media-service`, `ollama_framework:install-ollama-service`).
+Рекомендуемый способ — одна команда ergoms:
 
-3. **`run_test`** (`run_test.sh` / `run_test.ps1`) — тесты запуска:
-   - Запуск через задачу `Start All Services` (аналог ctrl+shift+b).
-   - Запуск через команду `ergoms start`.
-   - Отдельный запуск каждого сервиса (api, media, client) через системные службы.
-   - Тестирование Celery: запуск API, Beat и всех установленных воркеров, после чего выполняется `celery inspect ping` (проверка связи брокера и воркера) и `ergoms api show_next_tasks` (проверка расписания).
+```cmd
+ergoms test_system
+```
 
-4. **`commands_test`** (`commands_test.ps1` и аналоги) — тесты отдельных команд:
-   - Создание и применение миграций (`ergoms db-makemigrations`, `ergoms db-migrate`).
-   - Очистка кэша (`ergoms clean`).
-   - Проверка логов (например, `ergoms logs ergo-api-dev 10`).
+Альтернатива — запуск оркестратора напрямую:
 
-5. **`test`** (`test.sh` / `test.ps1`) — главный скрипт-оркестратор, который поочерёдно вызывает все этапы тестирования (`install_test`, `run_test` и т.д.).
-
-## Запуск
-
-Для полного тестирования достаточно запустить главный скрипт-оркестратор:
-
-- **Рекомендуемый способ (через `ergoms`, кроссплатформенно):** `ergoms test_system`
 - **Linux:** `bash core/deployment/linux/lib/test/test.sh`
-- **Windows:** из корня репозитория: `.\core\deployment\windows\lib\test\test.ps1` (нужен префикс `.\`, иначе PowerShell не выполнит скрипт по относительному пути).
+- **Windows** (из корня репозитория): `.\core\deployment\windows\lib\test\test.ps1` — нужен префикс `.\`, иначе PowerShell не выполнит скрипт по относительному пути.
 
-Весь процесс (установка, запуск, команды) пройдёт автоматически с дублированием вывода в файл `logs/test.log` в корне проекта.
+Весь вывод дублируется в **`logs/test.log`** в корне проекта.
 
-### Кодировка (Windows PowerShell 5.1)
+## Из чего состоят тесты
 
-Скрипты `.ps1` сохраняются в **UTF-8 с BOM**. Без BOM встроенный Windows PowerShell 5.1 часто читает файл в системной кодировке (например CP1251), из‑за чего кириллица в строках ломает разбор и в конце файла появляется ложная ошибка «Непредвиденная лексема `}`». В PowerShell 7+ BOM не обязателен.
+### lib (`lib.sh` / `lib.ps1`)
+
+Общая библиотека: логирование (`log`, `step`), запуск задач из `.vscode/tasks.json` (`run_task` / `Run-Task`), проверка Celery (`celery inspect ping`, `show_next_tasks`), остановка процессов перед прогоном (`stop_all_ergoms`).
+
+### install_test
+
+Проверяет установку: полную настройку через задачу VS Code «Setup Full System» (внутри — `setup-full`), `ergoms setup`, `ergoms install-all-services` и поочерёдную установку служб API, клиента, worker, beat, media и ollama (если модуль подключён).
+
+### run_test
+
+Проверяет запуск: задачу «Start All Services» (аналог `Ctrl+Shift+B`), `ergoms start`, отдельный запуск служб API, media и клиента, а также Celery — API, beat и workers с последующей проверкой `celery inspect ping` и `ergoms api show_next_tasks`.
+
+### commands_test
+
+Проверяет отдельные команды: миграции (`ergoms db-makemigrations`, `ergoms db-migrate`), `ergoms clean`, просмотр журналов (`ergoms logs ergo-api-dev 10`).
+
+### test (`test.sh` / `test.ps1`)
+
+Оркестратор: по очереди вызывает install, run, commands и остальные этапы.
+
+## Задачи VS Code / Cursor
+
+В `.vscode/tasks.json` заданы compound-задачи для IDE:
+
+| Имя в tasks.json | Назначение |
+|------------------|------------|
+| Setup Full System | Первичная установка (`setup-full`) |
+| Start All Services | Полный набор сервисов для разработки |
+
+Их можно запустить из палитры команд (**Tasks: Run Task**) или через **`Ctrl+Shift+B`**, если задача назначена сборкой по умолчанию.
+
+## Кодировка (Windows PowerShell 5.1)
+
+Скрипты `.ps1` сохраняются в **UTF-8 с BOM**. Без BOM встроенный Windows PowerShell 5.1 часто читает файл в системной кодировке (например CP1251): кириллица в строках ломает разбор, в конце файла появляется ложная ошибка «Непредвиденная лексема `}`». В PowerShell 7+ BOM не обязателен.
+
+## Типичные ошибки
+
+| Симптом | Причина | Действие |
+|---------|---------|----------|
+| Скрипт не запускается на Windows | Нет `.\` перед путём | `.\core\deployment\windows\lib\test\test.ps1` |
+| Ошибка парсинга `}` в `.ps1` | Файл без BOM, CP1251 | Сохранить UTF-8 with BOM |
+| Тест завершается с ошибкой на Celery | Worker и beat с разными брокерами | Проверить `databases.yaml`, см. [`.docs/configuration.md`](../../../../.docs/configuration.md) |
+
+## См. также
+
+- [`.docs/troubleshooting.md`](../../../../.docs/troubleshooting.md)
+- [`core/deployment/logic.md`](../../logic.md)
+- [`.docs/cli.md`](../../../../.docs/cli.md)

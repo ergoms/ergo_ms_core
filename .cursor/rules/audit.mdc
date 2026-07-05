@@ -44,7 +44,7 @@ bridge.call(
     source_module='lms',
     entity={'type': 'enrollment', 'ref': enr.public_id, 'label': str(enr)},
     changes=[{'field': 'status', 'label': 'Статус', 'old': 'active', 'new': 'cancelled'}],
-    meta={'reason': reason},                 # секреты вырежутся автоматически
+    meta={'reason': reason},                 # конфиденциальные данные вырежутся автоматически
     severity='info',                         # info | security | critical
 )
 ```

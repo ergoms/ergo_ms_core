@@ -22,3 +22,10 @@ alwaysApply: true
 `ergoms setup` или `ergoms python-install` — не предлагай создать venv вручную.
 
 Зависимости: `ergoms python-install`, `ergoms poetry install`, полная настройка — `ergoms setup`.
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Команды ergoms | [`no-direct-manage-py.mdc`](no-direct-manage-py.mdc) |
+| Первичная настройка | [`.docs/cli.md`](../../.docs/cli.md) |

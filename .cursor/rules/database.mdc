@@ -1,14 +1,45 @@
 ---
+description: База данных — миграции Django, ORM, SqlAlchemyManager, DBConfig, ergoms
 alwaysApply: false
 ---
+
 # База данных
 
-- Таблицы — только через миграции Django
-- Обычная работа — ORM Django
-- Сложные выборки — SQL через `SqlAlchemyManager` (`core/api/src/core/utils/database/base.py`)
-- Конфиг подключений — `DBConfig` из `core/api/src/core/utils/database/dbconfig.py`
-- Тяжёлые запросы выноси в `queries.py` модуля
+## Кратко
 
-Миграции создавай: `ergoms db-makemigrations`. Применяй: `ergoms db-migrate`.
+- Таблицы — только через миграции Django (`ergoms db-makemigrations`, `ergoms db-migrate`).
+- Обычная работа — ORM Django.
+- Сложные выборки — SQL через `SqlAlchemyManager` (`core/api/src/core/utils/database/base.py`).
+- Конфиг подключений — `DBConfig` (`core/api/src/core/utils/database/dbconfig.py`).
+- Тяжёлые запросы выноси в `queries.py` модуля.
 
-Модели проектируй по нормальным формам.
+## Запрещено
+
+```python
+# BAD — сырой SQL через f-string (риск инъекции)
+cursor.execute(f"SELECT * FROM t WHERE id = {user_id}")
+```
+
+```python
+# GOOD — ORM
+MyModel.objects.filter(owner=user)
+```
+
+## SqlAlchemyManager
+
+Когда ORM неудобен (отчёты, сложные JOIN) — запросы в `queries.py`, выполнение через `SqlAlchemyManager`, не размазывай SQL по views.
+
+Конфигурация БД — в корневом `databases.yaml`; см. [`.docs/configuration.md`](../../.docs/configuration.md).
+
+## Модели
+
+Проектируй с нормализацией: не дублируй одни и те же сущности в нескольких таблицах без причины; связи — через ForeignKey/M2M, не через «магические» id в JSON без модели.
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Django, расширение User | [`django.mdc`](django.mdc) |
+| Python-окружение | [`virtual-env.mdc`](virtual-env.mdc) |
+| API | [`api_code.mdc`](api_code.mdc) |
+| Настройка БД | [`.docs/configuration.md`](../../.docs/configuration.md) |

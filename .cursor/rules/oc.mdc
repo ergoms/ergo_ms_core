@@ -1,4 +1,5 @@
 ---
+description: Кроссплатформенность Windows и Linux — os_abstraction, process-ops, ergoms win:/linux:
 alwaysApply: true
 ---
 # Windows и Linux
@@ -14,3 +15,10 @@ alwaysApply: true
 | Python | `core/api/src/core/utils/os_abstraction/` |
 | Node (процессы) | `core/client/scripts/lib/process-ops.js` |
 | Скрипты ergoms | `core/deployment/windows/`, `core/deployment/linux/`, префиксы `win:` / `linux:` в `commands.conf` |
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| ergoms, commands.conf | [`ergoms-commands.mdc`](ergoms-commands.mdc) |
+| Развёртывание | [`core/deployment/logic.md`](../../core/deployment/logic.md) |

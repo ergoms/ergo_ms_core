@@ -1,4 +1,5 @@
 ---
+description: Общие правила кода — размер файлов, SOLID, Celery, импорты, Swagger, комментарии
 alwaysApply: true
 ---
 # Общие правила кода
@@ -21,3 +22,13 @@ alwaysApply: true
 ## Комментарии
 
 Только «почему», не «что». Без закомментированного мусора. Docstring — для публичного API и сложной логики.
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| API, Swagger | [`api_code.mdc`](api_code.mdc) |
+| Безопасность | [`security.mdc`](security.mdc) |
+| Celery | [`celery.mdc`](celery.mdc) |
+| Тесты | [`testing.mdc`](testing.mdc) |
+| Стиль документов | [`writing-docs-and-rules.mdc`](writing-docs-and-rules.mdc) |

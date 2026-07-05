@@ -4,7 +4,7 @@
 
 ## Основные каталоги
 
-**`core/api/`** — Django-приложение: модели, API, CMS, права, уведомления, интеграции.
+**`core/api/`** — Django-приложение: модели, API, CMS, права, уведомления, аудит действий, интеграции.
 
 **`core/client/`** — Vue-приложение: маршруты, меню, общие компоненты, стили.
 
@@ -22,9 +22,9 @@
 
 В корне проекта:
 
-- **`.env`** — переменные окружения (создаётся из `.env.example`).
+- **`.env`** — переменные окружения (создаётся из `.env.example`, в том числе при `setup-full`).
 - **`databases.yaml`** — подключения к PostgreSQL и, при необходимости, к базам Celery (из `databases.yaml.example`).
-- **`celery_workers.yaml`** — какие очереди обслуживает каждый worker.
+- **`celery_workers.yaml`** — какие очереди обслуживает каждый исполнитель Celery.
 
 У модулей могут быть свои **`.env`** и **`ergoms.conf`** — локальные переопределения и команды, которые ergoms регистрирует с префиксом имени модуля.
 
@@ -32,19 +32,27 @@
 
 ## Документация и правила
 
-Каталог **`.docs/`** — человекочитаемое описание архитектуры, настройки и команд (вы как раз его читаете).
+Каталог **`.docs/`** — описание архитектуры, настройки и команд для людей. Оглавление — в [README.md](../README.md#документация) в корне репозитория.
 
-**`.cursor/rules/`** — сжатые правила для AI-ассистента в Cursor; по смыслу дублируют часть `.docs/`, но в форме инструкций для генерации кода.
+**`.cursor/rules/`** — инструкции для AI-ассистента в Cursor; по смыслу пересекаются с `.docs/`, но короче и с примерами «плохо / хорошо». Стиль правил и документов — [`writing-docs-and-rules.mdc`](../.cursor/rules/writing-docs-and-rules.mdc).
 
-У отдельных частей системы бывают свои **`logic.md`** или **`README.md`**: например, `core/deployment/logic.md` про устройство ergoms, `modules/lms/logic.md` — про контракт API LMS.
+Технические заметки в дереве **`core/`**:
+
+| Файл | О чём |
+|------|--------|
+| [`core/api/README.md`](../core/api/README.md) | Django API, структура, запуск |
+| [`core/client/README.md`](../core/client/README.md) | Vue-клиент, компоненты |
+| [`core/media_api/README.md`](../core/media_api/README.md) | файловый сервис |
+| [`core/deployment/logic.md`](../core/deployment/logic.md) | ergoms, commands.conf, GeoIP |
+| `modules/<имя>/logic.md` | контракты конкретного модуля (если есть) |
 
 ## Куда смотреть дальше
 
-| Вопрос | Файл |
-|--------|------|
+| Вопрос | Документ |
+|--------|----------|
 | Как устроена система в целом | [architecture.md](architecture.md) |
-| Как настроить `.env` и БД | [configuration.md](configuration.md) |
-| Как работать каждый день | [development.md](development.md) |
-| Список команд ergoms | [cli.md](cli.md) |
-| Если что-то не ставится | [troubleshooting.md](troubleshooting.md) |
-| Службы на Linux | [deployment.md](deployment.md) |
+| Как настроить `.env` и базы данных | [configuration.md](configuration.md) |
+| Как запускать проект при разработке | [development.md](development.md) |
+| Справочник команд ergoms | [cli.md](cli.md) |
+| Если установка завершилась с ошибкой | [troubleshooting.md](troubleshooting.md) |
+| Системные службы на Linux | [deployment.md](deployment.md) |

@@ -1,42 +1,63 @@
 ---
+description: Индекс UI-компонентов ядра — SelectBox, SearchInput, FilterMenu, UserAvatar
 alwaysApply: false
 ---
-# Компоненты
 
-## Выпадающие списки (SelectBox)
+# Компоненты ядра (клиент)
 
-В `core/client` и `modules/**/client` — **только** `@/components/SelectBox.vue`, не `<select>`. Обязательное правило: [`select-box.mdc`](select-box.mdc).
+Общие компоненты клиента живут в `core/client/src/components/`. В модулях **не дублируй** их своими обёртками без явной причины — используй правила из таблицы ниже.
 
-## Поле поиска (SearchInput)
+## Индекс правил
 
-Текстовый поиск в toolbar, фильтрах и таблицах — **только** `@/components/SearchInput.vue`, не inline `.search-input-wrapper`. Подробности: [`search-input.mdc`](search-input.mdc).
+| Задача | Компонент | Правило |
+|--------|-----------|---------|
+| Выбор из списка | `SelectBox` | [`select-box.mdc`](select-box.mdc) |
+| Текстовый поиск | `SearchInput` | [`search-input.mdc`](search-input.mdc) |
+| Несколько фильтров в toolbar | `FilterMenu` | [`filter-menu.mdc`](filter-menu.mdc) |
+| Загрузка списков без «мигания» | `LoadingContentArea` | [`loading-content-area.mdc`](loading-content-area.mdc) |
+| Модальные окна | `ModalCenter`, `confirm.js` | [`modal-center.mdc`](modal-center.mdc) |
+| Аватар пользователя | `UserAvatar` | этот раздел |
 
-## Составная панель фильтров (FilterMenu)
+## Аватар пользователя — UserAvatar
 
-Несколько связанных фильтров в toolbar (группы, select + date, одна кнопка «Фильтры») — **только** `@/components/FilterMenu.vue`. Простой одиночный выбор — по-прежнему `SelectBox`. Подробности: [`filter-menu.mdc`](filter-menu.mdc).
+Компонент: `@/components/UserAvatar.vue`.
 
-## Плавная загрузка списков (LoadingContentArea)
+### Обязательно
 
-Списки, таблицы и панели с поиском/фильтрами — через `@/components/LoadingContentArea.vue`, не через `v-if="loading"` + `v-else` с подменой контента. Подробности: [`loading-content-area.mdc`](loading-content-area.mdc).
+- Передавай **`user-ref`** (UUID `public_id`), если объект пользователя из API уже содержит `public_id`.
+- Запрос аватара — через компонент или `getUserPublicInfoByRef` из `@/js/userAvatar`, не свой axios-запрос.
 
-## Аватар пользователя
+### Запрещено
 
-Всегда `@/components/UserAvatar.vue`.
+- `:user-id` / `:userId` в новом коде — числовой pk в URL и запросах (см. [`security.mdc`](security.mdc) → «Публичные идентификаторы»).
+
+### Базовый пример
 
 ```vue
-<UserAvatar :size="40" />
+<!-- GOOD — lookup по public_id -->
 <UserAvatar :user-ref="user.public_id" :size="40" :title="user.name" />
-<UserAvatar :userId="user.id" :size="40" :title="user.name" />
+
+<!-- BAD — числовой pk, устаревший эндпоинт -->
+<UserAvatar :user-id="user.id" :size="40" :title="user.name" />
+
+<!-- без user — только размер, данные подтянет сам -->
+<UserAvatar :size="40" />
+
+<!-- свой URL или клик -->
 <UserAvatar :custom-avatar-url="url" :size="120" />
 <UserAvatar :clickable="true" @click="onClick" />
 ```
 
-Пропсы: `size` (число, по умолчанию 40), `clickable`, `title`, `customAvatarUrl`, `userId`, `userRef`.
+Пропсы: `size` (по умолчанию 40), `clickable`, `title`, `customAvatarUrl`, `userRef`. `userId` оставлен только для совместимости со старым кодом.
 
-**Приоритет — `userRef` (public_id пользователя, UUID), а не `userId`.** Если объект пользователя из API уже содержит `public_id` — передавай `:user-ref="user.public_id"`; `userId` — только fallback, пока `public_id` не проведён через конкретный сериализатор.
-
-Без явных `avatar-url`/`first-name`+`last-name` компонент сам запрашивает публичные данные пользователя. По `userId` это идёт через legacy числовой эндпоинт (подбор id, см. [`security.mdc`](security.mdc) → «Публичные идентификаторы»); по `userRef` — через безопасный lookup по `public_id`. Не пиши свой запрос аватара — используй `getUserPublicInfo`/`getUserPublicInfoByRef` из `@/js/userAvatar`.
-
-Если бэкенд-сериализатор ещё не отдаёт `public_id` пользователя — добавь его тем же паттерном (`SerializerMethodField`, `str(user.public_id) if getattr(user, 'public_id', None) else None`), а не пропускай `userRef`.
+Если сериализатор API ещё не отдаёт `public_id` — добавь поле тем же паттерном, что в [`security.mdc`](security.mdc), а не обходи через `userId`.
 
 Типичные размеры: 32 (списки), 40 (меню), 120 (профиль).
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Клиент Vue | [`client_code.mdc`](client_code.mdc) |
+| public_id | [`security.mdc`](security.mdc) |
+| Темы (иконки в списках) | [`themes.mdc`](themes.mdc) |

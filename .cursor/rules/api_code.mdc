@@ -1,13 +1,47 @@
 ---
-description: API — Swagger, поиск пользователей, пути
+description: API ядра — SwaggerSafeMixin, поиск пользователей, пути проекта, ergoms
 alwaysApply: false
 ---
+
 # Сервер (API)
 
-ViewSet с данными пользователя — наследуй `SwaggerSafeMixin` (`core/api/src/core/utils/mixins.py`) и фильтруй queryset по `request.user`.
+## Кратко
 
-Поиск людей по ФИО/email — только `user_search` (`user_search.mdc`), не пиши свои `Q(...)` по полям User.
+- ViewSet с данными пользователя — `SwaggerSafeMixin` + фильтр в `get_queryset`.
+- Поиск людей — только `user_search` ([`user_search.mdc`](user_search.mdc)).
+- Пути к ресурсам — из `core/api/src/config/settings/base.py`.
+- Команды в ответах пользователю — только `ergoms` ([`no-direct-manage-py.mdc`](no-direct-manage-py.mdc)).
 
-Пути к ресурсам проекта — из `core/api/src/config/settings/base.py`.
+## ViewSet и Swagger
 
-Команды пользователю — только `ergoms`, не `python manage.py`.
+```python
+# GOOD — mixin + фильтр по пользователю
+from src.core.utils.mixins import SwaggerSafeMixin
+
+class MyViewSet(SwaggerSafeMixin, viewsets.ModelViewSet):
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if getattr(self, 'swagger_fake_view', False) or not self.request.user.is_authenticated:
+            return qs.none()
+        return qs.filter(owner=self.request.user)
+```
+
+```python
+# BAD — полный queryset без фильтра (утечка чужих данных)
+class MyViewSet(viewsets.ModelViewSet):
+    queryset = MyModel.objects.all()
+```
+
+Mixin: `core/api/src/core/utils/mixins.py`. Подробнее — [`code.mdc`](code.mdc) → «Сериализаторы и Swagger».
+
+## Поиск пользователей
+
+Не пиши свои `Q(first_name__icontains=...)` — только функции из [`user_search.mdc`](user_search.mdc).
+
+## Связанные правила
+
+| Тема | Правило |
+|------|---------|
+| Безопасность, public_id | [`security.mdc`](security.mdc) |
+| База данных, ORM | [`database.mdc`](database.mdc) |
+| Django, расширение User | [`django.mdc`](django.mdc) |

@@ -1,4 +1,5 @@
 ---
+description: Модули modules/ — структура, регистрация, ModuleBridge, Celery, git-submodule
 alwaysApply: true
 ---
 # Модули
@@ -51,7 +52,7 @@ class MyModuleConfig(AppConfig):
 
 ## UI на клиенте
 
-Выпадающие списки — **только** `SelectBox` из ядра (`@/components/SelectBox.vue`). Не создавай в модуле свой select/dropdown для выбора из списка. Подробности: [`select-box.mdc`](select-box.mdc).
+Выпадающие списки — **только** `SelectBox` из ядра (`@/components/SelectBox.vue`). Не создавай в модуле свой `<select>` или выпадающий список для обычного выбора. Подробности: [`select-box.mdc`](select-box.mdc).
 
 ## Имена
 
@@ -106,3 +107,15 @@ def _handler(user):
 - Менять ядро ради одного модуля
 - Прямые импорты между модулями
 - Регистрировать модуль вручную в настройках
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Архитектура | [`struct.mdc`](struct.mdc) |
+| API, ViewSet | [`api_code.mdc`](api_code.mdc) |
+| Клиент, маршруты | [`client_code.mdc`](client_code.mdc) |
+| Celery в модуле | [`celery.mdc`](celery.mdc) |
+| Безопасность, public_id | [`security.mdc`](security.mdc) |
+| Уведомления, аудит | [`notifications.mdc`](notifications.mdc), [`audit.mdc`](audit.mdc) |
+| Человекочитаемо | [`.docs/architecture.md`](../../.docs/architecture.md) |

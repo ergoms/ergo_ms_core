@@ -1,6 +1,6 @@
 ---
+description: Изолированные тесты модулей — ergoms api test, --full
 alwaysApply: false
-description: Изолированные тесты модулей
 ---
 # Тесты модулей
 
@@ -18,3 +18,10 @@ description: Изолированные тесты модулей
 ergoms api test modules.organizations.api
 ergoms api test modules.competence_core.api --full
 ```
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Команды ergoms | [`no-direct-manage-py.mdc`](no-direct-manage-py.mdc) |
+| Общий код, тесты по просьбе | [`code.mdc`](code.mdc) |
