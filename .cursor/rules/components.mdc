@@ -7,6 +7,14 @@ alwaysApply: false
 
 В `core/client` и `modules/**/client` — **только** `@/components/SelectBox.vue`, не `<select>`. Обязательное правило: [`select-box.mdc`](select-box.mdc).
 
+## Поле поиска (SearchInput)
+
+Текстовый поиск в toolbar, фильтрах и таблицах — **только** `@/components/SearchInput.vue`, не inline `.search-input-wrapper`. Подробности: [`search-input.mdc`](search-input.mdc).
+
+## Составная панель фильтров (FilterMenu)
+
+Несколько связанных фильтров в toolbar (группы, select + date, одна кнопка «Фильтры») — **только** `@/components/FilterMenu.vue`. Простой одиночный выбор — по-прежнему `SelectBox`. Подробности: [`filter-menu.mdc`](filter-menu.mdc).
+
 ## Плавная загрузка списков (LoadingContentArea)
 
 Списки, таблицы и панели с поиском/фильтрами — через `@/components/LoadingContentArea.vue`, не через `v-if="loading"` + `v-else` с подменой контента. Подробности: [`loading-content-area.mdc`](loading-content-area.mdc).
