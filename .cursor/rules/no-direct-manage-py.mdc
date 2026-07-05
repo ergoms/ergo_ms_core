@@ -24,6 +24,8 @@ priority: critical
 | Python-зависимости | `ergoms python-install` |
 | npm-зависимости | `ergoms npm install` или `ergoms npm run install:all` |
 | Всё сразу (Python + npm + migrate) | `ergoms install-deps` |
+| Скачать GeoIP базу (MMDB) | `ergoms geoip-download` |
+| Backfill city/country сессий | `ergoms geoip-backfill` |
 | Любая команда Django | `ergoms api <имя_команды> [аргументы]` |
 | Первичная настройка | `ergoms setup` |
 | Справка | `ergoms help` |
