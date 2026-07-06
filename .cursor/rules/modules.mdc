@@ -55,6 +55,8 @@ class MyModuleConfig(AppConfig):
 
 Пункты бокового меню — **миграция API** (`MenuMigrationHelper`, эталон `module_template/api/migrations/0004_add_menu.py`); маршруты — `client/js/routes.js`. Порядок и видимость — в CMS. Подробности: [`menu.mdc`](menu.mdc).
 
+Пункты выпадающего меню пользователя в шапке (`UserMenu`) — через `bridge.provideMany` в группе `header.userMenu.items`. Эталон: [`organizations/client/js/headerUserMenu.js`](../../modules/organizations/client/js/headerUserMenu.js), подключается из `integrations.js`. Сбор в ядре — [`headerUserMenu.js`](../../core/client/src/integrations/headerUserMenu.js). Это **не** боковое меню: sidebar — миграции API, шапка — ModuleBridge.
+
 ## Имена
 
 - Папка модуля: `kebab-case` (`video-analysis`)
