@@ -18,7 +18,7 @@ ergoms dev
 ergoms start-client
 ```
 
-Файловый сервис, исполнитель Celery и планировщик beat:
+Файловый сервис, исполнитель Celery и планировщик beat — по отдельности:
 
 ```cmd
 ergoms start-media
@@ -26,13 +26,13 @@ ergoms start-worker
 ergoms start-beat
 ```
 
-Если удобнее держать API и Celery в одном окне терминала, используйте:
+Полный набор для разработки (API, клиент, Media API, worker, beat) одной командой:
 
 ```cmd
 ergoms start-all
 ```
 
-В Cursor и VS Code для полного набора сервисов можно нажать **`Ctrl+Shift+B`** — это эквивалент ручного запуска нескольких процессов из терминала.
+На Windows каждый сервис откроется в отдельном окне терминала. В Cursor и VS Code тот же набор — **`Ctrl+Shift+B`** (задача **`Start All Services`**).
 
 ## База данных и статика
 
