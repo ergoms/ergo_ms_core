@@ -9,7 +9,7 @@ alwaysApply: true
 
 ## Кратко
 
-- Конфиденциальные данные только в `.env`, не в коде и не в `VITE_*` для серверных ключей
+- Конфиденциальные данные только в `.env`, не в коде; серверные ключи не попадают в бандл клиента
 - Токены и контекст сессии — через `tokenStorage.js`, не в localStorage
 - В URL и ссылках — не числовые id из БД, а `public_id` (UUID)
 - API проверяет права сам; клиентские `permission-rules` — только UX
@@ -55,7 +55,7 @@ alwaysApply: true
 - Хардкодить конфиденциальные данные в коде, комментариях, README, примерах в чате
 - Предлагать `DEBUG = True`, `CORS_ALLOW_ALL_ORIGINS = True` при `CORS_ALLOW_CREDENTIALS = True`, отключение `ALLOWED_HOSTS` в prod
 - Ослаблять флаги cookies/HSTS из [`production.py`](../../core/api/src/config/patterns/production.py) без явной причины и согласования
-- Класть **серверные** конфиденциальные данные в `VITE_*` — они попадают в бандл клиента
+- Класть **серверные** конфиденциальные данные в переменные, которые попадают в бандл клиента (`CLIENT_*` и т.п.)
 
 **Правильно:**
 
@@ -180,7 +180,7 @@ const userId = getUserId()
 
 ## WebSocket
 
-- JWT **не** в query WebSocket — только первое JSON `{ type: 'auth', token }` ([`realtime.mdc`](realtime.mdc))
+- JWT **не** в query WebSocket — только первый envelope `{ type: 'ws_auth', payload: { token } }` ([`realtime.mdc`](realtime.mdc))
 - Клиент: `openAuthenticatedWebSocket` из `@/js/ws/authenticatedWebSocket.js`
 - Сервер: `JwtMessageAuthConsumer` — без `AllowAny` на connect до проверки токена
 
@@ -231,7 +231,7 @@ const userId = getUserId()
 
 Единый источник: [`logError.js`](../../core/client/src/js/utils/logError.js) + [`logger.js`](../../core/client/src/js/utils/logger.js). **Подробности, BAD/GOOD и prod-уровни — в [`log-error.mdc`](log-error.mdc).**
 
-Кратко: не используй `console.error(error)` с объектом axios; не логируй токены и `Authorization`. В production — `VITE_LOG_LEVEL=critical`, `sourcemap: false`.
+Кратко: не используй `console.error(error)` с объектом axios; не логируй токены и `Authorization`. В production — `CLIENT_LOG_LEVEL=critical`, `sourcemap: false`.
 
 ---
 

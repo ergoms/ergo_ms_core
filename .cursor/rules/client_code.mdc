@@ -32,7 +32,7 @@ try { ... } catch (e) { await handleApiError(e, 'Не удалось сохра�
 
 Полезные функции: `showWarning`, `showInfo`, `showToast`, `normalizeToastMessage`, `getToast`, `showValidationError`, `showSaveSuccess`, `showDeleteSuccess`.
 
-Re-export: `@/js/utils/notifications.js`.
+Разбор ошибок API: `@/js/utils/apiErrorMessage.js` (`extractApiError`, `parseApiErrorData`); toast — `handleApiError`.
 
 ## Подтверждения действий
 
@@ -66,6 +66,18 @@ import { endpoints } from '@/js/api/endpoints'
 Внутри модуля — относительные пути.
 
 Между модулями — только мост (`ModuleBridge`), не прямой import.
+
+## Настройки из `.env`
+
+- В `.env` — **`CLIENT_*`**, общие **`API_*`**, **`DISABLED_MODULES`**, **`REALTIME_*`**
+- В коде — **`import { clientEnv } from '@/js/clientEnv.js'`**, не `import.meta.env` и не префикс `VITE_`
+- Новая настройка модуля: `CLIENT_<МОДУЛЬ>_*` в корневом `.env` + поле в `clientEnv.js` + `buildClientEnvDefines()` в `core/client/vite.config.js`
+
+```javascript
+import { clientEnv } from '@/js/clientEnv.js'
+
+const pageSize = clientEnv.biPreviewItemsPerPage
+```
 
 ## Компоненты
 

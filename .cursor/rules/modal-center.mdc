@@ -37,6 +37,8 @@ alwaysApply: false
 
 `ModalCenter` (standalone) автоматически управляет z-index через `@/js/utils/modalStack.js`: каждая открытая модалка получает уровень выше предыдущей. Подтверждения (`confirm.js`) и вложенные модалки работают без ручного `zIndex`.
 
+Эталон multi-select picker: [`MemberPickerModal.vue`](../../core/client/src/components/MemberPickerModal.vue) — см. [`components.mdc`](components.mdc).
+
 ---
 
 ## Подтверждения да/нет — confirm.js
@@ -99,7 +101,6 @@ await runWithConfirm(
 | Слой | Файл |
 |------|------|
 | API | `@/js/utils/confirm.js` |
-| Re-export | `@/js/utils/notifications.js`, `@/js/utils/useNotifications.js` |
 | Рендер | `@/components/NotificationProvider.vue` → `ConfirmDialog`, `ChoiceDialog` |
 
 `<ConfirmDialog>` импортируется **только** в `NotificationProvider.vue`.

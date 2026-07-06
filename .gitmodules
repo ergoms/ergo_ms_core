@@ -170,13 +170,6 @@
 	update = merge
 	ignore = all
 
-[submodule "modules/bi_analysis_modern"]
-	path = modules/bi_analysis_modern
-	url = https://github.com/SKB-AI/ergo_ms_bi_analysis_modern.git
-	branch = dev
-	update = merge
-	ignore = all
-
 [submodule "modules/module_template"]
 	path = modules/module_template
 	url = https://github.com/Wyaro/module_template.git

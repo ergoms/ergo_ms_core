@@ -55,6 +55,19 @@ server {
     }
 
     # --- Django API ---
+    location /api/realtime/stream/ {
+        limit_conn ergo_conn 20;
+        proxy_pass http://ergo_api;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_http_version 1.1;
+        proxy_set_header Connection '';
+        chunked_transfer_encoding on;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        include ${ERGO_NGINX_SNIPPETS}/proxy_params.conf;
+    }
+
     location /api/ {
         limit_req zone=ergo_api burst=50 nodelay;
         limit_conn ergo_conn 50;

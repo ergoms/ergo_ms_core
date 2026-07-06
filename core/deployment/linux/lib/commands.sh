@@ -109,7 +109,7 @@ execute_command_string() {
           exit 1
         fi
         cd "$root" || exit 1
-        export PYTHONPATH="$root/core/media_api/src"
+        export PYTHONPATH="$root/core/media_api/src:$root"
         # shellcheck disable=SC2086
         exec "$venv_python" -m media_server.manage $cmd_args "${user_args[@]}"
         ;;
@@ -277,7 +277,7 @@ invoke_media_api_command() {
   
   export ERGOMS_INTERNAL=1
   cd "$root" || exit 1
-  export PYTHONPATH="$root/core/media_api/src"
+  export PYTHONPATH="$root/core/media_api/src:$root"
   exec "$venv_python" -m media_server.manage "$@"
 }
 

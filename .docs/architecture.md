@@ -49,14 +49,15 @@ Python-окружение одно на весь проект: `virtual_env/pyth
 
 При работе приложения `UserMenuView` отдаёт персональное меню с учётом прав; клиент загружает его через `menuService.js` и отображает в `MenuList`. Администратор может менять порядок, видимость и разделители в CMS (`MenuPanel.vue`) — правки сохраняются в БД. Правила для разработчиков — [`.cursor/rules/menu.mdc`](../.cursor/rules/menu.mdc).
 
-## Realtime (WebSocket и polling)
+## Realtime (WebSocket, SSE и polling)
 
 Уведомления in_app, presence, мессенджер и часть админ-лент обновляются в реальном времени. Режим задаётся переменной `REALTIME_TRANSPORT` в `.env`:
 
 - **`websocket`** (по умолчанию) — Django Channels; JWT передаётся в первом JSON-сообщении после подключения, не в URL.
-- **`http_polling`** — периодические REST-запросы, если корпоративный прокси не пропускает WebSocket.
+- **`sse`** — push через Server-Sent Events (`GET /api/realtime/stream/`).
+- **`http_polling`** — периодические REST-запросы (`GET /api/realtime/sync/` и точечные эндпоинты каналов).
 
-Интервалы polling и переменные `VITE_REALTIME_*` — в [configuration.md](configuration.md). Технические правила — [`.cursor/rules/realtime.mdc`](../.cursor/rules/realtime.mdc).
+Интервалы polling — `REALTIME_POLL_*` в `.env`. Технические правила — [`.cursor/rules/realtime.mdc`](../.cursor/rules/realtime.mdc).
 
 ## Геолокация IP (GeoIP)
 

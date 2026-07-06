@@ -110,7 +110,7 @@ def apply_tls_env(
         'ERGO_SSL_CERT': fullchain,
         'ERGO_SSL_KEY': privkey,
         'FRONTEND_BASE_URL': f'https://{domain}',
-        'VITE_USE_RELATIVE_API': 'true',
+        'CLIENT_USE_RELATIVE_API': 'true',
         'API_HOST': values.get('API_HOST', '').strip() or '127.0.0.1',
         'MEDIA_API_HOST': domain,
         'MEDIA_API_PORT': '443',

@@ -22,8 +22,8 @@ CLIENT_PORT=8001
 
 EMAIL_ENABLED=false
 
-VITE_DEFAULT_THEME=auto
-VITE_LOG_LEVEL=debug
+CLIENT_DEFAULT_THEME=auto
+CLIENT_LOG_LEVEL=debug
 ```
 
 Почту для разработки можно не настраивать: при `EMAIL_ENABLED=false` письма не отправляются. Для staging или сервера включите `EMAIL_ENABLED=true` и задайте `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_SSL` / `EMAIL_USE_TLS` — см. `.env.example`.
@@ -84,16 +84,36 @@ databases:
 
 Самостоятельное изменение email, ФИО и телефона в профиле — **`API_USER_PROFILE_SELF_EDIT_ENABLED`**. Если выключено, пользователи отправляют заявки администратору.
 
-## Realtime (WebSocket и polling)
+## Настройки клиента
 
-Переменная **`REALTIME_TRANSPORT`** в `.env`:
+Все параметры клиента — в `.env` с префиксом **`CLIENT_*`** или через общие переменные **`API_*`**, **`DISABLED_MODULES`**, **`REALTIME_*`**. Сборка (`core/client/vite.config.js`) подставляет их в бандл; в коде используйте **`@/js/clientEnv.js`**, не `import.meta.env` напрямую.
 
-- `websocket` — Django Channels (по умолчанию); API запускается через ASGI.
-- `http_polling` — обход прокси без WebSocket; клиент опрашивает REST по интервалам.
+| Переменная в `.env` | Назначение |
+|---------------------|------------|
+| `CLIENT_DEFAULT_THEME` | Тема по умолчанию: `auto`, `light`, `dark` |
+| `CLIENT_LOG_LEVEL` | Уровень логов клиента |
+| `CLIENT_USE_RELATIVE_API` | API и WebSocket с того же origin, что SPA (nginx) |
+| `API_HOST`, `API_PORT` | Адрес API в dev без nginx |
+| `API_PASSWORD_*` | Политика паролей (сервер и подсказки в формах) |
+| `DISABLED_MODULES` | Отключённые модули (сервер и клиент) |
+| `CLIENT_BI_PREVIEW_ITEMS_PER_PAGE` | Размер страницы предпросмотра BI |
+| `CLIENT_TASKS_MAX_ATTACHMENT_SIZE_MB` | Лимит вложений задач, МБ |
 
-Интервалы polling на сервере (секунды): `REALTIME_POLL_PRESENCE_INTERVAL`, `REALTIME_POLL_NOTIFICATIONS_INTERVAL`, `REALTIME_POLL_ADMIN_PRESENCE_INTERVAL`, `REALTIME_POLL_MESSENGER_INTERVAL`. Для сборки клиента те же значения можно задать в миллисекундах через `VITE_REALTIME_*` — см. `.env.example`.
+Новая настройка модуля для клиента: `CLIENT_<МОДУЛЬ>_*` в корневом `.env` + поле в `clientEnv.js` и `buildClientEnvDefines()` в `vite.config.js`.
 
-За nginx без WebSocket — пример в `core/deployment/nginx/env.example`. Правила разработки — [`.cursor/rules/realtime.mdc`](../.cursor/rules/realtime.mdc).
+## Realtime (WebSocket, SSE и polling)
+
+Переменные **`REALTIME_*`** в `.env` — **единые для сервера и клиента**. После входа клиент синхронизируется с `GET /api/realtime/config/`.
+
+- `websocket` — Django Channels (по умолчанию); API через ASGI.
+- `sse` — push через **Server-Sent Events** (`GET /api/realtime/stream/`).
+- `http_polling` — клиент опрашивает REST по интервалам (`GET /api/realtime/sync/`).
+
+**Channel layer** (для push между worker’ами): `CHANNEL_LAYER_BACKEND=memory` (dev, один процесс), `postgres` (без Redis, через основную БД) или `redis`. См. `.env.example`.
+
+Интервалы polling (секунды): `REALTIME_POLL_*`. SSE keepalive: `REALTIME_SSE_KEEPALIVE_INTERVAL`.
+
+Nginx: отдельный location для `/api/realtime/stream/` — `core/deployment/nginx/ergo_ms.conf.template`. Правила разработки — [`.cursor/rules/realtime.mdc`](../.cursor/rules/realtime.mdc).
 
 ## GeoIP (геолокация IP)
 

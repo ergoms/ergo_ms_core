@@ -152,7 +152,7 @@ function Execute-CommandString {
                 try {
                     $env:VIRTUAL_ENV = $venvPath
                     $env:PATH = "$venvPath\Scripts;$env:PATH"
-                    $env:PYTHONPATH = Join-Path $ProjectRoot "core\media_api\src"
+                    $env:PYTHONPATH = (Join-Path $ProjectRoot "core\media_api\src") + ";" + $ProjectRoot
                     & $pythonExe -m media_server.manage @allArgs
                 }
                 finally {
@@ -340,7 +340,7 @@ function Invoke-MediaApiCommand {
     try {
         $env:VIRTUAL_ENV = $venvPath
         $env:PATH = "$venvPath\Scripts;$env:PATH"
-        $env:PYTHONPATH = Join-Path $Root "core\media_api\src"
+        $env:PYTHONPATH = (Join-Path $Root "core\media_api\src") + ";" + $Root
         & $pythonExe -m media_server.manage $CommandArgs
     }
     finally {

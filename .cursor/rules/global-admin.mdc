@@ -15,8 +15,9 @@ alwaysApply: true
 |-------|------------|
 | `PermissionService.is_admin(user)` | Глобальный админ — полный доступ к URL, модулям, меню |
 | `PermissionService.can_manage_users_as_global_admin(user)` | То же; управление пользователями, `IsGlobalAdmin` |
+| `PermissionService.can_access_admin_panel(user)` | Доступ к панели администратора — эквивалент `is_admin` |
 
-Оба метода делегируют в `_is_global_admin()`: `is_superuser=True` **или** активная ADP-роль «Администратор» (`role_type == 'admin'`).
+`can_manage_users_as_global_admin` и `is_admin` делегируют в `_is_global_admin()`: `is_superuser=True` **или** активная ADP-роль «Администратор» (`role_type == 'admin'`).
 
 ```python
 # ❌ BAD — разная логика для суперюзера и назначенного админа

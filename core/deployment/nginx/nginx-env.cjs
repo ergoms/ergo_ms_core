@@ -79,17 +79,20 @@ function nginxPublicBaseUrl(env = process.env) {
   return `${scheme}://${host}:${port}`
 }
 
-function applyNginxViteEnv(env = process.env) {
+function applyNginxClientEnv(env = process.env) {
   if (!nginxEnabled(env)) {
     return env
   }
   return {
     ...env,
-    VITE_USE_RELATIVE_API: 'true',
+    CLIENT_USE_RELATIVE_API: 'true',
     CLIENT_DEPLOY_TYPE: env.CLIENT_DEPLOY_TYPE || 'production',
     API_HOST: env.API_HOST || '127.0.0.1',
   }
 }
+
+/** @deprecated используйте applyNginxClientEnv */
+const applyNginxViteEnv = applyNginxClientEnv
 
 module.exports = {
   nginxEnabled,
@@ -98,5 +101,6 @@ module.exports = {
   nginxListenPort,
   nginxUseHttps,
   nginxPublicBaseUrl,
+  applyNginxClientEnv,
   applyNginxViteEnv,
 }

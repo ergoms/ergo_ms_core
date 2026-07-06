@@ -18,6 +18,7 @@ alwaysApply: false
 | Боковое меню приложения | `MenuList`, миграции `MenuItem` | [`menu.mdc`](menu.mdc) |
 | Загрузка списков без «мигания» | `LoadingContentArea` | [`loading-content-area.mdc`](loading-content-area.mdc) |
 | Модальные окна | `ModalCenter`, `confirm.js` | [`modal-center.mdc`](modal-center.mdc) |
+| Multi-select выбор пользователей | `MemberPickerModal` | этот раздел |
 | Аватар пользователя | `UserAvatar` | этот раздел |
 
 ## Меню действий — DropDown
@@ -58,6 +59,18 @@ import { MoreHorizontal, Edit, Trash2 } from 'lucide-vue-next'
 ```
 
 Эталон: [`TaskChecklistSection.vue`](../../modules/tasks/client/components/TaskChecklistSection.vue).
+
+## Multi-select выбор пользователей — MemberPickerModal
+
+Компонент: `@/components/MemberPickerModal.vue`.
+
+Модалка с поиском и вкладками для **выбора нескольких пользователей** (исполнители, эксперты). Используй `ModalCenter` + `SearchInput` — не делай свой picker с нуля.
+
+**Не путать** с `modules/organizations/client/components/AddMemberModal.vue` — форма добавления участника организации (роль, подразделение, один пользователь).
+
+В новом коде для multi-select picker используй `MemberPickerModal` напрямую.
+
+Эталон: [`ReviewExpertsPage.vue`](../../modules/project_ed/client/Technical/Projects/components/ReviewExpertsPage.vue).
 
 ## Аватар пользователя — UserAvatar
 

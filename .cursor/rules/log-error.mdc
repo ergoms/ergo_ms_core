@@ -38,7 +38,7 @@ logError('Ошибка сохранения', error)
 
 ## Production
 
-- `VITE_LOG_LEVEL=critical` или `silent`
+- `CLIENT_LOG_LEVEL=critical` или `silent`
 - `sourcemap: false` в сборке ([`vite.config.js`](../../core/client/vite.config.js))
 
 Эталон использования: `core/client/src/js/api/manager.js`.

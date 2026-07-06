@@ -83,8 +83,8 @@ def main() -> int:
         content = _set_env_var(content, 'NGINX_SERVER_NAME', public_host)
         changed = True
 
-    if not _truthy(values.get('VITE_USE_RELATIVE_API', '')):
-        content = _set_env_var(content, 'VITE_USE_RELATIVE_API', 'true')
+    if not _truthy(values.get('CLIENT_USE_RELATIVE_API', '')):
+        content = _set_env_var(content, 'CLIENT_USE_RELATIVE_API', 'true')
         changed = True
 
     if not values.get('API_HOST', '').strip():
