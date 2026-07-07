@@ -84,12 +84,9 @@ server {
         proxy_pass http://ergo_api;
         proxy_buffering off;
         proxy_cache off;
-        proxy_http_version 1.1;
-        proxy_set_header Connection '';
         chunked_transfer_encoding on;
         proxy_read_timeout 3600s;
         proxy_send_timeout 3600s;
-        include ${ERGO_NGINX_SNIPPETS}/proxy_params.conf;
     }
 
     location /api/ {
