@@ -61,8 +61,8 @@ server {
     root ${ERGO_ROOT}/core/client/dist;
     index index.html;
 
-    # MEDIA_UPLOAD_MAX_SIZE по умолчанию 100 МБ + запас
-    client_max_body_size 110m;
+    # TASKS_MAX_ATTACHMENT_SIZE_MB / MEDIA_UPLOAD — до 600 МБ + запас
+    client_max_body_size 610m;
 
     include ${ERGO_NGINX_SNIPPETS}/proxy_params.conf;
 
@@ -128,7 +128,7 @@ server {
         limit_req zone=ergo_upload burst=10 nodelay;
         limit_conn ergo_conn 10;
         proxy_pass http://ergo_media;
-        client_max_body_size 110m;
+        client_max_body_size 610m;
     }
 
     location /health/ {

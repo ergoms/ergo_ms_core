@@ -34,7 +34,7 @@ server {
     root ${ERGO_ROOT}/core/client/dist;
     index index.html;
 
-    client_max_body_size 110m;
+    client_max_body_size 610m;
 
     include ${ERGO_NGINX_SNIPPETS}/proxy_params.conf;
 
@@ -104,7 +104,7 @@ server {
         limit_req zone=ergo_upload burst=10 nodelay;
         limit_conn ergo_conn 10;
         proxy_pass http://ergo_media;
-        client_max_body_size 110m;
+        client_max_body_size 610m;
     }
 
     location /health/ {

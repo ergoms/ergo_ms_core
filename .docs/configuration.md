@@ -97,7 +97,8 @@ databases:
 | `API_PASSWORD_*` | Политика паролей (сервер и подсказки в формах) |
 | `DISABLED_MODULES` | Отключённые модули (сервер и клиент) |
 | `CLIENT_BI_PREVIEW_ITEMS_PER_PAGE` | Размер страницы предпросмотра BI |
-| `CLIENT_TASKS_MAX_ATTACHMENT_SIZE_MB` | Лимит вложений задач, МБ |
+| `TASKS_MAX_ATTACHMENT_SIZE_MB` | Лимит вложений задач на сервере, МБ (по умолчанию 600) |
+| `CLIENT_TASKS_MAX_ATTACHMENT_SIZE_MB` | Лимит вложений задач в клиенте, МБ (по умолчанию 600) |
 
 Новая настройка модуля для клиента: `CLIENT_<МОДУЛЬ>_*` в корневом `.env` + поле в `clientEnv.js` и `buildClientEnvDefines()` в `vite.config.js`.
 
