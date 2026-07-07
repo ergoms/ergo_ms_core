@@ -37,7 +37,7 @@ alwaysApply: false
 
 `ModalCenter` (standalone) автоматически управляет z-index через `@/js/utils/modalStack.js`: каждая открытая модалка получает уровень выше предыдущей. Подтверждения (`confirm.js`) и вложенные модалки работают без ручного `zIndex`.
 
-Эталон multi-select picker: [`MemberPickerModal.vue`](../../core/client/src/components/MemberPickerModal.vue) — см. [`components.mdc`](components.mdc).
+Эталон multi-select picker (UI в ядре, домен в модуле): [`MemberPickerModal.vue`](../../core/client/src/components/MemberPickerModal.vue) + [`ProjectMemberPickerModal.vue`](../../modules/project_ed/client/components/ProjectMemberPickerModal.vue) — см. [`components.mdc`](components.mdc).
 
 ---
 

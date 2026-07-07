@@ -62,15 +62,22 @@ import { MoreHorizontal, Edit, Trash2 } from 'lucide-vue-next'
 
 ## Multi-select выбор пользователей — MemberPickerModal
 
-Компонент: `@/components/MemberPickerModal.vue`.
+Компонент ядра: `@/components/MemberPickerModal.vue` — **только UI** (поиск, вкладки, multi-select, `UserAvatar`).
 
-Модалка с поиском и вкладками для **выбора нескольких пользователей** (исполнители, эксперты). Используй `ModalCenter` + `SearchInput` — не делай свой picker с нуля.
+### Обязательно
+
+- Загрузка списка — через prop **`fetchUsers({ search, activeTab, roleGroupId })`**, не через API модулей в ядре.
+- В модуле с доменной логикой — обёртка с `fetchUsers` (эталон project_ed: [`ProjectMemberPickerModal.vue`](../../modules/project_ed/client/components/ProjectMemberPickerModal.vue)).
+- Используй `ModalCenter` + `SearchInput` — не делай свой picker с нуля.
 
 **Не путать** с `modules/organizations/client/components/AddMemberModal.vue` — форма добавления участника организации (роль, подразделение, один пользователь).
 
-В новом коде для multi-select picker используй `MemberPickerModal` напрямую.
+### Запрещено
 
-Эталон: [`ReviewExpertsPage.vue`](../../modules/project_ed/client/Technical/Projects/components/ReviewExpertsPage.vue).
+- Прямые вызовы API модулей (`/organizations/...`, `endpoints.project_ed.*`) внутри `MemberPickerModal`.
+- Импорт `@/components/MemberPickerModal` из модуля с domain props (`organizationId`, `mode`) — только через модульную обёртку.
+
+Эталон использования с доменом: [`ReviewExpertsPage.vue`](../../modules/project_ed/client/Technical/Projects/components/ReviewExpertsPage.vue) → `ProjectMemberPickerModal`.
 
 ## Аватар пользователя — UserAvatar
 
