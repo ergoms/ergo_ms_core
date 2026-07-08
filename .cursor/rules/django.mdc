@@ -16,6 +16,13 @@ Django и DRF — пакеты Poetry (`pyproject.toml`), устанавлива
 
 Перед правками auth смотри эти файлы. В новом API для пользователей в URL и клиенте — **`public_id`**, не числовой pk ([`security.mdc`](security.mdc)).
 
+## Миграции User
+
+- Колонки `middle_name` и `public_id` в `auth_user` — только через `cms_adp.0038_user_extension_fields`, **не** через миграции приложения `auth`.
+- При `ergoms db-makemigrations` extensions **не подключаются** (`AdpConfig.ready()` пропускает `apply_user_extensions()`), чтобы autodetector не предлагал ложный `auth.0013`.
+- Изменения полей User — новая миграция в `cms_adp`, не в `auth`.
+- Если autodetector снова предложил `auth.*` — проверь, не появился ли файл в `virtual_env/python/Lib/site-packages/django/contrib/auth/migrations/`; его нужно удалить, **не применять** migrate для `auth`.
+
 ## Регистрация и ADP
 
 Режим регистрации — `.env` → `API_REGISTRATION_MODE`:
