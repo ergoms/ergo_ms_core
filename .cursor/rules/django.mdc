@@ -1,5 +1,5 @@
 ---
-description: Django и DRF в ERGO MS — PyPI-пакеты, расширение User, admin отключён
+description: Django и DRF в ERGO MS — PyPI-пакеты, ErgoUser (AbstractUser), admin отключён
 alwaysApply: false
 ---
 
@@ -7,21 +7,33 @@ alwaysApply: false
 
 Django и DRF — пакеты Poetry (`pyproject.toml`), устанавливаются через `ergoms python-install` в `virtual_env/python/`.
 
-## Расширение User
+## Модель пользователя
 
-Поля `middle_name`, `public_id`, `get_initials_name` — в ядре:
+`AUTH_USER_MODEL = 'cms_adp.ErgoUser'` — [`ergo_user.py`](../../core/api/src/core/cms/adp/ergo_user.py).
 
-- `core/api/src/core/cms/adp/user_extensions.py`
-- миграция `cms_adp.0038_user_extension_fields`
+Поля `middle_name`, `public_id`, методы `get_full_name` / `get_initials_name` — в `ErgoUser`. Физическая таблица — **`auth_user`** (`Meta.db_table`).
 
-Перед правками auth смотри эти файлы. В новом API для пользователей в URL и клиенте — **`public_id`**, не числовой pk ([`security.mdc`](security.mdc)).
+Перед правками auth смотри `ErgoUser` и миграции ниже. В новом API для пользователей в URL и клиенте — **`public_id`**, не числовой pk ([`security.mdc`](security.mdc)).
+
+Pre-flight перед деплоем: `ergoms api verify_user_schema`.
+
+Переход на ErgoUser на существующей БД: `ergoms db-migrate` (применяет `0038`–`0040`), затем **перезапуск** API/worker. Перед prod — backup и `verify_user_schema`.
+
+`AUTH_USER_MODEL` включается в [`user_swappable.py`](../../core/api/src/config/settings/user_swappable.py) только после записи `0039` в `django_migrations`.
 
 ## Миграции User
 
-- Колонки `middle_name` и `public_id` в `auth_user` — только через `cms_adp.0038_user_extension_fields`, **не** через миграции приложения `auth`.
-- При `ergoms db-makemigrations` extensions **не подключаются** (`AdpConfig.ready()` пропускает `apply_user_extensions()`), чтобы autodetector не предлагал ложный `auth.0013`.
-- Изменения полей User — новая миграция в `cms_adp`, не в `auth`.
-- Если autodetector снова предложил `auth.*` — проверь, не появился ли файл в `virtual_env/python/Lib/site-packages/django/contrib/auth/migrations/`; его нужно удалить, **не применять** migrate для `auth`.
+| Миграция | Назначение |
+|----------|------------|
+| `cms_adp.0038_user_extension_fields` | Колонки `middle_name`, `public_id` в `auth_user` (идемпотентно) |
+| `cms_adp.0039_ergo_user_swappable` | `ErgoUser` в state Django, **без** изменений БД |
+| `cms_adp.0040_migrate_user_content_type` | ContentType `auth.user` → `cms_adp.ergouser` |
+
+- Колонки в `auth_user` — только через `0038`, **не** через миграции приложения `auth`.
+- Новые поля `ErgoUser` — миграция в `cms_adp`, не в `auth`.
+- Если autodetector предложил `auth.*` — проверь `virtual_env/python/Lib/site-packages/django/contrib/auth/migrations/`; ложные файлы форка удалить, **не применять** migrate для `auth`.
+
+В коде: `get_user_model()` или `settings.AUTH_USER_MODEL` в ForeignKey — не `from django.contrib.auth.models import User`.
 
 ## Регистрация и ADP
 
