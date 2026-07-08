@@ -90,7 +90,7 @@ import { MoreHorizontal, Edit, Trash2 } from 'lucide-vue-next'
 
 ### Запрещено
 
-- `:user-id` / `:userId` в новом коде — числовой pk в URL и запросах (см. [`security.mdc`](security.mdc) → «Публичные идентификаторы»).
+- Передача `:user-id` / `:userId` в `UserAvatar` — числовой pk не используется для lookup аватара (см. [`security.mdc`](security.mdc) → «Публичные идентификаторы»).
 
 ### Базовый пример
 
@@ -109,9 +109,9 @@ import { MoreHorizontal, Edit, Trash2 } from 'lucide-vue-next'
 <UserAvatar :clickable="true" @click="onClick" />
 ```
 
-Пропсы: `size` (по умолчанию 40), `clickable`, `title`, `customAvatarUrl`, `userRef`. `userId` оставлен только для совместимости со старым кодом.
+Пропсы: `size` (по умолчанию 40), `clickable`, `title`, `customAvatarUrl`, `userRef`, `firstName`, `lastName`, `showOnlineStatus`, `showPresenceTooltip`.
 
-Если сериализатор API ещё не отдаёт `public_id` — добавь поле тем же паттерном, что в [`security.mdc`](security.mdc), а не обходи через `userId`.
+Если сериализатор API ещё не отдаёт `public_id` — добавь поле тем же паттерном, что в [`security.mdc`](security.mdc), а не обходи через pk в prop аватара.
 
 Типичные размеры: 32 (списки), 40 (меню), 120 (профиль).
 
