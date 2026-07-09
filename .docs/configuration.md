@@ -96,11 +96,23 @@ databases:
 | `API_HOST`, `API_PORT` | Адрес API в dev без nginx |
 | `API_PASSWORD_*` | Политика паролей (сервер и подсказки в формах) |
 | `DISABLED_MODULES` | Отключённые модули (сервер и клиент) |
-| `CLIENT_BI_PREVIEW_ITEMS_PER_PAGE` | Размер страницы предпросмотра BI |
-| `TASKS_MAX_ATTACHMENT_SIZE_MB` | Лимит вложений задач на сервере, МБ (по умолчанию 600) |
-| `CLIENT_TASKS_MAX_ATTACHMENT_SIZE_MB` | Лимит вложений задач в клиенте, МБ (по умолчанию 600) |
 
-Новая настройка модуля для клиента: `CLIENT_<МОДУЛЬ>_*` в корневом `.env` + поле в `clientEnv.js` и `buildClientEnvDefines()` в `vite.config.js`.
+Новая настройка модуля для клиента: `CLIENT_<МОДУЛЬ>_*` в `modules/<имя>/.env` (или в корневом `.env`) + поле в `clientEnv.js` и `buildClientEnvDefines()` в `vite.config.js`.
+
+## Настройки модулей
+
+У части модулей есть собственные `.env.example` в каталоге `modules/<имя>/`. При `setup-full` из них создаётся `modules/<имя>/.env`. Переменные из модульных `.env` **переопределяют** одноимённые из корневого `.env` — и на сервере (Django), и при сборке клиента (Vite).
+
+Проверка соответствия example и рабочего файла: `ergoms env-check`.
+
+| Модуль | Файл | Примеры переменных |
+|--------|------|-------------------|
+| `tasks` | `modules/tasks/.env.example` | `TASKS_MAX_ATTACHMENT_SIZE_MB`, `CLIENT_TASKS_MAX_ATTACHMENT_SIZE_MB` |
+| `bi_analysis` | `modules/bi_analysis/.env.example` | `BI_PREVIEW_ASYNC_THRESHOLD`, `FERNET_KEY`, `CLIENT_BI_PREVIEW_ITEMS_PER_PAGE` |
+| `organizations` | `modules/organizations/.env.example` | `ORGANIZATIONS_USE_MEMBER_INVITATIONS` |
+| `video_analysis` | `modules/video_analysis/.env.example` | `VIDEO_ANALYSIS_USE_GPU` |
+
+Если модуль указан в `DISABLED_MODULES`, его `.env` не учитывается при сборке клиента.
 
 ## Realtime (WebSocket, SSE и polling)
 

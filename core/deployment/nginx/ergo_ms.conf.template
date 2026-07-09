@@ -61,7 +61,7 @@ server {
     root ${ERGO_ROOT}/core/client/dist;
     index index.html;
 
-    # TASKS_MAX_ATTACHMENT_SIZE_MB / MEDIA_UPLOAD — до 600 МБ + запас
+    # modules/tasks/.env.example (TASKS_MAX_ATTACHMENT_SIZE_MB) — client_max_body_size с запасом
     client_max_body_size 610m;
 
     include ${ERGO_NGINX_SNIPPETS}/proxy_params.conf;
