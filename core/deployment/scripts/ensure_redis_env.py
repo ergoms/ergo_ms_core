@@ -7,11 +7,15 @@
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
+_DEPLOYMENT_DIR = PROJECT_ROOT / 'core' / 'deployment'
+if str(_DEPLOYMENT_DIR) not in sys.path:
+    sys.path.insert(0, str(_DEPLOYMENT_DIR))
+
+from config_scaffold.env_set import set_env_var_in_content  # noqa: E402
 
 
 def _read_env(path: Path) -> dict[str, str]:
@@ -28,13 +32,12 @@ def _read_env(path: Path) -> dict[str, str]:
 
 
 def _set_env_var(content: str, key: str, value: str) -> str:
-    pattern = re.compile(rf'^{re.escape(key)}=.*$', re.MULTILINE)
-    line = f'{key}={value}'
-    if pattern.search(content):
-        return pattern.sub(line, content, count=1)
-    if content and not content.endswith('\n'):
-        content += '\n'
-    return content + line + '\n'
+    return set_env_var_in_content(
+        content,
+        key,
+        value,
+        example_path=PROJECT_ROOT / '.env.example',
+    )
 
 
 def _truthy(value: str) -> bool:

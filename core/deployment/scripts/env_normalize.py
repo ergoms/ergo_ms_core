@@ -138,7 +138,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         '--drop-extra',
         action='store_true',
-        help='Удалить ключи, которых нет в .env.example (по умолчанию переносятся в конец)',
+        help='Удалить ключи, которых нет в .env.example (по умолчанию сохраняются в конце файла)',
     )
     parser.add_argument(
         '--no-backup',

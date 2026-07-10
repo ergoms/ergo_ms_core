@@ -5,10 +5,19 @@ Let's Encrypt / TLS: пути сертификатов, обновление .en
 from __future__ import annotations
 
 import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 from host_policy import is_ip_address, is_valid_hostname
+
+_DEPLOYMENT_DIR = Path(__file__).resolve().parent.parent
+if str(_DEPLOYMENT_DIR) not in sys.path:
+    sys.path.insert(0, str(_DEPLOYMENT_DIR))
+
+from config_scaffold.env_set import set_env_var_in_content  # noqa: E402
+
+PROJECT_ROOT = _DEPLOYMENT_DIR.parent.parent
 
 LE_LIVE_DIR = Path('/etc/letsencrypt/live')
 DEFAULT_WEBROOT = '/var/www/certbot'
@@ -60,13 +69,12 @@ def _read_env(path: Path) -> dict[str, str]:
 
 
 def _set_env_var(content: str, key: str, value: str) -> str:
-    pattern = re.compile(rf'^{re.escape(key)}=.*$', re.MULTILINE)
-    line = f'{key}={value}'
-    if pattern.search(content):
-        return pattern.sub(line, content, count=1)
-    if content and not content.endswith('\n'):
-        content += '\n'
-    return content + line + '\n'
+    return set_env_var_in_content(
+        content,
+        key,
+        value,
+        example_path=PROJECT_ROOT / '.env.example',
+    )
 
 
 def _append_csv_value(existing: str, item: str) -> str:

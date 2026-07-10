@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .env_compare import _env_assignment_from_line, _env_key_from_line, parse_env_example_keys
+from .env_set import _example_canonical_active_keys
 
 
 @dataclass(frozen=True)
@@ -53,6 +54,7 @@ def _build_normalized_content(
     """Собирает текст .env, возвращает (content, added, preserved, kept_extra, dropped_extra)."""
     example_text = example_path.read_text(encoding='utf-8')
     documented_keys = parse_env_example_keys(example_path)
+    canonical_active_keys = _example_canonical_active_keys(example_text)
 
     output_lines: list[str] = []
     added_keys: set[str] = set()
@@ -70,6 +72,9 @@ def _build_normalized_content(
             continue
 
         if key in env_values:
+            if stripped.startswith('#') and key in canonical_active_keys:
+                output_lines.append(raw_line)
+                continue
             preserved_keys.add(key)
             output_lines.append(f'{key}={env_values[key]}')
             continue
