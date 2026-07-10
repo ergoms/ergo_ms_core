@@ -51,6 +51,14 @@ function Get-CustomCommands {
     return $commands
 }
 
+function Test-ShouldRunOnThisPlatform {
+    param([string]$CommandString)
+    if ($CommandString -match '^linux:') {
+        return $false
+    }
+    return $true
+}
+
 function Invoke-CustomCommand {
     param(
         [string]$CommandName,
@@ -75,6 +83,9 @@ function Invoke-CustomCommand {
         Write-ColorOutput "-> Executing composite command: $CommandName" Cyan
         
         foreach ($subCmd in $subCommands) {
+            if (-not (Test-ShouldRunOnThisPlatform -CommandString $subCmd)) {
+                continue
+            }
             Write-ColorOutput "   -> $subCmd" Yellow
             Execute-CommandString -CommandString $subCmd -ProjectRoot $ProjectRoot -UserArgs $CommandArgs
             if ($LASTEXITCODE -ne 0) {

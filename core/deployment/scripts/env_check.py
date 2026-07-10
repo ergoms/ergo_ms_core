@@ -113,8 +113,10 @@ def run_check(
         f'Отсутствующих ключей: {total_missing}. '
         f'Лишних ключей: {total_extra}.'
     )
-    if has_errors or total_missing:
+    if has_errors or total_missing or total_extra:
+        print('Есть расхождения — см. выше.')
         return 1
+    print('Расхождений нет.')
     return 0
 
 
@@ -128,13 +130,21 @@ def main(argv: list[str] | None = None) -> int:
         action='store_true',
         help='Для отсутствующих ключей вывести строку из .env.example',
     )
+    parser.add_argument(
+        '--strict',
+        action='store_true',
+        help='Код выхода 1 при расхождениях (для CI и скриптов)',
+    )
     args = parser.parse_args(argv)
 
     project_root = _resolve_project_root(args.root)
-    return run_check(
+    status = run_check(
         project_root,
         show_example_values=args.show_example_values,
     )
+    if args.strict:
+        return status
+    return 0
 
 
 if __name__ == '__main__':

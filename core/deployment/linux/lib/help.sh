@@ -44,14 +44,24 @@ Service Management Commands:
   clean          Clean all dependencies (node_modules, venv, static) - keep media
 
 Nginx Commands (require root/sudo, except status/test):
-  install-nginx [server] [port] [ssl]  Install nginx (ssl=true or NGINX_USE_HTTPS for HTTPS)
-  uninstall-nginx   Remove Ergo MS nginx config
-  start-nginx       Start nginx service
-  stop-nginx        Stop nginx service
-  restart-nginx     Restart nginx service
+  install-nginx [server] [port] [ssl]  Build nginx into virtual_env/packages/nginx (ssl=true for HTTPS)
+  uninstall-nginx [--purge]  Remove Ergo MS nginx unit/config; --purge removes packages/nginx
+  start-nginx       Start nginx (ergo_ms_nginx.service or process)
+  stop-nginx        Stop nginx
+  restart-nginx     Restart nginx
   reload-nginx      Test config and reload nginx
   status-nginx      Show nginx status (no root required)
   test-nginx        Test nginx configuration (no root required)
+
+Redis Commands (optional, portable in virtual_env/packages/redis; root except status/test):
+  install-redis [port] [--configure]  Install & start (like install-nginx): packages, config, run
+  install-redis-service [port] [--configure]  Install systemd unit ergo-redis
+  uninstall-redis [--purge]  Stop Redis; --purge removes packages/redis
+  start-redis       Start Redis
+  stop-redis        Stop Redis
+  restart-redis     Restart Redis
+  status-redis      Show Redis status (no root required)
+  test-redis        redis-cli ping (no root required)
 
 TLS Commands (Linux only, Let's Encrypt, require root/sudo except status-tls):
   install-tls [domain] [email] [staging]  Issue cert, configure HTTPS nginx, auto-renew hook
@@ -179,6 +189,15 @@ Examples:
     sudo ergoms reload-nginx             (after config changes)
     sudo ergoms stop-nginx
     sudo ergoms uninstall-nginx
+    sudo ergoms uninstall-nginx --purge
+
+  Redis (optional, portable packages):
+    ergoms install-redis --configure     (install & start, like install-nginx; sync .env)
+    sudo ergoms install-redis-service
+    ergoms test-redis
+    ergoms status-redis
+    sudo ergoms stop-redis
+    sudo ergoms uninstall-redis --purge
 
   TLS (Linux, Let's Encrypt):
     1. NGINX_ENABLED=true, NGINX_PUBLIC_HOST=app.example.com, ERGO_TLS_EMAIL=you@example.com

@@ -1,0 +1,18 @@
+# ERGO MS — локальный Redis (virtual_env/packages/redis)
+# Сгенерировано install_redis.py; не редактируйте пути вручную без переустановки.
+
+bind {{REDIS_BIND}}
+port {{REDIS_PORT}}
+protected-mode yes
+
+daemonize {{REDIS_DAEMONIZE}}
+pidfile {{REDIS_PIDFILE}}
+logfile {{REDIS_LOGFILE}}
+dir {{REDIS_DATA_DIR}}
+
+save 900 1
+save 300 10
+save 60 10000
+
+appendonly no
+maxmemory-policy noeviction

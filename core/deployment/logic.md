@@ -59,6 +59,33 @@
 
 Раз в месяц выполните `ergoms geoip-download`, затем перезапустите API — reader кэшируется в процессе.
 
+## Redis (optional, portable packages)
+
+Опциональный локальный Redis для общего кэша Django и channel layer (не входит в `setup-full`).
+
+| Что | Где |
+|-----|-----|
+| Бинарники | `virtual_env/packages/redis/` (Windows: zip tporadowski; Linux: сборка из tarball) |
+| Конфиг | `virtual_env/packages/redis/conf/redis.conf` |
+| Скрипты | `core/deployment/scripts/install_redis.py`, `ensure_redis_env.py` |
+| Windows | `core/deployment/windows/lib/redis.ps1`, служба `ergo_ms_redis` (NSSM) |
+| Linux | `core/deployment/linux/lib/redis.sh`, unit `ergo-redis.service` |
+
+### Команды
+
+- `ergoms install-redis [port] [--configure]` — установка и запуск (как `install-nginx`: бинарники, конфиг, старт процесса)
+- `ergoms install-redis-service` — автозапуск (Windows service / systemd)
+- `ergoms start-redis` / `stop-redis` / `restart-redis` / `status-redis` / `test-redis`
+- `ergoms uninstall-redis` / `uninstall-redis --purge` (Linux) / `-Purge` (Windows)
+
+### Первичная настройка Redis
+
+1. `ergoms install-redis --configure` (или установить, затем `REDIS_ENABLED=true` в `.env` и повторить install)
+2. Перезапустить API
+3. Проверка: `ergoms test-redis` → `PONG`
+
+Переменные: `REDIS_ENABLED`, `REDIS_HOST`, `REDIS_PORT`, `API_CACHE_REDIS_URL`, `CHANNEL_LAYER_REDIS_URL` — см. `.env.example`.
+
 ## Типичные ошибки
 
 | Симптом | Что проверить |

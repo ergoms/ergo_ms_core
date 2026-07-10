@@ -137,6 +137,12 @@ execute_command_string() {
   fi
 }
 
+_should_run_on_this_platform() {
+  local cmd_string="$1"
+  [[ "$cmd_string" =~ ^win: ]] && return 1
+  return 0
+}
+
 invoke_custom_command() {
   local root="$1"
   local cmd_name="$2"
@@ -161,6 +167,9 @@ invoke_custom_command() {
     
     for sub_cmd in "${sub_cmds[@]}"; do
       sub_cmd=$(echo "$sub_cmd" | xargs)  # Trim whitespace
+      if ! _should_run_on_this_platform "$sub_cmd"; then
+        continue
+      fi
       echo "   -> $sub_cmd"
       
       # Execute in subshell to avoid exec

@@ -57,6 +57,16 @@ Nginx Commands (separate from standard install, requires admin except status/tes
     status-nginx      Show nginx status (no admin required)
     test-nginx        Test nginx configuration (no admin required)
 
+Redis Commands (optional, portable in virtual_env/packages/redis; admin except status/test):
+    install-redis [port] [--configure]  Install & start (like install-nginx): packages, config, run
+    install-redis-service [port] [--configure]  Same as Windows service / Linux systemd
+    uninstall-redis   Stop Redis; use -Purge to remove packages/redis
+    start-redis       Start Redis process or service
+    stop-redis        Stop Redis
+    restart-redis     Restart Redis
+    status-redis      Show Redis status (no admin required)
+    test-redis        redis-cli ping (no admin required)
+
 Deployment Commands (no admin required):
     deploy-api     Deploy API only (install deps, migrate, collect static)
     deploy-client  Deploy Client only (install deps, build)
@@ -179,6 +189,14 @@ Examples:
         ergoms status-nginx
         ergoms stop-nginx
         ergoms uninstall-nginx
+
+    Redis (optional, portable packages):
+        ergoms install-redis --configure     (install & start, like install-nginx; sync .env)
+        ergoms install-redis-service         (Windows service / Linux systemd)
+        ergoms test-redis                    (PONG)
+        ergoms status-redis
+        ergoms stop-redis
+        ergoms uninstall-redis -Purge
 
     Deployment Commands:
         ergoms deploy-api           (deploy API only)

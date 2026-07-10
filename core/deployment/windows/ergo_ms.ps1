@@ -59,6 +59,7 @@ function Load-HeavyModules {
     . (Join-Path $LibPath "cli.ps1")
     . (Join-Path $LibPath "help.ps1")
     . (Join-Path $LibPath "nginx.ps1")
+    . (Join-Path $LibPath "redis.ps1")
     $script:HeavyModulesLoaded = $true
 }
 
@@ -75,12 +76,14 @@ function Main {
         'start', 'stop', 'restart', 'status', 
         'uninstall-services', 'install-cli', 'uninstall-cli', 'setup-full',
         'install-nginx', 'install-nginx-service', 'uninstall-nginx',
-        'start-nginx', 'stop-nginx', 'restart-nginx', 'reload-nginx'
+        'start-nginx', 'stop-nginx', 'restart-nginx', 'reload-nginx',
+        'install-redis', 'install-redis-service', 'uninstall-redis',
+        'start-redis', 'stop-redis', 'restart-redis'
     )
     $requiresAdmin = $adminCommands -contains $Command.ToLower()
     
     # Commands that don't require admin
-    $noAdminCommands = @('logs', 'help', 'clean', 'update-submodules', 'update-module-submodules', 'status-nginx', 'test-nginx')
+    $noAdminCommands = @('logs', 'help', 'clean', 'update-submodules', 'update-module-submodules', 'status-nginx', 'test-nginx', 'status-redis', 'test-redis')
     
     # Check if it's a custom command
     $projectRoot = $null
@@ -120,13 +123,23 @@ function Main {
         return
     }
 
-    # Handle nginx noAdmin commands (status-nginx, test-nginx) before custom commands
-    if ($Command -in @('status-nginx', 'test-nginx')) {
+    # Handle nginx/redis noAdmin commands before custom commands
+    if ($Command -in @('status-nginx', 'test-nginx', 'status-redis', 'test-redis')) {
         . Load-HeavyModules
         $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
         switch ($Command) {
             'status-nginx' { Show-NginxStatus -Root $projectRoot }
             'test-nginx'   { Test-NginxConfig -Root $projectRoot }
+            'status-redis' { Show-RedisStatus -Root $projectRoot }
+            'test-redis'   {
+                if (Test-RedisPing -Root $projectRoot) {
+                    Write-ColorOutput '[OK] PONG' Green
+                }
+                else {
+                    Write-ColorOutput '[ERROR] Redis ping failed' Red
+                    exit 1
+                }
+            }
         }
         return
     }
@@ -367,6 +380,36 @@ function Main {
         'reload-nginx' {
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
             Invoke-NginxReload -Root $projectRoot
+        }
+        'install-redis' {
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+            $configure = $RemainingArgs -contains '--configure'
+            $portArgs = @($RemainingArgs | Where-Object { $_ -ne '--configure' })
+            $listenPort = if ($portArgs.Count -ge 1) { $portArgs[0] } else { '' }
+            Install-Redis -Root $projectRoot -ListenPort $listenPort -Configure:$configure
+        }
+        'install-redis-service' {
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+            $configure = $RemainingArgs -contains '--configure'
+            $portArgs = @($RemainingArgs | Where-Object { $_ -ne '--configure' })
+            $listenPort = if ($portArgs.Count -ge 1) { $portArgs[0] } else { '' }
+            Install-Redis -Root $projectRoot -ListenPort $listenPort -AsService -Configure:$configure
+        }
+        'uninstall-redis' {
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+            Uninstall-Redis -Root $projectRoot -PurgeData:$Purge
+        }
+        'start-redis' {
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+            Start-RedisProcess -Root $projectRoot
+        }
+        'stop-redis' {
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+            Stop-RedisProcess -Root $projectRoot
+        }
+        'restart-redis' {
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+            Restart-RedisProcess -Root $projectRoot
         }
         'help' {
             try {

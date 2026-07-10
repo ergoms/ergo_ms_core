@@ -263,7 +263,7 @@ tls_renew() {
   if _nginx_sudo certbot "${args[@]}"; then
     echo "[OK] certbot renew completed"
     if [[ "$dry_run" != "true" ]]; then
-      nginx_reload_service || true
+      nginx_reload_service "$root" || true
       _tls_cli "$root" status || true
     fi
     return 0

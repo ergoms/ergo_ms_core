@@ -23,6 +23,8 @@ source "$LIB_DIR/cli.sh"
 source "$LIB_DIR/commands.sh"
 # shellcheck source=lib/nginx.sh
 source "$LIB_DIR/nginx.sh"
+# shellcheck source=lib/redis.sh
+source "$LIB_DIR/redis.sh"
 # shellcheck source=lib/tls.sh
 source "$LIB_DIR/tls.sh"
 # shellcheck source=lib/help.sh
@@ -57,7 +59,7 @@ main() {
   if (( $# > 0 )); then
     command="$1"
     case "$command" in
-      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|update-submodules|update-module-submodules|clean|poetry|api|media_api|npm|install-nginx|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx|install-tls|renew-tls|status-tls)
+      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|update-submodules|update-module-submodules|clean|poetry|api|media_api|npm|install-nginx|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx|install-tls|renew-tls|status-tls|install-redis|install-redis-service|uninstall-redis|start-redis|stop-redis|restart-redis|status-redis|test-redis)
         shift ;;
       *:poetry)
         shift ;;  # module:poetry command, handled below
@@ -105,7 +107,7 @@ main() {
   
   # Check if it's a custom command (doesn't require root)
   # Exclude built-in commands to avoid recursion (e.g. install-cli would re-invoke self via commands.conf)
-  local builtin_override="install-cli|uninstall-cli|install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|start|stop|restart|status|uninstall-services|setup-full|install-nginx|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx|install-tls|renew-tls|status-tls"
+  local builtin_override="install-cli|uninstall-cli|install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|start|stop|restart|status|uninstall-services|setup-full|install-nginx|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx|install-tls|renew-tls|status-tls|install-redis|install-redis-service|uninstall-redis|start-redis|stop-redis|restart-redis|status-redis|test-redis"
   local is_custom_command=false
   if [[ -v "available_custom_cmds[$command]" ]] && [[ ! "$command" =~ ^($builtin_override)$ ]]; then
     is_custom_command=true
@@ -142,8 +144,15 @@ main() {
       is_nginx_command=true ;;
   esac
 
-  # Parse flags/positional root for proxy, custom, logs, deploy, clean, update-submodules, and nginx commands
-  if [[ "$is_proxy_command" == true ]] || [[ "$is_module_poetry_command" == true ]] || [[ "$is_custom_command" == true ]] || [[ "$is_logs_command" == true ]] || [[ "$is_deploy_command" == true ]] || [[ "$is_clean_command" == true ]] || [[ "$is_update_submodules_command" == true ]] || [[ "$is_update_module_submodules_command" == true ]] || [[ "$is_nginx_command" == true ]]; then
+  # Check if it's a redis command
+  local is_redis_command=false
+  case "$command" in
+    install-redis|install-redis-service|uninstall-redis|start-redis|stop-redis|restart-redis|status-redis|test-redis)
+      is_redis_command=true ;;
+  esac
+
+  # Parse flags/positional root for proxy, custom, logs, deploy, clean, update-submodules, nginx, and redis commands
+  if [[ "$is_proxy_command" == true ]] || [[ "$is_module_poetry_command" == true ]] || [[ "$is_custom_command" == true ]] || [[ "$is_logs_command" == true ]] || [[ "$is_deploy_command" == true ]] || [[ "$is_clean_command" == true ]] || [[ "$is_update_submodules_command" == true ]] || [[ "$is_update_module_submodules_command" == true ]] || [[ "$is_nginx_command" == true ]] || [[ "$is_redis_command" == true ]]; then
     while (( "$#" )); do
       case "$1" in
         --root)
@@ -185,6 +194,16 @@ main() {
 
     # Execute nginx command
     if [[ "$is_nginx_command" == true ]]; then
+      local nginx_purge=false
+      while (( "$#" )); do
+        case "$1" in
+          --purge)
+            nginx_purge=true; shift ;;
+          *)
+            break ;;
+        esac
+      done
+
       case "$command" in
         install-nginx)
           require_root_or_sudo
@@ -210,13 +229,72 @@ main() {
         status-tls)
           tls_status "$ERGO_ROOT"
           ;;
-        uninstall-nginx)  require_root_or_sudo; nginx_uninstall ;;
-        start-nginx)      require_root_or_sudo; nginx_start_service ;;
-        stop-nginx)       require_root_or_sudo; nginx_stop_service ;;
-        restart-nginx)    require_root_or_sudo; nginx_stop_service; nginx_start_service ;;
-        reload-nginx)     require_root_or_sudo; nginx_reload_service ;;
-        status-nginx)     nginx_status_service ;;
-        test-nginx)       nginx_test_config ;;
+        uninstall-nginx)
+          require_root_or_sudo
+          nginx_uninstall "$ERGO_ROOT" "$nginx_purge"
+          ;;
+        start-nginx)
+          require_root_or_sudo
+          nginx_start_service "$ERGO_ROOT"
+          ;;
+        stop-nginx)
+          require_root_or_sudo
+          nginx_stop_service "$ERGO_ROOT"
+          ;;
+        restart-nginx)
+          require_root_or_sudo
+          nginx_stop_service "$ERGO_ROOT"
+          nginx_start_service "$ERGO_ROOT"
+          ;;
+        reload-nginx)
+          require_root_or_sudo
+          nginx_reload_service "$ERGO_ROOT"
+          ;;
+        status-nginx)
+          nginx_status_service "$ERGO_ROOT"
+          ;;
+        test-nginx)
+          nginx_test_config "$ERGO_ROOT"
+          ;;
+      esac
+      exit 0
+    fi
+
+    # Execute redis command
+    if [[ "$is_redis_command" == true ]]; then
+      local redis_port="" redis_configure=false redis_purge=false
+      while (( "$#" )); do
+        case "$1" in
+          --configure) redis_configure=true; shift ;;
+          --purge) redis_purge=true; shift ;;
+          *)
+            if [[ -z "$redis_port" ]] && [[ "$1" =~ ^[0-9]+$ ]]; then
+              redis_port="$1"
+              shift
+            else
+              break
+            fi
+            ;;
+        esac
+      done
+      case "$command" in
+        install-redis)
+          require_root_or_sudo
+          redis_install "$ERGO_ROOT" "$redis_port" "false" "$redis_configure"
+          ;;
+        install-redis-service)
+          require_root_or_sudo
+          redis_install "$ERGO_ROOT" "$redis_port" "true" "$redis_configure"
+          ;;
+        uninstall-redis)
+          require_root_or_sudo
+          redis_uninstall "$ERGO_ROOT" "$redis_purge"
+          ;;
+        start-redis)   require_root_or_sudo; redis_start "$ERGO_ROOT" ;;
+        stop-redis)    require_root_or_sudo; redis_stop "$ERGO_ROOT" ;;
+        restart-redis) require_root_or_sudo; redis_restart "$ERGO_ROOT" ;;
+        status-redis)  redis_status "$ERGO_ROOT" ;;
+        test-redis)    redis_test "$ERGO_ROOT" ;;
       esac
       exit 0
     fi

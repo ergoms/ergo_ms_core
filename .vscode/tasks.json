@@ -295,6 +295,102 @@
             "problemMatcher": []
         },
         {
+            "label": "Nginx: Uninstall",
+            "type": "shell",
+            "command": "ergoms uninstall-nginx -Purge",
+            "options": { "cwd": "${workspaceFolder}" },
+            "windows": {
+                "options": {
+                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                }
+            },
+            "linux": {
+                "options": {
+                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                },
+                "command": "sudo bash core/deployment/linux/ergo_ms.sh uninstall-nginx --purge"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Redis: Install & Start",
+            "type": "shell",
+            "command": "ergoms install-redis --configure",
+            "options": { "cwd": "${workspaceFolder}" },
+            "windows": {
+                "options": {
+                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                }
+            },
+            "linux": {
+                "options": {
+                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                },
+                "command": "sudo bash core/deployment/linux/ergo_ms.sh install-redis --configure"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new"
+            },
+            "group": { "kind": "build", "isDefault": false },
+            "problemMatcher": []
+        },
+        {
+            "label": "Redis: Uninstall",
+            "type": "shell",
+            "command": "ergoms uninstall-redis -Purge",
+            "options": { "cwd": "${workspaceFolder}" },
+            "windows": {
+                "options": {
+                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                }
+            },
+            "linux": {
+                "options": {
+                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                },
+                "command": "sudo bash core/deployment/linux/ergo_ms.sh uninstall-redis --purge"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Redis: Restart",
+            "type": "shell",
+            "command": "ergoms restart-redis",
+            "options": { "cwd": "${workspaceFolder}" },
+            "windows": {
+                "options": {
+                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                }
+            },
+            "linux": {
+                "options": {
+                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                },
+                "command": "sudo bash core/deployment/linux/ergo_ms.sh restart-redis"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
             "label": "Logs: All Services",
             "type": "multi-terminal",
             "sources": [
