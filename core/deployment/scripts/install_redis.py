@@ -24,6 +24,12 @@ TEMPLATE_PATH = DEPLOYMENT_DIR / 'redis' / 'redis.conf.template'
 REDIS_LINUX_VERSION = '7.4.2'
 REDIS_LINUX_TARBALL = f'redis-{REDIS_LINUX_VERSION}.tar.gz'
 REDIS_LINUX_URL = f'https://download.redis.io/releases/{REDIS_LINUX_TARBALL}'
+REDIS_LINUX_FALLBACK_URL = (
+    f'https://codeload.github.com/redis/redis/tar.gz/refs/tags/{REDIS_LINUX_VERSION}'
+)
+
+DOWNLOAD_USER_AGENT = 'ergoms/1.0 (Redis installer)'
+DOWNLOAD_TIMEOUT_SEC = 300
 
 REDIS_WINDOWS_VERSION = '5.0.14.1'
 REDIS_WINDOWS_ZIP = f'Redis-x64-{REDIS_WINDOWS_VERSION}.zip'
@@ -68,10 +74,70 @@ def is_installed(root: Path) -> bool:
     return redis_server_path(root).is_file() and redis_conf_path(root).is_file()
 
 
-def _download(url: str, destination: Path) -> None:
-    print(f'-> Downloading {url}')
+def _download_once(url: str, destination: Path) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
-    urllib.request.urlretrieve(url, destination)
+    request = urllib.request.Request(
+        url,
+        headers={'User-Agent': DOWNLOAD_USER_AGENT},
+    )
+    with urllib.request.urlopen(request, timeout=DOWNLOAD_TIMEOUT_SEC) as response:
+        destination.write_bytes(response.read())
+    if destination.stat().st_size < 1024:
+        destination.unlink(missing_ok=True)
+        raise RuntimeError(f'Downloaded file is too small: {url}')
+
+
+def _download_with_curl(url: str, destination: Path) -> bool:
+    curl_exe = shutil.which('curl')
+    if not curl_exe:
+        return False
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        result = subprocess.run(
+            [
+                curl_exe,
+                '-L',
+                '--fail',
+                '--retry',
+                '3',
+                '--retry-delay',
+                '2',
+                '-A',
+                DOWNLOAD_USER_AGENT,
+                '-o',
+                str(destination),
+                url,
+            ],
+            capture_output=True,
+            check=False,
+        )
+    except OSError:
+        return False
+    return (
+        result.returncode == 0
+        and destination.is_file()
+        and destination.stat().st_size >= 1024
+    )
+
+
+def _download(url: str, destination: Path, *, fallback_urls: tuple[str, ...] = ()) -> None:
+    last_error: Exception | None = None
+    for candidate in (url, *fallback_urls):
+        print(f'-> Downloading {candidate}')
+        try:
+            _download_once(candidate, destination)
+            return
+        except Exception as exc:
+            last_error = exc
+            print(f'[ergoms] Download failed ({exc}); trying next source...')
+            destination.unlink(missing_ok=True)
+
+        if _download_with_curl(candidate, destination):
+            return
+
+    raise RuntimeError(
+        f'Could not download Redis archive. Last error: {last_error}'
+    ) from last_error
 
 
 def _ensure_layout(root: Path) -> dict[str, Path]:
@@ -195,7 +261,7 @@ def _install_linux(root: Path, force: bool) -> None:
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
         tar_path = tmp_path / REDIS_LINUX_TARBALL
-        _download(REDIS_LINUX_URL, tar_path)
+        _download(REDIS_LINUX_URL, tar_path, fallback_urls=(REDIS_LINUX_FALLBACK_URL,))
         extract_dir = tmp_path / 'src'
         extract_dir.mkdir()
         with tarfile.open(tar_path, 'r:gz') as archive:
