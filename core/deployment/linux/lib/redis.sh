@@ -31,6 +31,36 @@ _redis_conf() {
   echo "$(_redis_dir "$root")/conf/redis.conf"
 }
 
+_redis_pidfile() {
+  local root="$1"
+  echo "$(_redis_dir "$root")/run/redis.pid"
+}
+
+_redis_read_port() {
+  local root="$1"
+  local conf port
+  conf="$(_redis_conf "$root")"
+  port="${REDIS_PORT:-6379}"
+  if [[ -f "$conf" ]]; then
+    local parsed
+    parsed="$(grep -E '^port[[:space:]]+' "$conf" | awk '{print $2}' | tail -n1)"
+    [[ -n "$parsed" ]] && port="$parsed"
+  fi
+  echo "$port"
+}
+
+_redis_remove_stale_pidfile() {
+  local root="$1"
+  local pidfile pid
+  pidfile="$(_redis_pidfile "$root")"
+  [[ -f "$pidfile" ]] || return 0
+  pid="$(tr -d '[:space:]' < "$pidfile")"
+  if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+    return 0
+  fi
+  rm -f "$pidfile"
+}
+
 _redis_python() {
   local root="$1"
   local py="$root/virtual_env/python/bin/python"
@@ -97,10 +127,32 @@ _redis_run_install_script() {
 
 _redis_ping() {
   local root="$1"
-  local py
-  py="$(_redis_python "$root")"
-  [[ -n "$py" ]] || return 1
-  "$py" "$root/core/deployment/scripts/install_redis.py" --root "$root" --ping-only
+  local cli conf port
+  cli="$(_redis_cli "$root")"
+  conf="$(_redis_conf "$root")"
+  port="$(_redis_read_port "$root")"
+  [[ -x "$cli" ]] || return 1
+
+  if "$cli" -h 127.0.0.1 -p "$port" ping 2>/dev/null | grep -q PONG; then
+    return 0
+  fi
+  if [[ -f "$conf" ]] && "$cli" -c "$conf" ping 2>/dev/null | grep -q PONG; then
+    return 0
+  fi
+  return 1
+}
+
+_redis_wait_for_ping() {
+  local root="$1"
+  local attempts="${2:-10}"
+  local i
+  for ((i = 1; i <= attempts; i++)); do
+    if _redis_ping "$root"; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
 }
 
 _redis_unit_content() {
@@ -200,16 +252,30 @@ redis_start() {
   fi
 
   redis_stop "$root" 2>/dev/null || true
+  _redis_remove_stale_pidfile "$root"
+
+  if systemctl is-active --quiet redis.service 2>/dev/null \
+    || systemctl is-active --quiet redis-server.service 2>/dev/null; then
+    echo "[WARN] System Redis service is active and may use port $(_redis_read_port "$root")." >&2
+    echo "[WARN] Stop it first: sudo systemctl disable --now redis.service redis-server.service" >&2
+  fi
+
   local server conf
   server="$(_redis_server "$root")"
   conf="$(_redis_conf "$root")"
   echo "-> Starting Redis..."
-  "$server" "$conf"
-  sleep 2
-  if _redis_ping "$root"; then
+  if ! "$server" "$conf"; then
+    echo "[ERROR] redis-server exited with an error. Check logs: $(_redis_dir "$root")/logs/redis.log" >&2
+    return 1
+  fi
+
+  if _redis_wait_for_ping "$root" 10; then
     echo "[OK] Redis started"
   else
     echo "[ERROR] Redis failed to start. Check logs: $(_redis_dir "$root")/logs/redis.log" >&2
+    if [[ -r /proc/sys/vm/overcommit_memory ]] && [[ "$(cat /proc/sys/vm/overcommit_memory)" != "1" ]]; then
+      echo "[WARN] vm.overcommit_memory is not 1; run: sudo sysctl vm.overcommit_memory=1" >&2
+    fi
     return 1
   fi
 }
@@ -228,17 +294,37 @@ redis_stop() {
   fi
 
   if [[ -n "$root" ]] && _redis_is_installed "$root"; then
-    local cli conf
+    local cli conf pidfile pid i
     cli="$(_redis_cli "$root")"
     conf="$(_redis_conf "$root")"
+    pidfile="$(_redis_pidfile "$root")"
     if [[ -x "$cli" ]]; then
       echo "-> Shutting down Redis..."
-      "$cli" -c "$conf" shutdown 2>/dev/null || true
-      sleep 1
+      "$cli" -c "$conf" shutdown 2>/dev/null \
+        || "$cli" -h 127.0.0.1 -p "$(_redis_read_port "$root")" shutdown 2>/dev/null \
+        || true
+      for ((i = 1; i <= 10; i++)); do
+        if [[ ! -f "$pidfile" ]]; then
+          break
+        fi
+        pid="$(tr -d '[:space:]' < "$pidfile")"
+        if [[ -z "$pid" ]] || ! kill -0 "$pid" 2>/dev/null; then
+          rm -f "$pidfile"
+          break
+        fi
+        sleep 1
+      done
+    fi
+    if [[ -f "$pidfile" ]]; then
+      pid="$(tr -d '[:space:]' < "$pidfile")"
+      if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+        kill "$pid" 2>/dev/null || true
+        sleep 1
+      fi
+      rm -f "$pidfile"
     fi
   fi
 
-  pkill -x redis-server 2>/dev/null || true
   echo "[OK] Redis stopped"
 }
 

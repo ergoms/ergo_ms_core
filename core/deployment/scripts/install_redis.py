@@ -307,22 +307,22 @@ def install_redis(
     print(f'[ergoms] Redis config: {conf}')
 
 
-def ping_redis(root: Path, port: int | None = None, timeout_sec: float = 2.0) -> bool:
+def ping_redis(root: Path, port: int | None = None, timeout_sec: float = 5.0) -> bool:
     cli = redis_cli_path(root)
     if not cli.is_file():
         return False
     conf = redis_conf_path(root)
+    bind = DEFAULT_BIND
     if port is None and conf.is_file():
-        match = re.search(r'^port\s+(\d+)\s*$', conf.read_text(encoding='utf-8'), re.MULTILINE)
+        conf_text = conf.read_text(encoding='utf-8')
+        match = re.search(r'^port\s+(\d+)\s*$', conf_text, re.MULTILINE)
         port = int(match.group(1)) if match else DEFAULT_PORT
+        bind_match = re.search(r'^bind\s+(\S+)', conf_text, re.MULTILINE)
+        if bind_match:
+            bind = bind_match.group(1)
     port = port or DEFAULT_PORT
 
-    if platform.system().lower() == 'windows':
-        args = [str(cli), '-h', DEFAULT_BIND, '-p', str(port), 'ping']
-    elif conf.is_file():
-        args = [str(cli), '-c', str(conf), 'ping']
-    else:
-        args = [str(cli), '-h', DEFAULT_BIND, '-p', str(port), 'ping']
+    args = [str(cli), '-h', bind, '-p', str(port), 'ping']
     try:
         result = subprocess.run(
             args,
@@ -333,7 +333,23 @@ def ping_redis(root: Path, port: int | None = None, timeout_sec: float = 2.0) ->
         )
     except (subprocess.TimeoutExpired, OSError):
         return False
-    return 'PONG' in (result.stdout or '') or 'PONG' in (result.stderr or '')
+    if 'PONG' in (result.stdout or '') or 'PONG' in (result.stderr or ''):
+        return True
+
+    if conf.is_file() and platform.system().lower() != 'windows':
+        try:
+            result = subprocess.run(
+                [str(cli), '-c', str(conf), 'ping'],
+                capture_output=True,
+                text=True,
+                timeout=timeout_sec,
+                check=False,
+            )
+        except (subprocess.TimeoutExpired, OSError):
+            return False
+        return 'PONG' in (result.stdout or '') or 'PONG' in (result.stderr or '')
+
+    return False
 
 
 def main() -> int:
