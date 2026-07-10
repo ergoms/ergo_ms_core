@@ -6,9 +6,7 @@ celery_workers.yaml
 .venv
 
 maintenance.flag
-
-core/client/public/maintenance.json
-core/client/dist/maintenance.json
+**/maintenance.json
 
 env/
 venv/
