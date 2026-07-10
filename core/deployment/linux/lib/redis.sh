@@ -179,6 +179,10 @@ WantedBy=multi-user.target
 UNIT
 }
 
+_redis_use_systemd() {
+  command -v systemctl >/dev/null 2>&1 && [[ -d /run/systemd/system ]]
+}
+
 redis_install() {
   local root="$1"
   local listen_port="${2:-}"
@@ -197,7 +201,7 @@ redis_install() {
     return 1
   fi
 
-  if [[ "$as_service" == "true" ]]; then
+  if [[ "$as_service" == "true" ]] || _redis_use_systemd; then
     redis_install_service "$root"
   else
     redis_start "$root"

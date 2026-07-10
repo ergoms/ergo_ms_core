@@ -56,7 +56,8 @@ get_base_unit_definitions() {
   API_UNIT=$(cat <<'UNIT'
 [Unit]
 Description=Ergo API (mode from API_DEPLOY_TYPE)
-After=network.target
+After=network.target ergo-redis.service
+Wants=ergo-redis.service
 
 [Service]
 Type=simple
