@@ -87,6 +87,33 @@ const pageSize = clientEnv.biPreviewItemsPerPage
 
 `defineProps` / `defineEmits` не импортируй — это макросы компилятора.
 
+## Фильтры list-страниц
+
+Состояние поиска, фильтров и пагинации на list-страницах ядра и модулей храни в **URL query** через `@/composables/useRouteQueryState.js`, не в голых `ref()`.
+
+```javascript
+import { computed } from 'vue'
+import { useRouteQueryState } from '@/composables/useRouteQueryState.js'
+
+const { state: listState, patchState, watchState } = useRouteQueryState({
+  q: { default: '' },
+  page: { default: 1, type: 'number' },
+  status: { default: 'all', enum: ['all', 'pending'] },
+}, { debounceKeys: ['q'], preserveKeys: ['tab'] })
+
+const searchQuery = computed(() => listState.value.q)
+
+watchState(() => {
+  loadItems()
+})
+```
+
+Соглашения по ключам: `q` — поиск, `page` — страница, enum-фильтры — короткие имена (`status`, `presence`), даты — `date_from` / `date_to`. Пустые и дефолтные значения из URL убираются. При смене фильтра (кроме `page`) composable сбрасывает страницу в `1`.
+
+Для `FilterMenu` — `filtersObjectFromState` / `filtersObjectToPatch`.
+
+**Исключения:** модалки, inline-picker, одноразовые deep-link params (`?open=`).
+
 ## Связанные правила
 
 | Тема | Файл |

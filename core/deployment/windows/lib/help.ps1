@@ -57,6 +57,11 @@ Nginx Commands (separate from standard install, requires admin except status/tes
     status-nginx      Show nginx status (no admin required)
     test-nginx        Test nginx configuration (no admin required)
 
+Maintenance Commands (no admin required):
+    maintenance-on      Enable maintenance mode (maintenance.flag)
+    maintenance-off     Disable maintenance mode
+    maintenance-status  Show maintenance mode status
+
 Redis Commands (optional, portable in virtual_env/packages/redis; admin except status/test):
     install-redis [port] [--configure]  Install & start (like install-nginx): packages, config, run
     install-redis-service [port] [--configure]  Same as Windows service / Linux systemd

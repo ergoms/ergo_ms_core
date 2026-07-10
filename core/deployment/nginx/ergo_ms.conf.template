@@ -66,20 +66,29 @@ server {
 
     include ${ERGO_NGINX_SNIPPETS}/proxy_params.conf;
 
+${ERGO_MAINTENANCE_SNIPPET}
     location ~ /\. {
         deny all;
         access_log off;
         log_not_found off;
     }
 
+    # Статус режима works для клиента без API (ergoms maintenance-on пишет dist/maintenance.json)
+    location = /maintenance.json {
+        add_header Cache-Control "no-store" always;
+        try_files /maintenance.json =404;
+    }
+
     # --- Клиент (Vue Router, history mode) ---
     location / {
+        if ($maintenance = 1) { return 503; }
         limit_conn ergo_conn 50;
         try_files $uri $uri/ /index.html;
     }
 
     # --- Django API ---
     location /api/realtime/stream/ {
+        if ($maintenance = 1) { return 503; }
         limit_conn ergo_conn 20;
         proxy_pass http://ergo_api;
         proxy_buffering off;
@@ -90,6 +99,7 @@ server {
     }
 
     location /api/ {
+        if ($maintenance = 1) { return 503; }
         limit_req zone=ergo_api burst=50 nodelay;
         limit_conn ergo_conn 50;
         proxy_pass http://ergo_api;
@@ -97,6 +107,7 @@ server {
 
     # --- WebSocket: мессенджер, уведомления (/ws/messenger/, /ws/notifications/) ---
     location /ws/ {
+        if ($maintenance = 1) { return 503; }
         limit_conn ergo_conn 20;
         proxy_pass http://ergo_api;
         proxy_set_header Upgrade $http_upgrade;
@@ -116,12 +127,14 @@ server {
 
     # --- Media API: подписанные URL /serve/..., загрузка /upload/ ---
     location /serve/ {
+        if ($maintenance = 1) { return 503; }
         limit_req zone=ergo_serve burst=40 nodelay;
         limit_conn ergo_conn 30;
         proxy_pass http://ergo_media;
     }
 
     location /upload/ {
+        if ($maintenance = 1) { return 503; }
         limit_req zone=ergo_upload burst=10 nodelay;
         limit_conn ergo_conn 10;
         proxy_pass http://ergo_media;

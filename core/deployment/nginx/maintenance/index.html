@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Технические работы — ERGOMS</title>
+  <style>
+    :root {
+      --maint-bg: #f5f6f8;
+      --maint-surface: rgba(255, 255, 255, 0.92);
+      --maint-text: #14151a;
+      --maint-muted: #5b616e;
+      --maint-accent: #d0322d;
+      --maint-accent-soft: rgba(208, 50, 45, 0.12);
+      --maint-accent-glow: rgba(208, 50, 45, 0.2);
+      --maint-border: rgba(17, 18, 35, 0.14);
+      --maint-surface-2: #f1f3f5;
+      --maint-info-soft: rgba(13, 110, 253, 0.18);
+      --maint-warning-soft: rgba(255, 193, 7, 0.16);
+      --maint-shadow: 0 8px 24px rgba(17, 18, 35, 0.08);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --maint-bg: #0e0e11;
+        --maint-surface: rgba(23, 24, 27, 0.94);
+        --maint-text: rgba(255, 255, 255, 0.92);
+        --maint-muted: rgba(255, 255, 255, 0.56);
+        --maint-accent: #f14336;
+        --maint-accent-soft: rgba(241, 67, 54, 0.16);
+        --maint-accent-glow: rgba(241, 67, 54, 0.22);
+        --maint-border: rgba(255, 255, 255, 0.14);
+        --maint-surface-2: #202126;
+        --maint-info-soft: rgba(96, 165, 250, 0.14);
+        --maint-warning-soft: rgba(251, 191, 36, 0.12);
+        --maint-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+      }
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--maint-bg);
+      color: var(--maint-text);
+    }
+
+    .page {
+      position: relative;
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(1rem, 4vw, 2.5rem);
+      overflow: hidden;
+      animation: page-in 0.4s ease forwards;
+    }
+
+    .backdrop {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(64px);
+      opacity: 0.55;
+      animation: float 14s ease-in-out infinite;
+    }
+
+    .orb--1 {
+      top: -8%;
+      left: -6%;
+      width: min(42vw, 320px);
+      height: min(42vw, 320px);
+      background: var(--maint-accent-glow);
+    }
+
+    .orb--2 {
+      right: -4%;
+      bottom: -10%;
+      width: min(48vw, 360px);
+      height: min(48vw, 360px);
+      background: var(--maint-info-soft);
+      animation-delay: -4s;
+    }
+
+    .orb--3 {
+      top: 38%;
+      right: 18%;
+      width: min(28vw, 200px);
+      height: min(28vw, 200px);
+      background: var(--maint-warning-soft);
+      animation-delay: -8s;
+    }
+
+    .card {
+      position: relative;
+      z-index: 1;
+      width: min(100%, 28rem);
+      padding: clamp(1.5rem, 5vw, 2.25rem);
+      text-align: center;
+      background: var(--maint-surface);
+      border: 1px solid var(--maint-border);
+      border-radius: 14px;
+      box-shadow: var(--maint-shadow);
+      backdrop-filter: blur(12px);
+      animation: card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.05s both;
+    }
+
+    .wordmark {
+      display: block;
+      width: min(100%, 17.5rem);
+      height: auto;
+      margin: 0 auto 1.25rem;
+      color: var(--maint-text);
+    }
+
+    .wordmark__cog {
+      fill: none;
+      stroke: var(--maint-accent);
+      stroke-width: 8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transform-origin: 240px 66px;
+      animation: cog 8s linear infinite;
+    }
+
+    .badge {
+      display: inline-block;
+      margin: 0 0 0.75rem;
+      padding: 0.35rem 0.75rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--maint-accent);
+      background: var(--maint-accent-soft);
+      border-radius: 999px;
+    }
+
+    h1 {
+      margin: 0 0 0.75rem;
+      font-size: clamp(1.5rem, 4.5vw, 1.875rem);
+      font-weight: 700;
+      line-height: 1.25;
+      letter-spacing: -0.02em;
+    }
+
+    .text {
+      margin: 0;
+      font-size: clamp(0.95rem, 2.5vw, 1.05rem);
+      line-height: 1.65;
+      color: var(--maint-muted);
+    }
+
+    .progress {
+      height: 4px;
+      margin: 1.5rem 0 1rem;
+      overflow: hidden;
+      background: var(--maint-surface-2);
+      border-radius: 999px;
+    }
+
+    .progress-bar {
+      display: block;
+      width: 40%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, var(--maint-accent), transparent);
+      border-radius: inherit;
+      animation: progress 1.8s ease-in-out infinite;
+    }
+
+    .hint {
+      margin: 0;
+      font-size: 0.8125rem;
+      line-height: 1.5;
+      color: var(--maint-muted);
+      opacity: 0.85;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(2%, -3%) scale(1.04); }
+    }
+
+    @keyframes cog {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes progress {
+      0% { transform: translateX(-120%); }
+      100% { transform: translateX(320%); }
+    }
+
+    @keyframes page-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes card-in {
+      from {
+        opacity: 0;
+        transform: translateY(14px) scale(0.97);
+      }
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .page, .card { animation: none; }
+      .orb, .wordmark__cog, .progress-bar { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page" role="alert" aria-live="polite">
+    <div class="backdrop" aria-hidden="true">
+      <span class="orb orb--1"></span>
+      <span class="orb orb--2"></span>
+      <span class="orb orb--3"></span>
+    </div>
+
+    <section class="card">
+      <svg class="wordmark" viewBox="0 0 432 131" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="ERGOMS">
+        <path d="M6.72 102V32.88H51.36V43.728H18.288V60.768H45.6V71.616H18.288V91.152H51.36V102H6.72ZM62.8763 102V32.88H91.4363C92.1083 32.88 92.9723 32.912 94.0283 32.976C95.0843 33.008 96.0603 33.104 96.9563 33.264C100.956 33.872 104.252 35.2 106.844 37.248C109.468 39.296 111.404 41.888 112.652 45.024C113.932 48.128 114.572 51.584 114.572 55.392C114.572 61.024 113.148 65.872 110.3 69.936C107.452 73.968 103.084 76.464 97.1963 77.424L92.2523 77.856H74.4443V102H62.8763ZM102.572 102L88.9403 73.872L100.7 71.28L115.676 102H102.572ZM74.4443 67.056H90.9563C91.5963 67.056 92.3163 67.024 93.1163 66.96C93.9163 66.896 94.6523 66.768 95.3243 66.576C97.2443 66.096 98.7483 65.248 99.8363 64.032C100.956 62.816 101.74 61.44 102.188 59.904C102.668 58.368 102.908 56.864 102.908 55.392C102.908 53.92 102.668 52.416 102.188 50.88C101.74 49.312 100.956 47.92 99.8363 46.704C98.7483 45.488 97.2443 44.64 95.3243 44.16C94.6523 43.968 93.9163 43.856 93.1163 43.824C92.3163 43.76 91.5963 43.728 90.9563 43.728H74.4443V67.056ZM154.763 103.44C150.283 103.44 146.075 102.656 142.139 101.088C138.235 99.488 134.795 97.152 131.819 94.08C128.875 91.008 126.571 87.248 124.907 82.8C123.243 78.32 122.411 73.2 122.411 67.44C122.411 59.888 123.819 53.44 126.635 48.096C129.451 42.72 133.307 38.608 138.203 35.76C143.099 32.88 148.619 31.44 154.763 31.44C163.275 31.44 170.011 33.424 174.971 37.392C179.963 41.328 183.339 46.864 185.099 54L173.291 55.872C171.979 51.776 169.835 48.512 166.859 46.08C163.883 43.616 160.091 42.384 155.483 42.384C150.843 42.32 146.987 43.328 143.915 45.408C140.843 47.488 138.523 50.416 136.955 54.192C135.419 57.968 134.651 62.384 134.651 67.44C134.651 72.496 135.419 76.896 136.955 80.64C138.491 84.352 140.795 87.248 143.867 89.328C146.971 91.408 150.843 92.48 155.483 92.544C158.971 92.576 162.027 91.952 164.651 90.672C167.275 89.36 169.419 87.392 171.083 84.768C172.747 82.112 173.867 78.8 174.443 74.832H162.251V65.76H186.731C186.795 66.272 186.843 67.024 186.875 68.016C186.907 69.008 186.923 69.6 186.923 69.792C186.923 76.32 185.627 82.128 183.035 87.216C180.475 92.272 176.795 96.24 171.995 99.12C167.195 102 161.451 103.44 154.763 103.44ZM292.658 102V32.88H303.074L326.978 81.84L350.882 32.88H361.298V102H350.498V57.696L329.282 102H324.674L303.506 57.696V102H292.658ZM400.367 103.44C395.311 103.44 390.751 102.56 386.687 100.8C382.655 99.04 379.327 96.528 376.703 93.264C374.111 89.968 372.463 86.064 371.759 81.552L383.759 79.728C384.783 83.824 386.879 86.992 390.047 89.232C393.247 91.472 396.927 92.592 401.087 92.592C403.551 92.592 405.871 92.208 408.047 91.44C410.223 90.672 411.983 89.552 413.327 88.08C414.703 86.608 415.391 84.8 415.391 82.656C415.391 81.696 415.231 80.816 414.911 80.016C414.591 79.184 414.111 78.448 413.471 77.808C412.863 77.168 412.063 76.592 411.071 76.08C410.111 75.536 408.991 75.072 407.711 74.688L389.855 69.408C388.319 68.96 386.655 68.368 384.863 67.632C383.103 66.864 381.423 65.824 379.823 64.512C378.255 63.168 376.959 61.472 375.935 59.424C374.943 57.344 374.447 54.784 374.447 51.744C374.447 47.296 375.567 43.568 377.807 40.56C380.079 37.52 383.119 35.248 386.927 33.744C390.767 32.24 395.023 31.504 399.695 31.536C404.431 31.568 408.655 32.384 412.367 33.984C416.079 35.552 419.183 37.84 421.679 40.848C424.175 43.856 425.935 47.488 426.959 51.744L414.527 53.904C414.015 51.472 413.023 49.408 411.551 47.712C410.111 45.984 408.335 44.672 406.223 43.776C404.143 42.88 401.919 42.4 399.551 42.336C397.247 42.304 395.103 42.656 393.119 43.392C391.167 44.096 389.583 45.12 388.367 46.464C387.183 47.808 386.591 49.376 386.591 51.168C386.591 52.864 387.103 54.256 388.127 55.344C389.151 56.4 390.415 57.248 391.919 57.888C393.455 58.496 395.007 59.008 396.575 59.424L408.959 62.88C410.655 63.328 412.559 63.936 414.671 64.704C416.783 65.472 418.815 66.544 420.767 67.92C422.719 69.296 424.319 71.104 425.567 73.344C426.847 75.584 427.487 78.432 427.487 81.888C427.487 85.472 426.735 88.624 425.231 91.344C423.759 94.032 421.759 96.272 419.231 98.064C416.703 99.856 413.807 101.2 410.543 102.096C407.311 102.992 403.919 103.44 400.367 103.44Z" fill="currentColor"/>
+        <g class="wordmark__cog">
+          <path d="M240 98C248.487 98 256.626 94.6286 262.627 88.6274C268.629 82.6263 272 74.4869 272 66C272 57.5131 268.629 49.3737 262.627 43.3726C256.626 37.3714 248.487 34 240 34C231.513 34 223.374 37.3714 217.373 43.3726C211.371 49.3737 208 57.5131 208 66C208 74.4869 211.371 82.6263 217.373 88.6274C223.374 94.6286 231.513 98 240 98Z" />
+          <path d="M240 74C242.122 74 244.157 73.1571 245.657 71.6569C247.157 70.1566 248 68.1217 248 66C248 63.8783 247.157 61.8434 245.657 60.3431C244.157 58.8429 242.122 58 240 58C237.878 58 235.843 58.8429 234.343 60.3431C232.843 61.8434 232 63.8783 232 66C232 68.1217 232.843 70.1566 234.343 71.6569C235.843 73.1571 237.878 74 240 74Z" />
+          <path d="M240 26V34" />
+          <path d="M240 106V98" />
+          <path d="M260 100.64L256 93.72" />
+          <path d="M236 59.08L220 31.36" />
+          <path d="M274.64 86L267.72 82" />
+          <path d="M205.36 46L212.28 50" />
+          <path d="M248 66H280" />
+          <path d="M200 66H208" />
+          <path d="M274.64 46L267.72 50" />
+          <path d="M205.36 86L212.28 82" />
+          <path d="M260 31.36L256 38.28" />
+          <path d="M236 72.92L220 100.64" />
+        </g>
+      </svg>
+
+      <p class="badge">Технические работы</p>
+      <h1>Скоро вернёмся</h1>
+      <p class="text">Система временно недоступна. Мы проводим обновление и скоро вернёмся.</p>
+
+      <div class="progress" aria-hidden="true">
+        <span class="progress-bar"></span>
+      </div>
+
+      <p class="hint">Страница обновится автоматически, когда система снова станет доступна.</p>
+    </section>
+  </main>
+  <script>
+    (function () {
+      // Синхронизировать с core/client/src/js/maintenanceConfig.js
+      var pollMs = 3000;
+      var pollTimer = null;
+
+      function reloadWhenAvailable() {
+        window.location.reload();
+      }
+
+      function normalizePollInterval(value) {
+        var parsed = Number(value);
+        if (!Number.isFinite(parsed) || parsed < 1000 || parsed > 60000) {
+          return pollMs;
+        }
+        return parsed;
+      }
+
+      function schedulePolling() {
+        if (pollTimer !== null) {
+          window.clearInterval(pollTimer);
+        }
+        pollTimer = window.setInterval(checkMaintenanceStatus, pollMs);
+      }
+
+      function applyPollInterval(data) {
+        var next = normalizePollInterval(data && data.pollIntervalMs);
+        if (next === pollMs) {
+          return;
+        }
+        pollMs = next;
+        schedulePolling();
+      }
+
+      function checkMaintenanceStatus() {
+        return fetch('/maintenance.json?_=' + Date.now(), {
+          cache: 'no-store',
+          headers: { Accept: 'application/json' },
+        }).then(function (response) {
+          if (response.status === 404) {
+            reloadWhenAvailable();
+            return;
+          }
+          if (!response.ok) {
+            return;
+          }
+          return response.json().then(function (data) {
+            applyPollInterval(data);
+            if (!data || !data.maintenance) {
+              reloadWhenAvailable();
+            }
+          });
+        }).catch(function () {
+          /* API/статика недоступны — остаёмся на заглушке */
+        });
+      }
+
+      void checkMaintenanceStatus().finally(function () {
+        schedulePolling();
+      });
+
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') {
+          void checkMaintenanceStatus();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

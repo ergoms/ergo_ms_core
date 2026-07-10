@@ -257,6 +257,11 @@ function Render-NginxTemplate {
     $snippetsForward = $snippetsDir -replace '\\', '/'
 
     $content = Get-Content -Path $TemplatePath -Raw -Encoding UTF8
+    $maintenanceSnippetPath = Join-Path $Root "core\deployment\nginx\snippets\maintenance.conf"
+    $maintenanceSnippet = ''
+    if (Test-Path $maintenanceSnippetPath) {
+        $maintenanceSnippet = (Get-Content -Path $maintenanceSnippetPath -Raw -Encoding UTF8) -replace '\$\{ERGO_ROOT\}', $rootForward
+    }
     $content = $content -replace '\$\{ERGO_ROOT\}', $rootForward
     $content = $content -replace '\$\{ERGO_SERVER_NAME\}', $ServerName
     $content = $content -replace '\$\{ERGO_LISTEN_HOST\}', $ListenHost
@@ -266,6 +271,7 @@ function Render-NginxTemplate {
     $content = $content -replace '\$\{ERGO_SSL_KEY\}', ($SslKey -replace '\\', '/')
     $content = $content -replace '\$\{ERGO_HOST_POLICY_BLOCKS\}', ''
     $content = $content -replace '\$\{ERGO_HTTP_CANONICAL_REDIRECT\}', 'https://$host$request_uri'
+    $content = $content -replace '\$\{ERGO_MAINTENANCE_SNIPPET\}', $maintenanceSnippet
 
     return $content
 }

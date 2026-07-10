@@ -68,6 +68,13 @@ def render_template(
         ssl_key = '/etc/ssl/private/ssl-cert-snakeoil.key'
 
     content = template_path.read_text(encoding='utf-8')
+    maintenance_snippet_path = DEPLOYMENT_NGINX / 'snippets' / 'maintenance.conf'
+    maintenance_snippet = ''
+    if maintenance_snippet_path.is_file():
+        maintenance_snippet = maintenance_snippet_path.read_text(encoding='utf-8').replace(
+            '${ERGO_ROOT}',
+            root_forward,
+        )
     replacements = {
         '${ERGO_ROOT}': root_forward,
         '${ERGO_SERVER_NAME}': server_name,
@@ -78,6 +85,7 @@ def render_template(
         '${ERGO_SSL_KEY}': ssl_key.replace('\\', '/'),
         '${ERGO_HOST_POLICY_BLOCKS}': extra['ERGO_HOST_POLICY_BLOCKS'],
         '${ERGO_HTTP_CANONICAL_REDIRECT}': extra['ERGO_HTTP_CANONICAL_REDIRECT'],
+        '${ERGO_MAINTENANCE_SNIPPET}': maintenance_snippet,
     }
 
     content = re.sub(
