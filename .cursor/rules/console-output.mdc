@@ -1,6 +1,6 @@
 ---
 description: Метки консольного вывода ergoms — [OK]/[ERROR]/[WARNING]/[SKIP] на английском, текст на русском; console_tags.py
-alwaysApply: false
+alwaysApply: true
 ---
 
 # Метки консольного вывода ergoms

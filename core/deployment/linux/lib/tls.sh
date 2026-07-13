@@ -32,32 +32,6 @@ for domain in resolve_domains(_read_env(Path(os.environ['ROOT']) / '.env')):
 PY
 }
 
-_tls_set_env_value() {
-  local root="$1"
-  local key="$2"
-  local value="$3"
-  ROOT="$root" KEY="$key" VALUE="$value" "$(_tls_python "$root")" - <<'PY'
-import os
-import re
-from pathlib import Path
-
-root = Path(os.environ['ROOT'])
-key = os.environ['KEY']
-value = os.environ['VALUE']
-env_path = root / '.env'
-content = env_path.read_text(encoding='utf-8') if env_path.is_file() else ''
-pattern = re.compile(rf'^{re.escape(key)}=.*$', re.MULTILINE)
-line = f'{key}={value}'
-if pattern.search(content):
-    content = pattern.sub(line, content, count=1)
-else:
-    if content and not content.endswith('\n'):
-        content += '\n'
-    content += line + '\n'
-env_path.write_text(content, encoding='utf-8')
-PY
-}
-
 _tls_read_env_value() {
   local root="$1"
   local key="$2"
@@ -133,29 +107,28 @@ tls_install() {
   local staging="${4:-false}"
 
   _nginx_read_env "$root"
-  _tls_set_env_value "$root" NGINX_ENABLED true
-
-  if [[ -n "$domain_override" ]]; then
-    _tls_set_env_value "$root" NGINX_PUBLIC_HOST "$domain_override"
-    _tls_set_env_value "$root" NGINX_SERVER_NAME "$domain_override"
-  fi
-
-  if [[ -n "$email_override" ]]; then
-    _tls_set_env_value "$root" ERGO_TLS_EMAIL "$email_override"
-  fi
 
   if ! _tls_cli "$root" validate; then
+    echo "[WARNING] Проверьте .env вручную: NGINX_ENABLED=true, домены и ERGO_TLS_EMAIL" >&2
     return 1
   fi
 
   local -a domains=()
-  while IFS= read -r line; do
-    [[ -n "$line" ]] && domains+=("$line")
-  done < <(_tls_resolve_domains "$root")
+  if [[ -n "$domain_override" ]]; then
+    domains=("$domain_override")
+  else
+    while IFS= read -r line; do
+      [[ -n "$line" ]] && domains+=("$line")
+    done < <(_tls_resolve_domains "$root")
+  fi
 
   local primary="${domains[0]}"
   local email
-  email="$(_tls_read_env_value "$root" ERGO_TLS_EMAIL)"
+  if [[ -n "$email_override" ]]; then
+    email="$email_override"
+  else
+    email="$(_tls_read_env_value "$root" ERGO_TLS_EMAIL)"
+  fi
 
   local webroot
   webroot="$(_tls_read_env_value "$root" ERGO_TLS_WEBROOT)"

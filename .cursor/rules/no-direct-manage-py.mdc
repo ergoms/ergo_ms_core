@@ -43,10 +43,19 @@ priority: critical
 - Правка `manage.py` для настроек Django — допустима, но инструкции по запуску всё равно через ergoms
 - Низкоуровневые CI-скрипты могут вызывать инструменты напрямую; пользовательская документация — нет
 
+## Язык сообщений ergoms
+
+- Пользовательский вывод ergoms и deployment-скриптов — **русский**; метки статуса — только `[OK]`, `[ERROR]`, `[WARNING]`, `[SKIP]`, `[INFO]`.
+- Повторяющиеся шаблоны — `ergoms_console.py` (`_MESSAGES`); в Python — `format_console` из `console_tags.py`.
+- Django management-команды проекта: сообщения в `self.stdout.write` / `self.stderr.write` — на русском.
+- Сырой вывод Django, npm, Poetry и traceback **не переводить** — это вывод сторонних инструментов.
+- Подробности — [`console-output.mdc`](console-output.mdc).
+
 ## Связанные правила
 
 | Тема | Файл |
 |------|------|
+| Метки и русский текст в консоли | [`console-output.mdc`](console-output.mdc) |
 | Формат commands.conf | [`ergoms-commands.mdc`](ergoms-commands.mdc) |
 | Справочник команд | [`.docs/cli.md`](../../.docs/cli.md) |
 | Python-окружение | [`virtual-env.mdc`](virtual-env.mdc) |

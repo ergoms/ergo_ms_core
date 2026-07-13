@@ -19,6 +19,7 @@ modules/<имя>/
 │   │   ├── routes.js        # страницы (если есть UI)
 │   │   ├── endpoints.js     # адреса API для клиента (если нужны)
 │   │   ├── permission-rules.js
+│   │   ├── routeGuard.js      # опционально: guard для Vue Router
 │   │   └── integrations.js  # операции моста на клиенте
 │   ├── pages/ или components/
 │   └── ui/                  # общий UI-kit (по образцу competence_core, lms)

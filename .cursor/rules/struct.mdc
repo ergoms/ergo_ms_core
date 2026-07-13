@@ -29,6 +29,7 @@ alwaysApply: true
 | Каталог прав ADP | `permission_catalog.py` | [`permission_catalog.py`](../../core/api/src/core/cms/adp/services/permission_catalog.py) |
 | Celery / beat | `celery_config.py` | [`celery/manager.py`](../../core/api/src/core/utils/celery/manager.py) |
 | Маршруты, endpoints, integrations клиента | `client/js/*` | [`ModuleLoader.js`](../../core/client/src/modules/core/ModuleLoader.js) |
+| Route guards клиента | `routeGuard.js` | [`RouteGuardsManager.js`](../../core/client/src/modules/routing/RouteGuardsManager.js) |
 | Восстановление меню CMS | миграции меню модуля | [`restore_menu.py`](../../core/api/src/core/cms/management/commands/restore_menu.py) |
 
 Типичный паттерн: `importlib.import_module(...)` или `import.meta.glob('modules/*/...')` по **фиксированному имени файла** из списка установленных модулей — не произвольный import доменного класса.

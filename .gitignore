@@ -5,6 +5,8 @@ celery_workers.yaml
 .env
 .venv
 
+.env.*
+
 maintenance.flag
 
 env/

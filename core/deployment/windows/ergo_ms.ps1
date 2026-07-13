@@ -834,13 +834,13 @@ function Main {
 
                 $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-                Show-Help -ProjectRoot $projectRoot
+                Show-Help -ProjectRoot $projectRoot -HelpArgs $RemainingArgs
 
             }
 
             catch {
 
-                Show-Help
+                Show-Help -HelpArgs $RemainingArgs
 
             }
 

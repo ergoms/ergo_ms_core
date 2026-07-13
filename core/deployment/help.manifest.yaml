@@ -161,6 +161,8 @@ sections:
         summary: "Объединить миграции приложения (squash)"
       - name: safe-drop-app
         summary: "Безопасно удалить Django-приложение"
+      - name: core-rules-check
+        summary: "Проверка ядра: изоляция модулей, console.error, native select, импорты modules.*"
       - name: test-smtp
         summary: "Проверка SMTP и отправка тестового письма"
 

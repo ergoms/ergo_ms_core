@@ -1,0 +1,40 @@
+---
+description: Route guards клиента — routeGuard.js, авто-discovery, порядок в beforeEach
+alwaysApply: false
+---
+# Route guards (клиент)
+
+Дополнительные проверки навигации (контекст организации, onboarding и т.п.) — через hook-файл модуля. Ядро **не** импортирует доменный код модуля напрямую в `routers.js`.
+
+## Файл guard
+
+`modules/<имя>/client/js/routeGuard.js` — только в этой папке (как `permission-rules.js`).
+
+```javascript
+import { organizationGuard } from './organizationGuard.js'
+
+export { organizationGuard as routeGuard }
+export default organizationGuard
+```
+
+Экспорт: named `routeGuard` или `default` — **async-функция** `(to, from, next)` в стиле Vue Router.
+
+Подхват — [`RouteGuardsManager.js`](../../core/client/src/modules/routing/RouteGuardsManager.js) через [`ModuleLoader.js`](../../core/client/src/modules/core/ModuleLoader.js). Применение — `beforeEach` в [`routers.js`](../../core/client/src/js/routers.js).
+
+Ядро: `core/client/src/core/**/js/routeGuard.js` (опционально).
+
+## Порядок в beforeEach
+
+1. Проверка токена / auth
+2. **Route guards модулей** (алфавит по имени модуля)
+3. Permission rules и ADP access
+
+При redirect guard возвращает объект маршрута через `next({ name: '...' })` — ядро перехватывает object-redirect и прерывает цепочку.
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Права на маршруты (UX) | [`permission_rules.mdc`](permission_rules.mdc) |
+| Архитектура hook-файлов | [`struct.mdc`](struct.mdc) |
+| Модули | [`modules.mdc`](modules.mdc) |
