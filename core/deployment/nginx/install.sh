@@ -26,13 +26,13 @@ OUTPUT_CONF="${ERGO_NGINX_SITES_AVAILABLE}/${SITE_NAME}.conf"
 
 warn_insecure_certs() {
   if [[ "$ERGO_SSL_CERT" == *snakeoil* || "$ERGO_SSL_KEY" == *snakeoil* ]]; then
-    echo "Warning: self-signed snakeoil certificate. Use Let's Encrypt for production." >&2
+    echo "Предупреждение: самоподписанный сертификат. Для production используйте Let's Encrypt." >&2
   fi
   if [[ ! -f "$ERGO_SSL_CERT" ]]; then
-    echo "Warning: SSL certificate not found: $ERGO_SSL_CERT" >&2
+    echo "Предупреждение: SSL-сертификат не найден: $ERGO_SSL_CERT" >&2
   fi
   if [[ ! -f "$ERGO_SSL_KEY" ]]; then
-    echo "Warning: SSL private key not found: $ERGO_SSL_KEY" >&2
+    echo "Предупреждение: приватный ключ SSL не найден: $ERGO_SSL_KEY" >&2
   fi
 }
 
@@ -53,12 +53,12 @@ render_template() {
 }
 
 if [[ ! -f "$SCRIPT_DIR/ergo_ms.conf.template" ]]; then
-  echo "Template not found: $SCRIPT_DIR/ergo_ms.conf.template" >&2
+  echo "Шаблон не найден: $SCRIPT_DIR/ergo_ms.conf.template" >&2
   exit 1
 fi
 
 if [[ ! -d "$ERGO_ROOT/core/client/dist" ]]; then
-  echo "Warning: $ERGO_ROOT/core/client/dist not found. Run: ergoms build-all" >&2
+  echo "Предупреждение: $ERGO_ROOT/core/client/dist не найден. Выполните: ergoms build-all" >&2
 fi
 
 rendered="$(render_template "$SCRIPT_DIR/ergo_ms.conf.template")"
@@ -69,7 +69,7 @@ if [[ "${ERGO_NGINX_DRY_RUN:-}" == "1" ]]; then
 fi
 
 if [[ $(id -u) -ne 0 ]]; then
-  echo "Root privileges required. Re-run with sudo." >&2
+  echo "Нужны права root. Запустите с sudo." >&2
   exit 1
 fi
 
@@ -79,9 +79,9 @@ ln -sf "$OUTPUT_CONF" "$ERGO_NGINX_SITES_ENABLED/${SITE_NAME}.conf"
 
 if nginx -t; then
   systemctl reload nginx
-  echo "Installed: $OUTPUT_CONF"
-  echo "Enabled:   $ERGO_NGINX_SITES_ENABLED/${SITE_NAME}.conf"
+  echo "Установлено: $OUTPUT_CONF"
+  echo "Включено:   $ERGO_NGINX_SITES_ENABLED/${SITE_NAME}.conf"
 else
-  echo "nginx -t failed. Config written but not reloaded." >&2
+  echo "nginx -t завершился с ошибкой. Конфиг записан, но не перезагружен." >&2
   exit 1
 fi

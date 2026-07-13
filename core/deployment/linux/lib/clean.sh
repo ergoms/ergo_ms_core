@@ -1,20 +1,20 @@
-# Clean project dependencies helpers
+﻿# Clean project dependencies helpers
 # Вспомогательные функции для очистки зависимостей проекта
 
 stop_blocking_processes_for_clean() {
   local root="$1"
   local venv_python="$root/virtual_env/python"
 
-  echo "  Stopping processes that may lock project files..."
+  echo "  Останавливаю процессы, которые могут блокировать файлы проекта..."
 
   if command -v systemctl >/dev/null 2>&1; then
     while IFS= read -r unit; do
       [[ -z "$unit" ]] && continue
       if systemctl is-active --quiet "$unit" 2>/dev/null; then
         if systemctl stop "$unit" 2>/dev/null; then
-          echo "  Stopped service: $unit"
+          echo "  Остановлена служба: $unit"
         else
-          echo "  [WARNING] Could not stop service $unit (may require root)" >&2
+          echo "  [WARNING] Не удалось остановить службу $unit (может потребоваться root)" >&2
         fi
       fi
     done < <(systemctl list-units --type=service --all --no-legend 2>/dev/null | awk '/ergo-/ {print $1}')
@@ -42,7 +42,7 @@ clear_project_shell_environment() {
     active_norm="$(cd "$VIRTUAL_ENV" 2>/dev/null && pwd -P)" || active_norm="$VIRTUAL_ENV"
     if [[ "$active_norm" == "$venv_norm" ]]; then
       unset VIRTUAL_ENV
-      echo "  Cleared VIRTUAL_ENV for project virtual environment"
+      echo "  Сброшена переменная VIRTUAL_ENV для виртуального окружения проекта"
     fi
   fi
 
@@ -91,7 +91,7 @@ clean_directory_contents() {
   local root="$3"
 
   if [[ ! -d "$dir_path" ]]; then
-    echo "[SKIP] $label not found"
+    echo "[SKIP] $label не найден"
     return
   fi
 
@@ -128,15 +128,15 @@ clean_directory_contents() {
   fi
 
   if [[ ${#failed_items[@]} -gt 0 ]]; then
-    echo "[ERROR] Failed to clean $label: could not remove: ${failed_items[*]}" >&2
-    echo "  Close terminals with activated venv, stop dev servers, then run ergoms clean again" >&2
+    echo "[ERROR] Не удалось очистить $label: не удалось удалить: ${failed_items[*]}" >&2
+    echo "  Закройте терминалы с активированным venv, остановите серверы разработки и снова выполните ergoms clean" >&2
     return
   fi
 
   if [[ "$has_items" == true ]]; then
-    echo "[OK] Removed $removed_count items from $label"
+    echo "[OK] Удалено $removed_count элементов из $label"
   else
-    echo "[SKIP] $label is already empty"
+    echo "[SKIP] $label уже пуст"
   fi
 }
 
@@ -156,19 +156,19 @@ clear_project_dependencies() {
   )
 
   echo ""
-  echo "=== Cleaning Project Dependencies ==="
+  echo "=== Очистка зависимостей проекта ==="
   echo ""
-  echo "This will remove:"
+  echo "Будут удалены:"
   for p in "${clean_paths[@]}"; do
     echo "  - $p"
   done
   echo ""
-  echo "Media folder will NOT be deleted."
+  echo "Папка media не будет удалена."
   echo ""
 
-  read -rp "Are you sure you want to continue? (y/N) " confirmation
+  read -rp "Продолжить? (y/N) " confirmation
   if [[ ! "$confirmation" =~ ^[yY]$ ]]; then
-    echo "Operation cancelled by user."
+    echo "Операция отменена пользователем."
     return
   fi
 
@@ -181,23 +181,23 @@ clear_project_dependencies() {
     step=$((step + 1))
     local full_path="$root/$rel_path"
     echo ""
-    echo "-> Step ${step}/${total}: Cleaning ${rel_path}..."
+    echo "-> Шаг ${step}/${total}: очистка ${rel_path}..."
 
     if [[ "$rel_path" == "node_modules" ]]; then
       if [[ -d "$full_path" ]]; then
         if remove_path_robust "$full_path"; then
-          echo "[OK] $rel_path removed"
+          echo "[OK] $rel_path удалён"
         else
           stop_blocking_processes_for_clean "$root"
           if remove_path_robust "$full_path" 5; then
-            echo "[OK] $rel_path removed"
+            echo "[OK] $rel_path удалён"
           else
-            echo "[ERROR] Failed to remove $rel_path" >&2
-            echo "  Close other terminals and dev servers, then run ergoms clean again" >&2
+            echo "[ERROR] Не удалось удалить $rel_path" >&2
+            echo "  Закройте другие терминалы и серверы разработки, затем снова выполните ergoms clean" >&2
           fi
         fi
       else
-        echo "[SKIP] $rel_path not found"
+        echo "[SKIP] $rel_path не найден"
       fi
     else
       clean_directory_contents "$full_path" "$rel_path" "$root"
@@ -205,9 +205,9 @@ clear_project_dependencies() {
   done
 
   echo ""
-  echo "=== Cleaning Complete ==="
+  echo "=== Очистка завершена ==="
   echo ""
-  echo "To reinstall dependencies, run:"
+  echo "Чтобы установить зависимости заново, выполните:"
   echo "  ergoms setup"
   echo ""
 }

@@ -1,5 +1,5 @@
 ---
-description: Техническая справка ergoms — commands.conf, префиксы api/npm/win/linux, новые команды
+description: Техническая справка ergoms — commands.conf, help.manifest.yaml, help modules/module, префиксы api/npm
 alwaysApply: false
 ---
 
@@ -7,10 +7,40 @@ alwaysApply: false
 
 Поведение для пользователя и ассистента — [`no-direct-manage-py.mdc`](no-direct-manage-py.mdc). Справочник команд — [`.docs/cli.md`](../../.docs/cli.md). Устройство развёртывания — [`core/deployment/logic.md`](../../core/deployment/logic.md).
 
+## Справка (три режима)
+
+| Команда | Источник |
+|---------|----------|
+| `ergoms help` | [`core/deployment/help.manifest.yaml`](../../core/deployment/help.manifest.yaml) + [`ergoms_help.py`](../../core/deployment/scripts/ergoms_help.py) |
+| `ergoms help modules` | `modules/*/ergoms.help.yaml` + scan `ergoms.conf` |
+| `ergoms help module <имя>` | `modules/<имя>/ergoms.help.yaml` |
+
+Текст help — **только русский**. Модульная справка описывается в модуле — см. [`ergoms-module-help.mdc`](ergoms-module-help.mdc).
+
+## Язык консольного вывода
+
+Весь **пользовательский** вывод команд ergoms **ядра** — **только русский**:
+
+- shell-скрипты `core/deployment/windows/`, `core/deployment/linux/`
+- Python `core/deployment/scripts/` (кроме docstring и argparse для CI)
+- `Write-ColorOutput`, `Write-ErgomsMessage`, `echo`, `print`, `Read-Host`, `read -rp`
+
+**Допустимый английский:** имена команд (`ergoms setup`), путей, служб (`ergo-api-dev`), флагов CLI, устоявшихся имён инструментов (nginx, Redis, Poetry, Celery).
+
+**Обязательно:**
+
+- повторяющиеся шаблоны ошибок и подсказок — ключи в [`ergoms_console.py`](../../core/deployment/scripts/ergoms_console.py) (`_MESSAGES`) и `Write-ErgomsMessage` (Windows); на Linux — тот же каталог через вызов `ergoms_console.py` или идентичный русский текст в `echo`
+- **метки** статуса — только английские: `[OK]`, `[ERROR]`, `[WARNING]`, `[SKIP]`, `[INFO]` — см. [`console-output.mdc`](console-output.mdc) и [`console_tags.py`](../../core/deployment/console_tags.py)
+- Windows `.ps1` с кириллицей в строках — **UTF-8 BOM** (PowerShell 5.1)
+
+**Запрещено** в новых и правках сообщений ядра: английские фразы для пользователя (`Failed to`, `Usage:`, `Unknown service`, `Please run` и т.п.).
+
+При добавлении команды ядра — русский текст в скрипте развёртывания и `summary` в `help.manifest.yaml`.
+
 ## Где описаны команды
 
-- Ядро: `core/deployment/commands.conf`
-- Модули: `modules/<имя>/ergoms.conf` → вызов `ergoms <имя>:<команда>`
+- Ядро: `core/deployment/commands.conf` + описания в `help.manifest.yaml`
+- Модули: `modules/<имя>/ergoms.conf` → вызов `ergoms <имя>:<команда>`; описания — `ergoms.help.yaml`
 
 Формат строки: `имя-команды=тип:команда`. Несколько шагов: `&&`.
 
@@ -44,9 +74,8 @@ alwaysApply: false
 ```conf
 migrate-all=api:makemigrations && api:migrate
 install-deps=api:install && npm:run install:all && api:migrate && api:warmup_caches
-db-migrate=api:migrate
-dev=api:dev
-start-client=npm:run dev
+dev=... start_api.py через scripts/
+start-client=... start_client_if_dev.py
 ```
 
 Имена команд — kebab-case (`db-migrate`, не `db_migrate` при вызове через ergoms).
@@ -54,14 +83,15 @@ start-client=npm:run dev
 ## Новая команда ядра
 
 1. Добавь строку в `core/deployment/commands.conf`.
-2. При необходимости — скрипт в `core/deployment/windows/` или `linux/`.
-3. Проверь на обеих ОС ([`oc.mdc`](oc.mdc)).
+2. Добавь `summary` в `core/deployment/help.manifest.yaml`.
+3. При необходимости — скрипт в `core/deployment/windows/` или `linux/`.
+4. Проверь на обеих ОС ([`oc.mdc`](oc.mdc)).
 
-Модульную команду — в `modules/<имя>/ergoms.conf`.
+Модульную команду — в `modules/<имя>/ergoms.conf` и описание в `ergoms.help.yaml`.
 
 ## Если команда не работает
 
-1. `ergoms help` — есть ли команда
+1. `ergoms help` / `ergoms help modules` — есть ли команда
 2. Проверь `commands.conf` / `ergoms.conf`
 3. Для отладки: `ergoms api <команда_django> <аргументы>`
 
@@ -69,6 +99,7 @@ start-client=npm:run dev
 
 | Тема | Файл |
 |------|------|
+| Справка модулей | [`ergoms-module-help.mdc`](ergoms-module-help.mdc) |
 | Только ergoms, не manage.py | [`no-direct-manage-py.mdc`](no-direct-manage-py.mdc) |
 | Python-окружение | [`virtual-env.mdc`](virtual-env.mdc) |
 | Windows / Linux | [`oc.mdc`](oc.mdc) |

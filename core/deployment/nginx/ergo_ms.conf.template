@@ -73,7 +73,7 @@ ${ERGO_MAINTENANCE_SNIPPET}
         log_not_found off;
     }
 
-    # Статус режима works для клиента без API (ergoms maintenance-on пишет dist/maintenance.json)
+    # Статус режима works для клиента без API (ergoms maintenance-on/off обновляет dist/maintenance.json)
     location = /maintenance.json {
         add_header Cache-Control "no-store" always;
         try_files /maintenance.json =404;

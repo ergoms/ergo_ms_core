@@ -38,6 +38,7 @@ alwaysApply: true
 |------|---------|
 | Токены, куки, логи (детали) | этот файл |
 | Безопасное логирование на клиенте | [`log-error.mdc`](log-error.mdc) |
+| Логи сервер, Celery, env, файлы | [`logging.mdc`](logging.mdc) |
 | Права маршрутов (только UX) | [`permission_rules.mdc`](permission_rules.mdc) |
 | Файлы и media_api | [`media_api.mdc`](media_api.mdc) |
 | Проверки прав в модулях | [`modules.mdc`](modules.mdc) → `adp.permission_check` |
@@ -236,6 +237,8 @@ const userId = getUserId()
 ---
 
 ## Логирование — API (Python)
+
+**Подробности — [`logging.mdc`](logging.mdc).** Кратко:
 
 **Запрещено** писать в лог:
 

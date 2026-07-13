@@ -65,22 +65,22 @@
 
 | Что | Где |
 |-----|-----|
-| Бинарники | `virtual_env/packages/redis/` (Windows: zip tporadowski; Linux: сборка из tarball) |
+| Бинарники | `virtual_env/packages/redis/` (Windows: zip redis-windows 7.4.x msys2; Linux: сборка из tarball 7.4.x) |
 | Конфиг | `virtual_env/packages/redis/conf/redis.conf` |
-| Скрипты | `core/deployment/scripts/install_redis.py`, `ensure_redis_env.py` |
+| Скрипты | `core/deployment/scripts/install_redis.py`, `resolve_env.py` |
 | Windows | `core/deployment/windows/lib/redis.ps1`, служба `ergo_ms_redis` (NSSM) |
 | Linux | `core/deployment/linux/lib/redis.sh`, unit `ergo-redis.service` |
 
 ### Команды
 
-- `ergoms install-redis [port] [--configure]` — установка и запуск (как `install-nginx`: бинарники, конфиг, старт процесса)
+- `ergoms install-redis [port]` — установка и запуск (как `install-nginx`: бинарники, конфиг, старт процесса)
 - `ergoms install-redis-service` — автозапуск (Windows service / systemd)
 - `ergoms start-redis` / `stop-redis` / `restart-redis` / `status-redis` / `test-redis`
 - `ergoms uninstall-redis` / `uninstall-redis --purge` (Linux) / `-Purge` (Windows)
 
 ### Первичная настройка Redis
 
-1. `ergoms install-redis --configure` (или установить, затем `REDIS_ENABLED=true` в `.env` и повторить install)
+1. `ergoms install-redis`, затем `REDIS_ENABLED=true` в `.env`
 2. Перезапустить API
 3. Проверка: `ergoms test-redis` → `PONG`
 
@@ -100,5 +100,4 @@
 |------|------|
 | Справочник команд ergoms | [`.docs/cli.md`](../../.docs/cli.md) |
 | Только ergoms, не manage.py | [`.cursor/rules/no-direct-manage-py.mdc`](../../.cursor/rules/no-direct-manage-py.mdc) |
-| Тесты развёртывания | [`windows/lib/test/README.md`](windows/lib/test/README.md) |
 | Службы Linux | [`.docs/deployment.md`](../../.docs/deployment.md) |

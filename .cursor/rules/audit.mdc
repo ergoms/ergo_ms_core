@@ -10,6 +10,13 @@ alwaysApply: false
 автоматически из контекста запроса.
 
 Смотреть журнал: админ-панель → «Журнал действий» (только глобальный админ).
+Файл: `logs/audit.log` — каждая успешная запись дублируется строкой (см. [`logging.mdc`](logging.mdc));
+отключить: `AUDIT_LOG_FILE_ENABLED=false`.
+
+```powershell
+Get-Content logs\audit.log -Tail 50 -Wait
+Select-String -Path logs\audit.log -Pattern 'action=auth\.'
+```
 
 ## Как писать из модуля
 
@@ -105,6 +112,7 @@ bridge.provide_many('audit.action_definitions', key='lms', obj=AUDIT_SECTION)
 | Автоаудит CRUD | `core/api/src/core/audit/mixin.py` → `AuditedModelMixin` |
 | Каталог действий | группа моста `audit.action_definitions` |
 | Контекст (actor/ip/org) | `core/api/src/core/audit/context.py` (middleware) |
+| Файл `logs/audit.log` | `core/api/src/core/audit/service.py` → `log_audit_event` |
 | UI (только ядро) | `core/client/src/core/cms/adp/admin/AuditLog.vue` |
 
 ## Связанные правила

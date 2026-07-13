@@ -1,5 +1,5 @@
-"""
-CLI для TLS (Let's Encrypt): статус, обновление .env после выпуска сертификата.
+﻿"""
+CLI для TLS (Let's Encrypt): статус и рекомендуемые переменные после выпуска сертификата.
 """
 
 from __future__ import annotations
@@ -15,10 +15,10 @@ sys.path.insert(0, str(DEPLOYMENT_NGINX))
 
 from tls_config import (  # noqa: E402
     _read_env,
-    apply_tls_env,
     cert_status,
     primary_domain,
     resolve_domains,
+    suggest_tls_env_vars,
     validate_tls_prerequisites,
     webroot_path,
 )
@@ -36,25 +36,31 @@ def cmd_validate(args: argparse.Namespace) -> int:
             print(f'[ERROR] {item}', file=sys.stderr)
         return 1
     domains = resolve_domains(values)
-    print(f'[OK] Domains: {", ".join(domains)}')
+    print(f'[OK] Домены: {", ".join(domains)}')
     print(f'[OK] Webroot: {webroot_path(values)}')
     print(f'[OK] Email: {values.get("ERGO_TLS_EMAIL", "").strip()}')
     return 0
 
 
-def cmd_apply_env(args: argparse.Namespace) -> int:
+def cmd_suggest_env(args: argparse.Namespace) -> int:
     values = _read_env(_env_path(args.root))
     domain = args.domain or primary_domain(values)
     if not domain:
-        print('[ERROR] Domain not specified and not found in .env', file=sys.stderr)
+        print('[ERROR] Домен не указан и не найден в .env', file=sys.stderr)
         return 1
     extra = resolve_domains(values)
     extra = [item for item in extra if item != domain]
-    changed = apply_tls_env(_env_path(args.root), domain, extra_domains=extra)
-    if changed:
-        print(f'[OK] .env updated ({len(changed)} keys): {", ".join(changed)}')
-    else:
-        print('[OK] .env already configured for TLS')
+    suggestions = suggest_tls_env_vars(values, domain, extra_domains=extra)
+
+    if args.json:
+        print(json.dumps(suggestions, ensure_ascii=False, indent=2))
+        return 0
+
+    print('Рекомендуемые переменные для .env после install-tls:')
+    for key, value in suggestions.items():
+        current = values.get(key, '').strip()
+        marker = '  ' if current == value else ' *'
+        print(f'{marker}{key}={value}')
     return 0
 
 
@@ -64,7 +70,7 @@ def cmd_status(args: argparse.Namespace) -> int:
     if args.domain:
         domains = [args.domain]
     if not domains:
-        print('[WARN] No domain configured (NGINX_PUBLIC_HOST / ERGO_TLS_DOMAINS)')
+        print('[WARNING] No domain configured (NGINX_PUBLIC_HOST / ERGO_TLS_DOMAINS)')
         return 1
 
     payload = [cert_status(domain) for domain in domains]
@@ -75,7 +81,7 @@ def cmd_status(args: argparse.Namespace) -> int:
     for item in payload:
         print(f"Domain: {item['domain']}")
         if not item.get('exists'):
-            print('  Certificate: not found')
+            print('  Certificate: не найден')
             continue
         print(f"  Fullchain: {item['fullchain']}")
         print(f"  Privkey:   {item['privkey']}")
@@ -88,14 +94,15 @@ def cmd_status(args: argparse.Namespace) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description='ERGO MS TLS utilities')
     parser.add_argument('--root', type=Path, default=PROJECT_ROOT)
-    sub = parser.add_subparsers(dest='command', required=True)
+    sub = parser.add_subparsers(dest='команда', required=True)
 
     validate_parser = sub.add_parser('validate', help='Check .env before install-tls')
     validate_parser.set_defaults(func=cmd_validate)
 
-    apply_parser = sub.add_parser('apply-env', help='Write TLS paths and URLs to .env')
-    apply_parser.add_argument('--domain', default='')
-    apply_parser.set_defaults(func=cmd_apply_env)
+    suggest_parser = sub.add_parser('suggest-env', help='Print recommended TLS-related .env variables')
+    suggest_parser.add_argument('--domain', default='')
+    suggest_parser.add_argument('--json', action='store_true')
+    suggest_parser.set_defaults(func=cmd_suggest_env)
 
     status_parser = sub.add_parser('status', help='Show certificate status')
     status_parser.add_argument('--domain', default='')

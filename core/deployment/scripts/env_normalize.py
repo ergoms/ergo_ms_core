@@ -1,4 +1,4 @@
-"""
+﻿"""
 Нормализация .env по .env.example (корень проекта и модули).
 
 Сохраняет существующие значения, добавляет недостающие ключи, выравнивает порядок
@@ -22,14 +22,14 @@ def _resolve_project_root(explicit: str | None) -> Path:
     if explicit:
         root = Path(explicit).resolve()
         if not root.is_dir():
-            raise SystemExit(f'[ERROR] Project root does not exist: {root}')
+            raise SystemExit(f'[ERROR] Корень проекта не существует: {root}')
         return root
 
     candidate = _DEPLOYMENT_DIR.parent.parent
     if (candidate / 'pyproject.toml').is_file():
         return candidate
 
-    raise SystemExit('[ERROR] Cannot detect project root; pass --root')
+    raise SystemExit('[ERROR] Не удалось определить корень проекта; укажите --root')
 
 
 def _format_result(result: EnvNormalizeResult, *, dry_run: bool) -> list[str]:

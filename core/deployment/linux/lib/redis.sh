@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # Redis management for Linux
 # Portable Redis в virtual_env/packages/redis (сборка из исходников)
 
@@ -29,6 +29,18 @@ _redis_cli() {
 _redis_conf() {
   local root="$1"
   echo "$(_redis_dir "$root")/conf/redis.conf"
+}
+
+_redis_log_path() {
+  local root="$1"
+  local py="$root/virtual_env/python/bin/python"
+  local script="$root/core/deployment/scripts/log_env.py"
+  if [[ -x "$py" && -f "$script" ]]; then
+    local path
+    path="$("$py" "$script" path REDIS "$root" 2>/dev/null || true)"
+    [[ -n "$path" ]] && echo "$path" && return 0
+  fi
+  echo "$root/logs/redis.log"
 }
 
 _redis_pidfile() {
@@ -95,19 +107,6 @@ _redis_read_env() {
   done < "$env_file"
 }
 
-_redis_ensure_env() {
-  local root="$1"
-  local configure="${2:-false}"
-  local py
-  py="$(_redis_python "$root")"
-  [[ -n "$py" ]] || return 0
-  if [[ "$configure" == "true" ]]; then
-    "$py" "$root/core/deployment/scripts/ensure_redis_env.py" --configure 2>/dev/null || true
-  else
-    "$py" "$root/core/deployment/scripts/ensure_redis_env.py" 2>/dev/null || true
-  fi
-}
-
 _redis_is_installed() {
   local root="$1"
   [[ -x "$(_redis_server "$root")" ]] && [[ -f "$(_redis_conf "$root")" ]]
@@ -119,7 +118,7 @@ _redis_run_install_script() {
   local py
   py="$(_redis_python "$root")"
   if [[ -z "$py" ]]; then
-    echo "[ERROR] Python not found. Run: ergoms setup" >&2
+    echo "[ERROR] Python не найден. Выполните: ergoms setup" >&2
     return 1
   fi
   "$py" "$root/core/deployment/scripts/install_redis.py" --root "$root" --port "$port"
@@ -187,14 +186,12 @@ redis_install() {
   local root="$1"
   local listen_port="${2:-}"
   local as_service="${3:-false}"
-  local configure="${4:-false}"
 
-  _redis_ensure_env "$root" "$configure"
   _redis_read_env "$root"
   [[ -n "$listen_port" ]] || listen_port="${REDIS_PORT:-6379}"
 
   echo ""
-  echo "=== Redis: Install & Start ==="
+  echo "=== Redis: установка и запуск ==="
   echo ""
 
   if ! _redis_run_install_script "$root" "$listen_port"; then
@@ -208,40 +205,40 @@ redis_install() {
   fi
 
   echo ""
-  echo "[OK] Redis installed"
-  echo "    Listening: 127.0.0.1:${listen_port}"
-  echo "    Path: $(_redis_dir "$root")"
-  echo "    Config: $(_redis_conf "$root")"
-  if [[ "$configure" != "true" ]]; then
-    echo "    Set REDIS_ENABLED=true in .env and re-run install-redis, or pass configure flag"
+  echo "[OK] Redis установлен"
+  echo "    Прослушивание: 127.0.0.1:${listen_port}"
+  echo "    Путь: $(_redis_dir "$root")"
+  echo "    Конфиг: $(_redis_conf "$root")"
+  if [[ "${REDIS_ENABLED:-}" != "true" ]]; then
+    echo "    Задайте REDIS_ENABLED=true в .env для кэша, channel layer и Celery broker"
   fi
 }
 
 redis_install_service() {
   local root="$1"
   if ! _redis_is_installed "$root"; then
-    echo "[ERROR] Redis not installed. Run: ergoms install-redis" >&2
+    echo "[ERROR] Redis не установлен. Выполните: ergoms install-redis" >&2
     return 1
   fi
 
-  redis_stop "$root" 2>/dev/null || true
+  redis_stop "$root" quiet 2>/dev/null || true
 
   local content
   content="$(_redis_unit_content "$root")"
   install_unit "$REDIS_SERVICE_NAME" "$content"
   enable_and_start "$REDIS_SERVICE_NAME.service"
-  echo "[OK] Redis systemd service installed and started"
+  echo "[OK] Служба systemd Redis установлена и запущена"
 }
 
 redis_start() {
   local root="$1"
   if ! _redis_is_installed "$root"; then
-    echo "[ERROR] Redis not installed. Run: ergoms install-redis" >&2
+    echo "[ERROR] Redis не установлен. Выполните: ergoms install-redis" >&2
     return 1
   fi
 
   if systemctl is-active --quiet "$REDIS_SERVICE_NAME.service" 2>/dev/null; then
-    echo "[OK] Redis service already running"
+    echo "[OK] Служба Redis уже запущена"
     return 0
   fi
 
@@ -251,49 +248,83 @@ redis_start() {
     else
       sudo systemctl start "$REDIS_SERVICE_NAME.service"
     fi
-    echo "[OK] Redis service started"
+    echo "[OK] Служба Redis запущена"
     return 0
   fi
 
-  redis_stop "$root" 2>/dev/null || true
+  redis_stop "$root" quiet 2>/dev/null || true
   _redis_remove_stale_pidfile "$root"
 
   if systemctl is-active --quiet redis.service 2>/dev/null \
     || systemctl is-active --quiet redis-server.service 2>/dev/null; then
-    echo "[WARN] System Redis service is active and may use port $(_redis_read_port "$root")." >&2
-    echo "[WARN] Stop it first: sudo systemctl disable --now redis.service redis-server.service" >&2
+    echo "[WARNING] System Redis service is active and may use port $(_redis_read_port "$root")." >&2
+    echo "[WARNING] Stop it first: sudo systemctl disable --now redis.service redis-server.service" >&2
   fi
 
   local server conf
   server="$(_redis_server "$root")"
   conf="$(_redis_conf "$root")"
-  echo "-> Starting Redis..."
+  echo "-> Запуск Redis..."
   if ! "$server" "$conf"; then
-    echo "[ERROR] redis-server exited with an error. Check logs: $(_redis_dir "$root")/logs/redis.log" >&2
+    echo "[ERROR] redis-server завершился с ошибкой. Проверьте логи: $(_redis_log_path "$root")" >&2
     return 1
   fi
 
   if _redis_wait_for_ping "$root" 10; then
-    echo "[OK] Redis started"
+    echo "[OK] Redis запущен"
   else
-    echo "[ERROR] Redis failed to start. Check logs: $(_redis_dir "$root")/logs/redis.log" >&2
+    echo "[ERROR] Redis не запустился. Проверьте логи: $(_redis_log_path "$root")" >&2
     if [[ -r /proc/sys/vm/overcommit_memory ]] && [[ "$(cat /proc/sys/vm/overcommit_memory)" != "1" ]]; then
-      echo "[WARN] vm.overcommit_memory is not 1; run: sudo sysctl vm.overcommit_memory=1" >&2
+      echo "[WARNING] vm.overcommit_memory is not 1; run: sudo sysctl vm.overcommit_memory=1" >&2
     fi
     return 1
   fi
 }
 
+_redis_is_running() {
+  local root="${1:-}"
+
+  if systemctl is-active --quiet "$REDIS_SERVICE_NAME.service" 2>/dev/null; then
+    return 0
+  fi
+  if [[ -n "$root" ]] && _redis_is_installed "$root"; then
+    local pidfile pid redis_dir
+    pidfile="$(_redis_pidfile "$root")"
+    if [[ -f "$pidfile" ]]; then
+      pid="$(tr -d '[:space:]' < "$pidfile")"
+      if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+        return 0
+      fi
+    fi
+    redis_dir="$(_redis_dir "$root")"
+    if pgrep -f "$redis_dir/bin/redis-server" >/dev/null 2>&1; then
+      return 0
+    fi
+  fi
+  return 1
+}
+
 redis_stop() {
   local root="${1:-}"
+  local quiet="${2:-}"
+
+  if ! _redis_is_running "$root"; then
+    [[ -z "$quiet" ]] && echo "[SKIP] Redis не был запущен"
+    return 0
+  fi
+
   if systemctl is-active --quiet "$REDIS_SERVICE_NAME.service" 2>/dev/null; then
-    echo "-> Stopping Redis service..."
+    echo "-> Остановка службы Redis..."
     if [[ $(id -u) -eq 0 ]]; then
       systemctl stop "$REDIS_SERVICE_NAME.service"
     else
       sudo systemctl stop "$REDIS_SERVICE_NAME.service"
     fi
-    echo "[OK] Redis service stopped"
+    if _redis_is_running "$root"; then
+      echo "[ERROR] Не удалось остановить службу Redis" >&2
+      return 1
+    fi
+    echo "[OK] Служба Redis остановлена"
     return 0
   fi
 
@@ -303,7 +334,7 @@ redis_stop() {
     conf="$(_redis_conf "$root")"
     pidfile="$(_redis_pidfile "$root")"
     if [[ -x "$cli" ]]; then
-      echo "-> Shutting down Redis..."
+      echo "-> Завершение работы Redis..."
       "$cli" -c "$conf" shutdown 2>/dev/null \
         || "$cli" -h 127.0.0.1 -p "$(_redis_read_port "$root")" shutdown 2>/dev/null \
         || true
@@ -329,7 +360,11 @@ redis_stop() {
     fi
   fi
 
-  echo "[OK] Redis stopped"
+  if _redis_is_running "$root"; then
+    echo "[ERROR] Не удалось остановить Redis" >&2
+    return 1
+  fi
+  echo "[OK] Redis остановлен"
 }
 
 redis_restart() {
@@ -340,7 +375,7 @@ redis_restart() {
     else
       sudo systemctl restart "$REDIS_SERVICE_NAME.service"
     fi
-    echo "[OK] Redis service restarted"
+    echo "[OK] Служба Redis перезапущена"
     return 0
   fi
   redis_stop "$root"
@@ -350,33 +385,33 @@ redis_restart() {
 redis_status() {
   local root="$1"
   if ! _redis_is_installed "$root"; then
-    echo "Redis: Not installed"
-    echo "  Expected path: $(_redis_dir "$root")"
+    echo "Redis: не установлен"
+    echo "  Ожидаемый путь: $(_redis_dir "$root")"
     return 0
   fi
 
   echo ""
-  echo "=== Redis Status ==="
+  echo "=== Статус Redis ==="
 
   if [[ -f "$REDIS_UNIT_PATH" ]]; then
     if systemctl is-active --quiet "$REDIS_SERVICE_NAME.service" 2>/dev/null; then
-      echo "  Service ($REDIS_SERVICE_NAME): Running"
+      echo "  Служба ($REDIS_SERVICE_NAME): запущена"
     else
-      echo "  Service ($REDIS_SERVICE_NAME): Not running"
+      echo "  Служба ($REDIS_SERVICE_NAME): не запущена"
     fi
   elif pgrep -x redis-server >/dev/null 2>&1; then
-    echo "  Process: Running (PID: $(pgrep -x redis-server | head -n1))"
+    echo "  Process: Запущен (PID: $(pgrep -x redis-server | head -n1))"
   else
-    echo "  Process: Not running"
+    echo "  Процесс: не запущен"
   fi
 
-  echo "  Path: $(_redis_dir "$root")"
-  echo "  Config: $(_redis_conf "$root")"
+  echo "  Путь: $(_redis_dir "$root")"
+  echo "  Конфиг: $(_redis_conf "$root")"
 
   if _redis_ping "$root"; then
     echo "  Ping: PONG"
   else
-    echo "  Ping: failed (server not running?)"
+    echo "  Ping: не удался (сервер не запущен?)"
   fi
 }
 
@@ -386,7 +421,7 @@ redis_test() {
     echo "[OK] PONG"
     return 0
   fi
-  echo "[ERROR] Redis ping failed" >&2
+  echo "[ERROR] Проверка Redis (ping) не прошла" >&2
   return 1
 }
 
@@ -394,7 +429,7 @@ redis_uninstall() {
   local root="$1"
   local purge="${2:-false}"
 
-  echo "=== Redis: Uninstall ==="
+  echo "=== Redis: удаление ==="
   redis_stop "$root"
 
   if [[ -f "$REDIS_UNIT_PATH" ]]; then
@@ -407,15 +442,15 @@ redis_uninstall() {
       sudo rm -f "$REDIS_UNIT_PATH"
       sudo systemctl daemon-reload
     fi
-    echo "[OK] Redis systemd unit removed"
+    echo "[OK] Redis systemd unit удалён"
   fi
 
   local dir
   dir="$(_redis_dir "$root")"
   if [[ "$purge" == "true" ]] && [[ -d "$dir" ]]; then
     rm -rf "$dir"
-    echo "[OK] Removed $dir"
+    echo "[OK] Удалено $dir"
   else
-    echo "[OK] Redis stopped (binaries kept; use purge to remove packages/redis)"
+    echo "[OK] Redis остановлен (бинарники сохранены; для удаления packages/redis используйте purge)"
   fi
 }

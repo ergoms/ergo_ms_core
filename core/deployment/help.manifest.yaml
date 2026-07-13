@@ -1,0 +1,345 @@
+# Справка ergoms (ядро). Рендер: core/deployment/scripts/ergoms_help.py
+# Модульные команды — modules/<имя>/ergoms.help.yaml
+
+sections:
+  - id: usage
+    title: "Использование"
+    static_lines:
+      - "ergoms <команда> [аргументы]"
+      - "ergoms help                  — справка по ядру"
+      - "ergoms help modules          — список модулей с ergoms-командами"
+      - "ergoms help module <имя>     — справка по модулю"
+      - "ergoms <имя_модуля>:<команда> [аргументы] — вызов команды модуля"
+
+  - id: builtin_services
+    title: "Службы ОС (встроенные)"
+    note: "Требуют права администратора (Windows) или root/sudo (Linux). Для разработки достаточно start-all."
+    commands:
+      - name: install
+        summary: "Установить и запустить все службы"
+      - name: install-services
+        summary: "Установить и запустить службы без полной установки"
+      - name: install-api-service
+        summary: "Установить и запустить только службу API"
+      - name: install-client-service
+        summary: "Установить и запустить только службу клиента"
+      - name: install-worker-service
+        summary: "Установить и запустить worker по celery_workers.yaml"
+      - name: install-beat-service
+        summary: "Установить и запустить Celery beat"
+      - name: install-media-service
+        summary: "Установить и запустить Media API"
+      - name: start
+        summary: "Запустить все службы"
+      - name: stop
+        summary: "Остановить все службы"
+      - name: restart
+        summary: "Перезапустить все службы"
+      - name: status
+        summary: "Статус всех служб"
+      - name: uninstall-services
+        invoke: "ergoms uninstall-services [-Purge|--purge]"
+        summary: "Удалить службы (с --purge — удалить данные)"
+      - name: logs
+        invoke: "ergoms logs <имя_службы> [строки]"
+        summary: "Журнал службы"
+      - name: setup-full
+        summary: "Полная первичная настройка без установки служб"
+      - name: install-cli
+        summary: "Установить CLI-обёртку ergoms"
+      - name: uninstall-cli
+        summary: "Удалить CLI-обёртку ergoms"
+
+  - id: development
+    title: "Локальная разработка"
+    commands:
+      - name: dev
+        summary: "Запуск API с прогревом кэшей (режим из API_DEPLOY_TYPE)"
+      - name: start-all
+        summary: "API, клиент, Media API, worker и beat (без служб ОС)"
+      - name: start-api
+        summary: "Только API"
+      - name: start-client
+        summary: "Клиент (Vite или nginx при NGINX_ENABLED=true)"
+      - name: start-media
+        summary: "Media API"
+      - name: start-worker
+        invoke: "ergoms start-worker [--worker=<имя>]"
+        summary: "Celery worker"
+      - name: start-beat
+        summary: "Celery beat"
+      - name: start-jupyter
+        summary: "Jupyter с Django-ядром"
+      - name: stop-worker
+        summary: "Остановить все Celery worker"
+      - name: stop-beat
+        summary: "Остановить Celery beat"
+      - name: sync-logs-services
+        summary: "Синхронизировать список служб для журналов VS Code"
+      - name: rotate-logs
+        summary: "Ротировать nginx/redis/client-dev по размеру (ERGO_LOG_INFRA_* в .env)"
+      - name: install-infra-log-rotate
+        summary: "Планировщик ежедневной ротации infra-логов (cron / Task Scheduler)"
+
+  - id: dependencies
+    title: "Зависимости и база данных"
+    commands:
+      - name: setup
+        summary: "Полная первичная настройка (git, venv, poetry, npm, migrate, static)"
+      - name: install-deps
+        summary: "Python + npm, миграции и прогрев кэшей"
+      - name: python-install
+        summary: "Установить Python-зависимости (api:install)"
+      - name: python-update
+        summary: "Обновить Python-зависимости (poetry update)"
+      - name: db-migrate
+        summary: "Применить миграции"
+      - name: db-makemigrations
+        summary: "Создать файлы миграций"
+      - name: migrate-all
+        summary: "Создать и применить миграции"
+      - name: update-all
+        summary: "Обновить зависимости Python и npm"
+      - name: reinstall
+        summary: "Переустановить зависимости (poetry install --sync, npm ci)"
+      - name: deps
+        summary: "Отчёт о зависимостях проекта"
+
+  - id: build
+    title: "Сборка"
+    commands:
+      - name: client-build
+        summary: "Собрать клиент (npm run build)"
+      - name: client-preview
+        summary: "Предпросмотр сборки клиента"
+      - name: build-all
+        summary: "Сборка клиента и collectstatic"
+      - name: collectstatic
+        summary: "Собрать статику Django"
+
+  - id: cache_env
+    title: "Кэши и конфигурация"
+    commands:
+      - name: warmup-caches
+        summary: "Прогреть кэши ядра (apps, celery, modules_env)"
+      - name: warmup-caches-if-needed
+        summary: "Прогрев только при пустом или устаревшем кэше"
+      - name: warmup-celery
+        summary: "Прогреть только celery-кэши"
+      - name: invalidate-caches
+        summary: "Сбросить все кэши ядра"
+      - name: invalidate-caches-warmup
+        summary: "Сбросить кэши и прогреть заново"
+      - name: env
+        summary: "Сверка .env с .env.example (корень и модули)"
+      - name: env-normalize
+        summary: "Нормализация .env по .env.example"
+      - name: geoip-download
+        summary: "Скачать базу GeoIP (DB-IP City Lite)"
+      - name: geoip-backfill
+        summary: "Заполнить city/country в сессиях по GeoIP"
+
+  - id: maintenance
+    title: "Обслуживание"
+    commands:
+      - name: clean
+        summary: "Удалить зависимости и static (media сохраняется)"
+      - name: clear-pycache
+        summary: "Удалить каталоги __pycache__"
+      - name: clean-pycache
+        invoke: "ergoms clean-pycache"
+        summary: "То же, что clear-pycache (запасной вариант имени)"
+      - name: maintenance-on
+        summary: "Включить режим технических работ"
+      - name: maintenance-off
+        summary: "Выключить режим технических работ"
+      - name: maintenance-status
+        summary: "Статус режима технических работ"
+      - name: restore-menu
+        summary: "Восстановить меню из миграций"
+      - name: sq-del-migrations
+        summary: "Объединить миграции приложения (squash)"
+      - name: safe-drop-app
+        summary: "Безопасно удалить Django-приложение"
+      - name: test-smtp
+        summary: "Проверка SMTP и отправка тестового письма"
+
+  - id: service_aliases
+    title: "Службы ОС (alias из commands.conf)"
+    note: "Для полного управления достаточно ergoms start, stop, restart, status."
+    commands:
+      - name: start-api-service
+        summary: "Запустить службу API"
+      - name: stop-api-service
+        summary: "Остановить службу API"
+      - name: restart-api-service
+        summary: "Перезапустить службу API"
+      - name: status-api-service
+        summary: "Статус службы API"
+      - name: start-client-service
+        summary: "Запустить службу клиента"
+      - name: stop-client-service
+        summary: "Остановить службу клиента"
+      - name: restart-client-service
+        summary: "Перезапустить службу клиента"
+      - name: status-client-service
+        summary: "Статус службы клиента"
+      - name: start-worker-service
+        summary: "Запустить службу worker"
+      - name: stop-worker-service
+        summary: "Остановить службу worker"
+      - name: restart-worker-service
+        summary: "Перезапустить службу worker"
+      - name: status-worker-service
+        summary: "Статус службы worker"
+      - name: start-beat-service
+        summary: "Запустить службу beat"
+      - name: stop-beat-service
+        summary: "Остановить службу beat"
+      - name: restart-beat-service
+        summary: "Перезапустить службу beat"
+      - name: status-beat-service
+        summary: "Статус службы beat"
+      - name: start-media-service
+        summary: "Запустить службу Media API"
+      - name: stop-media-service
+        summary: "Остановить службу Media API"
+      - name: restart-media-service
+        summary: "Перезапустить службу Media API"
+      - name: status-media-service
+        summary: "Статус службы Media API"
+      - name: start-all-services
+        summary: "Запустить все службы по отдельности"
+      - name: stop-all-services
+        summary: "Остановить все службы"
+      - name: restart-all-services
+        summary: "Перезапустить все службы"
+      - name: status-all-services
+        summary: "Статус всех служб"
+
+  - id: deploy
+    title: "Развёртывание"
+    commands:
+      - name: deploy-api
+        summary: "Обновить субмодули API, зависимости, миграции, static"
+      - name: deploy-client
+        summary: "Обновить субмодуль клиента, зависимости, сборка"
+      - name: deploy-api-dev
+        summary: "Развёртывание API и запуск в режиме разработки"
+      - name: deploy-client-dev
+        summary: "Развёртывание клиента и запуск dev-сервера"
+      - name: deploy-all
+        summary: "Полное развёртывание API и клиента"
+
+  - id: nginx
+    title: "Nginx (опционально)"
+    note: "Установка требует прав администратора; status-nginx и test-nginx — без них."
+    commands:
+      - name: install-nginx
+        summary: "Установить и запустить nginx"
+      - name: uninstall-nginx
+        summary: "Удалить конфигурацию nginx"
+      - name: start-nginx
+        summary: "Запустить nginx"
+      - name: stop-nginx
+        summary: "Остановить nginx"
+      - name: restart-nginx
+        summary: "Перезапустить nginx"
+      - name: reload-nginx
+        summary: "Проверить конфиг и перезагрузить nginx"
+      - name: status-nginx
+        summary: "Статус nginx"
+      - name: test-nginx
+        summary: "Проверить конфигурацию nginx"
+
+  - id: redis
+    title: "Redis (опционально)"
+    note: "Портable-сборка в virtual_env/packages/redis."
+    commands:
+      - name: install-redis
+        summary: "Установить и запустить Redis"
+      - name: uninstall-redis
+        summary: "Остановить Redis (--purge / -Purge удаляет пакеты)"
+      - name: start-redis
+        summary: "Запустить Redis"
+      - name: stop-redis
+        summary: "Остановить Redis"
+      - name: restart-redis
+        summary: "Перезапустить Redis"
+      - name: status-redis
+        summary: "Статус Redis"
+      - name: test-redis
+        summary: "Проверка redis-cli ping"
+
+  - id: extensions
+    title: "Расширения VS Code"
+    commands:
+      - name: install-extensions
+        summary: "Установить расширения из списка проекта"
+      - name: update-vsix
+        summary: "Обновить VSIX-расширения"
+      - name: uninstall-extensions
+        summary: "Удалить расширения проекта"
+
+  - id: submodules
+    title: "Git submodules"
+    commands:
+      - name: update-submodules
+        summary: "Обновить субмодули ядра и переключить на dev"
+      - name: update-module-submodules
+        summary: "Обновить субмодули модулей из .gitmodules"
+
+  - id: proxy
+    title: "Прокси"
+    static_lines:
+      - "ergoms api <команда_django> [аргументы]     — команды Django"
+      - "ergoms poetry <аргументы>                   — Poetry"
+      - "ergoms npm <аргументы>                      — npm"
+      - "ergoms media_api <аргументы>                — Media API manage.py"
+
+platform_sections:
+  windows:
+    - id: nginx_service
+      title: "Nginx как служба Windows"
+      commands:
+        - name: install-nginx-service
+          summary: "Установить nginx как службу Windows (автозапуск)"
+
+    - id: redis_service
+      title: "Redis как служба Windows"
+      commands:
+        - name: install-redis-service
+          summary: "Установить Redis как службу Windows (автозапуск)"
+
+  linux:
+    - id: tls
+      title: "TLS (Let's Encrypt, только Linux)"
+      note: "Требует root/sudo; status-tls — без root."
+      commands:
+        - name: install-tls
+          summary: "Выпустить сертификат и настроить HTTPS nginx"
+        - name: renew-tls
+          summary: "Обновить сертификаты (certbot renew)"
+        - name: status-tls
+          summary: "Срок действия сертификата и пути"
+
+    - id: redis_service
+      title: "Redis как служба systemd"
+      commands:
+        - name: install-redis-service
+          summary: "Установить Redis как unit systemd"
+
+scenarios:
+  - title: "Первичная настройка"
+    lines:
+      - "ergoms setup"
+      - "Проверить .env и databases.yaml"
+      - "ergoms migrate-all"
+  - title: "Разработка"
+    lines:
+      - "ergoms start-all"
+      - "или: ergoms dev и ergoms start-client в отдельных терминалах"
+
+footer:
+  doc: ".docs/cli.md"
+  config: "core/deployment/commands.conf"

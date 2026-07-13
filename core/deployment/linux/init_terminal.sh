@@ -18,11 +18,11 @@ ergoms() {
 # Wrappers: pass through when ergoms sets ERGOMS_INTERNAL=1; show hint for direct user calls.
 
 pip() {
-  echo -e "\033[33mUse: ergoms python-install or ergoms poetry add <package>\033[0m"
+  echo -e "\033[33mИспользуйте: ergoms python-install or ergoms poetry add <package>\033[0m"
 }
 
 pip3() {
-  echo -e "\033[33mUse: ergoms python-install or ergoms poetry add <package>\033[0m"
+  echo -e "\033[33mИспользуйте: ergoms python-install or ergoms poetry add <package>\033[0m"
 }
 
 poetry() {
@@ -30,7 +30,7 @@ poetry() {
     command poetry "$@"
     return
   fi
-  echo -e "\033[33mUse: ergoms poetry <args>, e.g. ergoms poetry install, ergoms python-install, ergoms python-update\033[0m"
+  echo -e "\033[33mИспользуйте: ergoms poetry <args>, e.g. ergoms poetry install, ergoms python-install, ergoms python-update\033[0m"
 }
 
 npm() {

@@ -19,6 +19,9 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEPLOYMENT_DIR = PROJECT_ROOT / 'core' / 'deployment'
+SCRIPTS_DIR = DEPLOYMENT_DIR / 'scripts'
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
 TEMPLATE_PATH = DEPLOYMENT_DIR / 'redis' / 'redis.conf.template'
 
 REDIS_LINUX_VERSION = '7.4.2'
@@ -31,11 +34,11 @@ REDIS_LINUX_FALLBACK_URL = (
 DOWNLOAD_USER_AGENT = 'ergoms/1.0 (Redis installer)'
 DOWNLOAD_TIMEOUT_SEC = 300
 
-REDIS_WINDOWS_VERSION = '5.0.14.1'
-REDIS_WINDOWS_ZIP = f'Redis-x64-{REDIS_WINDOWS_VERSION}.zip'
+REDIS_WINDOWS_VERSION = '7.4.9'
+REDIS_WINDOWS_ZIP = f'Redis-{REDIS_WINDOWS_VERSION}-Windows-x64-msys2.zip'
 REDIS_WINDOWS_URL = (
-    f'https://github.com/tporadowski/redis/releases/download/v{REDIS_WINDOWS_VERSION}/'
-    f'{REDIS_WINDOWS_ZIP}'
+    f'https://github.com/redis-windows/redis-windows/releases/download/'
+    f'{REDIS_WINDOWS_VERSION}/{REDIS_WINDOWS_ZIP}'
 )
 
 DEFAULT_PORT = 6379
@@ -155,19 +158,61 @@ def _ensure_layout(root: Path) -> dict[str, Path]:
     return paths
 
 
+def _windows_redis_version(root: Path) -> str | None:
+    server = redis_server_path(root)
+    if not server.is_file():
+        return None
+    try:
+        result = subprocess.run(
+            [str(server), '--version'],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return None
+    match = re.search(r'v=(\d+\.\d+\.\d+)', (result.stdout or '') + (result.stderr or ''))
+    return match.group(1) if match else None
+
+
+def _find_windows_redis_source(extract_dir: Path) -> Path:
+    for pattern in ('Redis-*-Windows-x64-msys2', 'Redis-x64-*'):
+        nested = sorted(extract_dir.glob(pattern))
+        if nested:
+            return nested[0]
+    return extract_dir
+
+
+def _copy_windows_redis_binaries(source_root: Path, dest: Path) -> None:
+    copied = 0
+    for pattern in ('*.exe', '*.dll'):
+        for src in source_root.glob(pattern):
+            shutil.copy2(src, dest / src.name)
+            copied += 1
+    if copied == 0:
+        raise RuntimeError(f'Expected Redis binaries in Windows archive: {source_root}')
+
+
 def render_redis_conf(root: Path, port: int = DEFAULT_PORT, bind: str = DEFAULT_BIND) -> Path:
+    from log_env import log_file_path, redis_log_level
+    from logs_paths import ensure_logs_dir
+
     paths = _ensure_layout(root)
     template = TEMPLATE_PATH.read_text(encoding='utf-8')
     conf_path = paths['conf'] / 'redis.conf'
+    central_log = log_file_path('REDIS', root)
+    ensure_logs_dir(root)
+    log_level = redis_log_level(root)
 
     if platform.system().lower() == 'windows':
         pidfile = (paths['run'] / 'redis.pid').as_posix()
-        logfile = (paths['logs'] / 'redis.log').as_posix()
+        logfile = central_log.as_posix()
         data_dir = paths['data'].as_posix()
         daemonize = 'no'
     else:
         pidfile = str(paths['run'] / 'redis.pid')
-        logfile = str(paths['logs'] / 'redis.log')
+        logfile = str(central_log)
         data_dir = str(paths['data'])
         daemonize = 'yes'
 
@@ -177,6 +222,7 @@ def render_redis_conf(root: Path, port: int = DEFAULT_PORT, bind: str = DEFAULT_
         .replace('{{REDIS_DAEMONIZE}}', daemonize)
         .replace('{{REDIS_PIDFILE}}', pidfile)
         .replace('{{REDIS_LOGFILE}}', logfile)
+        .replace('{{REDIS_LOGLEVEL}}', log_level)
         .replace('{{REDIS_DATA_DIR}}', data_dir)
     )
     conf_path.write_text(content, encoding='utf-8')
@@ -186,14 +232,29 @@ def render_redis_conf(root: Path, port: int = DEFAULT_PORT, bind: str = DEFAULT_
 def _install_windows(root: Path, force: bool) -> None:
     paths = _ensure_layout(root)
     server = redis_server_path(root)
-    if server.is_file() and not force:
-        print('[ergoms] Redis already installed (use --force to reinstall)')
-        return
+    installed_version = _windows_redis_version(root) if server.is_file() else None
+    if installed_version and not force:
+        if installed_version == REDIS_WINDOWS_VERSION:
+            print('[ergoms] Redis already installed (use --force to reinstall)')
+            return
+        print(
+            f'[ergoms] Upgrading Redis {installed_version} -> {REDIS_WINDOWS_VERSION}...'
+        )
+        force = True
 
     if force and paths['base'].exists():
-        for name in ('redis-server.exe', 'redis-cli.exe', 'redis.windows.conf', 'redis.windows-service.conf'):
+        legacy_names = (
+            'redis-server.exe',
+            'redis-cli.exe',
+            'redis.windows.conf',
+            'redis.windows-service.conf',
+        )
+        for name in legacy_names:
             target = paths['base'] / name
             if target.is_file():
+                target.unlink()
+        for target in paths['base'].iterdir():
+            if target.is_file() and target.suffix.lower() in {'.exe', '.dll'}:
                 target.unlink()
         bin_dir = paths['base'] / 'bin'
         if bin_dir.is_dir():
@@ -208,18 +269,13 @@ def _install_windows(root: Path, force: bool) -> None:
         with zipfile.ZipFile(zip_path, 'r') as archive:
             archive.extractall(extract_dir)
 
-        source_root = extract_dir
-        nested = list(extract_dir.glob('Redis-x64-*'))
-        if nested:
-            source_root = nested[0]
+        source_root = _find_windows_redis_source(extract_dir)
+        _copy_windows_redis_binaries(source_root, paths['base'])
 
-        for exe_name in ('redis-server.exe', 'redis-cli.exe'):
-            src = source_root / exe_name
-            if not src.is_file():
-                raise RuntimeError(f'Expected {exe_name} in Windows Redis archive')
-            shutil.copy2(src, paths['base'] / exe_name)
-
-    print(f'[ergoms] Redis {REDIS_WINDOWS_VERSION} (Windows port) installed to {paths["base"]}')
+    print(
+        f'[ergoms] Redis {REDIS_WINDOWS_VERSION} (Windows, redis-windows/msys2) '
+        f'installed to {paths["base"]}'
+    )
 
 
 def _linux_build_tools_hint() -> str:

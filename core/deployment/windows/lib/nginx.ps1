@@ -1,4 +1,4 @@
-# Nginx management for Windows
+﻿# Nginx management for Windows
 # Установка, настройка и управление nginx на Windows
 
 $script:NginxVersion = '1.27.4'
@@ -76,11 +76,53 @@ function Read-NginxEnv {
     return $result
 }
 
+function Invoke-NginxLogEnv {
+    param(
+        [string]$Root,
+        [Parameter(Mandatory = $true)]
+        [string]$Command,
+        [string]$Key = ''
+    )
+
+    $pythonExe = Join-Path $Root 'virtual_env\python\Scripts\python.exe'
+    $scriptPath = Join-Path $Root 'core\deployment\scripts\log_env.py'
+    if (-not (Test-Path $pythonExe) -or -not (Test-Path $scriptPath)) {
+        return ''
+    }
+
+    $args = @($scriptPath, $Command)
+    if ($Key) {
+        $args += $Key
+    }
+    $args += $Root
+    return (& $pythonExe @args 2>$null)
+}
+
+function Get-NginxCentralLogsDir {
+    param([string]$Root)
+
+    $dir = Invoke-NginxLogEnv -Root $Root -Command 'logs-dir'
+    if ($dir) {
+        return $dir
+    }
+    return Join-Path $Root 'logs'
+}
+
+function Get-NginxErrorLogPath {
+    param([string]$Root)
+
+    $path = Invoke-NginxLogEnv -Root $Root -Command 'path' -Key 'NGINX_ERROR'
+    if ($path) {
+        return $path
+    }
+    return Join-Path (Get-NginxCentralLogsDir -Root $Root) 'nginx-error.log'
+}
+
 function Stop-NginxLegacyInstall {
     $legacyExe = Join-Path $script:NginxLegacyBaseDir "nginx.exe"
     if (-not (Test-Path $legacyExe)) { return }
 
-    Write-ColorOutput "-> Stopping legacy nginx from $script:NginxLegacyBaseDir..." Yellow
+    Write-ColorOutput "-> Остановка устаревшего nginx из $script:NginxLegacyBaseDir..." Yellow
 
     $service = Get-Service -Name $script:NginxServiceName -ErrorAction SilentlyContinue
     if ($service -and $service.Status -eq 'Running') {
@@ -108,7 +150,7 @@ function Remove-NginxLegacyInstall {
     if (-not (Test-Path $script:NginxLegacyBaseDir)) { return }
 
     Remove-Item $script:NginxLegacyBaseDir -Recurse -Force -ErrorAction SilentlyContinue
-    Write-ColorOutput "[OK] Removed legacy nginx: $script:NginxLegacyBaseDir" Green
+    Write-ColorOutput "[OK] Удалена устаревшая установка nginx: $script:NginxLegacyBaseDir" Green
 }
 
 function Install-NginxBinary {
@@ -118,11 +160,11 @@ function Install-NginxBinary {
     $nginxExe = Get-NginxExe -Root $Root
 
     if (Test-Path $nginxExe) {
-        Write-ColorOutput "[OK] Nginx already installed: $nginxDir" Green
+        Write-ColorOutput "[OK] Nginx уже установлен: $nginxDir" Green
         return $nginxExe
     }
 
-    Write-ColorOutput "-> Downloading nginx $script:NginxVersion..." Yellow
+    Write-ColorOutput "-> Загрузка nginx $script:NginxVersion..." Yellow
 
     $tempZip = Join-Path $env:TEMP "nginx.zip"
     $tempExtract = Join-Path $env:TEMP "nginx_extract"
@@ -148,7 +190,7 @@ function Install-NginxBinary {
         New-Item -ItemType Directory -Path (Split-Path $nginxDir -Parent) -Force | Out-Null
         Move-Item -Path $extractedDir.FullName -Destination $nginxDir -Force
 
-        Write-ColorOutput "[OK] Nginx installed to $nginxDir" Green
+        Write-ColorOutput "[OK] Nginx установлен в $nginxDir" Green
     }
     finally {
         if (Test-Path $tempZip) { Remove-Item $tempZip -Force }
@@ -193,17 +235,17 @@ function Warn-NginxInsecureCerts {
     )
 
     if ([string]::IsNullOrWhiteSpace($CertPath) -or [string]::IsNullOrWhiteSpace($KeyPath)) {
-        Write-ColorOutput "[WARN] ERGO_SSL_CERT / ERGO_SSL_KEY not set. HTTPS will fail nginx -t." Yellow
+        Write-ColorOutput "[WARNING] ERGO_SSL_CERT / ERGO_SSL_KEY не заданы. HTTPS не пройдёт nginx -t." Yellow
         return
     }
     if ($CertPath -like '*snakeoil*' -or $KeyPath -like '*snakeoil*') {
-        Write-ColorOutput "[WARN] Self-signed snakeoil certificate. Use a trusted cert for production." Yellow
+        Write-ColorOutput "[WARNING] Используется самоподписанный сертификат. Для production — Let's Encrypt." Yellow
     }
     if (-not (Test-Path $CertPath)) {
-        Write-ColorOutput "[WARN] SSL certificate not found: $CertPath" Yellow
+        Write-ColorOutput "[WARNING] SSL-сертификат не найден: $CertPath" Yellow
     }
     if (-not (Test-Path $KeyPath)) {
-        Write-ColorOutput "[WARN] SSL private key not found: $KeyPath" Yellow
+        Write-ColorOutput "[WARNING] Приватный ключ SSL не найден: $KeyPath" Yellow
     }
 }
 
@@ -247,7 +289,7 @@ function Render-NginxTemplate {
             return [string]$output
         }
         if ($LASTEXITCODE -ne 0 -and $output) {
-            Write-ColorOutput "[WARN] render_nginx_config.py failed, using fallback renderer" Yellow
+            Write-ColorOutput "[WARNING] render_nginx_config.py завершился с ошибкой, используется запасной рендерер" Yellow
             $output | ForEach-Object { Write-ColorOutput $_ Yellow }
         }
     }
@@ -290,7 +332,7 @@ function Install-NginxConfig {
 
     $templatePath = Get-NginxTemplatePath -Root $Root -EnvVars $EnvVars -ListenPort $ListenPort
     if (-not (Test-Path $templatePath)) {
-        Write-ColorOutput "[ERROR] Template not found: $templatePath" Red
+        Write-ColorOutput "[ERROR] Шаблон не найден: $templatePath" Red
         throw "Template not found"
     }
 
@@ -303,10 +345,10 @@ function Install-NginxConfig {
 
     $distPath = Join-Path $Root "core\client\dist"
     if (-not (Test-Path (Join-Path $distPath "index.html"))) {
-        Write-ColorOutput "[ERROR] $distPath\index.html not found." Red
-        Write-ColorOutput "  Nginx serves production build, not Vite dev. Run:" Yellow
+        Write-ColorOutput "[ERROR] $distPath\index.html не найден." Red
+        Write-ColorOutput "  Nginx отдаёт production-сборку, не Vite dev. Выполните:" Yellow
         Write-ColorOutput "    ergoms client-build" Yellow
-        Write-ColorOutput "  Then: ergoms install-nginx" Yellow
+        Write-ColorOutput "  Затем: ergoms install-nginx" Yellow
         throw "Client build not found"
     }
 
@@ -319,19 +361,19 @@ function Install-NginxConfig {
     New-Item -ItemType Directory -Path $confDir -Force | Out-Null
 
     [System.IO.File]::WriteAllText($confPath, $rendered, [System.Text.UTF8Encoding]::new($false))
-    Write-ColorOutput "[OK] Config written: $confPath" Green
+    Write-ColorOutput "[OK] Конфиг записан: $confPath" Green
 
     $mainConf = Join-Path $confDir "nginx.conf"
-    Write-NginxMainConfig -MainConfPath $mainConf -IncludeConfPath $confPath -NginxDir $nginxDir
+    Write-NginxMainConfig -Root $Root -MainConfPath $mainConf -IncludeConfPath $confPath -NginxDir $nginxDir
 
-    Write-ColorOutput "-> Testing nginx configuration..." Cyan
+    Write-ColorOutput "-> Проверка конфигурации nginx..." Cyan
     $testResult = Invoke-NginxCli -NginxExe $nginxExe -Arguments @('-t', '-c', $mainConf) -WorkingDirectory $nginxDir
     if ($testResult.ExitCode -ne 0) {
-        Write-ColorOutput "[ERROR] nginx -t failed:" Red
+        Write-ColorOutput "[ERROR] nginx -t завершился с ошибкой:" Red
         Write-ColorOutput ($testResult.Output -join "`n") Red
         throw "Nginx config test failed"
     }
-    Write-ColorOutput "[OK] Configuration valid" Green
+    Write-ColorOutput "[OK] Конфигурация корректна" Green
 
     return @{
         NginxExe = $nginxExe
@@ -344,23 +386,48 @@ function Install-NginxConfig {
 
 function Write-NginxMainConfig {
     param(
+        [string]$Root,
         [string]$MainConfPath,
         [string]$IncludeConfPath,
         [string]$NginxDir
     )
 
     $includeForward = $IncludeConfPath -replace '\\', '/'
-    $logsDir = (Join-Path $NginxDir "logs") -replace '\\', '/'
-    $tempDir = (Join-Path $NginxDir "temp") -replace '\\', '/'
+    $runtimeLogsDir = (Join-Path $NginxDir 'logs') -replace '\\', '/'
+    $centralLogsDir = (Get-NginxCentralLogsDir -Root $Root) -replace '\\', '/'
+    $tempDir = (Join-Path $NginxDir 'temp') -replace '\\', '/'
 
-    New-Item -ItemType Directory -Path (Join-Path $NginxDir "logs") -Force | Out-Null
-    New-Item -ItemType Directory -Path (Join-Path $NginxDir "temp") -Force | Out-Null
+    $errorLogPath = (Invoke-NginxLogEnv -Root $Root -Command 'path' -Key 'NGINX_ERROR') -replace '\\', '/'
+    if (-not $errorLogPath) {
+        $errorLogPath = "$centralLogsDir/nginx-error.log"
+    }
+
+    $nginxErrorLevel = Invoke-NginxLogEnv -Root $Root -Command 'nginx-error-level'
+    if (-not $nginxErrorLevel) {
+        $nginxErrorLevel = 'warn'
+    }
+
+    $accessEnabled = Invoke-NginxLogEnv -Root $Root -Command 'nginx-access-enabled'
+    if ($accessEnabled -eq 'false') {
+        $accessLogLine = 'access_log off;'
+    }
+    else {
+        $accessLogPath = (Invoke-NginxLogEnv -Root $Root -Command 'path' -Key 'NGINX_ACCESS') -replace '\\', '/'
+        if (-not $accessLogPath) {
+            $accessLogPath = "$centralLogsDir/nginx-access.log"
+        }
+        $accessLogLine = "access_log $accessLogPath;"
+    }
+
+    New-Item -ItemType Directory -Path (Join-Path $NginxDir 'logs') -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $NginxDir 'temp') -Force | Out-Null
+    New-Item -ItemType Directory -Path $centralLogsDir -Force | Out-Null
 
     $mainContent = @"
 worker_processes auto;
 
-error_log $logsDir/error.log;
-pid       $logsDir/nginx.pid;
+error_log $errorLogPath $nginxErrorLevel;
+pid       $runtimeLogsDir/nginx.pid;
 
 events {
     worker_connections 1024;
@@ -370,7 +437,7 @@ http {
     include       mime.types;
     default_type  application/octet-stream;
 
-    access_log $logsDir/access.log;
+    $accessLogLine
 
     sendfile        on;
     keepalive_timeout 65;
@@ -418,7 +485,7 @@ function Install-Nginx {
     if (-not $ListenPort) { $ListenPort = if ($envVars['NGINX_LISTEN_PORT']) { $envVars['NGINX_LISTEN_PORT'] } else { '80' } }
 
     Write-ColorOutput "" White
-    Write-ColorOutput "=== Nginx: Install ===" Cyan
+    Write-ColorOutput "=== Nginx: установка ===" Cyan
     Write-ColorOutput "" White
 
     $config = Install-NginxConfig -Root $Root -ServerName $ServerName -ListenHost $ListenHost `
@@ -434,22 +501,22 @@ function Install-Nginx {
     $nginxDir = Get-NginxDir -Root $Root
     $useHttps = Test-NginxUseHttps -EnvVars $envVars -ListenPort $ListenPort
     Write-ColorOutput "" White
-    Write-ColorOutput "[OK] Nginx installed and running" Green
-    if ($useHttps) {
-        Write-ColorOutput "    Listening: https://${ServerName}:443" Cyan
+    Write-ColorOutput "[OK] Nginx установлен и запущен" Green
+        if ($useHttps) {
+        Write-ColorOutput "    Прослушивание: https://${ServerName}:443" Cyan
     } else {
-        Write-ColorOutput "    Listening: http://${ServerName}:${ListenPort} (bind ${ListenHost})" Cyan
+        Write-ColorOutput "    Прослушивание: http://${ServerName}:${ListenPort} (bind ${ListenHost})" Cyan
     }
-    Write-ColorOutput "    Path: $nginxDir" Cyan
-    Write-ColorOutput "    Config: $($config.SiteConf)" Cyan
-    Write-ColorOutput "    Logs: $(Join-Path $nginxDir 'logs')" Cyan
+    Write-ColorOutput "    Путь: $nginxDir" Cyan
+    Write-ColorOutput "    Конфиг: $($config.SiteConf)" Cyan
+    Write-ColorOutput "    Логи: $(Get-NginxCentralLogsDir -Root $Root)" Cyan
 }
 
 function Install-NginxService {
     param([string]$Root)
 
     if (-not (Test-NginxInstalled -Root $Root)) {
-        Write-ColorOutput "[ERROR] Nginx not installed. Run: ergoms install-nginx" Red
+        Write-ColorOutput "[ERROR] Nginx не установлен. Выполните: ergoms install-nginx" Red
         return
     }
 
@@ -460,7 +527,7 @@ function Install-NginxService {
 
     $existingService = Get-Service -Name $script:NginxServiceName -ErrorAction SilentlyContinue
     if ($existingService) {
-        Write-ColorOutput "-> Service $($script:NginxServiceName) already exists, reinstalling..." Yellow
+        Write-ColorOutput "-> Служба $($script:NginxServiceName) уже существует, переустановка..." Yellow
         if ($existingService.Status -eq 'Running') {
             & $nssmExe stop $script:NginxServiceName 2>$null
             Start-Sleep -Seconds 2
@@ -469,7 +536,7 @@ function Install-NginxService {
         Start-Sleep -Seconds 1
     }
 
-    Write-ColorOutput "-> Installing nginx as Windows service..." Cyan
+    Write-ColorOutput "-> Установка nginx как службы Windows..." Cyan
     & $nssmExe install $script:NginxServiceName $nginxExe
     & $nssmExe set $script:NginxServiceName AppParameters "-c `"$($mainConf -replace '\\', '/')`""
     & $nssmExe set $script:NginxServiceName AppDirectory $nginxDir
@@ -484,21 +551,65 @@ function Install-NginxService {
     & $nssmExe set $script:NginxServiceName AppRestartDelay 5000
 
     Start-Service -Name $script:NginxServiceName
-    Write-ColorOutput "[OK] Nginx service installed and started" Green
+    Write-ColorOutput "[OK] Служба nginx установлена и запущена" Green
+}
+
+function Test-NginxProcessRunning {
+    param([string]$Root = '')
+
+    $service = Get-Service -Name $script:NginxServiceName -ErrorAction SilentlyContinue
+    if ($service -and $service.Status -eq 'Running') {
+        return $true
+    }
+    if ($null -ne (Get-Process -Name 'nginx' -ErrorAction SilentlyContinue)) {
+        return $true
+    }
+    if ($Root -and (Test-NginxInstalled -Root $Root)) {
+        $pidFile = Join-Path (Get-NginxDir -Root $Root) 'logs\nginx.pid'
+        if (Test-Path $pidFile) {
+            $pidText = (Get-Content -Path $pidFile -ErrorAction SilentlyContinue | Select-Object -First 1)
+            if ($pidText -match '^\d+$') {
+                if (Get-Process -Id ([int]$pidText) -ErrorAction SilentlyContinue) {
+                    return $true
+                }
+            }
+        }
+    }
+    return $false
 }
 
 function Stop-NginxProcess {
-    param([string]$Root = '')
+    param(
+        [string]$Root = '',
+        [switch]$Quiet
+    )
 
-    if (Test-Path (Join-Path $script:NginxLegacyBaseDir "nginx.exe")) {
+    if (-not (Test-NginxProcessRunning -Root $Root)) {
+        if (-not $Quiet) {
+            Write-ColorOutput '[SKIP] Nginx не был запущен' Gray
+        }
+        return
+    }
+
+    if (Test-Path (Join-Path $script:NginxLegacyBaseDir 'nginx.exe')) {
         Stop-NginxLegacyInstall
+        if (-not (Test-NginxProcessRunning -Root $Root)) {
+            if (-not $Quiet) {
+                Write-ColorOutput '[OK] Nginx остановлен' Green
+            }
+            return
+        }
     }
 
     $service = Get-Service -Name $script:NginxServiceName -ErrorAction SilentlyContinue
     if ($service -and $service.Status -eq 'Running') {
-        Write-ColorOutput "-> Stopping nginx service..." Cyan
+        Write-ColorOutput '-> Остановка службы nginx...' Cyan
         Stop-Service -Name $script:NginxServiceName -Force
-        Write-ColorOutput "[OK] Nginx service stopped" Green
+        if (Test-NginxProcessRunning -Root $Root) {
+            Write-ColorOutput '[ERROR] Не удалось остановить службу nginx' Red
+            exit 1
+        }
+        Write-ColorOutput '[OK] Служба nginx остановлена' Green
         return
     }
 
@@ -506,33 +617,38 @@ function Stop-NginxProcess {
         $nginxDir = Get-NginxDir -Root $Root
         $nginxExe = Get-NginxExe -Root $Root
         if (Test-Path $nginxExe) {
-            $mainConf = (Join-Path $nginxDir "conf\nginx.conf") -replace '\\', '/'
-            Write-ColorOutput "-> Stopping nginx process..." Cyan
+            $mainConf = (Join-Path $nginxDir 'conf\nginx.conf') -replace '\\', '/'
+            Write-ColorOutput '-> Остановка процесса nginx...' Cyan
             Invoke-NginxCli -NginxExe $nginxExe -Arguments @('-s', 'quit', '-c', $mainConf) -WorkingDirectory $nginxDir | Out-Null
+            Start-Sleep -Seconds 1
         }
-        $pidFile = Join-Path $nginxDir "logs\nginx.pid"
+        $pidFile = Join-Path $nginxDir 'logs\nginx.pid'
         if (Test-Path $pidFile) {
             Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
         }
     }
 
-    $procs = Get-Process -Name "nginx" -ErrorAction SilentlyContinue
+    $procs = Get-Process -Name 'nginx' -ErrorAction SilentlyContinue
     if ($procs) {
         $procs | Stop-Process -Force -ErrorAction SilentlyContinue
     }
 
-    Write-ColorOutput "[OK] Nginx stopped" Green
+    if (Test-NginxProcessRunning -Root $Root) {
+        Write-ColorOutput '[ERROR] Не удалось остановить nginx' Red
+        exit 1
+    }
+    Write-ColorOutput '[OK] Nginx остановлен' Green
 }
 
 function Start-NginxProcess {
     param([string]$Root)
 
     if (-not (Test-NginxInstalled -Root $Root)) {
-        Write-ColorOutput "[ERROR] Nginx not installed. Run: ergoms install-nginx" Red
+        Write-ColorOutput "[ERROR] Nginx не установлен. Выполните: ergoms install-nginx" Red
         return
     }
 
-    Stop-NginxProcess -Root $Root 2>$null
+    Stop-NginxProcess -Root $Root -Quiet
 
     $nginxDir = Get-NginxDir -Root $Root
     $nginxExe = Get-NginxExe -Root $Root
@@ -542,7 +658,7 @@ function Start-NginxProcess {
         Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
     }
 
-    Write-ColorOutput "-> Starting nginx..." Cyan
+    Write-ColorOutput "-> Запуск nginx..." Cyan
     Push-Location $nginxDir
     try {
         Start-Process -FilePath $nginxExe -ArgumentList "-c", $mainConf -WindowStyle Hidden -WorkingDirectory $nginxDir
@@ -555,10 +671,10 @@ function Start-NginxProcess {
 
     $procs = @(Get-Process -Name "nginx" -ErrorAction SilentlyContinue)
     if ($procs.Count -gt 0) {
-        Write-ColorOutput "[OK] Nginx started ($($procs.Count) process(es), master PID: $($procs[0].Id))" Green
+        Write-ColorOutput "[OK] Nginx запущен ($($procs.Count) проц., master PID: $($procs[0].Id))" Green
     }
     else {
-        Write-ColorOutput "[ERROR] Nginx failed to start. Check logs: $(Join-Path $nginxDir 'logs\error.log')" Red
+        Write-ColorOutput "[ERROR] Nginx не запустился. Проверьте логи: $(Get-NginxErrorLogPath -Root $Root)" Red
     }
 }
 
@@ -566,15 +682,15 @@ function Restart-NginxProcess {
     param([string]$Root)
 
     if (-not (Test-NginxInstalled -Root $Root)) {
-        Write-ColorOutput "[ERROR] Nginx not installed. Run: ergoms install-nginx" Red
+        Write-ColorOutput "[ERROR] Nginx не установлен. Выполните: ergoms install-nginx" Red
         return
     }
 
     $service = Get-Service -Name $script:NginxServiceName -ErrorAction SilentlyContinue
     if ($service) {
-        Write-ColorOutput "-> Restarting nginx service..." Cyan
+        Write-ColorOutput "-> Перезапуск службы nginx..." Cyan
         Restart-Service -Name $script:NginxServiceName -Force
-        Write-ColorOutput "[OK] Nginx service restarted" Green
+        Write-ColorOutput "[OK] Служба nginx перезапущена" Green
         return
     }
 
@@ -586,26 +702,32 @@ function Invoke-NginxReload {
     param([string]$Root)
 
     if (-not (Test-NginxInstalled -Root $Root)) {
-        Write-ColorOutput "[ERROR] Nginx not installed. Run: ergoms install-nginx" Red
+        Write-ColorOutput "[ERROR] Nginx не установлен. Выполните: ergoms install-nginx" Red
         return
     }
 
     $nginxDir = Get-NginxDir -Root $Root
     $nginxExe = Get-NginxExe -Root $Root
-    $mainConf = (Join-Path $nginxDir "conf\nginx.conf") -replace '\\', '/'
+    $mainConf = Join-Path $nginxDir 'conf\nginx.conf'
+    $siteConf = Join-Path $nginxDir "conf\$($script:NginxConfName).conf"
+    if (Test-Path $siteConf) {
+        Write-NginxMainConfig -Root $Root -MainConfPath $mainConf -IncludeConfPath $siteConf -NginxDir $nginxDir
+    }
 
-    Write-ColorOutput "-> Testing configuration..." Cyan
-    $testResult = Invoke-NginxCli -NginxExe $nginxExe -Arguments @('-t', '-c', $mainConf) -WorkingDirectory $nginxDir
+    $mainConfForward = $mainConf -replace '\\', '/'
+
+    Write-ColorOutput "-> Проверка конфигурации..." Cyan
+    $testResult = Invoke-NginxCli -NginxExe $nginxExe -Arguments @('-t', '-c', $mainConfForward) -WorkingDirectory $nginxDir
     if ($testResult.ExitCode -ne 0) {
-        Write-ColorOutput "[ERROR] Configuration test failed:" Red
+        Write-ColorOutput "[ERROR] Проверка конфигурации завершилась с ошибкой:" Red
         Write-ColorOutput ($testResult.Output -join "`n") Red
         return
     }
 
-    Write-ColorOutput "-> Reloading nginx..." Cyan
-    Invoke-NginxCli -NginxExe $nginxExe -Arguments @('-s', 'reload', '-c', $mainConf) -WorkingDirectory $nginxDir | Out-Null
+    Write-ColorOutput "-> Перезагрузка nginx..." Cyan
+    Invoke-NginxCli -NginxExe $nginxExe -Arguments @('-s', 'reload', '-c', $mainConfForward) -WorkingDirectory $nginxDir | Out-Null
 
-    Write-ColorOutput "[OK] Nginx reloaded" Green
+    Write-ColorOutput "[OK] Nginx перезагружен" Green
 }
 
 function Show-NginxStatus {
@@ -616,16 +738,16 @@ function Show-NginxStatus {
     $legacyExists = Test-Path (Join-Path $script:NginxLegacyBaseDir "nginx.exe")
 
     if (-not $installed -and -not $legacyExists) {
-        Write-ColorOutput "Nginx: Not installed" DarkGray
-        Write-ColorOutput "  Expected path: $nginxDir" DarkGray
+        Write-ColorOutput "Nginx: не установлен" DarkGray
+        Write-ColorOutput "  Ожидаемый путь: $nginxDir" DarkGray
         return
     }
 
     Write-ColorOutput "" White
-    Write-ColorOutput "=== Nginx Status ===" Cyan
+    Write-ColorOutput "=== Статус Nginx ===" Cyan
 
     if ($legacyExists) {
-        Write-ColorOutput "  Legacy install: $script:NginxLegacyBaseDir (run ergoms install-nginx to migrate)" Yellow
+        Write-ColorOutput "  Устаревшая установка: $script:NginxLegacyBaseDir (выполните ergoms install-nginx для миграции)" Yellow
     }
 
     $service = Get-Service -Name $script:NginxServiceName -ErrorAction SilentlyContinue
@@ -642,21 +764,21 @@ function Show-NginxStatus {
         $procs = Get-Process -Name "nginx" -ErrorAction SilentlyContinue
         if ($procs) {
             Write-Host "  Process: " -NoNewline
-            Write-ColorOutput "Running (PID: $($procs[0].Id))" Green
+            Write-ColorOutput "Запущен (PID: $($procs[0].Id))" Green
         }
         else {
             Write-Host "  Process: " -NoNewline
-            Write-ColorOutput "Not running" Red
+            Write-ColorOutput "Не запущен" Red
         }
     }
 
     if ($installed) {
-        Write-ColorOutput "  Path: $nginxDir" Cyan
+        Write-ColorOutput "  Путь: $nginxDir" Cyan
         $confPath = Join-Path $nginxDir "conf\${script:NginxConfName}.conf"
         if (Test-Path $confPath) {
-            Write-ColorOutput "  Config: Installed ($confPath)" Cyan
+            Write-ColorOutput "  Конфиг: установлен ($confPath)" Cyan
         }
-        Write-ColorOutput "  Logs: $(Join-Path $nginxDir 'logs')" Cyan
+        Write-ColorOutput "  Логи: $(Get-NginxCentralLogsDir -Root $Root)" Cyan
     }
 
     Write-ColorOutput "" White
@@ -666,7 +788,7 @@ function Test-NginxConfig {
     param([string]$Root)
 
     if (-not (Test-NginxInstalled -Root $Root)) {
-        Write-ColorOutput "[ERROR] Nginx not installed" Red
+        Write-ColorOutput "[ERROR] Nginx не установлен" Red
         return
     }
 
@@ -687,14 +809,14 @@ function Uninstall-Nginx {
     )
 
     Write-ColorOutput "" White
-    Write-ColorOutput "=== Nginx: Uninstall ===" Cyan
+    Write-ColorOutput "=== Nginx: удаление ===" Cyan
     Write-ColorOutput "" White
 
     Remove-NginxLegacyInstall
 
     $service = Get-Service -Name $script:NginxServiceName -ErrorAction SilentlyContinue
     if ($service) {
-        Write-ColorOutput "-> Removing nginx service..." Yellow
+        Write-ColorOutput "-> Удаление службы nginx..." Yellow
         if ($service.Status -eq 'Running') {
             Stop-Service -Name $script:NginxServiceName -Force
             Start-Sleep -Seconds 2
@@ -708,24 +830,24 @@ function Uninstall-Nginx {
         else {
             sc.exe delete $script:NginxServiceName 2>$null
         }
-        Write-ColorOutput "[OK] Service removed" Green
+        Write-ColorOutput "[OK] Служба удалена" Green
     }
     else {
-        Stop-NginxProcess -Root $Root 2>$null
+        Stop-NginxProcess -Root $Root -Quiet
     }
 
     $nginxDir = Get-NginxDir -Root $Root
     if ($PurgeData -and (Test-Path $nginxDir)) {
         Remove-Item $nginxDir -Recurse -Force
-        Write-ColorOutput "[OK] Removed: $nginxDir" Green
+        Write-ColorOutput "[OK] Удалено: $nginxDir" Green
     }
     elseif (Test-Path $nginxDir) {
         $confPath = Join-Path $nginxDir "conf\${script:NginxConfName}.conf"
         if (Test-Path $confPath) {
             Remove-Item $confPath -Force
-            Write-ColorOutput "[OK] Removed config: $confPath" Green
+            Write-ColorOutput "[OK] Конфиг удалён: $confPath" Green
         }
     }
 
-    Write-ColorOutput "[OK] Nginx uninstalled" Green
+    Write-ColorOutput "[OK] Nginx удалён" Green
 }

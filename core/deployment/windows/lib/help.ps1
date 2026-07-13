@@ -1,4 +1,4 @@
-# Help system
+﻿# Help system
 # Система помощи
 
 function Show-Help {
@@ -196,7 +196,7 @@ Examples:
         ergoms uninstall-nginx
 
     Redis (optional, portable packages):
-        ergoms install-redis --configure     (install & start, like install-nginx; sync .env)
+        ergoms install-redis --configure     (устарел; задайте REDIS_ENABLED=true в .env вручную)
         ergoms install-redis-service         (Windows service / Linux systemd)
         ergoms test-redis                    (PONG)
         ergoms status-redis

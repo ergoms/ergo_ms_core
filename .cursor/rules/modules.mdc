@@ -23,6 +23,7 @@ modules/<имя>/
 │   ├── pages/ или components/
 │   └── ui/                  # общий UI-kit (по образцу competence_core, lms)
 ├── ergoms.conf              # команды модуля (необязательно)
+├── ergoms.help.yaml         # справка для ergoms help module (если есть ergoms.conf)
 └── README.md
 ```
 
@@ -67,6 +68,8 @@ class MyModuleConfig(AppConfig):
 ## Импорты
 
 **Сервер:** внутри модуля — относительные; из ядра — `from src.core...`; из другого модуля — **запрещено**.
+
+**Ядро → модуль:** бизнес-код модуля — **запрещён**; hook-файлы для discovery (apps, `permission_catalog`, `celery_config`, `client/js/*`) — **допустимы** через инфраструктуру ядра. Подробности — [`struct.mdc`](struct.mdc) → «Импорты из `modules/` в ядре».
 
 **Клиент:** из ядра — `@/...`; из другого модуля — **запрещено**.
 
@@ -125,3 +128,4 @@ def _handler(user):
 | Уведомления, аудит | [`notifications.mdc`](notifications.mdc), [`audit.mdc`](audit.mdc) |
 | Человекочитаемо | [`.docs/architecture.md`](../../.docs/architecture.md) |
 | Боковое меню | [`menu.mdc`](menu.mdc) |
+| Справка ergoms модуля | [`ergoms-module-help.mdc`](ergoms-module-help.mdc) |

@@ -300,10 +300,6 @@
           cache: 'no-store',
           headers: { Accept: 'application/json' },
         }).then(function (response) {
-          if (response.status === 404) {
-            reloadWhenAvailable();
-            return;
-          }
           if (!response.ok) {
             return;
           }

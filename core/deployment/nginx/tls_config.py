@@ -15,8 +15,6 @@ _DEPLOYMENT_DIR = Path(__file__).resolve().parent.parent
 if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 
-from config_scaffold.env_set import set_env_var_in_content  # noqa: E402
-
 PROJECT_ROOT = _DEPLOYMENT_DIR.parent.parent
 
 LE_LIVE_DIR = Path('/etc/letsencrypt/live')
@@ -68,15 +66,6 @@ def _read_env(path: Path) -> dict[str, str]:
     return result
 
 
-def _set_env_var(content: str, key: str, value: str) -> str:
-    return set_env_var_in_content(
-        content,
-        key,
-        value,
-        example_path=PROJECT_ROOT / '.env.example',
-    )
-
-
 def _append_csv_value(existing: str, item: str) -> str:
     parts = [part.strip() for part in existing.split(',') if part.strip()]
     if item not in parts:
@@ -84,12 +73,15 @@ def _append_csv_value(existing: str, item: str) -> str:
     return ','.join(parts)
 
 
-def apply_tls_env(
-    env_path: Path,
+def suggest_tls_env_vars(
+    values: dict[str, str],
     domain: str,
     *,
     extra_domains: list[str] | None = None,
-) -> list[str]:
+) -> dict[str, str]:
+    """
+    Рекомендуемые переменные после выпуска сертификата (для ручного переноса в .env).
+    """
     if not is_valid_hostname(domain):
         raise ValueError(f'Invalid domain: {domain}')
 
@@ -101,14 +93,10 @@ def apply_tls_env(
     fullchain, privkey = cert_paths(domain)
     if not Path(fullchain).is_file() or not Path(privkey).is_file():
         raise FileNotFoundError(
-            f'Certificate not found for {domain}. Run ergoms install-tls first.',
+            f'Certificate не найден for {domain}. Run ergoms install-tls first.',
         )
 
-    content = env_path.read_text(encoding='utf-8') if env_path.is_file() else ''
-    values = _read_env(env_path)
-    changed_keys: list[str] = []
-
-    updates = {
+    suggestions = {
         'NGINX_ENABLED': 'true',
         'NGINX_USE_HTTPS': 'true',
         'NGINX_LISTEN_PORT': '443',
@@ -130,35 +118,24 @@ def apply_tls_env(
     }
 
     if len(domains) > 1:
-        updates['ERGO_TLS_DOMAINS'] = ','.join(domains)
-
-    for key, value in updates.items():
-        if values.get(key, '') != value:
-            content = _set_env_var(content, key, value)
-            changed_keys.append(key)
+        suggestions['ERGO_TLS_DOMAINS'] = ','.join(domains)
 
     allowed = _append_csv_value(values.get('API_ALLOWED_HOSTS', ''), domain)
     for item in domains[1:]:
         allowed = _append_csv_value(allowed, item)
-    if values.get('API_ALLOWED_HOSTS', '') != allowed:
-        content = _set_env_var(content, 'API_ALLOWED_HOSTS', allowed)
-        changed_keys.append('API_ALLOWED_HOSTS')
+    suggestions['API_ALLOWED_HOSTS'] = allowed
 
     media_allowed = _append_csv_value(values.get('MEDIA_API_ALLOWED_HOSTS', ''), domain)
     for item in domains[1:]:
         media_allowed = _append_csv_value(media_allowed, item)
-    if values.get('MEDIA_API_ALLOWED_HOSTS', '') != media_allowed:
-        content = _set_env_var(content, 'MEDIA_API_ALLOWED_HOSTS', media_allowed)
-        changed_keys.append('MEDIA_API_ALLOWED_HOSTS')
+    suggestions['MEDIA_API_ALLOWED_HOSTS'] = media_allowed
 
     origin = f'https://{domain}'
-    cors = _append_csv_value(values.get('CORS_ALLOWED_ORIGINS', ''), origin)
-    if values.get('CORS_ALLOWED_ORIGINS', '') != cors:
-        content = _set_env_var(content, 'CORS_ALLOWED_ORIGINS', cors)
-        changed_keys.append('CORS_ALLOWED_ORIGINS')
-
-    env_path.write_text(content, encoding='utf-8')
-    return changed_keys
+    suggestions['CORS_ALLOWED_ORIGINS'] = _append_csv_value(
+        values.get('CORS_ALLOWED_ORIGINS', ''),
+        origin,
+    )
+    return suggestions
 
 
 def read_cert_expiry(cert_path: str) -> datetime | None:

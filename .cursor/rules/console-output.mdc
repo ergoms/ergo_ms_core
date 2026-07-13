@@ -1,0 +1,95 @@
+---
+description: Метки консольного вывода ergoms — [OK]/[ERROR]/[WARNING]/[SKIP] на английском, текст на русском; console_tags.py
+alwaysApply: false
+---
+
+# Метки консольного вывода ergoms
+
+## Кратко
+
+- **Текст** сообщения для человека — **русский** (ergoms clean, setup, nginx, ошибки CLI).
+- **Метки** в начале строки — **только английские**, как в логах API: `[OK]`, `[ERROR]`, `[WARNING]`, `[SKIP]`, `[INFO]`.
+- **Запрещено** переводить метки: `[ПРОПУСК]`, `[ОШИБКА]`, `[ПРЕДУПРЕЖДЕНИЕ]`.
+- Единый источник — [`console_tags.py`](../../core/deployment/console_tags.py).
+
+## Обязательно
+
+| Уровень | Метка | Когда |
+|---------|-------|--------|
+| Успех | `[OK]` | Операция выполнена |
+| Ошибка | `[ERROR]` | Команда не может продолжиться |
+| Предупреждение | `[WARNING]` | Некритичное отклонение |
+| Пропуск | `[SKIP]` | Шаг не нужен (уже пусто, не найдено) |
+| Информация | `[INFO]` | Нейтральная справка в консоли |
+
+Python:
+
+```python
+from console_tags import format_console
+
+print(format_console('skip', f'{label} не найден'))
+raise SystemExit(format_console('error', 'Корень проекта не найден'))
+```
+
+Bash (после `source core.sh`):
+
+```bash
+echo "$(format_ergo_console skip "$label не найден")"
+echo "${ERGO_TAG_ERROR} Виртуальное окружение не найдено" >&2
+```
+
+PowerShell:
+
+```powershell
+Write-ColorOutput (Format-ErgoConsole -Level skip -Message "$Label не найден") Gray
+Write-ColorOutput "$($script:ErgoTagError) Не удалось запустить службу" Red
+```
+
+CLI через Python (UTF-8 в PowerShell 5.1):
+
+```bash
+ergoms-console --tag error --text "сообщение" --stderr
+# или ключ из ergoms_console.py: --key unknown_command --param name=foo
+```
+
+## Не путать с logging API
+
+| Контекст | Формат | Где |
+|----------|--------|-----|
+| Консоль ergoms / deployment | `[OK]`, `[ERROR]`, … + русский текст | `ergoms clean`, setup, nginx |
+| Файлы `logs/*.log` | `[INFO]`, `[WARNING]`, `[ERROR]` + timestamp + logger | [`logging_config.py`](../../core/api/src/config/logging_config.py) |
+
+Уровни logging **не** переводить и **не** заменять на `[OK]`/`[SKIP]`.
+
+## Запрещено
+
+```python
+# BAD — русская метка
+print('[ОШИБКА] Не найден каталог')
+
+# BAD — дублировать строку метки вручную в новом коде Python
+print('[ERROR] ...')  # без format_console / console_tags
+```
+
+```powershell
+# BAD
+Write-ColorOutput "[ПРОПУСК] уже пуст" Gray
+```
+
+## Базовый пример (clean)
+
+```
+[SKIP] node_modules не найден
+[OK] Удалено 6 элементов из virtual_env/python
+[ERROR] Не удалось удалить node_modules
+```
+
+Заголовки шагов без метки — русский текст: `-> Шаг 2/9: очистка virtual_env/python...`
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Файлы logs/, RotatingFileHandler | [`logging.mdc`](logging.mdc) |
+| ergoms, commands.conf | [`ergoms-commands.mdc`](ergoms-commands.mdc) |
+| Стиль русского текста | [`writing-docs-and-rules.mdc`](writing-docs-and-rules.mdc) |

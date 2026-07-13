@@ -1,4 +1,4 @@
-"""
+﻿"""
 Создание конфигурационных файлов из example-шаблонов.
 
 Используется setup-full (Windows/Linux, в т.ч. Ctrl+Shift+B) до создания venv.
@@ -18,21 +18,32 @@ if str(_DEPLOYMENT_DIR) not in sys.path:
 from config_scaffold import ConfigScaffolder, ScaffoldAction, format_scaffold_result
 
 
+def _configure_stdio() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, 'reconfigure'):
+            try:
+                stream.reconfigure(encoding='utf-8', errors='replace')
+            except (AttributeError, OSError, ValueError):
+                pass
+
+
 def _resolve_project_root(explicit: str | None) -> Path:
     if explicit:
         root = Path(explicit).resolve()
         if not root.is_dir():
-            raise SystemExit(f'[ERROR] Project root does not exist: {root}')
+            raise SystemExit(f'[ERROR] Корень проекта не существует: {root}')
         return root
 
     candidate = _DEPLOYMENT_DIR.parent.parent
     if (candidate / 'pyproject.toml').is_file():
         return candidate
 
-    raise SystemExit('[ERROR] Cannot detect project root; pass --root')
+    raise SystemExit('[ERROR] Не удалось определить корень проекта; укажите --root')
 
 
 def main(argv: list[str] | None = None) -> int:
+    _configure_stdio()
+
     parser = argparse.ArgumentParser(description='Scaffold config files from examples')
     parser.add_argument('--root', help='Project root directory')
     args = parser.parse_args(argv)

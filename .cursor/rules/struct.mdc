@@ -1,5 +1,5 @@
 ---
-description: Архитектура ERGO MS — ядро core/, модули modules/, сервер Django и клиент Vue
+description: Архитектура ERGO MS — ядро core/, модули modules/, discovery, ModuleBridge, сервер и клиент
 alwaysApply: true
 ---
 
@@ -11,11 +11,51 @@ alwaysApply: true
 
 ## Ядро и модули
 
-**Ядро** (`core/`) — `api/`, `client/`, `media_api/`, `deployment/`. Ядро **не импортирует** код из `modules/`.
+**Ядро** (`core/`) — `api/`, `client/`, `media_api/`, `deployment/`.
 
 **Модули** (`modules/<имя>/`) — отдельные доменные блоки. Подключаются как git-submodule. У модуля может быть сервер (`api/`), клиент (`client/`) или оба.
 
 Связь «модуль ↔ модуль» — только через мост (см. [`modules.mdc`](modules.mdc)), не через прямые импорты.
+
+### Импорты из `modules/` в ядре
+
+Ядро **не импортирует бизнес-код модулей** (models, views, serializers, services, tasks). Доменная логика модуля доступна ядру только через **ModuleBridge** — см. [`modules.mdc`](modules.mdc).
+
+**Допустимо** — инфраструктура ядра, которая связывает **элемент ядра с элементом ядра** и для этого подключает модуль как источник деклараций или точку регистрации. Модуль не вызывается как зависимость бизнес-сценария; ядро сканирует, загружает или агрегирует заранее описанные hook-файлы.
+
+| Область ядра | Что подключает | Эталон |
+|--------------|----------------|--------|
+| Регистрация Django-приложений | `apps.py` модулей | [`auto_config.py`](../../core/api/src/core/utils/auto_api/auto_config.py) |
+| Каталог прав ADP | `permission_catalog.py` | [`permission_catalog.py`](../../core/api/src/core/cms/adp/services/permission_catalog.py) |
+| Celery / beat | `celery_config.py` | [`celery/manager.py`](../../core/api/src/core/utils/celery/manager.py) |
+| Маршруты, endpoints, integrations клиента | `client/js/*` | [`ModuleLoader.js`](../../core/client/src/modules/core/ModuleLoader.js) |
+| Восстановление меню CMS | миграции меню модуля | [`restore_menu.py`](../../core/api/src/core/cms/management/commands/restore_menu.py) |
+
+Типичный паттерн: `importlib.import_module(...)` или `import.meta.glob('modules/*/...')` по **фиксированному имени файла** из списка установленных модулей — не произвольный import доменного класса.
+
+```python
+# GOOD — ядро ADP агрегирует декларации прав из hook-файла модуля
+mod = importlib.import_module(f'{app_path}.permission_catalog')
+catalog = getattr(mod, 'PERMISSION_CATALOG', None)
+
+# BAD — ядро тянет доменную модель модуля в view или service
+from modules.organizations.api.models import Organization
+org = Organization.objects.get(pk=org_id)
+```
+
+```javascript
+// GOOD — ModuleLoader подхватывает routes.js всех модулей
+import.meta.glob('../../../../../modules/*/client/js/routes.js')
+
+// BAD — прямой import компонента или API-модуля в бизнес-коде ядра
+import OrgList from '../../../../modules/organizations/client/pages/OrgList.vue'
+```
+
+**Запрещено в ядре:**
+
+- `from modules.<имя>.api...` models / views / serializers / services / tasks в бизнес-логике
+- Прямые static import из submodule в клиентских страницах и composables ядра (кроме инфраструктуры загрузки: `ModuleLoader`, glob в `LayoutMenu.vue`)
+- Обход ModuleBridge ради «удобного» доступа к данным или операциям модуля
 
 Подробности по модулям — в [`modules.mdc`](modules.mdc). Боковое меню — [`menu.mdc`](menu.mdc). Realtime — [`realtime.mdc`](realtime.mdc). Нюансы развёртывания — в [`core/deployment/logic.md`](../../core/deployment/logic.md) и [`.docs/architecture.md`](../../.docs/architecture.md).
 

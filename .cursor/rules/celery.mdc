@@ -30,7 +30,14 @@ Worker и Beat должны смотреть на **один** брокер (н�
 
 ## Логи
 
-Логгер: `celery.module.<имя_модуля>`. Файлы: `logs/modules/<имя>/<имя>.log`.
+См. [`logging.mdc`](logging.mdc) — единая схема, формат, env, `ergoms logs`.
+
+Кратко: задачи модулей → `celery_tasks.log` (`celery.module.<имя>`); Beat модулей → `celery_beat.log` (`celery.beat.module.<имя>`). Отдельные `logs/modules/` и `logs/celery/beat/` **не используются**.
+
+```powershell
+ergoms logs celery-tasks bi_analysis 200
+ergoms logs celery-beat notifications 200
+```
 
 ## После смены расписания
 
@@ -41,6 +48,7 @@ Worker и Beat должны смотреть на **один** брокер (н�
 | Тема | Файл |
 |------|------|
 | Команды ergoms | [`no-direct-manage-py.mdc`](no-direct-manage-py.mdc) |
+| Логи (файлы, env, Celery) | [`logging.mdc`](logging.mdc) |
 | Модули, tasks.py | [`modules.mdc`](modules.mdc) |
 | Брокер в databases.yaml | [`.docs/configuration.md`](../../.docs/configuration.md) |
 

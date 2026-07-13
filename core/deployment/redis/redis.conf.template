@@ -8,6 +8,7 @@ protected-mode yes
 daemonize {{REDIS_DAEMONIZE}}
 pidfile {{REDIS_PIDFILE}}
 logfile {{REDIS_LOGFILE}}
+loglevel {{REDIS_LOGLEVEL}}
 dir {{REDIS_DATA_DIR}}
 
 save 900 1

@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # TLS (Let's Encrypt) for ERGO MS on Linux
 
 TLS_HOOK_NAME='99-ergo-ms-reload-nginx.sh'
@@ -72,7 +72,7 @@ _tls_install_certbot() {
     return 0
   fi
 
-  echo "-> Installing certbot..."
+  echo "-> Установка certbot..."
   if command -v apt-get >/dev/null 2>&1; then
     _nginx_wait_for_apt_locks || return 1
     _nginx_sudo apt-get update -qq
@@ -84,7 +84,7 @@ _tls_install_certbot() {
   elif command -v pacman >/dev/null 2>&1; then
     _nginx_sudo pacman -Sy --noconfirm certbot
   else
-    echo "[ERROR] Cannot detect package manager. Install certbot manually." >&2
+    echo "[ERROR] Не удалось определить менеджер пакетов. Установите certbot вручную." >&2
     return 1
   fi
 
@@ -97,7 +97,7 @@ _tls_install_renewal_hook() {
   local target="$TLS_HOOK_DIR/$TLS_HOOK_NAME"
 
   if [[ ! -f "$template" ]]; then
-    echo "[WARN] Hook template not found: $template" >&2
+    echo "[WARNING] Hook template не найден: $template" >&2
     return 1
   fi
 
@@ -111,7 +111,7 @@ _tls_install_renewal_hook() {
   printf '%s\n' "$content" > "$tmp_file"
   _nginx_sudo install -m 0755 "$tmp_file" "$target"
   rm -f "$tmp_file"
-  echo "[OK] Renewal deploy-hook: $target"
+  echo "[OK] deploy-hook обновления certbot: $target"
 }
 
 _tls_enable_timer() {
@@ -119,10 +119,10 @@ _tls_enable_timer() {
     _nginx_sudo systemctl enable certbot.timer 2>/dev/null || true
     _nginx_sudo systemctl start certbot.timer 2>/dev/null || true
     if systemctl is-active certbot.timer >/dev/null 2>&1; then
-      echo "[OK] certbot.timer is active (auto-renewal scheduled)"
+      echo "[OK] certbot.timer активен (автообновление запланировано)"
       return 0
     fi
-    echo "[WARN] certbot.timer not available. Use: ergoms renew-tls" >&2
+    echo "[WARNING] certbot.timer недоступен. Используйте: ergoms renew-tls" >&2
   fi
 }
 
@@ -162,10 +162,10 @@ tls_install() {
   [[ -n "$webroot" ]] || webroot='/var/www/certbot'
 
   echo ""
-  echo "=== TLS: Let's Encrypt install ==="
-  echo "    Domain(s): ${domains[*]}"
-  echo "    Email:     $email"
-  echo "    Webroot:   $webroot"
+  echo "=== TLS: установка Let's Encrypt ==="
+  echo "    Домены: ${domains[*]}"
+  echo "    Email:  $email"
+  echo "    Webroot: $webroot"
   echo ""
 
   if ! _tls_install_certbot; then
@@ -175,15 +175,16 @@ tls_install() {
   _nginx_sudo mkdir -p "$webroot"
 
   if [[ ! -f "$root/core/client/dist/index.html" ]]; then
-    echo "[ERROR] $root/core/client/dist/index.html not found. Run: ergoms client-build" >&2
+    echo "[ERROR] $root/core/client/dist/index.html не найден. Выполните: ergoms client-build" >&2
     return 1
   fi
 
-  _nginx_ensure_env "$root"
+  _nginx_read_env "$root"
+  _nginx_resolve_env "$root"
 
-  echo "-> Installing HTTP nginx (ACME webroot)..."
+  echo "-> Установка HTTP nginx (ACME webroot)..."
   if ! nginx_install "$root" "$primary" 80 false; then
-    echo "[ERROR] HTTP nginx install failed (required for certificate validation)" >&2
+    echo "[ERROR] Установка HTTP nginx завершилась с ошибкой (нужна для проверки сертификата)" >&2
     return 1
   fi
 
@@ -199,7 +200,7 @@ tls_install() {
 
   if [[ "$staging" == "true" ]]; then
     certbot_args+=(--staging)
-    echo "[WARN] Using Let's Encrypt STAGING (not trusted by browsers)"
+    echo "[WARNING] Используется STAGING Let's Encrypt (браузеры не доверяют сертификату)"
   fi
 
   local domain
@@ -207,20 +208,18 @@ tls_install() {
     certbot_args+=(-d "$domain")
   done
 
-  echo "-> Requesting certificate..."
+  echo "-> Запрос сертификата..."
   if ! _nginx_sudo certbot "${certbot_args[@]}"; then
-    echo "[ERROR] certbot failed. Check DNS, port 80, and http://$primary/.well-known/" >&2
+    echo "[ERROR] certbot завершился с ошибкой. Проверьте DNS, порт 80, and http://$primary/.well-known/" >&2
     return 1
   fi
 
-  echo "-> Updating .env for HTTPS..."
-  if ! _tls_cli "$root" apply-env --domain "$primary"; then
-    return 1
-  fi
+  echo "-> Рекомендуемые переменные для .env:"
+  _tls_cli "$root" suggest-env --domain "$primary" || true
 
   _nginx_read_env "$root"
 
-  echo "-> Installing HTTPS nginx..."
+  echo "-> Установка HTTPS nginx..."
   if ! nginx_install "$root" "$primary" 443 true; then
     return 1
   fi
@@ -229,12 +228,12 @@ tls_install() {
   _tls_enable_timer
 
   echo ""
-  echo "[OK] TLS installed for $primary"
+  echo "[OK] TLS установлен для $primary"
   _tls_cli "$root" status --domain "$primary"
   echo ""
-  echo "    Site: https://$primary"
-  echo "    Renew: ergoms renew-tls"
-  echo "    Status: ergoms status-tls"
+  echo "    Сайт: https://$primary"
+  echo "    Обновление: ergoms renew-tls"
+  echo "    Статус: ergoms status-tls"
 }
 
 tls_renew() {
@@ -242,11 +241,11 @@ tls_renew() {
   local dry_run="${2:-false}"
 
   echo ""
-  echo "=== TLS: Renew certificates ==="
+  echo "=== TLS: обновление сертификатов ==="
   echo ""
 
   if ! command -v certbot >/dev/null 2>&1; then
-    echo "[ERROR] certbot not installed. Run: ergoms install-tls" >&2
+    echo "[ERROR] certbot не установлен. Выполните: ergoms install-tls" >&2
     return 1
   fi
 
@@ -255,13 +254,13 @@ tls_renew() {
   local -a args=(renew)
   if [[ "$dry_run" == "true" ]]; then
     args+=(--dry-run)
-    echo "-> Dry run (no changes)..."
+    echo "-> Пробный запуск (без изменений)..."
   else
-    echo "-> Renewing if due..."
+    echo "-> Обновление при необходимости..."
   fi
 
   if _nginx_sudo certbot "${args[@]}"; then
-    echo "[OK] certbot renew completed"
+    echo "[OK] certbot renew завершён"
     if [[ "$dry_run" != "true" ]]; then
       nginx_reload_service "$root" || true
       _tls_cli "$root" status || true
@@ -269,7 +268,7 @@ tls_renew() {
     return 0
   fi
 
-  echo "[ERROR] certbot renew failed" >&2
+  echo "[ERROR] certbot renew завершился с ошибкой" >&2
   return 1
 }
 

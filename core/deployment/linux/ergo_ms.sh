@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 set -euo pipefail
 
 # This script installs and starts systemd services for ergo_ms on Linux.
@@ -58,8 +58,12 @@ main() {
   # First positional can be a command
   if (( $# > 0 )); then
     command="$1"
+    local normalized_cmd="${command//_/-}"
+    if [[ ! -v "available_custom_cmds[$command]" ]] && [[ -v "available_custom_cmds[$normalized_cmd]" ]]; then
+      command="$normalized_cmd"
+    fi
     case "$command" in
-      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|update-submodules|update-module-submodules|clean|poetry|api|media_api|npm|install-nginx|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx|install-tls|renew-tls|status-tls|install-redis|install-redis-service|uninstall-redis|start-redis|stop-redis|restart-redis|status-redis|test-redis)
+      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|update-submodules|update-module-submodules|clean|help|poetry|api|media_api|npm|install-nginx|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx|install-tls|renew-tls|status-tls|install-redis|install-redis-service|uninstall-redis|start-redis|stop-redis|restart-redis|status-redis|test-redis)
         shift ;;
       *:poetry)
         shift ;;  # module:poetry command, handled below
@@ -70,7 +74,7 @@ main() {
         if [[ -v "available_custom_cmds[$command]" ]]; then
           shift
         else
-          echo "Unknown command: $command" >&2
+          echo "Неизвестная команда: $command" >&2
           print_usage "$detected_root"
           exit 1
         fi
@@ -81,6 +85,12 @@ main() {
   # If no command provided, show help
   if [[ -z "$command" ]]; then
     print_usage "$detected_root"
+    exit 0
+  fi
+
+  # Справка без root
+  if [[ "$command" == "help" ]]; then
+    print_usage "$detected_root" "$@"
     exit 0
   fi
 
@@ -171,7 +181,7 @@ main() {
       if [[ -d "$arg_root" ]]; then
         if command -v readlink >/dev/null 2>&1; then ERGO_ROOT="$(readlink -f "$arg_root")"; else ERGO_ROOT="$(cd "$arg_root" && pwd)"; fi
       else
-        echo "Provided --root path does not exist or is not a directory: $arg_root" >&2
+        echo "Указанный путь --root не существует или не является каталогом: $arg_root" >&2
         exit 1
       fi
     else
@@ -262,11 +272,14 @@ main() {
 
     # Execute redis command
     if [[ "$is_redis_command" == true ]]; then
-      local redis_port="" redis_configure=false redis_purge=false
+      local redis_port="" redis_purge=false
       while (( "$#" )); do
         case "$1" in
-          --configure) redis_configure=true; shift ;;
           --purge) redis_purge=true; shift ;;
+          --configure)
+            echo "[WARNING] --configure устарел; задайте REDIS_ENABLED=true в .env" >&2
+            shift
+            ;;
           *)
             if [[ -z "$redis_port" ]] && [[ "$1" =~ ^[0-9]+$ ]]; then
               redis_port="$1"
@@ -280,11 +293,11 @@ main() {
       case "$command" in
         install-redis)
           require_root_or_sudo
-          redis_install "$ERGO_ROOT" "$redis_port" "false" "$redis_configure"
+          redis_install "$ERGO_ROOT" "$redis_port" "false"
           ;;
         install-redis-service)
           require_root_or_sudo
-          redis_install "$ERGO_ROOT" "$redis_port" "true" "$redis_configure"
+          redis_install "$ERGO_ROOT" "$redis_port" "true"
           ;;
         uninstall-redis)
           require_root_or_sudo
@@ -314,32 +327,67 @@ main() {
     # Execute logs command
     if [[ "$is_logs_command" == true ]]; then
       if [[ $# -eq 0 ]]; then
-        echo "[ERROR] Please specify a service name" >&2
-        echo "Available services: $(units_list "$ERGO_ROOT" | tr ' ' ',')" >&2
-        echo "Usage: ergoms logs <service-name> [lines]" >&2
+        echo "[ERROR] Укажите имя службы" >&2
+        echo "Доступные службы: $(units_list "$ERGO_ROOT" | tr ' ' ',')" >&2
+        echo "Использование: ergoms logs <имя-службы> [строки]" >&2
         exit 1
       fi
       
       local service_name="$1"
-      [[ "$service_name" == "media_api" ]] && service_name="ergo-media-api"
       local lines="${2:-500}"
-      
-      # Check if service exists
-      local valid=false
-      for u in $(units_list "$ERGO_ROOT"); do
-        if [[ "$u" == "$service_name" || "$u" == "${service_name}.service" ]]; then
-          valid=true
-          service_name="$u"
-          break
+      local module_filter=""
+
+      if [[ "$service_name" == "celery-tasks" ]]; then
+        if [[ -n "${2:-}" && "$2" =~ ^[0-9]+$ ]]; then
+          lines="$2"
+        elif [[ -n "${2:-}" ]]; then
+          module_filter="$2"
+          lines="${3:-500}"
         fi
-      done
-      
-      if [[ "$valid" == false ]]; then
-        echo "[ERROR] Unknown service: $service_name" >&2
-        echo "Available services: $(units_list "$ERGO_ROOT" | tr '\n' ' ')" >&2
-        exit 1
+        set_service_project_root "$ERGO_ROOT"
+        show_celery_tasks_logs "$module_filter" "$lines"
+        exit 0
+      fi
+
+      if [[ "$service_name" == "celery-beat" ]]; then
+        if [[ -n "${2:-}" && "$2" =~ ^[0-9]+$ ]]; then
+          lines="$2"
+        elif [[ -n "${2:-}" ]]; then
+          module_filter="$2"
+          lines="${3:-500}"
+        fi
+        set_service_project_root "$ERGO_ROOT"
+        show_celery_beat_logs "$module_filter" "$lines"
+        exit 0
       fi
       
+      [[ "$service_name" == "media_api" ]] && service_name="ergo-media-api"
+
+      set_service_project_root "$ERGO_ROOT"
+
+      local valid=false
+      case "$service_name" in
+        ergo_ms_nginx|ergo_ms_nginx.service|ergo-redis|ergo-redis.service|ergo_ms_redis)
+          valid=true
+          ;;
+      esac
+
+      if [[ "$valid" == false ]]; then
+        for u in $(units_list "$ERGO_ROOT"); do
+          if [[ "$u" == "$service_name" || "$u" == "${service_name}.service" ]]; then
+            valid=true
+            service_name="$u"
+            break
+          fi
+        done
+      fi
+
+      if [[ "$valid" == false ]]; then
+        echo "[ERROR] Неизвестная служба: $service_name" >&2
+        echo "Доступные службы: $(units_list "$ERGO_ROOT" | tr '\n' ' ') ergo_ms_nginx ergo-redis celery-tasks celery-beat" >&2
+        exit 1
+      fi
+
       show_service_logs "$service_name" "$lines"
       exit 0
     fi
@@ -380,7 +428,7 @@ main() {
         if [[ -z "$arg_root" ]]; then
           arg_root="$1"; shift
         else
-          echo "Unknown argument: $1" >&2; print_usage "$detected_root"; exit 1
+          echo "Неизвестный аргумент: $1" >&2; print_usage "$detected_root"; exit 1
         fi
         ;;
     esac
@@ -391,7 +439,7 @@ main() {
     if [[ -d "$arg_root" ]]; then
       if command -v readlink >/dev/null 2>&1; then ERGO_ROOT="$(readlink -f "$arg_root")"; else ERGO_ROOT="$(cd "$arg_root" && pwd)"; fi
     else
-      echo "Provided --root path does not exist or is not a directory: $arg_root" >&2
+      echo "Указанный путь --root не существует или не является каталогом: $arg_root" >&2
       exit 1
     fi
   else
@@ -421,14 +469,14 @@ main() {
     install-worker-service)  ;; # Continue to install flow
     install-beat-service)  ;; # Continue to install flow
     install-media-service)  ;; # Continue to install flow
-    *)        echo "Unknown command: $command" >&2; print_usage "$detected_root"; exit 1 ;;
+    *)        echo "Неизвестная команда: $command" >&2; print_usage "$detected_root"; exit 1 ;;
   esac
 
   # INSTALL flow
   # Basic sanity checks for expected structure
   if [[ ! -d "$ERGO_ROOT/core/api" ]] || [[ ! -d "$ERGO_ROOT/core/client" ]]; then
-    echo "Detected root $ERGO_ROOT doesn't look like an ergo_ms project (missing core/api/ or core/client/)." >&2
-    echo "Run 'ergoms setup' to initialize all submodules." >&2
+    echo "Каталог $ERGO_ROOT не похож на проект ergo_ms (нет core/api/ или core/client/)." >&2
+    echo "Выполните ergoms setup для инициализации всех submodule." >&2
     exit 1
   fi
 
@@ -456,7 +504,7 @@ main() {
       write_env_file "$ERGO_ROOT"
       
       # Получаем базовые unit definitions
-      get_base_unit_definitions
+      get_base_unit_definitions "$ERGO_ROOT"
       
       local skip_client=0
       is_nginx_enabled "$ERGO_ROOT" && skip_client=1
@@ -487,14 +535,14 @@ main() {
       # Включаем и запускаем воркеры
       enable_and_start_workers "$ERGO_ROOT"
 
-      echo "All services installed and started."
-      echo "View logs: journalctl -u ergo-api-dev -n 500 -f"
+      echo "Все службы установлены и запущены."
+      echo "Просмотр логов: journalctl -u ergo-api-dev -n 500 -f"
 
       if [[ "$no_cli" == false ]]; then
         create_cli_wrapper "$SELF_SCRIPT"
-        echo "You can now run: $(cli_name) start|stop|restart|status|uninstall-services [--purge]"
+        echo "Доступны команды: $(cli_name) start|stop|restart|status|uninstall-services [--purge]"
       else
-        echo "CLI wrapper install skipped (--no-cli)."
+        echo "Установка CLI-обёртки пропущена (--no-cli)."
       fi
       ;;
   esac

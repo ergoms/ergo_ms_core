@@ -1,4 +1,4 @@
-"""
+﻿"""
 Режим технических работ: флаг-файл для nginx, API и Media API.
 
 ergoms maintenance-on | maintenance-off | maintenance-status
@@ -49,16 +49,18 @@ def json_paths(root: Path) -> list[Path]:
     return [root / rel for rel in MAINTENANCE_JSON_REL_PATHS]
 
 
-def maintenance_json_payload() -> dict[str, object]:
-    return {
-        'maintenance': True,
-        'detail': MAINTENANCE_DETAIL,
+def maintenance_json_payload(*, enabled: bool) -> dict[str, object]:
+    payload: dict[str, object] = {
+        'maintenance': enabled,
         'pollIntervalMs': MAINTENANCE_POLL_INTERVAL_MS,
     }
+    if enabled:
+        payload['detail'] = MAINTENANCE_DETAIL
+    return payload
 
 
-def write_maintenance_json(root: Path) -> list[Path]:
-    content = json.dumps(maintenance_json_payload(), ensure_ascii=False, indent=2) + '\n'
+def write_maintenance_json(root: Path, *, enabled: bool) -> list[Path]:
+    content = json.dumps(maintenance_json_payload(enabled=enabled), ensure_ascii=False, indent=2) + '\n'
     written: list[Path] = []
     for path in json_paths(root):
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -67,23 +69,14 @@ def write_maintenance_json(root: Path) -> list[Path]:
     return written
 
 
-def remove_maintenance_json(root: Path) -> list[Path]:
-    removed: list[Path] = []
-    for path in json_paths(root):
-        if path.is_file():
-            path.unlink()
-            removed.append(path)
-    return removed
-
-
 def cmd_on(root: Path) -> int:
     flag = flag_path(root)
     page = html_path(root)
     if not page.is_file():
-        print(f'[WARN] Страница заглушки не найдена: {page}', file=sys.stderr)
-        print('[WARN] Nginx может вернуть 503 без HTML.', file=sys.stderr)
+        print(f'[WARNING] Страница заглушки не найдена: {page}', file=sys.stderr)
+        print('[WARNING] Nginx может вернуть 503 без HTML.', file=sys.stderr)
     flag.touch()
-    json_written = write_maintenance_json(root)
+    json_written = write_maintenance_json(root, enabled=True)
     print('[OK] Режим технических работ включён')
     print(f'     Флаг: {flag}')
     for path in json_written:
@@ -99,10 +92,10 @@ def cmd_off(root: Path) -> int:
         print('[OK] Режим технических работ выключён')
     else:
         print('[OK] Режим технических работ уже выключен')
-    removed_json = remove_maintenance_json(root)
+    json_written = write_maintenance_json(root, enabled=False)
     print(f'     Флаг: {flag}')
-    for path in removed_json:
-        print(f'     JSON удалён: {path}')
+    for path in json_written:
+        print(f'     JSON: {path}')
     return 0
 
 

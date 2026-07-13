@@ -13,6 +13,7 @@ write_env_file() {
 ERGO_ROOT="$root"
 PYTHONUNBUFFERED=1
 NODE_ENV=development
+ERGO_LOG_CONSOLE=false
 EOF
 
   if [[ $(id -u) -eq 0 ]]; then
@@ -21,7 +22,7 @@ EOF
     sudo install -m 0644 "$tmp_file" "$env_file"
   fi
   rm -f "$tmp_file"
-  echo "Written $env_file with ERGO_ROOT=$root"
+  echo "Записан $env_file с ERGO_ROOT=$root"
 }
 
 install_unit() {
@@ -37,7 +38,7 @@ install_unit() {
     sudo install -m 0644 "$tmp_file" "$unit_path"
   fi
   rm -f "$tmp_file"
-  echo "Installed $unit_path"
+  echo "Установлен $unit_path"
 }
 
 enable_and_start() {
@@ -53,6 +54,24 @@ enable_and_start() {
 
 # Получение базовых unit definitions (API, Client, Beat)
 get_base_unit_definitions() {
+  local root="${1:-}"
+  local client_log client_stdout client_stderr
+  local _log_env_py="$root/virtual_env/python/bin/python"
+  local _log_env_script="$root/core/deployment/scripts/log_env.py"
+
+  if [[ -x "$_log_env_py" && -f "$_log_env_script" && -n "$root" ]]; then
+    client_log="$("$_log_env_py" "$_log_env_script" path CLIENT_DEV "$root" 2>/dev/null || true)"
+  fi
+  [[ -z "$client_log" ]] && client_log='${ERGO_ROOT}/logs/client-dev.log'
+  if [[ -x "$_log_env_py" && -f "$_log_env_script" && -n "$root" ]] \
+    && [[ "$("$_log_env_py" "$_log_env_script" client-dev-enabled "$root" 2>/dev/null || true)" == "false" ]]; then
+    client_stdout=null
+    client_stderr=null
+  else
+    client_stdout="append:${client_log}"
+    client_stderr="append:${client_log}"
+  fi
+
   API_UNIT=$(cat <<'UNIT'
 [Unit]
 Description=Ergo API (mode from API_DEPLOY_TYPE)
@@ -66,13 +85,16 @@ ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT" && . "$ERGO_ROOT/virtual_env/python/bin
 Restart=always
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1
+Environment=ERGO_LOG_CONSOLE=false
+StandardOutput=null
+StandardError=append:${ERGO_ROOT}/logs/ergo-api-dev.stderr.log
 
 [Install]
 WantedBy=multi-user.target
 UNIT
 )
 
-  CLIENT_UNIT=$(cat <<'UNIT'
+  CLIENT_UNIT=$(cat <<UNIT
 [Unit]
 Description=Ergo Client (Vite dev or nginx skip)
 After=network.target
@@ -80,10 +102,12 @@ After=network.target
 [Service]
 Type=simple
 EnvironmentFile=/etc/default/ergo_ms
-ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && python core/deployment/scripts/start_client_if_dev.py'
+ExecStart=/bin/bash -lc 'cd "\$ERGO_ROOT" && . "\$ERGO_ROOT/virtual_env/python/bin/activate" && python core/deployment/scripts/start_client_if_dev.py'
 Restart=always
 RestartSec=5
 Environment=NODE_ENV=development
+StandardOutput=${client_stdout}
+StandardError=${client_stderr}
 
 [Install]
 WantedBy=multi-user.target
@@ -103,6 +127,9 @@ ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && . "$ERGO_ROOT/virtual_env/pytho
 Restart=always
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1
+Environment=ERGO_LOG_CONSOLE=false
+StandardOutput=null
+StandardError=append:${ERGO_ROOT}/logs/ergo-celery-beat.stderr.log
 
 [Install]
 WantedBy=multi-user.target
@@ -118,9 +145,12 @@ After=network.target
 Type=simple
 EnvironmentFile=/etc/default/ergo_ms
 Environment=PYTHONUNBUFFERED=1
+Environment=ERGO_LOG_CONSOLE=false
 ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && python core/api/scripts/start_media_api.py'
 Restart=always
 RestartSec=5
+StandardOutput=null
+StandardError=append:${ERGO_ROOT}/logs/ergo-media-api.stderr.log
 
 [Install]
 WantedBy=multi-user.target
@@ -150,6 +180,9 @@ ExecStart=/bin/bash -lc 'cd "\$ERGO_ROOT/core" && . "\$ERGO_ROOT/virtual_env/pyt
 Restart=always
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1
+Environment=ERGO_LOG_CONSOLE=false
+StandardOutput=null
+StandardError=append:\${ERGO_ROOT}/logs/ergo-celery-worker-${worker_name}.stderr.log
 
 [Install]
 WantedBy=multi-user.target
@@ -171,6 +204,9 @@ ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && . "$ERGO_ROOT/virtual_env/pytho
 Restart=always
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1
+Environment=ERGO_LOG_CONSOLE=false
+StandardOutput=null
+StandardError=append:${ERGO_ROOT}/logs/ergo-celery-worker.stderr.log
 
 [Install]
 WantedBy=multi-user.target
@@ -180,7 +216,11 @@ UNIT
 # Устаревшая функция для обратной совместимости
 # Используется только если вызывается напрямую
 get_unit_definitions() {
-  get_base_unit_definitions
+  local root="${1:-${ERGO_ROOT:-}}"
+  if [[ -z "$root" ]]; then
+    root="$(pwd)"
+  fi
+  get_base_unit_definitions "$root"
   
   # Для обратной совместимости генерируем default worker unit
   CELERY_WORKER_UNIT="$(generate_default_worker_unit)"

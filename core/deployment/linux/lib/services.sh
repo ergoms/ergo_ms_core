@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # Service management functions
 # Функции управления службами
 
@@ -97,18 +97,131 @@ status_all() {
   for u in $(units_list "$root"); do systemctl_do status "$u" | cat; done
 }
 
+show_celery_tasks_logs() {
+  local module_name="${1:-}"
+  local lines="${2:-500}"
+  local root="${SERVICE_PROJECT_ROOT:-}"
+
+  if [[ -z "$root" ]]; then
+    root="$(detect_project_root 2>/dev/null || pwd)"
+  fi
+
+  # shellcheck source=lib/logs_paths.sh
+  source "$(dirname "${BASH_SOURCE[0]}")/logs_paths.sh"
+
+  local log_file
+  log_file="$(resolve_ergo_logs_dir "$root")/celery_tasks.log"
+  if [[ ! -f "$log_file" ]]; then
+    echo "[ERROR] Лог задач Celery не найден: $log_file" >&2
+    return 1
+  fi
+
+  echo "-> Последние $lines строк celery_tasks.log..."
+  echo "   $log_file"
+  if [[ -n "$module_name" ]]; then
+    local pattern="celery\\.module\\.${module_name}"
+    echo "   Фильтр: $pattern"
+    echo ""
+    grep -E "$pattern" "$log_file" 2>/dev/null | tail -n "$lines" || true
+    tail -n 0 -F "$log_file" | grep --line-buffered -E "$pattern" | cat
+    return 0
+  fi
+
+  echo ""
+  tail -n "$lines" -F "$log_file" | cat
+}
+
+show_celery_beat_logs() {
+  local module_name="${1:-}"
+  local lines="${2:-500}"
+  local root="${SERVICE_PROJECT_ROOT:-}"
+
+  if [[ -z "$root" ]]; then
+    root="$(detect_project_root 2>/dev/null || pwd)"
+  fi
+
+  # shellcheck source=lib/logs_paths.sh
+  source "$(dirname "${BASH_SOURCE[0]}")/logs_paths.sh"
+
+  local log_file
+  log_file="$(resolve_ergo_logs_dir "$root")/celery_beat.log"
+  if [[ ! -f "$log_file" ]]; then
+    echo "[ERROR] Лог Celery beat не найден: $log_file" >&2
+    return 1
+  fi
+
+  echo "-> Последние $lines строк celery_beat.log..."
+  echo "   $log_file"
+  if [[ -n "$module_name" ]]; then
+    local pattern="celery\\.beat\\.module\\.${module_name}"
+    echo "   Фильтр: $pattern"
+    echo ""
+    grep -E "$pattern" "$log_file" 2>/dev/null | tail -n "$lines" || true
+    tail -n 0 -F "$log_file" | grep --line-buffered -E "$pattern" | cat
+    return 0
+  fi
+
+  echo ""
+  tail -n "$lines" -F "$log_file" | cat
+}
+
 show_service_logs() {
   local service_name="$1"
   local lines="${2:-500}"
-  
-  echo "-> Showing last $lines lines of $service_name logs..."
-  echo ""
-  
-  if [[ $(id -u) -eq 0 ]]; then
-    journalctl -u "$service_name" -n "$lines" -f | cat
-  else
-    sudo journalctl -u "$service_name" -n "$lines" -f | cat
+  local root="${SERVICE_PROJECT_ROOT:-}"
+
+  if [[ -z "$root" ]]; then
+    root="$(detect_project_root 2>/dev/null || pwd)"
   fi
+
+  # shellcheck source=lib/logs_paths.sh
+  source "$(dirname "${BASH_SOURCE[0]}")/logs_paths.sh"
+
+  if [[ "$service_name" == "ergo_ms_nginx" || "$service_name" == "ergo_ms_nginx.service" ]]; then
+    local files=()
+    while IFS= read -r file; do
+      [[ -n "$file" && -f "$file" ]] && files+=("$file")
+    done < <(resolve_service_log_files "ergo_ms_nginx" "$root" 2>/dev/null || true)
+    if [[ ${#files[@]} -eq 0 ]]; then
+      echo "[ERROR] Файлы логов Nginx не найдены в $(resolve_ergo_logs_dir "$root")" >&2
+      echo "Выполните ergoms install-nginx или ergoms reload-nginx." >&2
+      return 1
+    fi
+    echo "-> Последние $lines строк логов nginx..."
+    echo ""
+    tail -n "$lines" -F "${files[@]}" | cat
+    return 0
+  fi
+
+  if [[ "$service_name" == "ergo-redis" || "$service_name" == "ergo-redis.service" || "$service_name" == "ergo_ms_redis" ]]; then
+    service_name="ergo-redis"
+  fi
+
+  local -a log_files=()
+  while IFS= read -r file; do
+    [[ -n "$file" ]] && log_files+=("$file")
+  done < <(resolve_service_log_files "$service_name" "$root" 2>/dev/null || true)
+
+  if [[ ${#log_files[@]} -eq 0 ]]; then
+    echo "[ERROR] Файлы логов для службы не найдены: $service_name" >&2
+    echo "Ожидается в: $(resolve_ergo_logs_dir "$root")" >&2
+    return 1
+  fi
+
+  echo "-> Последние $lines строк логов $service_name..."
+  for file in "${log_files[@]}"; do
+    echo "   $file"
+  done
+  if [[ "$service_name" == ergo-celery-worker* ]]; then
+    echo "   Логи задач модулей: $(resolve_ergo_logs_dir "$root")/celery_tasks.log"
+    echo "   Фильтр: ergoms logs celery-tasks [module] [lines]"
+  fi
+  if [[ "$service_name" == "ergo-celery-beat" || "$service_name" == "ergo-celery-beat.service" ]]; then
+    echo "   Логи beat модулей: $(resolve_ergo_logs_dir "$root")/celery_beat.log"
+    echo "   Фильтр: ergoms logs celery-beat [module] [lines]"
+  fi
+  echo ""
+  tail -n "$lines" -F "${log_files[@]}" | cat
 }
 
 uninstall_all() {
@@ -125,7 +238,7 @@ uninstall_all() {
       else
         sudo rm -f "/etc/systemd/system/$u"
       fi
-      echo "Removed /etc/systemd/system/$u"
+      echo "Удалён /etc/systemd/system/$u"
     fi
   done
   
@@ -137,7 +250,7 @@ uninstall_all() {
     else
       sudo rm -f "/etc/systemd/system/ergo-celery-worker.service"
     fi
-    echo "Removed /etc/systemd/system/ergo-celery-worker.service (legacy)"
+    echo "Удалён /etc/systemd/system/ergo-celery-worker.service (устаревший)"
   fi
   
   daemon_reload
@@ -148,7 +261,7 @@ uninstall_all() {
       else
         sudo rm -f "/etc/default/ergo_ms"
       fi
-      echo "Removed /etc/default/ergo_ms"
+      echo "Удалён /etc/default/ergo_ms"
     fi
   fi
 }
@@ -169,7 +282,7 @@ install_services() {
   is_nginx_enabled "$root" && skip_client=1
   
   echo ""
-  echo "=== Installing Services ==="
+  echo "=== Установка служб ==="
   echo ""
   
   cd "$root" || exit 1
@@ -180,7 +293,7 @@ install_services() {
   write_env_file "$root"
   
   # Получаем базовые unit definitions
-  get_base_unit_definitions
+  get_base_unit_definitions "$root"
   
   # Устанавливаем базовые службы
   install_unit "ergo-api-dev"        "$API_UNIT"
@@ -209,11 +322,11 @@ install_services() {
   enable_and_start_workers "$root"
 
   echo ""
-  echo "=== Services Installed and Started ==="
+  echo "=== Службы установлены и запущены ==="
   echo ""
   status_all
   echo ""
-  echo "Services are now running!"
+  echo "Службы запущены!"
 }
 
 install_single_service() {
@@ -221,7 +334,7 @@ install_single_service() {
   local root="$2"
   
   echo ""
-  echo "=== Installing $service_name Service ==="
+  echo "=== Установка службы $service_name ==="
   echo ""
   
   cd "$root" || exit 1
@@ -232,7 +345,7 @@ install_single_service() {
   write_env_file "$root"
   
   # Получаем базовые unit definitions
-  get_base_unit_definitions
+  get_base_unit_definitions "$root"
   
   local unit_name=""
   
@@ -255,11 +368,11 @@ install_single_service() {
       daemon_reload
       enable_and_start_workers "$root"
       echo ""
-      echo "=== All Worker Services Installed and Started ==="
+      echo "=== Все службы воркеров установлены и запущены ==="
       echo ""
       status_all
       echo ""
-      echo "Worker services are now running!"
+      echo "Службы worker запущены!"
       return
       ;;
     "beat")
@@ -271,7 +384,7 @@ install_single_service() {
       install_unit "$unit_name" "$MEDIA_API_UNIT"
       ;;
     *)
-      echo "Unknown service: $service_name" >&2
+      echo "Неизвестная служба: $service_name" >&2
       exit 1
       ;;
   esac
@@ -280,11 +393,11 @@ install_single_service() {
   enable_and_start "${unit_name}.service"
 
   echo ""
-  echo "=== $service_name Service Installed and Started ==="
+  echo "=== Служба $service_name установлена и запущена ==="
   echo ""
   status_all
   echo ""
-  echo "$service_name service is now running!"
+  echo "Служба $service_name запущена!"
 }
 
 export -f disable_client_service_if_nginx

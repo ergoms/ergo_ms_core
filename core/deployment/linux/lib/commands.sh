@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # Custom commands management
 # Управление пользовательскими командами
 
@@ -92,7 +92,7 @@ execute_command_string() {
       api)
         local venv_python="$root/virtual_env/python/bin/python"
         if [[ ! -f "$venv_python" ]]; then
-          echo "[ERROR] Virtual environment not found" >&2
+          echo "[ERROR] Виртуальное окружение не найдено" >&2
           exit 1
         fi
         export PYTHONPATH="$root"
@@ -105,7 +105,7 @@ execute_command_string() {
       media_api)
         local venv_python="$root/virtual_env/python/bin/python"
         if [[ ! -f "$venv_python" ]]; then
-          echo "[ERROR] Virtual environment not found" >&2
+          echo "[ERROR] Виртуальное окружение не найдено" >&2
           exit 1
         fi
         cd "$root" || exit 1
@@ -143,6 +143,27 @@ _should_run_on_this_platform() {
   return 0
 }
 
+_suggest_conf_commands() {
+  local query="${1,,}"
+  local query_alt="${query//_/-}"
+  local name normalized
+
+  for name in "${!CUSTOM_COMMANDS[@]}"; do
+    normalized="${name,,}"
+    if [[ "$normalized" == "$query_alt" ]]; then
+      echo "$name"
+      return 0
+    fi
+  done
+
+  for name in "${!CUSTOM_COMMANDS[@]}"; do
+    normalized="${name,,}"
+    if [[ "$normalized" == *"$query_alt"* || "$query_alt" == *"$normalized"* ]]; then
+      echo "$name"
+    fi
+  done
+}
+
 invoke_custom_command() {
   local root="$1"
   local cmd_name="$2"
@@ -152,9 +173,21 @@ invoke_custom_command() {
   load_custom_commands "$root"
   
   if [[ ! -v "CUSTOM_COMMANDS[$cmd_name]" ]]; then
-    echo "[ERROR] Unknown command: $cmd_name" >&2
-    echo "Available custom commands: ${!CUSTOM_COMMANDS[*]}" >&2
-    echo "Run 'ergoms help' for all available commands" >&2
+    echo "[ERROR] Неизвестная команда: $cmd_name" >&2
+    local suggestions
+    suggestions="$(_suggest_conf_commands "$cmd_name" | head -n 5)"
+    if [[ -n "$suggestions" ]]; then
+      local formatted=""
+      while IFS= read -r suggestion; do
+        [[ -z "$suggestion" ]] && continue
+        if [[ -n "$formatted" ]]; then
+          formatted+=", "
+        fi
+        formatted+="ergoms ${suggestion}"
+      done <<< "$suggestions"
+      echo "Возможно, вы имели в виду: $formatted" >&2
+    fi
+    echo "Справка: ergoms help" >&2
     exit 1
   fi
   
@@ -162,7 +195,6 @@ invoke_custom_command() {
   
   # Check if it's a composite command (contains &&)
   if [[ "$command_def" == *"&&"* ]]; then
-    echo "-> Executing composite command: $cmd_name"
     IFS='|' read -ra sub_cmds <<< "${command_def// && /|}"
     
     for sub_cmd in "${sub_cmds[@]}"; do
@@ -170,19 +202,23 @@ invoke_custom_command() {
       if ! _should_run_on_this_platform "$sub_cmd"; then
         continue
       fi
-      echo "   -> $sub_cmd"
       
       # Execute in subshell to avoid exec
       (execute_command_string "$root" "$sub_cmd" "${user_args[@]}")
       local exit_code=$?
       
       if [[ $exit_code -ne 0 ]]; then
-        echo "[ERROR] Command failed: $sub_cmd" >&2
+        echo "[ERROR] Команда завершилась с ошибкой: $cmd_name" >&2
         exit $exit_code
       fi
     done
   else
     execute_command_string "$root" "$command_def" "${user_args[@]}"
+    local exit_code=$?
+    if [[ $exit_code -ne 0 ]]; then
+      echo "[ERROR] Команда завершилась с ошибкой: $cmd_name" >&2
+      exit $exit_code
+    fi
   fi
 }
 
@@ -219,11 +255,11 @@ invoke_module_poetry_command() {
   local sub_cmd="${1:-}"
 
   if [[ -z "$sub_cmd" ]]; then
-    echo "Usage:"
-    echo "  ergoms ${module_name}:poetry add PACKAGE              -- add dep (version auto-resolved)"
-    echo "  ergoms ${module_name}:poetry add PACKAGE '>=1.0.0'    -- add with explicit constraint"
-    echo "  ergoms ${module_name}:poetry remove PACKAGE           -- remove dep"
-    echo "  ergoms ${module_name}:poetry list                     -- list module deps"
+    echo "Использование:"
+    echo "  ergoms ${module_name}:poetry add PACKAGE              -- добавить зависимость (версия подбирается автоматически)"
+    echo "  ergoms ${module_name}:poetry add PACKAGE '>=1.0.0'    -- добавить с явным ограничением версии"
+    echo "  ergoms ${module_name}:poetry remove PACKAGE           -- удалить зависимость"
+    echo "  ergoms ${module_name}:poetry list                     -- список зависимостей модуля"
     return
   fi
 
@@ -231,14 +267,14 @@ invoke_module_poetry_command() {
   case "$sub_cmd" in
     add)
       if [[ $# -eq 0 ]]; then
-        echo "[ERROR] Package name required: ergoms ${module_name}:poetry add PACKAGE" >&2
+        echo "[ERROR] Укажите имя пакета: ergoms ${module_name}:poetry add PACKAGE" >&2
         exit 1
       fi
       invoke_api_command "$root" module-add "$module_name" "$@"
       ;;
     remove)
       if [[ $# -eq 0 ]]; then
-        echo "[ERROR] Package name required: ergoms ${module_name}:poetry remove PACKAGE" >&2
+        echo "[ERROR] Укажите имя пакета: ergoms ${module_name}:poetry remove PACKAGE" >&2
         exit 1
       fi
       invoke_api_command "$root" module-remove "$module_name" "$@"
@@ -247,8 +283,8 @@ invoke_module_poetry_command() {
       invoke_api_command "$root" module-list "$module_name"
       ;;
     *)
-      echo "[ERROR] Unknown subcommand: $sub_cmd" >&2
-      echo "Available: add, remove, list" >&2
+      echo "[ERROR] Неизвестная подкоманда: $sub_cmd" >&2
+      echo "Доступные: add, remove, list" >&2
       exit 1
       ;;
   esac
@@ -260,8 +296,8 @@ invoke_api_command() {
   local venv_python="$root/virtual_env/python/bin/python"
   
   if [[ ! -f "$venv_python" ]]; then
-    echo "[ERROR] Virtual environment not found at: $venv_python" >&2
-    echo "  Please run 'ergoms python-install' first" >&2
+    echo "[ERROR] Виртуальное окружение не найдено: $venv_python" >&2
+    echo "  Сначала выполните ergoms python-install" >&2
     exit 1
   fi
   
@@ -279,8 +315,8 @@ invoke_media_api_command() {
   local venv_python="$root/virtual_env/python/bin/python"
   
   if [[ ! -f "$venv_python" ]]; then
-    echo "[ERROR] Virtual environment not found at: $venv_python" >&2
-    echo "  Please run 'ergoms python-install' first" >&2
+    echo "[ERROR] Виртуальное окружение не найдено: $venv_python" >&2
+    echo "  Сначала выполните ergoms python-install" >&2
     exit 1
   fi
   

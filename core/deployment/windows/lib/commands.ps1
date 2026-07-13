@@ -69,9 +69,9 @@ function Invoke-CustomCommand {
     $customCommands = Get-CustomCommands -ProjectRoot $ProjectRoot
     
     if (-not $customCommands.ContainsKey($CommandName)) {
-        Write-ColorOutput "[ERROR] Unknown command: $CommandName" Red
-        Write-ColorOutput "Available custom commands: $($customCommands.Keys -join ', ')" Yellow
-        Write-ColorOutput "Run 'ergoms help' for all available commands" Cyan
+        Write-ErgomsMessage -Key 'unknown_command' -Color Red -Stderr -Param @{ name = $CommandName }
+        Write-ColorOutput "Доступные пользовательские команды: $($customCommands.Keys -join ', ')" Yellow
+        Write-ErgomsMessage -Key 'help_hint' -Color Cyan
         exit 1
     }
     
@@ -80,7 +80,7 @@ function Invoke-CustomCommand {
     # Check if it's a composite command (contains &&)
     if ($commandDef -match '&&') {
         $subCommands = $commandDef -split '&&' | ForEach-Object { $_.Trim() }
-        Write-ColorOutput "-> Executing composite command: $CommandName" Cyan
+        Write-ColorOutput "-> Выполнение составной команды: $CommandName" Cyan
         
         foreach ($subCmd in $subCommands) {
             if (-not (Test-ShouldRunOnThisPlatform -CommandString $subCmd)) {
@@ -89,7 +89,7 @@ function Invoke-CustomCommand {
             Write-ColorOutput "   -> $subCmd" Yellow
             Execute-CommandString -CommandString $subCmd -ProjectRoot $ProjectRoot -UserArgs $CommandArgs
             if ($LASTEXITCODE -ne 0) {
-                Write-ColorOutput "[ERROR] Command failed: $subCmd" Red
+                Write-ErgomsMessage -Key 'command_failed' -Color Red -Stderr -Param @{ name = $subCmd }
                 exit $LASTEXITCODE
             }
         }
@@ -136,7 +136,7 @@ function Execute-CommandString {
                 $venvPath = Join-Path $ProjectRoot "virtual_env\python"
                 $pythonExe = Join-Path $venvPath "Scripts\python.exe"
                 if (-not (Test-Path $pythonExe)) {
-                    Write-ColorOutput "[ERROR] Virtual environment not found" Red
+                    Write-ErgomsMessage -Key 'venv_not_found' -Color Red -Stderr
                     exit 1
                 }
                 Push-Location (Join-Path $ProjectRoot "core\api")
@@ -156,7 +156,7 @@ function Execute-CommandString {
                 $venvPath = Join-Path $ProjectRoot "virtual_env\python"
                 $pythonExe = Join-Path $venvPath "Scripts\python.exe"
                 if (-not (Test-Path $pythonExe)) {
-                    Write-ColorOutput "[ERROR] Virtual environment not found" Red
+                    Write-ErgomsMessage -Key 'venv_not_found' -Color Red -Stderr
                     exit 1
                 }
                 Push-Location $ProjectRoot
@@ -174,8 +174,8 @@ function Execute-CommandString {
                 Push-Location $ProjectRoot
                 try {
                     if (-not (Test-Path "package.json")) {
-                        Write-ColorOutput "[ERROR] package.json not found in project root" Red
-                        Write-ColorOutput "  Current directory: $(Get-Location)" Gray
+                        Write-ColorOutput "[ERROR] package.json не найден в корне проекта" Red
+                        Write-ColorOutput "  Текущий каталог: $(Get-Location)" Gray
                         exit 1
                     }
                     # Use cmd /c to avoid PowerShell argument passing issues with npm.cmd on Windows
@@ -236,11 +236,11 @@ function Invoke-ModulePoetryCommand {
     $env:ERGOMS_INTERNAL = '1'
 
     if ($CommandArgs.Count -eq 0) {
-        Write-ColorOutput "Usage:" Yellow
-        Write-ColorOutput "  ergoms ${ModuleName}:poetry add PACKAGE              -- add dep (version auto-resolved)" Yellow
-        Write-ColorOutput "  ergoms ${ModuleName}:poetry add PACKAGE `">=1.0.0`"  -- add with explicit constraint" Yellow
-        Write-ColorOutput "  ergoms ${ModuleName}:poetry remove PACKAGE           -- remove dep" Yellow
-        Write-ColorOutput "  ergoms ${ModuleName}:poetry list                     -- list module deps" Yellow
+        Write-ColorOutput "Использование:" Yellow
+        Write-ColorOutput "  ergoms ${ModuleName}:poetry add PACKAGE              — добавить зависимость (версия определяется автоматически)" Yellow
+        Write-ColorOutput "  ergoms ${ModuleName}:poetry add PACKAGE `">=1.0.0`"  — добавить с явным ограничением версии" Yellow
+        Write-ColorOutput "  ergoms ${ModuleName}:poetry remove PACKAGE           — удалить зависимость" Yellow
+        Write-ColorOutput "  ergoms ${ModuleName}:poetry list                     — список зависимостей модуля" Yellow
         return
     }
 
@@ -250,14 +250,14 @@ function Invoke-ModulePoetryCommand {
     switch ($subCmd) {
         'add' {
             if ($restArgs.Count -eq 0) {
-                Write-ColorOutput "[ERROR] Package name required: ergoms ${ModuleName}:poetry add PACKAGE" Red
+                Write-ColorOutput "[ERROR] Укажите имя пакета: ergoms ${ModuleName}:poetry add PACKAGE" Red
                 return
             }
             Invoke-ApiCommand -CommandArgs (@('module-add', $ModuleName) + $restArgs) -Root $Root
         }
         'remove' {
             if ($restArgs.Count -eq 0) {
-                Write-ColorOutput "[ERROR] Package name required: ergoms ${ModuleName}:poetry remove PACKAGE" Red
+                Write-ColorOutput "[ERROR] Укажите имя пакета: ergoms ${ModuleName}:poetry remove PACKAGE" Red
                 return
             }
             Invoke-ApiCommand -CommandArgs (@('module-remove', $ModuleName) + $restArgs) -Root $Root
@@ -315,8 +315,8 @@ function Invoke-ApiCommand {
     
     $pythonExe = Join-Path $venvPath "Scripts\python.exe"
     if (-not (Test-Path $pythonExe)) {
-        Write-ColorOutput "[ERROR] Virtual environment not found at: $venvPath" Red
-        Write-ColorOutput "  Please run 'ergoms python-install' first" Yellow
+        Write-ErgomsMessage -Key 'venv_not_found_at' -Color Red -Stderr -Param @{ path = $venvPath }
+        Write-ErgomsMessage -Key 'venv_setup_hint' -Color Yellow -Stderr
         exit 1
     }
     
@@ -342,8 +342,8 @@ function Invoke-MediaApiCommand {
     $venvPath = Join-Path $Root "virtual_env\python"
     $pythonExe = Join-Path $venvPath "Scripts\python.exe"
     if (-not (Test-Path $pythonExe)) {
-        Write-ColorOutput "[ERROR] Virtual environment not found at: $venvPath" Red
-        Write-ColorOutput "  Please run 'ergoms python-install' first" Yellow
+        Write-ErgomsMessage -Key 'venv_not_found_at' -Color Red -Stderr -Param @{ path = $venvPath }
+        Write-ErgomsMessage -Key 'venv_setup_hint' -Color Yellow -Stderr
         exit 1
     }
     

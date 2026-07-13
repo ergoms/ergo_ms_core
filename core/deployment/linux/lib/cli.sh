@@ -30,7 +30,7 @@ EOF
     sudo install -m 0755 "$tmp_file" "$path"
   fi
   rm -f "$tmp_file"
-  echo "Installed CLI wrapper: $path"
+  echo "CLI-обёртка установлена: $path"
 }
 
 remove_cli_wrapper() {
@@ -42,7 +42,7 @@ remove_cli_wrapper() {
     else
       sudo rm -f "$path"
     fi
-    echo "Removed CLI wrapper: $path"
+    echo "CLI-обёртка удалена: $path"
   fi
 }
 

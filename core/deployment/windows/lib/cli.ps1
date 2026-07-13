@@ -15,7 +15,7 @@ function Install-CliWrapper {
         "powershell.exe -ExecutionPolicy Bypass -NoProfile -File `"$mainScript`" %*"
     ) -join "`r`n"
     Set-Content -Path $cliPath -Value $batContent -Encoding ASCII
-    Write-ColorOutput "[OK] CLI batch wrapper installed: $cliPath" Green
+    Write-ColorOutput "[OK] CLI batch-обёртка установлена: $cliPath" Green
 
     # 2. PowerShell profile function — correctly handles special characters like >= <= | &
     #    The batch file passes %* through CMD which interprets > as redirect.
@@ -41,10 +41,10 @@ $endMarker
         # Replace existing block
         $profileContent = $profileContent -replace "(?s)$([regex]::Escape($startMarker)).*?$([regex]::Escape($endMarker))", $funcBlock.Trim()
         Set-Content -Path $profilePath -Value $profileContent -Encoding UTF8
-        Write-ColorOutput "[OK] PowerShell profile function updated: $profilePath" Green
+        Write-ColorOutput "[OK] Функция ergoms в профиле PowerShell обновлена: $profilePath" Green
     } else {
         Add-Content -Path $profilePath -Value $funcBlock -Encoding UTF8
-        Write-ColorOutput "[OK] PowerShell profile function added: $profilePath" Green
+        Write-ColorOutput "[OK] Функция ergoms добавлена в профиль PowerShell: $profilePath" Green
     }
 
     $cliName = Get-CliName
@@ -58,9 +58,9 @@ function Uninstall-CliWrapper {
     $cliPath = Get-CliPath
     if (Test-Path $cliPath) {
         Remove-Item $cliPath -Force
-        Write-ColorOutput "[OK] CLI batch wrapper removed: $cliPath" Green
+        Write-ColorOutput "[OK] CLI batch-обёртка удалена: $cliPath" Green
     } else {
-        Write-ColorOutput "- CLI batch wrapper not found" Gray
+        Write-ColorOutput "- CLI batch-обёртка не найдена" Gray
     }
 
     # Remove PowerShell profile function
@@ -72,9 +72,9 @@ function Uninstall-CliWrapper {
         if ($profileContent -match [regex]::Escape($startMarker)) {
             $profileContent = $profileContent -replace "(?s)\r?\n?$([regex]::Escape($startMarker)).*?$([regex]::Escape($endMarker))\r?\n?", ""
             Set-Content -Path $profilePath -Value $profileContent.TrimEnd() -Encoding UTF8
-            Write-ColorOutput "[OK] PowerShell profile function removed: $profilePath" Green
+            Write-ColorOutput "[OK] Функция ergoms удалена из профиля PowerShell: $profilePath" Green
         } else {
-            Write-ColorOutput "- PowerShell profile function not found" Gray
+            Write-ColorOutput "- Функция ergoms в профиле PowerShell не найдена" Gray
         }
     }
 }

@@ -1,9 +1,9 @@
 /**
  * Сканирует package.json в modules/<name>/client и проверяет, что все модульные
- * npm-зависимости установлены в корневом node_modules (npm workspaces + hoisted).
+ * npm-зависимости установлены в корневом node_modules (hoisted).
  *
- * Вызывается из postinstall; при отсутствующих пакетах — повторный npm install
- * с --workspaces --include-workspace-root (без lifecycle-скриптов, чтобы не зациклиться).
+ * Установка — через npm install <pkg>@<ver> --no-save --no-package-lock,
+ * чтобы модульные пакеты не попадали в корневой package-lock.json.
  */
 
 import fs from 'node:fs'
@@ -38,7 +38,6 @@ function collectModuleDependencies() {
     for (const [depName, depVersion] of Object.entries(dependencies)) {
       entries.push({
         module: dirent.name,
-        workspace: pkg.name,
         depName,
         depVersion,
       })
@@ -52,6 +51,10 @@ function isDependencyInstalled(depName) {
   const rootDepPath = path.join(ROOT, 'node_modules', depName)
   if (fs.existsSync(rootDepPath)) {
     return true
+  }
+
+  if (!fs.existsSync(MODULES_ROOT)) {
+    return false
   }
 
   for (const dirent of fs.readdirSync(MODULES_ROOT, { withFileTypes: true })) {
@@ -74,15 +77,31 @@ function isDependencyInstalled(depName) {
   return false
 }
 
-function installWorkspaceDependencies() {
+function uniqueMissingPackages(missing) {
+  const byName = new Map()
+  for (const entry of missing) {
+    if (!byName.has(entry.depName)) {
+      byName.set(entry.depName, entry)
+    }
+  }
+  return [...byName.values()]
+}
+
+function installMissingPackages(missing) {
   const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm'
+  const unique = uniqueMissingPackages(missing)
+  const specs = unique.map((entry) => `${entry.depName}@${entry.depVersion}`)
+
+  console.log(`[npm] Доустановка пакетов (${specs.length}): ${specs.join(', ')}`)
+
   const result = spawnSync(
     npmCmd,
-    ['install', '--workspaces', '--include-workspace-root', '--ignore-scripts'],
+    ['install', ...specs, '--no-save', '--no-package-lock', '--ignore-scripts'],
     {
       cwd: ROOT,
       stdio: 'inherit',
       env: process.env,
+      shell: process.platform === 'win32',
     },
   )
 
@@ -105,24 +124,27 @@ function main() {
     return
   }
 
-  console.log(`[npm] Не установлено модульных зависимостей: ${missing.length}`)
-  for (const entry of missing) {
-    console.log(`  - ${entry.depName} (${entry.module})`)
+  const uniqueMissing = uniqueMissingPackages(missing)
+  console.log(`[npm] Не установлено пакетов: ${uniqueMissing.length}`)
+  for (const entry of uniqueMissing) {
+    console.log(`  - ${entry.depName}`)
   }
 
   if (!INSTALL_MISSING) {
-    console.log('[npm] Запустите: ergoms npm install')
+    console.log('[npm] Запустите: ergoms npm run install:all')
     return
   }
 
-  console.log('[npm] Доустановка зависимостей workspace...')
-  installWorkspaceDependencies()
+  installMissingPackages(missing)
 
   const stillMissing = missing.filter((entry) => !isDependencyInstalled(entry.depName))
   if (stillMissing.length > 0) {
-    console.error('[npm] Не удалось установить модульные зависимости:')
-    for (const entry of stillMissing) {
-      console.error(`  - ${entry.depName} (${entry.module})`)
+    console.error('[npm] Не удалось установить пакеты:')
+    for (const entry of uniqueMissingPackages(stillMissing)) {
+      const sources = stillMissing
+        .filter((item) => item.depName === entry.depName)
+        .map((item) => item.module)
+      console.error(`  - ${entry.depName} (модули: ${sources.join(', ')})`)
     }
     process.exit(1)
   }

@@ -3,6 +3,8 @@
 # Базовые утилиты для развертывания ErgoMS
 
 SCRIPT_DIR_CORE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=console_tags.sh
+source "$SCRIPT_DIR_CORE/console_tags.sh"
 # shellcheck source=nginx_env.sh
 source "$SCRIPT_DIR_CORE/nginx_env.sh"
 
@@ -16,9 +18,56 @@ CACHED_UNITS_LIST=""
 require_root_or_sudo() {
   if [[ $(id -u) -ne 0 ]]; then
     if ! command -v sudo >/dev/null 2>&1; then
-      echo "This script requires root or sudo. Install sudo or run as root." >&2
+      echo "Скрипт требует root или sudo. Установите sudo или запустите от root." >&2
       exit 1
     fi
+  fi
+}
+
+write_ergoms_message() {
+  local key="$1"
+  local color="${2:-white}"
+  local use_stderr="${3:-}"
+  local root="${ERGO_ROOT:-}"
+  if [[ -z "$root" ]]; then
+    root="$(detect_project_root 2>/dev/null || echo '')"
+  fi
+  local python="$root/virtual_env/python/bin/python"
+  local script="$root/core/deployment/scripts/ergoms_console.py"
+  if [[ -f "$python" && -f "$script" ]]; then
+    local args=("$script" --key "$key" --color "$color")
+    [[ -n "$use_stderr" ]] && args+=(--stderr)
+    shift 3 || true
+    while [[ $# -gt 0 ]]; do
+      args+=(--param "$1")
+      shift
+    done
+    "$python" "${args[@]}"
+    return
+  fi
+  echo "[$key]" >&2
+}
+
+write_ergoms_text() {
+  local text="$1"
+  local color="${2:-white}"
+  local use_stderr="${3:-}"
+  local root="${ERGO_ROOT:-}"
+  if [[ -z "$root" ]]; then
+    root="$(detect_project_root 2>/dev/null || echo '')"
+  fi
+  local python="$root/virtual_env/python/bin/python"
+  local script="$root/core/deployment/scripts/ergoms_console.py"
+  if [[ -f "$python" && -f "$script" ]]; then
+    local args=("$script" --text "$text" --color "$color")
+    [[ -n "$use_stderr" ]] && args+=(--stderr)
+    "$python" "${args[@]}"
+    return
+  fi
+  if [[ -n "$use_stderr" ]]; then
+    echo "$text" >&2
+  else
+    echo "$text"
   fi
 }
 
@@ -108,7 +157,9 @@ generate_units_list() {
   local project_root="${1:-}"
   local units="ergo-api-dev.service ergo-media-api.service ergo-celery-beat.service"
 
-  if ! is_nginx_enabled "$project_root"; then
+  if is_nginx_enabled "$project_root"; then
+    units="$units ergo_ms_nginx.service"
+  else
     units="ergo-api-dev.service ergo-client-dev.service ergo-media-api.service ergo-celery-beat.service"
   fi
   
@@ -190,6 +241,8 @@ daemon_reload() {
 }
 
 export -f require_root_or_sudo
+export -f write_ergoms_message
+export -f write_ergoms_text
 export -f detect_project_root
 export -f parse_workers_from_yaml
 export -f get_celery_workers

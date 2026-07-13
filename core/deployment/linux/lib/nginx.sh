@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # Nginx management for Linux
 # Portable nginx в virtual_env/packages/nginx (сборка из официального tarball)
 
@@ -78,18 +78,18 @@ _nginx_warn_insecure_certs() {
   local cert="${ERGO_SSL_CERT:-}"
   local key="${ERGO_SSL_KEY:-}"
   if [[ -z "$cert" || -z "$key" ]]; then
-    echo "[WARN] ERGO_SSL_CERT / ERGO_SSL_KEY not set. HTTPS will fail nginx -t." >&2
+    echo "[WARNING] ERGO_SSL_CERT / ERGO_SSL_KEY не заданы. HTTPS не пройдёт nginx -t." >&2
     return 0
   fi
   if [[ "$cert" == *snakeoil* || "$key" == *snakeoil* ]]; then
-    echo "[WARN] Self-signed snakeoil certificate in use. Use Let's Encrypt for production." >&2
+    echo "[WARNING] Используется самоподписанный сертификат. Для production — Let's Encrypt." >&2
     return 0
   fi
   if [[ ! -f "$cert" ]]; then
-    echo "[WARN] SSL certificate not found: $cert" >&2
+    echo "[WARNING] SSL-сертификат не найден: $cert" >&2
   fi
   if [[ ! -f "$key" ]]; then
-    echo "[WARN] SSL private key not found: $key" >&2
+    echo "[WARNING] Приватный ключ SSL не найден: $key" >&2
   fi
 }
 
@@ -133,13 +133,13 @@ _nginx_wait_for_apt_locks() {
       return 0
     fi
     if (( waited == 0 )); then
-      echo "-> Waiting for apt/dpkg lock (another package manager is running)..."
+      echo "-> Ожидание блокировки apt/dpkg (запущен другой менеджер пакетов)..."
     fi
     sleep 3
     waited=$((waited + 3))
   done
 
-  echo "[ERROR] apt/dpkg lock is still held after ${timeout}s." >&2
+  echo "[ERROR] Блокировка apt/dpkg не снята за ${timeout}s." >&2
   echo "  Wait until unattended-upgrades or apt-get finishes, then retry:" >&2
   echo "  sudo ergoms install-nginx" >&2
   echo "  Check: ps aux | grep -E 'apt|dpkg|unattended'" >&2
@@ -147,7 +147,7 @@ _nginx_wait_for_apt_locks() {
 }
 
 _nginx_install_build_deps() {
-  echo "-> Installing build dependencies..."
+  echo "-> Установка зависимостей сборки..."
   if command -v apt-get >/dev/null 2>&1; then
     local apt_opts=(
       -o "DPkg::Lock::Timeout=120"
@@ -173,7 +173,7 @@ _nginx_install_build_deps() {
     _nginx_sudo pacman -Sy --noconfirm base-devel zlib openssl pcre2
     return $?
   fi
-  echo "[ERROR] Cannot detect package manager for build dependencies." >&2
+  echo "[ERROR] Не удалось определить менеджер пакетов для зависимостей сборки." >&2
   return 1
 }
 
@@ -194,7 +194,7 @@ _nginx_download_tarball() {
     wget -q -O "$dest" "$url"
     return $?
   fi
-  echo "[ERROR] curl or wget is required to download nginx." >&2
+  echo "[ERROR] Для загрузки nginx нужны curl или wget." >&2
   return 1
 }
 
@@ -204,13 +204,13 @@ _nginx_install_binary() {
   nginx_bin="$(_nginx_binary "$root")"
 
   if [[ -x "$nginx_bin" ]]; then
-    echo "[OK] Nginx already installed: $nginx_bin"
+    echo "[OK] Nginx уже установлен: $nginx_bin"
     "$nginx_bin" -v 2>&1 | sed 's/^/[OK] /'
     return 0
   fi
 
   if ! _nginx_install_build_deps; then
-    echo "[ERROR] Failed to install build dependencies." >&2
+    echo "[ERROR] Не удалось установить зависимости сборки." >&2
     return 1
   fi
 
@@ -222,25 +222,25 @@ _nginx_install_binary() {
   jobs="$(nproc 2>/dev/null || echo 2)"
   pcre_flag="$(_nginx_configure_pcre_flag)"
 
-  echo "-> Downloading nginx ${NGINX_VERSION}..."
+  echo "-> Загрузка nginx ${NGINX_VERSION}..."
   if ! _nginx_download_tarball "$tarball"; then
     rm -rf "$build_dir"
-    echo "[ERROR] Failed to download nginx tarball." >&2
+    echo "[ERROR] Не удалось загрузить архив nginx." >&2
     return 1
   fi
 
-  echo "-> Extracting source..."
+  echo "-> Распаковка исходников..."
   tar -xzf "$tarball" -C "$build_dir"
 
   if [[ ! -d "$src_dir" ]]; then
     rm -rf "$build_dir"
-    echo "[ERROR] Extracted nginx source directory not found." >&2
+    echo "[ERROR] Каталог исходников nginx не найден." >&2
     return 1
   fi
 
   mkdir -p "$nginx_dir/logs" "$nginx_dir/temp" "$nginx_dir/conf"
 
-  echo "-> Configuring nginx (prefix: $nginx_dir)..."
+  echo "-> Конфигурация nginx (prefix: $nginx_dir)..."
   local -a configure_opts=(
     --prefix="$nginx_dir"
     --sbin-path="$nginx_dir/sbin/nginx"
@@ -263,53 +263,77 @@ _nginx_install_binary() {
 
   if ! (cd "$src_dir" && ./configure "${configure_opts[@]}"); then
     rm -rf "$build_dir"
-    echo "[ERROR] nginx ./configure failed." >&2
+    echo "[ERROR] nginx ./configure завершился с ошибкой." >&2
     return 1
   fi
 
-  echo "-> Building nginx..."
+  echo "-> Сборка nginx..."
   if ! (cd "$src_dir" && make -j"$jobs"); then
     rm -rf "$build_dir"
-    echo "[ERROR] nginx make failed." >&2
+    echo "[ERROR] nginx make завершился с ошибкой." >&2
     return 1
   fi
 
-  echo "-> Installing nginx to $nginx_dir..."
+  echo "-> Установка nginx в $nginx_dir..."
   if ! (cd "$src_dir" && make install); then
     rm -rf "$build_dir"
-    echo "[ERROR] nginx make install failed." >&2
+    echo "[ERROR] nginx make install завершился с ошибкой." >&2
     return 1
   fi
 
   rm -rf "$build_dir"
 
   if [[ -x "$nginx_bin" ]]; then
-    echo "[OK] Nginx installed to $nginx_dir"
+    echo "[OK] Nginx установлен в $nginx_dir"
     "$nginx_bin" -v 2>&1 | sed 's/^/[OK] /'
     return 0
   fi
 
-  echo "[ERROR] Nginx binary not found after install: $nginx_bin" >&2
+  echo "[ERROR] Исполняемый файл nginx не найден после установки: $nginx_bin" >&2
   return 1
+}
+
+_nginx_log_env() {
+  local root="$1"
+  shift
+  local py="$root/virtual_env/python/bin/python"
+  local script="$root/core/deployment/scripts/log_env.py"
+  if [[ -x "$py" && -f "$script" ]]; then
+    "$py" "$script" "$@" "$root" 2>/dev/null
+  fi
 }
 
 _nginx_write_main_conf() {
   local root="$1"
   local site_conf="$2"
-  local main_conf nginx_dir logs_dir temp_dir include_path
+  local main_conf nginx_dir runtime_logs_dir central_logs_dir temp_dir include_path
+  local nginx_error_level error_log_path access_log_path access_log_line
   nginx_dir="$(_nginx_packages_dir "$root")"
   main_conf="$(_nginx_main_conf "$root")"
-  logs_dir="$nginx_dir/logs"
+  runtime_logs_dir="$nginx_dir/logs"
+  central_logs_dir="$(_nginx_log_env "$root" logs-dir)"
+  [[ -z "$central_logs_dir" ]] && central_logs_dir="$root/logs"
+  nginx_error_level="$(_nginx_log_env "$root" nginx-error-level)"
+  [[ -z "$nginx_error_level" ]] && nginx_error_level="warn"
+  error_log_path="$(_nginx_log_env "$root" path NGINX_ERROR)"
+  access_log_path="$(_nginx_log_env "$root" path NGINX_ACCESS)"
+  [[ -z "$error_log_path" ]] && error_log_path="$central_logs_dir/nginx-error.log"
+  [[ -z "$access_log_path" ]] && access_log_path="$central_logs_dir/nginx-access.log"
+  if [[ "$(_nginx_log_env "$root" nginx-access-enabled)" == "false" ]]; then
+    access_log_line="access_log off;"
+  else
+    access_log_line="access_log $access_log_path;"
+  fi
   temp_dir="$nginx_dir/temp"
   include_path="$site_conf"
 
-  mkdir -p "$nginx_dir/conf" "$logs_dir" "$temp_dir"
+  mkdir -p "$nginx_dir/conf" "$runtime_logs_dir" "$temp_dir" "$central_logs_dir"
 
   cat >"$main_conf" <<EOF
 worker_processes auto;
 
-error_log $logs_dir/error.log;
-pid       $logs_dir/nginx.pid;
+error_log $error_log_path $nginx_error_level;
+pid       $runtime_logs_dir/nginx.pid;
 
 events {
     worker_connections 1024;
@@ -319,7 +343,7 @@ http {
     include       mime.types;
     default_type  application/octet-stream;
 
-    access_log $logs_dir/access.log;
+    $access_log_line
 
     sendfile        on;
     keepalive_timeout 65;
@@ -338,7 +362,7 @@ EOF
 _nginx_migrate_legacy_install() {
   if command -v systemctl >/dev/null 2>&1; then
     if systemctl is-active --quiet nginx 2>/dev/null; then
-      echo "-> Stopping system nginx (port conflict with packages install)..."
+      echo "-> Остановка системного nginx (конфликт порта с packages install)..."
       _nginx_sudo systemctl stop nginx 2>/dev/null || true
     fi
   fi
@@ -347,9 +371,9 @@ _nginx_migrate_legacy_install() {
   local legacy_link="$NGINX_LEGACY_SITES_ENABLED/${NGINX_CONF_NAME}.conf"
 
   if [[ -f "$legacy_conf" || -L "$legacy_link" ]]; then
-    echo "-> Removing legacy Ergo MS config from /etc/nginx..."
+    echo "-> Удаление устаревшего конфига Ergo MS из /etc/nginx..."
     _nginx_sudo rm -f "$legacy_conf" "$legacy_link" 2>/dev/null || true
-    echo "[OK] Legacy /etc/nginx config removed"
+    echo "[OK] Устаревший конфиг /etc/nginx удалён"
   fi
 }
 
@@ -365,7 +389,7 @@ _nginx_render_template() {
 
   local script="$root/core/deployment/scripts/render_nginx_config.py"
   if [[ ! -f "$script" ]]; then
-    echo "[ERROR] render_nginx_config.py not found" >&2
+    echo "[ERROR] render_nginx_config.py не найден" >&2
     return 1
   fi
 
@@ -400,11 +424,18 @@ _nginx_select_template() {
   fi
 }
 
-_nginx_ensure_env() {
+_nginx_resolve_env() {
   local root="$1"
   local py="$root/virtual_env/python/bin/python"
-  [[ -x "$py" ]] || return 0
-  "$py" "$root/core/deployment/scripts/ensure_nginx_env.py" 2>/dev/null || true
+  local script="$root/core/deployment/scripts/resolve_env.py"
+  [[ -x "$py" && -f "$script" ]] || return 0
+  local line key value
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "$line" || "$line" =~ ^# ]] && continue
+    key="${line%%=*}"
+    value="${line#*=}"
+    [[ -n "$key" ]] && export "$key=$value"
+  done < <("$py" "$script" --root "$root" --scope nginx 2>/dev/null || true)
 }
 
 _nginx_unit_content() {
@@ -438,24 +469,24 @@ UNIT
 nginx_install_service() {
   local root="$1"
   if ! _nginx_is_installed "$root"; then
-    echo "[ERROR] Nginx not installed. Run: ergoms install-nginx" >&2
+    echo "[ERROR] Nginx не установлен. Выполните: ergoms install-nginx" >&2
     return 1
   fi
 
-  nginx_stop_service "$root" 2>/dev/null || true
+  nginx_stop_service "$root" quiet 2>/dev/null || true
 
   local content
   content="$(_nginx_unit_content "$root")"
   install_unit "$NGINX_SERVICE_NAME" "$content"
   _nginx_sudo systemctl daemon-reload
   enable_and_start "${NGINX_SERVICE_NAME}.service"
-  echo "[OK] Nginx systemd service installed and started"
+  echo "[OK] Служба systemd nginx установлена и запущена"
 }
 
 nginx_install() {
   local root="$1"
-  _nginx_ensure_env "$root"
   _nginx_read_env "$root"
+  _nginx_resolve_env "$root"
   local server_name="${2}"
   local listen_host="${NGINX_LISTEN_HOST:-0.0.0.0}"
   local listen_port="${3}"
@@ -477,7 +508,7 @@ nginx_install() {
   fi
 
   echo ""
-  echo "=== Nginx: Install ==="
+  echo "=== Nginx: установка ==="
   echo ""
 
   _nginx_migrate_legacy_install
@@ -489,13 +520,13 @@ nginx_install() {
   local template
   template="$(_nginx_select_template "$root" "$use_ssl")"
   if [[ ! -f "$template" ]]; then
-    echo "[ERROR] Template not found: $template" >&2
+    echo "[ERROR] Шаблон не найден: $template" >&2
     return 1
   fi
 
   local dist_path="$root/core/client/dist"
   if [[ ! -f "$dist_path/index.html" ]]; then
-    echo "[ERROR] $dist_path/index.html not found." >&2
+    echo "[ERROR] $dist_path/index.html не найден." >&2
     echo "  Nginx serves production build, not Vite dev. Run:" >&2
     echo "    ergoms client-build" >&2
     echo "  Then: ergoms install-nginx" >&2
@@ -506,7 +537,7 @@ nginx_install() {
   rendered="$(_nginx_render_template "$template" "$root" "$server_name" "$listen_host" "$listen_port" "$use_ssl")"
   site_conf="$(_nginx_site_conf "$root")"
   printf '%s\n' "$rendered" >"$site_conf"
-  echo "[OK] Config written: $site_conf"
+  echo "[OK] Конфиг записан: $site_conf"
 
   _nginx_write_main_conf "$root" "$site_conf"
 
@@ -515,20 +546,20 @@ nginx_install() {
   main_conf="$(_nginx_main_conf "$root")"
   nginx_dir="$(_nginx_packages_dir "$root")"
 
-  echo "-> Testing nginx configuration..."
+  echo "-> Проверка конфигурации nginx..."
   if (cd "$nginx_dir" && "$nginx_bin" -t -c "$main_conf"); then
-    echo "[OK] Configuration valid"
+    echo "[OK] Конфигурация корректна"
   else
-    echo "[ERROR] nginx -t failed." >&2
+    echo "[ERROR] nginx -t завершился с ошибкой." >&2
     return 1
   fi
 
   nginx_install_service "$root"
 
-  echo "[OK] Nginx installed and running"
+  echo "[OK] Nginx установлен и запущен"
   echo "    Path: $nginx_dir"
   echo "    Config: $site_conf"
-  echo "    Logs: $nginx_dir/logs"
+  echo "    Логи: $nginx_dir/logs"
   if [[ "$use_ssl" == "true" ]]; then
     echo "    Listening: https://${server_name}:443"
   else
@@ -541,14 +572,14 @@ nginx_uninstall() {
   local purge="${2:-false}"
 
   echo ""
-  echo "=== Nginx: Uninstall ==="
+  echo "=== Nginx: удаление ==="
   echo ""
 
   _nginx_migrate_legacy_install
-  nginx_stop_service "$root" 2>/dev/null || true
+  nginx_stop_service "$root" quiet 2>/dev/null || true
 
   if [[ -f "$NGINX_UNIT_PATH" ]]; then
-    echo "-> Removing nginx systemd unit..."
+    echo "-> Удаление unit systemd nginx..."
     if [[ $(id -u) -eq 0 ]]; then
       systemctl disable --now "${NGINX_SERVICE_NAME}.service" 2>/dev/null || true
       rm -f "$NGINX_UNIT_PATH"
@@ -558,47 +589,47 @@ nginx_uninstall() {
       sudo rm -f "$NGINX_UNIT_PATH"
       sudo systemctl daemon-reload
     fi
-    echo "[OK] Nginx systemd unit removed"
+    echo "[OK] Unit systemd nginx удалён"
   fi
 
   local site_conf
   site_conf="$(_nginx_site_conf "$root")"
   if [[ -f "$site_conf" ]]; then
     rm -f "$site_conf"
-    echo "[OK] Removed config: $site_conf"
+    echo "[OK] Конфиг удалён: $site_conf"
   fi
 
   local nginx_dir
   nginx_dir="$(_nginx_packages_dir "$root")"
   if [[ "$purge" == "true" ]] && [[ -d "$nginx_dir" ]]; then
     rm -rf "$nginx_dir"
-    echo "[OK] Removed: $nginx_dir"
+    echo "[OK] Удалено: $nginx_dir"
   elif [[ -d "$nginx_dir" ]]; then
-    echo "[OK] Nginx stopped (binaries kept; use --purge to remove packages/nginx)"
+    echo "[OK] Nginx остановлен (бинарники сохранены; --purge удалит packages/nginx)"
   fi
 
-  echo "[OK] Nginx uninstalled"
+  echo "[OK] Nginx удалён"
 }
 
 nginx_start_service() {
   local root="$1"
   if ! _nginx_is_installed "$root"; then
-    echo "[ERROR] Nginx is not installed. Run: ergoms install-nginx" >&2
+    echo "[ERROR] Nginx не установлен. Выполните: ergoms install-nginx" >&2
     return 1
   fi
 
   if [[ -f "$NGINX_UNIT_PATH" ]]; then
     if systemctl is-active --quiet "${NGINX_SERVICE_NAME}.service" 2>/dev/null; then
-      echo "[OK] Nginx service already running"
+      echo "[OK] Служба nginx уже запущена"
       return 0
     fi
-    echo "-> Starting nginx service..."
+    echo "-> Запуск службы nginx..."
     _nginx_sudo systemctl start "${NGINX_SERVICE_NAME}.service"
-    echo "[OK] Nginx service started"
+    echo "[OK] Служба nginx запущена"
     return 0
   fi
 
-  nginx_stop_service "$root" 2>/dev/null || true
+  nginx_stop_service "$root" quiet 2>/dev/null || true
 
   local nginx_bin main_conf nginx_dir
   nginx_bin="$(_nginx_binary "$root")"
@@ -607,26 +638,60 @@ nginx_start_service() {
   local pid_file="$nginx_dir/logs/nginx.pid"
   rm -f "$pid_file"
 
-  echo "-> Starting nginx..."
+  echo "-> Запуск nginx..."
   (cd "$nginx_dir" && "$nginx_bin" -c "$main_conf")
   sleep 2
 
   if [[ -f "$pid_file" ]] || pgrep -f "$nginx_bin" >/dev/null 2>&1; then
-    echo "[OK] Nginx started"
+    echo "[OK] Nginx запущен"
     return 0
   fi
 
-  echo "[ERROR] Nginx failed to start. Check logs: $nginx_dir/logs/error.log" >&2
+  echo "[ERROR] Nginx не запустился. Проверьте логи: $(
+    _nginx_log_env "$root" path NGINX_ERROR
+  )" >&2
+  return 1
+}
+
+_nginx_is_running() {
+  local root="${1:-}"
+
+  if [[ -f "$NGINX_UNIT_PATH" ]] && systemctl is-active --quiet "${NGINX_SERVICE_NAME}.service" 2>/dev/null; then
+    return 0
+  fi
+  if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet nginx 2>/dev/null; then
+    return 0
+  fi
+  if [[ -n "$root" ]] && _nginx_is_installed "$root"; then
+    local nginx_dir
+    nginx_dir="$(_nginx_packages_dir "$root")"
+    if pgrep -f "$nginx_dir/sbin/nginx" >/dev/null 2>&1; then
+      return 0
+    fi
+  fi
+  if pgrep -f 'virtual_env/packages/nginx/sbin/nginx' >/dev/null 2>&1; then
+    return 0
+  fi
   return 1
 }
 
 nginx_stop_service() {
   local root="${1:-}"
+  local quiet="${2:-}"
+
+  if ! _nginx_is_running "$root"; then
+    [[ -z "$quiet" ]] && echo "[SKIP] Nginx не был запущен"
+    return 0
+  fi
 
   if [[ -f "$NGINX_UNIT_PATH" ]] && systemctl is-active --quiet "${NGINX_SERVICE_NAME}.service" 2>/dev/null; then
-    echo "-> Stopping nginx service..."
+    echo "-> Остановка службы nginx..."
     _nginx_sudo systemctl stop "${NGINX_SERVICE_NAME}.service"
-    echo "[OK] Nginx service stopped"
+    if _nginx_is_running "$root"; then
+      echo "[ERROR] Не удалось остановить службу nginx" >&2
+      return 1
+    fi
+    echo "[OK] Служба nginx остановлена"
     return 0
   fi
 
@@ -638,7 +703,7 @@ nginx_stop_service() {
     pid_file="$nginx_dir/logs/nginx.pid"
 
     if [[ -x "$nginx_bin" ]]; then
-      echo "-> Stopping nginx process..."
+      echo "-> Остановка процесса nginx..."
       (cd "$nginx_dir" && "$nginx_bin" -s quit -c "$main_conf" 2>/dev/null) || true
       sleep 1
     fi
@@ -650,13 +715,18 @@ nginx_stop_service() {
   fi
 
   pkill -f 'virtual_env/packages/nginx/sbin/nginx' 2>/dev/null || true
-  echo "[OK] Nginx stopped"
+
+  if _nginx_is_running "$root"; then
+    echo "[ERROR] Не удалось остановить nginx" >&2
+    return 1
+  fi
+  echo "[OK] Nginx остановлен"
 }
 
 nginx_reload_service() {
   local root="$1"
   if ! _nginx_is_installed "$root"; then
-    echo "[ERROR] Nginx is not installed. Run: ergoms install-nginx" >&2
+    echo "[ERROR] Nginx не установлен. Выполните: ergoms install-nginx" >&2
     return 1
   fi
 
@@ -665,28 +735,28 @@ nginx_reload_service() {
   main_conf="$(_nginx_main_conf "$root")"
   nginx_dir="$(_nginx_packages_dir "$root")"
 
-  echo "-> Testing configuration..."
+  echo "-> Проверка конфигурации..."
   if ! (cd "$nginx_dir" && "$nginx_bin" -t -c "$main_conf"); then
-    echo "[ERROR] Configuration test failed. Not reloading." >&2
+    echo "[ERROR] Проверка конфигурации завершилась с ошибкой. Перезагрузка не выполнена." >&2
     return 1
   fi
 
   if [[ -f "$NGINX_UNIT_PATH" ]] && systemctl is-active --quiet "${NGINX_SERVICE_NAME}.service" 2>/dev/null; then
-    echo "-> Reloading nginx service..."
+    echo "-> Перезагрузка службы nginx..."
     _nginx_sudo systemctl reload "${NGINX_SERVICE_NAME}.service"
-    echo "[OK] Nginx reloaded"
+    echo "[OK] Nginx перезагружен"
     return 0
   fi
 
-  echo "-> Reloading nginx..."
+  echo "-> Перезагрузка nginx..."
   (cd "$nginx_dir" && "$nginx_bin" -s reload -c "$main_conf")
-  echo "[OK] Nginx reloaded"
+  echo "[OK] Nginx перезагружен"
 }
 
 nginx_status_service() {
   local root="$1"
   if ! _nginx_is_installed "$root"; then
-    echo "Nginx: Not installed"
+    echo "Nginx: не установлен"
     echo "  Expected path: $(_nginx_packages_dir "$root")"
     return 0
   fi
@@ -696,7 +766,7 @@ nginx_status_service() {
   site_conf="$(_nginx_site_conf "$root")"
 
   echo ""
-  echo "=== Nginx Status ==="
+  echo "=== Статус Nginx ==="
 
   if [[ -f "$NGINX_UNIT_PATH" ]]; then
     if systemctl is-active --quiet "${NGINX_SERVICE_NAME}.service" 2>/dev/null; then
@@ -705,7 +775,7 @@ nginx_status_service() {
       echo "  Service ($NGINX_SERVICE_NAME): Not running"
     fi
   elif pgrep -f "$nginx_dir/sbin/nginx" >/dev/null 2>&1; then
-    echo "  Process: Running (PID: $(pgrep -f "$nginx_dir/sbin/nginx" | head -n1))"
+    echo "  Process: Запущен (PID: $(pgrep -f "$nginx_dir/sbin/nginx" | head -n1))"
   else
     echo "  Process: Not running"
   fi
@@ -717,14 +787,14 @@ nginx_status_service() {
   fi
 
   echo "  Path: $nginx_dir"
-  echo "  Logs: $nginx_dir/logs"
+  echo "  Логи: $nginx_dir/logs"
   echo ""
 }
 
 nginx_test_config() {
   local root="$1"
   if ! _nginx_is_installed "$root"; then
-    echo "[ERROR] Nginx is not installed" >&2
+    echo "[ERROR] Nginx не установлен" >&2
     return 1
   fi
 

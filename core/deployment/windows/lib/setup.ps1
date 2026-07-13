@@ -1,4 +1,4 @@
-# Full system setup
+﻿# Full system setup
 # Полная настройка системы
 
 function Update-Submodules {
@@ -6,36 +6,32 @@ function Update-Submodules {
         [string]$Root
     )
     
-    Write-ColorOutput "`n=== Updating Git Submodules ===" Cyan
-    Write-ColorOutput ""
-    
     Push-Location $Root
     try {
-        Write-ColorOutput "-> Updating git submodules..." Yellow
         & git submodule update --init --remote core/api core/client core/media_api
         if ($LASTEXITCODE -ne 0) { throw "Git submodule update failed" }
         
-        Write-ColorOutput "-> Switching submodules to dev branch..." Yellow
+        Write-ColorOutput "-> Переключение submodule на ветку dev..." Yellow
         
         Push-Location "core\api"
         & git checkout dev
-        if ($LASTEXITCODE -ne 0) { Write-ColorOutput "[WARNING] Failed to checkout dev branch in core/api" Yellow }
+        if ($LASTEXITCODE -ne 0) { Write-ColorOutput "[WARNING] Не удалось переключить ветку dev в core/api" Yellow }
         Pop-Location
         
         Push-Location "core\client"
         & git checkout dev
-        if ($LASTEXITCODE -ne 0) { Write-ColorOutput "[WARNING] Failed to checkout dev branch in core/client" Yellow }
+        if ($LASTEXITCODE -ne 0) { Write-ColorOutput "[WARNING] Не удалось переключить ветку dev в core/client" Yellow }
         Pop-Location
         
         Push-Location "core\media_api"
         & git checkout dev
-        if ($LASTEXITCODE -ne 0) { Write-ColorOutput "[WARNING] Failed to checkout dev branch in core/media_api" Yellow }
+        if ($LASTEXITCODE -ne 0) { Write-ColorOutput "[WARNING] Не удалось переключить ветку dev в core/media_api" Yellow }
         Pop-Location
         
-        Write-ColorOutput "[OK] Git submodules updated" Green
+        Write-ColorOutput "[OK] Git submodule обновлены" Green
     }
     catch {
-        Write-ColorOutput "[ERROR] Failed to update git submodules: $($_.Exception.Message)" Red
+        Write-ColorOutput "[ERROR] Не удалось обновить git submodule: $($_.Exception.Message)" Red
         Pop-Location
         exit 1
     }
@@ -91,37 +87,37 @@ function Update-ModuleSubmodules {
         [string]$Root
     )
 
-    Write-ColorOutput "`n=== Updating Module Git Submodules ===" Cyan
+    Write-ColorOutput "`n=== Обновление git submodule модулей ===" Cyan
     Write-ColorOutput ""
 
     Push-Location $Root
     try {
         $entries = Get-ModuleSubmoduleEntries -Root $Root
         if ($entries.Count -eq 0) {
-            Write-ColorOutput "[WARNING] No module submodules found in .gitmodules" Yellow
+            Write-ColorOutput "[WARNING] В .gitmodules не найдено submodule модулей" Yellow
             return
         }
 
         $paths = @($entries | ForEach-Object { $_.Path })
-        Write-ColorOutput "-> Updating $($paths.Count) module submodule(s)..." Yellow
+        Write-ColorOutput "-> Обновление submodule модулей ($($paths.Count))..." Yellow
         & git submodule update --init --remote @paths
         if ($LASTEXITCODE -ne 0) { throw "Git submodule update failed" }
 
-        Write-ColorOutput "-> Switching modules to configured branches..." Yellow
+        Write-ColorOutput "-> Переключение модулей на настроенные ветки..." Yellow
         foreach ($entry in $entries) {
             Write-ColorOutput "  $($entry.Path) -> $($entry.Branch)" Gray
             Push-Location $entry.Path
             & git checkout $entry.Branch
             if ($LASTEXITCODE -ne 0) {
-                Write-ColorOutput "[WARNING] Failed to checkout $($entry.Branch) in $($entry.Path)" Yellow
+                Write-ColorOutput "[WARNING] Не удалось переключить $($entry.Branch) в $($entry.Path)" Yellow
             }
             Pop-Location
         }
 
-        Write-ColorOutput "[OK] Module git submodules updated" Green
+        Write-ColorOutput "[OK] Git submodule модулей обновлены" Green
     }
     catch {
-        Write-ColorOutput "[ERROR] Failed to update module git submodules: $($_.Exception.Message)" Red
+        Write-ColorOutput "[ERROR] Не удалось обновить git submodule модулей: $($_.Exception.Message)" Red
         Pop-Location
         exit 1
     }
@@ -146,12 +142,12 @@ function Invoke-ConfigScaffold {
     }
 
     if (-not $pythonCmd) {
-        Write-ColorOutput "    [WARNING] Python not found, cannot scaffold configuration files" Yellow
+        Write-ColorOutput "    [WARNING] Python не найден, невозможно создать конфигурационные файлы из примеров" Yellow
         return $false
     }
 
     if (-not (Test-Path $script)) {
-        Write-ColorOutput "    [WARNING] Config scaffold script not found: $script" Yellow
+        Write-ColorOutput "    [WARNING] Скрипт создания конфигурации не найден: $script" Yellow
         return $false
     }
 
@@ -165,38 +161,38 @@ function Setup-FullSystem {
         [bool]$RecreateVenv = $false
     )
     
-    Write-ColorOutput "`n=== Full System Setup ===" Cyan
+    Write-ColorOutput "`n=== Полная настройка системы ===" Cyan
     Write-ColorOutput ""
     
     # Step 0: Set PowerShell execution policy
-    Write-ColorOutput "-> Step 0/8: Setting PowerShell execution policy..." Yellow
+    Write-ColorOutput "-> Шаг 0/8: политика выполнения PowerShell..." Yellow
     try {
         $currentPolicy = Get-ExecutionPolicy -Scope CurrentUser -ErrorAction SilentlyContinue
         if ($currentPolicy -eq "RemoteSigned") {
-            Write-ColorOutput "  Execution policy already set to RemoteSigned" Gray
+            Write-ColorOutput "  Политика уже установлена: RemoteSigned" Gray
         }
         else {
-            Write-ColorOutput "  Setting execution policy to RemoteSigned..." Gray
+            Write-ColorOutput "  Установка политики RemoteSigned..." Gray
             Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
-            Write-ColorOutput "[OK] Execution policy set to RemoteSigned" Green
+            Write-ColorOutput "[OK] Политика выполнения установлена: RemoteSigned" Green
         }
     }
     catch {
-        Write-ColorOutput "[WARNING] Failed to set execution policy: $($_.Exception.Message)" Yellow
-        Write-ColorOutput "  You may need to run this command manually:" Gray
+        Write-ColorOutput "[WARNING] Не удалось установить политику выполнения: $($_.Exception.Message)" Yellow
+        Write-ColorOutput "  Возможно, потребуется выполнить вручную:" Gray
         Write-ColorOutput "  Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned" Yellow
     }
     
     # Step 1: Git submodules
-    Write-ColorOutput "-> Step 1/8: Updating git submodules..." Yellow
+    Write-ColorOutput "-> Шаг 1/8: обновление git submodule..." Yellow
     Update-Submodules -Root $Root
     
     # Create configuration files from examples if they don't exist
-    Write-ColorOutput "  Creating configuration files from examples..." Gray
+    Write-ColorOutput "  Создание конфигурационных файлов из примеров..." Gray
     Invoke-ConfigScaffold -Root $Root | Out-Null
     
     # Step 2: Create virtual environment
-    Write-ColorOutput "-> Step 2/8: Creating Python virtual environment..." Yellow
+    Write-ColorOutput "-> Шаг 2/8: создание виртуального окружения Python..." Yellow
     $venvPath = Join-Path $Root "virtual_env\python"
     $venvActivate = Join-Path $venvPath "Scripts\activate.bat"
     $pipExe = Join-Path $venvPath "Scripts\pip.exe"
@@ -211,15 +207,14 @@ function Setup-FullSystem {
         $onlyGitkeep = $dirContents -and $dirContents.Count -eq 1 -and $dirContents[0].Name -eq '.gitkeep'
         
         if ($isEmpty -or $onlyGitkeep) {
-            Write-ColorOutput "  Directory exists but is empty, will create virtual environment..." Gray
             $needsRecreation = $true
         }
         else {
-            Write-ColorOutput "  Virtual environment already exists" Gray
+            Write-ColorOutput "  Виртуальное окружение уже существует" Gray
             
             # Force recreation if RecreateVenv flag is set
             if ($RecreateVenv) {
-                Write-ColorOutput "  Force recreation requested" Yellow
+                Write-ColorOutput "  Запрошено принудительное пересоздание" Yellow
                 $needsRecreation = $true
             }
             else {
@@ -228,15 +223,15 @@ function Setup-FullSystem {
                 
                 # Check for essential files
                 if (-not (Test-Path $pythonExe)) {
-                    Write-ColorOutput "  Missing python.exe, will recreate..." Yellow
+                    Write-ColorOutput "  Отсутствует python.exe — будет пересоздано..." Yellow
                     $isValid = $false
                 }
                 elseif (-not (Test-Path $pipExe)) {
-                    Write-ColorOutput "  Missing pip.exe, will recreate..." Yellow
+                    Write-ColorOutput "  Отсутствует pip.exe — будет пересоздано..." Yellow
                     $isValid = $false
                 }
                 elseif (-not (Test-Path $venvActivate)) {
-                    Write-ColorOutput "  Missing activate.bat, will recreate..." Yellow
+                    Write-ColorOutput "  Отсутствует activate.bat — будет пересоздано..." Yellow
                     $isValid = $false
                 }
                 else {
@@ -244,14 +239,14 @@ function Setup-FullSystem {
                     try {
                         & $pythonExe --version 2>&1 | Out-Null
                         if ($LASTEXITCODE -ne 0) {
-                            Write-ColorOutput "  Python in virtual environment not working, will recreate..." Yellow
+                            Write-ColorOutput "  Python в виртуальном окружении не работает — будет пересоздано..." Yellow
                             $isValid = $false
                         } else {
-                            Write-ColorOutput "  Virtual environment is valid" Green
+                            Write-ColorOutput "  Виртуальное окружение в порядке" Green
                         }
                     }
                     catch {
-                        Write-ColorOutput "  Error testing virtual environment, will recreate..." Yellow
+                        Write-ColorOutput "  Ошибка проверки виртуального окружения — будет пересоздано..." Yellow
                         $isValid = $false
                     }
                 }
@@ -275,46 +270,46 @@ function Setup-FullSystem {
             
             if (-not $isEmpty -and -not $onlyGitkeep) {
                 # Directory has content other than .gitkeep, remove it
-                Write-ColorOutput "  Removing corrupted virtual environment..." Yellow
+                Write-ColorOutput "  Удаление повреждённого виртуального окружения..." Yellow
                 Remove-Item $venvPath -Recurse -Force
             }
             else {
                 # Directory is empty or only has .gitkeep, create venv in existing directory
-                Write-ColorOutput "  Directory exists but is empty, will create virtual environment in existing directory..." Gray
+                Write-ColorOutput "  Каталог пуст — виртуальное окружение будет создано в существующем каталоге..." Gray
             }
         }
         else {
             # Directory doesn't exist, create it
-            Write-ColorOutput "  Creating directory and virtual environment..." Gray
+            Write-ColorOutput "  Создание каталога и виртуального окружения..." Gray
             New-Item -ItemType Directory -Path $venvPath -Force | Out-Null
         }
         
         try {
-            Write-ColorOutput "  Creating new virtual environment..." Gray
+            Write-ColorOutput "  Создание виртуального окружения..." Gray
             & py -3.12 -m venv $venvPath
             if ($LASTEXITCODE -ne 0) { throw "Failed to create venv" }
-            Write-ColorOutput "[OK] Virtual environment created" Green
+            Write-ColorOutput "[OK] Виртуальное окружение создано" Green
         }
         catch {
-            Write-ColorOutput "[ERROR] Failed to create virtual environment: $($_.Exception.Message)" Red
-            Write-ColorOutput "  Python command used: py -3.12 -m venv" Gray
-            Write-ColorOutput "  Target path: $venvPath" Gray
+            Write-ColorOutput "[ERROR] Не удалось создать виртуальное окружение: $($_.Exception.Message)" Red
+            Write-ColorOutput "  Команда: py -3.12 -m venv" Gray
+            Write-ColorOutput "  Путь: $venvPath" Gray
             exit 1
         }
     }
     
     # Step 3: Install Poetry
-    Write-ColorOutput "-> Step 3/8: Installing Poetry..." Yellow
+    Write-ColorOutput "-> Шаг 3/8: установка Poetry..." Yellow
     $venvActivate = Join-Path $venvPath "Scripts\activate.bat"
     $pipExe = Join-Path $venvPath "Scripts\pip.exe"
     
     if (-not (Test-Path $pipExe)) {
-        Write-ColorOutput "[ERROR] pip not found in virtual environment" Red
+        Write-ColorOutput "[ERROR] pip не найден в виртуальном окружении" Red
         exit 1
     }
     
     try {
-        Write-ColorOutput "  Installing Poetry using: $pipExe" Gray
+        Write-ColorOutput "  Установка Poetry: $pipExe" Gray
         & $pipExe install poetry
         if ($LASTEXITCODE -ne 0) { 
             Write-ColorOutput "  pip exit code: $LASTEXITCODE" Red
@@ -323,31 +318,31 @@ function Setup-FullSystem {
         # Verify Poetry installation
         $poetryExe = Join-Path $venvPath "Scripts\poetry.exe"
         if (Test-Path $poetryExe) {
-            Write-ColorOutput "[OK] Poetry installed and verified" Green
+            Write-ColorOutput "[OK] Poetry установлен и проверен" Green
         } else {
-            Write-ColorOutput "[WARNING] Poetry installed but executable not found at: $poetryExe" Yellow
+            Write-ColorOutput "[WARNING] Poetry установлен, но исполняемый файл не найден: $poetryExe" Yellow
         }
     }
     catch {
-        Write-ColorOutput "[ERROR] Failed to install Poetry: $($_.Exception.Message)" Red
-        Write-ColorOutput "  pip executable: $pipExe" Gray
-        Write-ColorOutput "  Virtual environment: $venvPath" Gray
+        Write-ColorOutput "[ERROR] Не удалось установить Poetry: $($_.Exception.Message)" Red
+        Write-ColorOutput "  pip: $pipExe" Gray
+        Write-ColorOutput "  Виртуальное окружение: $venvPath" Gray
         exit 1
     }
     
     # Step 4: Install CLI wrapper
-    Write-ColorOutput "-> Step 4/8: Installing ErgoMS CLI..." Yellow
+    Write-ColorOutput "-> Шаг 4/8: установка CLI ErgoMS..." Yellow
     Install-CliWrapper
     
     # Step 5: Python (ядро + модули через commands install) + npm
-    Write-ColorOutput "-> Step 5/8: Installing dependencies (python + npm)..." Yellow
+    Write-ColorOutput "-> Шаг 5/8: установка зависимостей (python + npm)..." Yellow
     Push-Location $Root
     try {
         $env:VIRTUAL_ENV = $venvPath
         $env:PATH = "$venvPath\Scripts;$env:PATH"
         $env:POETRY_VIRTUALENVS_CREATE = "false"
         
-        Write-ColorOutput "  Running: python -m commands install (core + module deps)..." Gray
+        Write-ColorOutput "  Выполняется: python -m commands install (ядро + модули)..." Gray
         $env:PYTHONPATH = $Root
         $env:PYTHONIOENCODING = "utf-8"
         Push-Location (Join-Path $Root "core\api")
@@ -371,13 +366,13 @@ function Setup-FullSystem {
         try {
             $npmCmd = Get-Command npm.cmd -ErrorAction Stop
             $npmExe = $npmCmd.Source
-            Write-ColorOutput "  Found npm: $npmExe" Gray
+            Write-ColorOutput "  Найден npm: $npmExe" Gray
         }
         catch {
             try {
                 $npmCmd = Get-Command npm -ErrorAction Stop
                 $npmExe = $npmCmd.Source
-                Write-ColorOutput "  Found npm: $npmExe" Gray
+                Write-ColorOutput "  Найден npm: $npmExe" Gray
             }
             catch {
                 throw "npm is not available or not working. Please install Node.js and npm, and ensure it's in your PATH."
@@ -387,7 +382,7 @@ function Setup-FullSystem {
         # Change to root directory for npm commands
         Push-Location $Root
         try {
-            Write-ColorOutput "  Running: npm run install:all (from: $(Get-Location))" Gray
+            Write-ColorOutput "  Выполняется: npm run install:all (из: $(Get-Location))" Gray
             # Call npm directly using full path with argument array to avoid command truncation
             # Using argument array prevents PowerShell from interpreting the command incorrectly
             & $npmExe run install:all
@@ -396,7 +391,7 @@ function Setup-FullSystem {
                 throw "NPM install failed with exit code: $exitCode" 
             }
             
-            Write-ColorOutput "  Running: npm run build (from: $(Get-Location))" Gray
+            Write-ColorOutput "  Выполняется: npm run build (из: $(Get-Location))" Gray
             & $npmExe run build
             $exitCode = $LASTEXITCODE
             if ($exitCode -ne 0) { 
@@ -420,10 +415,10 @@ function Setup-FullSystem {
             Pop-Location
         }
         
-        Write-ColorOutput "[OK] Setup completed" Green
+        Write-ColorOutput "[OK] Настройка завершена" Green
     }
     catch {
-        Write-ColorOutput "[ERROR] Setup failed: $($_.Exception.Message)" Red
+        Write-ColorOutput "[ERROR] Настройка не удалась: $($_.Exception.Message)" Red
         Pop-Location
         exit 1
     }
@@ -432,7 +427,7 @@ function Setup-FullSystem {
     }
     
     # Step 6: Collect static
-    Write-ColorOutput "-> Step 6/8: Collecting static files..." Yellow
+    Write-ColorOutput "-> Шаг 6/8: сбор статических файлов..." Yellow
     Push-Location $Root
     try {
         # Activate virtual environment and run command
@@ -450,10 +445,10 @@ function Setup-FullSystem {
             Pop-Location
         }
         
-        Write-ColorOutput "[OK] Static files collected" Green
+        Write-ColorOutput "[OK] Статические файлы собраны" Green
     }
     catch {
-        Write-ColorOutput "[ERROR] Failed to collect static: $($_.Exception.Message)" Red
+        Write-ColorOutput "[ERROR] Не удалось собрать статику: $($_.Exception.Message)" Red
         Pop-Location
         exit 1
     }
@@ -462,14 +457,14 @@ function Setup-FullSystem {
     }
     
     # Step 7: Setup complete (services not installed)
-    Write-ColorOutput "-> Step 7/8: Setup complete" Yellow
+    Write-ColorOutput "-> Шаг 7/8: настройка завершена" Yellow
     
-    Write-ColorOutput "`n=== Full System Setup Complete ===" Green
+    Write-ColorOutput "`n=== Полная настройка системы завершена ===" Green
     Write-ColorOutput ""
-    Write-ColorOutput "System is ready! To install and start services, run:" Cyan
+    Write-ColorOutput "Система готова. Чтобы установить и запустить службы, выполните:" Cyan
     Write-ColorOutput "  ergoms install-services" Yellow
     Write-ColorOutput ""
-    Write-ColorOutput "You can now use 'ergoms' commands to manage your system." Cyan
+    Write-ColorOutput "Далее используйте команды ergoms для управления системой." Cyan
 }
 
 . (Join-Path $PSScriptRoot "clean.ps1")

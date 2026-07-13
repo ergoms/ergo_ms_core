@@ -3,6 +3,7 @@
     "tasks": [
         {
             "label": "Celery Worker",
+            "hide": true,
             "type": "multi-terminal",
             "source": {
                 "file": "celery_workers.yaml",
@@ -84,8 +85,9 @@
         },
         {
             "label": "Cache Warmup",
+            "hide": true,
             "type": "shell",
-            "command": "ergoms warmup-caches-if-needed",
+            "command": "ergoms warmup-caches-if-needed && ergoms sync-logs-services",
             "options": { "cwd": "${workspaceFolder}" },
             "windows": {
                 "options": {
@@ -107,9 +109,10 @@
         },
         {
             "label": "Services",
+            "hide": true,
             "dependsOrder": "parallel",
             "dependsOn": [
-                "Client",
+                "Nginx / Client",
                 "API",
                 "Media API",
                 "Celery Worker",
@@ -136,7 +139,8 @@
             }
         },
         {
-            "label": "Client",
+            "label": "Nginx / Client",
+            "hide": true,
             "type": "shell",
             "command": "ergoms start-client",
             "options": { "cwd": "${workspaceFolder}" },
@@ -159,6 +163,7 @@
         },
         {
             "label": "API",
+            "hide": true,
             "type": "shell",
             "command": "ergoms dev",
             "options": { "cwd": "${workspaceFolder}" },
@@ -181,6 +186,7 @@
         },
         {
             "label": "Media API",
+            "hide": true,
             "type": "shell",
             "command": "ergoms start-media",
             "options": { "cwd": "${workspaceFolder}" },
@@ -203,6 +209,7 @@
         },
         {
             "label": "Celery Beat",
+            "hide": true,
             "type": "shell",
             "command": "ergoms start-beat",
             "options": { "cwd": "${workspaceFolder}" },
@@ -321,7 +328,7 @@
         {
             "label": "Redis: Install & Start",
             "type": "shell",
-            "command": "ergoms install-redis --configure",
+            "command": "ergoms install-redis",
             "options": { "cwd": "${workspaceFolder}" },
             "windows": {
                 "options": {
@@ -332,7 +339,7 @@
                 "options": {
                     "shell": { "executable": "/bin/bash", "args": ["-lc"] }
                 },
-                "command": "sudo bash core/deployment/linux/ergo_ms.sh install-redis --configure"
+                "command": "sudo bash core/deployment/linux/ergo_ms.sh install-redis"
             },
             "presentation": {
                 "echo": true,
@@ -341,6 +348,29 @@
                 "panel": "new"
             },
             "group": { "kind": "build", "isDefault": false },
+            "problemMatcher": []
+        },
+        {
+            "label": "Redis: Stop",
+            "type": "shell",
+            "command": "ergoms stop-redis",
+            "options": { "cwd": "${workspaceFolder}" },
+            "windows": {
+                "options": {
+                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                }
+            },
+            "linux": {
+                "options": {
+                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                },
+                "command": "sudo bash core/deployment/linux/ergo_ms.sh stop-redis"
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            },
             "problemMatcher": []
         },
         {
@@ -391,11 +421,36 @@
             "problemMatcher": []
         },
         {
-            "label": "Logs: All Services",
+            "label": "Sync Logs Services Config",
+            "hide": true,
+            "type": "shell",
+            "command": "ergoms sync-logs-services",
+            "options": { "cwd": "${workspaceFolder}" },
+            "windows": {
+                "options": {
+                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                }
+            },
+            "linux": {
+                "options": {
+                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                }
+            },
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared",
+                "showReuseMessage": false,
+                "close": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Logs: All Services Terminals",
+            "hide": true,
             "type": "multi-terminal",
             "sources": [
                 {
-                    "file": ".vscode/logs-services.yaml",
+                    "file": ".vscode/logs-services.runtime.yaml",
                     "path": "services",
                     "commandTemplate": "ergoms logs ${key} 500",
                     "nameTemplate": "Logs: ${key}"
@@ -410,6 +465,21 @@
             "group": "logs",
             "delay": 300,
             "hideControlTerminal": true,
+            "problemMatcher": []
+        },
+        {
+            "label": "Logs: All Services",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "Sync Logs Services Config",
+                "Logs: All Services Terminals"
+            ],
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared",
+                "showReuseMessage": false,
+                "close": true
+            },
             "problemMatcher": []
         }
     ]

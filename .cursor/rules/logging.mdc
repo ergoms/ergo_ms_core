@@ -1,0 +1,207 @@
+---
+description: Логирование ERGO MS — logs/, logging_config, logError, Celery, env ERGO_LOG_*, ergoms logs, без FileHandler в коде
+alwaysApply: false
+---
+
+# Логирование ERGO MS
+
+## Кратко
+
+- Все **файловые** логи — только каталог **`logs/`** (переопределение: `ERGO_LOGS_DIR` в `.env`).
+- Конфигурация — **один** `dictConfig` в [`logging_config.py`](../../core/api/src/config/logging_config.py); media_api — [`media_server/logging_config.py`](../../core/media_api/src/media_server/logging_config.py).
+- **Запрещено** создавать `FileHandler`, каталоги `logs/modules/`, `logs/celery/beat/<имя>/`, `debug.log`, `logs/ergo-*.log`.
+- **Клиент:** ошибки — `logError` / `logWarn`; на сервер — автоматически в `client-browser.log` (см. [`log-error.mdc`](log-error.mdc)).
+- **Celery модули:** логгеры по имени; один файл на тип — фильтр по `logger.name` или `ergoms logs celery-tasks|celery-beat`.
+- **Безопасность:** не логировать пароли, токены, `Authorization`, полные тела auth-запросов — [`security.mdc`](security.mdc).
+
+---
+
+## Каталог и файлы
+
+| Файл | Компонент / логгеры |
+|------|---------------------|
+| `api.log` | Django, `config.*`, `core.*`, `django` |
+| `media_api.log` | Media API |
+| `celery.log` | `celery` |
+| `celery_worker.log` | `celery.worker` |
+| `celery_beat.log` | `celery.beat`, **`celery.beat.module.*`** |
+| `celery_tasks.log` | `celery.task`, **`celery.module.*`** |
+| `celery_broker.log` | `kombu` |
+| `nginx-access.log`, `nginx-error.log` | nginx |
+| `redis.log` | redis |
+| `client-dev.log` | Vite (служба) |
+| `client-browser.log` | `client.browser` (ошибки из браузера) |
+| `audit.log` | `core.audit` — журнал действий (дублирование записей из БД) |
+| `<service>.stderr.log` | crash/traceback служб (не дублирует app-логи) |
+
+**Ротация:** Python (`api.log`, Celery, …) — `RotatingFileHandler` (`ERGO_LOG_MAX_BYTES`). nginx / Redis / `client-dev.log` — `ergoms rotate-logs` (`ERGO_LOG_INFRA_*`); ежедневно — `ergoms install-infra-log-rotate`.
+
+PID и temp nginx/redis — в `virtual_env/packages/*/run|temp`, **не** в `logs/`.
+
+---
+
+## Формат строки (сервер)
+
+Единый formatter `verbose` из `logging_config.py`:
+
+```
+[LEVEL] YYYY-MM-DD HH:MM:SS logger.name module message
+```
+
+Пример:
+
+```
+[INFO] 2026-07-13 11:00:00 celery.module.bi_analysis.tasks tasks Dataset sync started
+```
+
+Имя модуля Celery видно в **`logger.name`** — отдельные файлы по модулям не нужны.
+
+---
+
+## Сервер (Python)
+
+### Обязательно
+
+- Получай логгер: `logger = logging.getLogger(__name__)` или устоявшееся имя (`config.celery`, `core.cms.adp`).
+- В **модулях Celery** — только имена из [`CeleryModuleConfig`](../../core/api/src/core/utils/celery/base.py) / [`CeleryBeatModuleConfig`](../../core/api/src/core/utils/celery_beat/base.py):
+
+```python
+logger = logging.getLogger(f'celery.module.{module_name}.tasks')
+beat_logger = logging.getLogger(f'celery.beat.module.{module_name}')
+```
+
+- Уровни и файлы — через `.env`, не хардкод в коде.
+- Placeholders в сообщениях, не f-string с пользовательскими данными целиком:
+
+```python
+# GOOD
+logger.info('Import finished: task_id=%s rows=%s', task_id, row_count)
+logger.exception('Sync failed: dataset_ref=%s', dataset_ref)
+
+# BAD — лишний шум и риск утечки
+logger.error(f'request.data={request.data}')
+```
+
+### Запрещено
+
+```python
+# BAD — свой FileHandler / RotatingFileHandler в модуле или CeleryModuleConfig
+handler = logging.FileHandler('logs/my_module.log')
+logger.addHandler(handler)
+
+# BAD — print вместо logger в бизнес-коде
+print('debug:', user.email)
+
+# BAD — логировать секреты
+logger.debug('token=%s password=%s', token, password)
+```
+
+Handlers задаёт только `dictConfig`. Не дублируй настройку из [`celery.py`](../../core/api/src/config/celery.py) — там **нет** `_setup_celery_logging`.
+
+### Новый логгер в ядре
+
+Если добавляешь **новое дерево** имён (`myfeature.*`) и нужен отдельный файл — зарегистрируй logger/handler в [`logging_config.py`](../../core/api/src/config/logging_config.py). Для разового кода достаточно `getLogger(__name__)` — попадёт в `api.log` через `config` / root.
+
+---
+
+## Celery (модули)
+
+| Тип | Логгер | Файл |
+|-----|--------|------|
+| Задачи worker | `celery.module.<имя>`, `.tasks`, `.worker` | `celery_tasks.log` |
+| Расписание Beat | `celery.beat.module.<имя>` | `celery_beat.log` |
+| Инфра worker/beat | `celery.worker`, `celery.beat` | `celery_worker.log`, `celery_beat.log` |
+
+Просмотр:
+
+```powershell
+ergoms logs celery-tasks bi_analysis 200
+ergoms logs celery-beat notifications 200
+ergoms logs ergo-celery-worker
+```
+
+Подробности запуска — [`celery.mdc`](celery.mdc).
+
+---
+
+## Клиент (Vue)
+
+| Что | Как |
+|-----|-----|
+| Ошибки в DevTools | `logError`, `logWarn` — [`log-error.mdc`](log-error.mdc) |
+| Уровень консоли браузера | `CLIENT_LOG_LEVEL` (не влияет на сервер) |
+| Ошибки на сервер | автоматически из `logError` → `POST /api/cms/client-log/` → `client-browser.log` |
+| Включение записи на сервер | `CLIENT_BROWSER_LOG_ENABLED=true` |
+
+**Запрещено:** `console.error(error)` с axios-объектом, дублировать санитизацию в модулях.
+
+---
+
+## Переменные окружения
+
+Единый источник: [`log_env.py`](../../core/deployment/scripts/log_env.py), см. [`.env.example`](../../.env.example).
+
+| Группа | Переменные |
+|--------|------------|
+| Каталог | `ERGO_LOGS_DIR` |
+| Общие уровни | `ERGO_LOG_FILE_LEVEL`, `ERGO_LOG_CONSOLE`, `ERGO_LOG_CONSOLE_LEVEL` |
+| Ротация | `ERGO_LOG_MAX_BYTES`, `ERGO_LOG_BACKUP_COUNT`, `ERGO_LOG_BROKER_*` |
+| Имена файлов | `ERGO_LOG_FILE_<KEY>` (`API`, `CELERY_WORKER`, `NGINX_ERROR`, `REDIS`, …) |
+| Уровни файлов | `ERGO_LOG_LEVEL_<KEY>` (`AUDIT`, `CELERY_BROKER`, `CLIENT_BROWSER`, …) |
+| API | `API_LOG_FILE_LEVEL`, `API_LOG_CONSOLE`, `API_LOG_CONSOLE_LEVEL` |
+| Celery worker | `CELERY_LOG_*` (процессы worker) |
+| Celery beat | `CELERY_BEAT_LOG_*` (fallback → `CELERY_LOG_*`) |
+| Media API | `MEDIA_API_LOG_*` |
+| Клиент DevTools | `CLIENT_LOG_LEVEL` |
+| Vite (служба/терминал) | `CLIENT_DEV_LOG_ENABLED`, `CLIENT_DEV_LOG_LEVEL` |
+| Ошибки браузера на сервер | `CLIENT_BROWSER_LOG_*` |
+| Журнал действий | `AUDIT_LOG_FILE_ENABLED`, `AUDIT_LOG_FILE_LEVEL` |
+| nginx | `NGINX_ERROR_LOG_LEVEL`, `NGINX_ACCESS_LOG_ENABLED` → `ergoms reload-nginx` |
+| Redis | `REDIS_LOG_LEVEL` → `ergoms install-redis --configure` |
+| Ротация infra | `ERGO_LOG_INFRA_*`, `ERGO_LOG_NGINX_*`, `ERGO_LOG_REDIS_*` → `ergoms rotate-logs`; планировщик — `install-infra-log-rotate` |
+
+После смены имён файлов или путей client-dev/nginx/redis: **`ergoms install-services`** / **`reload-nginx`** / **`install-redis --configure`**.
+После смены лимитов infra-ротации достаточно **`ergoms rotate-logs`** (перезапуск служб не нужен).
+
+---
+
+## Просмотр логов
+
+Маппинг служб — [`logs_paths.py`](../../core/deployment/scripts/logs_paths.py):
+
+```text
+ergoms logs ergo-api-dev
+ergoms logs ergo-media-api
+ergoms logs ergo-celery-beat
+ergoms logs ergo_ms_nginx
+ergoms logs ergo-redis
+ergoms logs celery-tasks [module] [lines]
+ergoms logs celery-beat [module] [lines]
+```
+
+`ergoms logs` читает **файлы** в `logs/`, не journald/NSSM `ergo-*.log`.
+
+---
+
+## Legacy (не создавать; можно удалить вручную)
+
+- `logs/modules/<имя>/`
+- `logs/celery/beat/<имя>/beat.log`
+- `logs/debug.log`, `logs/ergo-*.log`
+- `virtual_env/packages/nginx/logs/*.log` (после `reload-nginx`)
+- `virtual_env/packages/redis/logs/redis.log` (после `install-redis --configure`)
+
+После смены конфигурации: `ergoms install-services`, `ergoms sync-logs-services`, перезапуск worker/beat.
+
+---
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Ошибки клиента, sanitize | [`log-error.mdc`](log-error.mdc) |
+| Метки консоли ergoms `[OK]`/`[ERROR]`/… | [`console-output.mdc`](console-output.mdc) |
+| Celery, задачи, beat | [`celery.mdc`](celery.mdc) |
+| Безопасность логов | [`security.mdc`](security.mdc) |
+| Аудит (не путать с app.log) | [`audit.mdc`](audit.mdc) |
+| Команды ergoms | [`no-direct-manage-py.mdc`](no-direct-manage-py.mdc) |

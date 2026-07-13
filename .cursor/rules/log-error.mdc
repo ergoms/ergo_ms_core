@@ -1,11 +1,11 @@
 ---
-description: Логирование ошибок на клиенте — logError, logWarn, без console.error(axios)
+description: Логирование ошибок на клиенте — logError, logWarn, client-browser.log, без console.error(axios)
 alwaysApply: false
 ---
 
 # Логирование ошибок на клиенте
 
-Файл: `core/client/src/js/utils/logError.js`. Общий контекст безопасности — [`security.mdc`](security.mdc) → «Логирование — клиент».
+Файл: `core/client/src/js/utils/logError.js`. Общая схема логов — [`logging.mdc`](logging.mdc). Безопасность — [`security.mdc`](security.mdc) → «Логирование — клиент».
 
 `logError`, `logWarn`, `sanitizeError` подключаются **автоматически** (vite auto-import). **Не импортируй** их вручную.
 
@@ -38,8 +38,11 @@ logError('Ошибка сохранения', error)
 
 ## Production
 
-- `CLIENT_LOG_LEVEL=critical` или `silent`
+- `CLIENT_LOG_LEVEL=critical` или `silent` — только DevTools; **не** отключает запись на сервер
+- `CLIENT_BROWSER_LOG_ENABLED=false` — полностью отключить `client-browser.log`
 - `sourcemap: false` в сборке ([`vite.config.js`](../../core/client/vite.config.js))
+
+При `logError` ошибки уходят на `POST /api/cms/client-log/` → `logs/client-browser.log` (см. [`logging.mdc`](logging.mdc)).
 
 Эталон использования: `core/client/src/js/api/manager.js`.
 
@@ -47,5 +50,6 @@ logError('Ошибка сохранения', error)
 
 | Тема | Файл |
 |------|------|
+| Схема логов, env, Celery-файлы | [`logging.mdc`](logging.mdc) |
 | Полный чеклист безопасности | [`security.mdc`](security.mdc) |
 | Клиент Vue | [`client_code.mdc`](client_code.mdc) |

@@ -83,6 +83,15 @@ ergoms api <имя_команды> [аргументы]
 ergoms video_analysis:install
 ```
 
+Справка по модулям (описания хранятся в `modules/<имя>/ergoms.help.yaml`):
+
+```cmd
+ergoms help modules
+ergoms help module video_analysis
+```
+
+Общая справка по ядру: `ergoms help`.
+
 ## Зависимости модулей (Python)
 
 Пакеты для модуля прописывают не в корневом `pyproject.toml`, а в `modules/<имя>/pyproject.toml`. Управляют этим через прокси `ergoms api`:
@@ -96,6 +105,28 @@ ergoms api module-list
 ```
 
 `module-add` без явной версии сам подбирает последнюю совместимую; флаг `--install` сразу устанавливает пакет. После добавления или удаления без `--install` нужно выполнить `ergoms python-install`, чтобы применить изменения.
+
+Модульные пакеты **не** добавляют в корневой `pyproject.toml` и **не** должны попадать в `poetry.lock`. Пересборка lock ядра — только при изменении зависимостей в корневом `pyproject.toml` (`ergoms poetry lock`).
+
+## Lock-файлы (ядро и модули)
+
+`poetry.lock` и `package-lock.json` в корне — **только ядро**. Workspaces `modules/*/client` остаются в `package.json`, но установка не должна записывать модули в lock.
+
+```cmd
+ergoms npm run install:all
+ergoms npm-lock-refresh
+ergoms npm-lock-sanitize
+ergoms lock-check
+```
+
+- Установка npm (ядро + модули в `node_modules`): `ergoms npm run install:all` — не используйте `npm ci` в корне.
+- После изменения зависимостей **ядра** в корневом `package.json`: `ergoms npm-lock-refresh`.
+- Если в `package-lock.json` снова появились `modules/*` (например после старого `npm install`): `ergoms npm-lock-sanitize` или полная пересборка через `ergoms npm-lock-refresh`.
+- Проверка утечек модулей в lock: `ergoms lock-check`.
+
+В `.npmrc` задано `package-lock=false`, чтобы обычный `npm install` не перезаписывал lock; пересборка lock — только через `ergoms npm-lock-refresh`.
+
+Версии модульных npm-пакетов фиксируются в `modules/<имя>/client/package.json` submodule.
 
 ## GeoIP (геолокация IP)
 
@@ -130,11 +161,11 @@ ergoms logs ergo-api-dev
 ```conf
 migrate-all=api:makemigrations && api:migrate
 install-deps=api:install && npm:run install:all && api:migrate && api:warmup_caches
-dev=api:dev
-start-client=npm:run dev
 ```
 
-Новую команду ядра добавляют в этот файл; команду модуля — в `ergoms.conf` соответствующего модуля.
+Команды `dev` и `start-client` вызывают скрипты в `core/api/scripts/` и `core/deployment/scripts/` (см. `commands.conf`).
+
+Новую команду ядра добавляют в `commands.conf` и описание — в `core/deployment/help.manifest.yaml`. Команду модуля — в `ergoms.conf` и `ergoms.help.yaml` соответствующего модуля.
 
 ## Остановка
 
