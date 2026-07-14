@@ -1,0 +1,46 @@
+# ERGO MS — общий Python-образ (API, media_api, Celery, Jupyter)
+FROM python:3.12-slim-bookworm AS base
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONIOENCODING=utf-8 \
+    PYTHONUTF8=1 \
+    POETRY_VERSION=2.1.3 \
+    POETRY_VIRTUALENVS_PATH=/app/virtual_env/python \
+    POETRY_NO_INTERACTION=1 \
+    POETRY_CACHE_DIR=/tmp/poetry-cache \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        curl \
+        git \
+        libpq-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir "poetry==${POETRY_VERSION}"
+
+WORKDIR /app
+
+# Зависимости — отдельный слой для кэша
+COPY pyproject.toml poetry.lock ./
+
+RUN mkdir -p core/api core/media_api modules virtual_env/python virtual_env/cache logs media notebooks
+
+# Минимальный каркас для poetry install (полный код — bind-mount в dev или COPY в prod)
+COPY core/api/src ./core/api/src
+COPY core/api/commands ./core/api/commands
+COPY core/api/scripts ./core/api/scripts
+COPY core/media_api/src ./core/media_api/src
+COPY modules ./modules
+
+RUN poetry install --no-interaction --no-ansi \
+    && poetry run python -c "import django; print('django ok')"
+
+COPY core/deployment/docker/entrypoint/wait_for_services.py ./core/deployment/docker/entrypoint/wait_for_services.py
+COPY core/deployment/docker/entrypoint/docker_entrypoint.sh ./core/deployment/docker/entrypoint/docker_entrypoint.sh
+RUN chmod +x /app/core/deployment/docker/entrypoint/docker_entrypoint.sh
+
+ENV PATH="/app/virtual_env/python/bin:${PATH}"
+
+ENTRYPOINT ["/app/core/deployment/docker/entrypoint/docker_entrypoint.sh"]

@@ -81,6 +81,36 @@ sections:
       - name: install-infra-log-rotate
         summary: "Планировщик ежедневной ротации infra-логов (cron / Task Scheduler)"
 
+  - id: docker
+    title: "Docker Compose"
+    note: "Переменные DOCKER_* и profiles — секция Docker в .env.example. Порты — API_PORT, CLIENT_PORT и др. БД — databases.yaml."
+    commands:
+      - name: docker-init
+        summary: "Первый запуск: build, worker-сервисы, up, migrate"
+      - name: docker-up
+        summary: "Поднять стек (режим DOCKER_MODE, profiles из .env)"
+      - name: docker-down
+        summary: "Остановить и удалить контейнеры"
+      - name: docker-restart
+        summary: "down + up"
+      - name: docker-dev
+        summary: "docker-up в режиме dev (Vite, bind-mount)"
+      - name: docker-prod
+        summary: "docker-up в режиме prod (daphne, client-build)"
+      - name: docker-build
+        summary: "Собрать образы api/client"
+      - name: docker-ps
+        summary: "Статус контейнеров"
+      - name: docker-logs
+        invoke: "ergoms docker-logs [-f] [service]"
+        summary: "Журнал контейнеров"
+      - name: docker-migrate
+        summary: "Миграции внутри контейнера api"
+      - name: docker-shell-api
+        summary: "Интерактивная shell в контейнере api"
+      - name: docker-gen-workers
+        summary: "Перегенерировать compose из celery_workers.yaml"
+
   - id: dependencies
     title: "Зависимости и база данных"
     commands:

@@ -1,0 +1,16 @@
+# ERGO MS — Node-образ для клиента (dev Vite / prod build)
+FROM node:20-bookworm-slim
+
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false
+
+WORKDIR /app
+
+COPY package.json ./
+COPY core/client/package.json ./core/client/
+
+RUN mkdir -p core/client modules
+
+COPY core/deployment/scripts/sync-module-npm-deps.js ./core/deployment/scripts/sync-module-npm-deps.js
+
+# Полная установка выполняется при первом запуске (dev volume) или в client-build
+CMD ["npm", "run", "dev", "--prefix", "core/client"]

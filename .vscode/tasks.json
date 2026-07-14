@@ -149,7 +149,6 @@
             "commandTemplate": "ergoms start-${key}-dev",
             "nameTemplate": "${key}",
             "group": "optional-services",
-            "delay": 300,
             "hideControlTerminal": true
         },
         {

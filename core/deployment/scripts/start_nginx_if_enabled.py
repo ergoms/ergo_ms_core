@@ -15,7 +15,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from deployment_env import is_nginx_enabled  # noqa: E402
-from nginx_foreground import run_nginx_foreground  # noqa: E402
+from nginx_dev import run_nginx_foreground  # noqa: E402
 
 
 def main() -> int:

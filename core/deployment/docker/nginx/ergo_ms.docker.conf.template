@@ -1,0 +1,85 @@
+# ERGO MS — reverse proxy для Docker Compose
+# Рендер: ergoms docker-up (docker_cli.render_nginx_docker_config)
+
+upstream ergo_api {
+    server ${ERGO_DOCKER_SERVICE_API}:${API_PORT};
+    keepalive 32;
+}
+
+upstream ergo_media {
+    server ${ERGO_DOCKER_SERVICE_MEDIA}:${MEDIA_API_BIND_PORT};
+    keepalive 8;
+}
+
+server {
+    listen ${NGINX_LISTEN_PORT};
+    server_name ${NGINX_SERVER_NAME};
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    client_max_body_size 610m;
+
+    access_log /var/log/ergo/nginx-access.log;
+    error_log /var/log/ergo/nginx-error.log warn;
+
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable" always;
+        try_files $uri =404;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /api/ {
+        proxy_pass http://ergo_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /ws/ {
+        proxy_pass http://ergo_api;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_read_timeout 86400s;
+    }
+
+    location /static/ {
+        alias /usr/share/nginx/static/;
+        expires 30d;
+        access_log off;
+    }
+
+    location /serve/ {
+        proxy_pass http://ergo_media;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    location /upload/ {
+        proxy_pass http://ergo_media;
+        proxy_set_header Host $host;
+        client_max_body_size 610m;
+    }
+
+    location /health/ {
+        proxy_pass http://ergo_media;
+        access_log off;
+    }
+
+    location /jupyter/ {
+        proxy_pass http://jupyter:${API_JUPYTER_BIND_PORT}/jupyter/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}

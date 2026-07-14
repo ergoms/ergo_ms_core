@@ -1,15 +1,14 @@
 """
 Запуск Redis в foreground для VS Code / ergoms start-redis-dev.
 
-При REDIS_ENABLED=true: handoff от detached warmup, foreground в терминале;
-закрытие терминала или Ctrl+C останавливает Redis сессии разработки.
+При REDIS_ENABLED=true: если Redis уже отвечает (warmup или внешний процесс) — только логи,
+без stop/restart (иначе гонка с ergoms dev). Иначе — foreground-запуск portable Redis.
 При REDIS_ENABLED=false: выход без сообщений (задача VS Code не занимает терминал).
 """
 
 from __future__ import annotations
 
 import sys
-import time
 from pathlib import Path
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
@@ -29,7 +28,6 @@ from redis_dev import (  # noqa: E402
     is_redis_managed_service,
     read_dev_session_marker,
     run_redis_foreground,
-    stop_redis_for_dev,
 )
 
 
@@ -67,19 +65,16 @@ def main() -> int:
 
     if ping_redis(PROJECT_ROOT):
         if marker is None:
-            print(format_console(
-                'info',
-                'Redis уже запущен (внешний); закрытие терминала не остановит сервер.',
-            ))
-            return tail_log_files(redis_log_tail_paths(), service='Redis', process_keeps_running=True)
+            hint = 'внешний'
+        else:
+            hint = marker.get('source', 'warmup')
+        print(format_console(
+            'info',
+            f'Redis уже запущен ({hint}); логи ниже. Ctrl+C только прекращает просмотр.',
+        ))
+        return tail_log_files(redis_log_tail_paths(), service='Redis', process_keeps_running=True)
 
-        print(format_console('info', 'Передача управления Redis в терминал разработки...'))
-        stop_redis_for_dev(PROJECT_ROOT)
-        clear_dev_session_marker(PROJECT_ROOT)
-        deadline = time.monotonic() + 5.0
-        while time.monotonic() < deadline and ping_redis(PROJECT_ROOT):
-            time.sleep(0.2)
-    elif marker is not None:
+    if marker is not None:
         clear_dev_session_marker(PROJECT_ROOT)
 
     return run_redis_foreground(PROJECT_ROOT)

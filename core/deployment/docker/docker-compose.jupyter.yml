@@ -1,0 +1,27 @@
+# ERGO MS — JupyterLab (profile: jupyter)
+
+services:
+  jupyter:
+    image: ${DOCKER_PYTHON_IMAGE:-ergo_ms-python:local}
+    profiles: ["jupyter"]
+    env_file:
+      - .compose.env
+    volumes:
+      - ${ERGO_PROJECT_ROOT:-../..}:/app
+      - ./.compose.databases.yaml:/app/databases.yaml:ro
+      - ${ERGO_LOGS_BIND:-../../logs}:/app/logs
+      - ${ERGO_MEDIA_BIND:-../../media}:/app/media
+      - celery_cache:/app/virtual_env/cache
+      - poetry_venv:/app/virtual_env/python
+      - ${ERGO_PROJECT_ROOT:-../..}/notebooks:/app/notebooks
+    ports:
+      - "${API_JUPYTER_BIND_PORT:-8002}:${API_JUPYTER_BIND_PORT:-8002}"
+    depends_on:
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_started
+    networks:
+      - ergo_net
+    command: ["python", "core/api/scripts/start_jupyter.py"]
+    restart: unless-stopped
