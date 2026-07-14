@@ -2,7 +2,7 @@
 Запуск Vite dev-сервера или nginx в foreground.
 
 При NGINX_ENABLED=true клиент отдаётся через nginx; Vite (:8001) не нужен.
-В VS Code / ergoms start-all в этом слоте запускается nginx в терминале.
+Закрытие терминала или Ctrl+C останавливает nginx сессии разработки.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 from deployment_env import is_nginx_enabled
-from nginx_foreground import run_nginx_foreground
+from nginx_dev import run_nginx_foreground
 
 CLIENT_DIR = Path(__file__).resolve().parents[2] / 'client'
 SCRIPTS_DIR = Path(__file__).resolve().parent

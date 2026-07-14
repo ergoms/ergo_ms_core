@@ -1,0 +1,15 @@
+# Docker build context (ergoms docker-build)
+
+.git
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+node_modules
+core/client/dist
+logs
+media
+virtual_env/python
+virtual_env/cache
+virtual_env/packages
+.env
+.env.*

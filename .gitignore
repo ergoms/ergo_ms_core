@@ -6,6 +6,8 @@ celery_workers.yaml
 .venv
 
 .env.*
+!.env.example
+!.env.docker.example
 
 maintenance.flag
 
@@ -57,6 +59,12 @@ __pycache__/
 
 /core/deployment/wrappers/*
 !/core/deployment/wrappers/.gitkeep
+
+/core/deployment/docker/.compose.env
+/core/deployment/docker/.compose.databases.yaml
+/core/deployment/docker/docker-compose.workers.generated.yml
+/core/deployment/docker/init/postgres/02-celery-databases.sql
+/core/deployment/docker/nginx/ergo_ms.conf.rendered
 
 # Генерируется перед dev/build (scripts/generate-module-globs.js)
 core/client/src/modules/core/sharedGlobs.generated.js

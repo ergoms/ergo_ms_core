@@ -8,7 +8,7 @@ import sys
 import time
 from pathlib import Path
 
-from deployment_env import PROJECT_ROOT, resolve_public_host
+from deployment_env import PROJECT_ROOT
 
 _DEPLOYMENT_DIR = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = Path(__file__).resolve().parent
@@ -166,41 +166,9 @@ def tail_log_files(
 
 
 def run_nginx_foreground() -> int:
-    _configure_stdio_utf8()
-    nginx_dir, exe, main_conf = nginx_paths()
-    if not exe.is_file():
-        print(format_console('error', 'Nginx не установлен. Выполните: ergoms install-nginx'))
-        return 1
+    from nginx_dev import run_nginx_foreground as _run_dev_foreground  # noqa: WPS433
 
-    public_host = resolve_public_host()
-    port = read_env_port()
-    url = f'http://{public_host}'
-    if port not in ('80', '443'):
-        url = f'{url}:{port}'
-
-    error_log = log_file_path('NGINX_ERROR', PROJECT_ROOT)
-    access_paths = nginx_log_tail_paths()
-
-    if is_nginx_running(nginx_dir, exe):
-        print(format_console('info', 'Nginx уже запущен.'))
-        _print_client_hint(url)
-        return tail_log_files(access_paths)
-
-    test = subprocess.run(
-        [str(exe), '-t', '-c', str(main_conf)],
-        cwd=str(nginx_dir),
-        check=False,
-    )
-    if test.returncode != 0:
-        print(format_console('error', f'Проверка конфигурации nginx не прошла. См. {error_log}'))
-        return test.returncode
-
-    print(format_console('info', 'Запуск nginx (Ctrl+C останавливает nginx).'))
-    _print_client_hint(url)
-    return subprocess.call(
-        [str(exe), '-c', str(main_conf), '-g', 'daemon off;'],
-        cwd=str(nginx_dir),
-    )
+    return _run_dev_foreground()
 
 
 def read_env_port() -> str:
