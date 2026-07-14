@@ -140,6 +140,71 @@ ergoms geoip-backfill --dry-run
 
 Перед первым использованием включите **`GEOIP_ENABLED=true`** в `.env` и скачайте MMDB. Подробнее — [`core/deployment/logic.md`](../core/deployment/logic.md#geoip-db-ip-city-lite) и [configuration.md](configuration.md#geoip-геолокация-ip).
 
+## Конфигурация `.env`
+
+Сверка рабочих `.env` с примерами (корень и модули):
+
+```cmd
+ergoms env
+ergoms env-normalize --dry-run
+```
+
+`env-normalize` применяет изменения по `.env.example` с сохранением существующих значений — только по явному вызову.
+
+## Nginx (опционально) {#nginx-опционально}
+
+Команды реализованы в `ergo_ms.ps1` / `ergo_ms.sh` (не в `commands.conf`). Установка может потребовать прав администратора; `status-nginx` и `test-nginx` — без них.
+
+```cmd
+ergoms install-nginx
+ergoms reload-nginx
+ergoms test-nginx
+ergoms status-nginx
+ergoms start-nginx
+ergoms stop-nginx
+```
+
+Служба с автозапуском: `ergoms install-nginx-service` (Windows). Эталон `.env` — [`core/deployment/nginx/env.example`](../core/deployment/nginx/env.example).
+
+## Redis (опционально) {#redis-опционально}
+
+Portable-сборка в `virtual_env/packages/redis/`. Не входит в `setup-full`.
+
+```cmd
+ergoms install-redis
+ergoms test-redis
+ergoms status-redis
+ergoms start-redis
+ergoms stop-redis
+```
+
+После установки вручную в `.env`: `REDIS_ENABLED=true`, перезапустите API. Служба: `ergoms install-redis-service`.
+
+## TLS (Let's Encrypt, Linux)
+
+```bash
+sudo ergoms install-tls
+ergoms status-tls
+sudo ergoms renew-tls
+```
+
+## Обслуживание и развёртывание
+
+```cmd
+ergoms restore-menu
+ergoms maintenance-on
+ergoms maintenance-off
+ergoms maintenance-status
+ergoms rotate-logs
+ergoms install-infra-log-rotate
+ergoms invalidate-caches-warmup
+ergoms deploy-api
+ergoms deploy-client
+ergoms deploy-all
+```
+
+`restore-menu` — восстановление пунктов бокового меню из миграций. `maintenance-on/off` — режим технических работ без перезапуска служб; `maintenance-status` — текущее состояние. `rotate-logs` — ротация журналов nginx, Redis и client-dev; `install-infra-log-rotate` — ежедневный планировщик ротации. `invalidate-caches-warmup` — сброс кэшей ядра и прогрев.
+
 ## Системные службы (Linux / Windows)
 
 Чтобы зарегистрировать API, клиент, Celery и media_api как службы операционной системы, нужны права администратора:
@@ -152,7 +217,7 @@ ergoms status
 ergoms logs ergo-api-dev
 ```
 
-На Linux подробнее — в [deployment.md](deployment.md). Для обычной разработки службы не нужны: достаточно `ergoms dev` и `ergoms start-client`.
+Подробнее — в [deployment.md](deployment.md) (Linux systemd и Windows services). Для обычной разработки службы не нужны: достаточно `ergoms dev` и `ergoms start-client`.
 
 ## Как устроен конфиг команд
 
@@ -163,7 +228,7 @@ migrate-all=api:makemigrations && api:migrate
 install-deps=api:install && npm:run install:all && api:migrate && api:warmup_caches
 ```
 
-Команды `dev` и `start-client` вызывают скрипты в `core/api/scripts/` и `core/deployment/scripts/` (см. `commands.conf`).
+Команды `dev` и `start-client` вызывают скрипты в `core/api/scripts/` и `core/deployment/scripts/` (см. `commands.conf`). Команды **nginx**, **redis** и **TLS** — встроенные в `ergo_ms.ps1` / `ergo_ms.sh`; полный список — `ergoms help`.
 
 Новую команду ядра добавляют в `commands.conf` и описание — в `core/deployment/help.manifest.yaml`. Команду модуля — в `ergoms.conf` и `ergoms.help.yaml` соответствующего модуля.
 

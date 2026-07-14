@@ -4,19 +4,13 @@
 
 ## Основные каталоги
 
-**`core/api/`** — Django-приложение: модели, API, CMS, права, уведомления, аудит действий, интеграции.
-
-**`core/client/`** — Vue-приложение: маршруты, меню, общие компоненты, стили.
-
-**`core/media_api/`** — отдельный сервис для хранения и раздачи файлов.
-
-**`core/deployment/`** — скрипты установки и запуска, файл `commands.conf` с командами ergoms.
+**`core/api/`**, **`core/client/`**, **`core/media_api/`** — части ядра как **git-submodule** (отдельные репозитории в `.gitmodules`). **`core/deployment/`** — в корневом репозитории: скрипты установки и запуска, файл `commands.conf` с командами ergoms.
 
 **`modules/<имя>/`** — доменные модули. Каждый модуль — submodule со своим git-репозиторием; внутри типично пары `api/` и `client/`.
 
-**`virtual_env/`** — Python-окружение (`python/`) и служебные данные: кэш Celery, ресурсы и т.п. Второй venv в проекте создавать не нужно.
+**`virtual_env/`** — Python-окружение (`python/`), portable-пакеты (**`packages/redis/`**, **`packages/nginx/`**), кэш Celery, ресурсы GeoIP. Второй venv в проекте создавать не нужно.
 
-**`logs/`** — журналы API, Celery, media_api и отдельных модулей. При отладке сюда стоит заглянуть в первую очередь.
+**`logs/`** — журналы API, Celery, media_api, nginx, Redis и др. При отладке сюда стоит заглянуть в первую очередь. Задачи модулей Celery — в `celery_tasks.log` и `celery_beat.log`, не в подпапках `logs/modules/`.
 
 ## Конфигурационные файлы
 
@@ -43,7 +37,8 @@
 | [`core/api/README.md`](../core/api/README.md) | Django API, структура, запуск |
 | [`core/client/README.md`](../core/client/README.md) | Vue-клиент, компоненты |
 | [`core/media_api/README.md`](../core/media_api/README.md) | файловый сервис |
-| [`core/deployment/logic.md`](../core/deployment/logic.md) | ergoms, commands.conf, GeoIP, realtime за nginx |
+| [`core/deployment/logic.md`](../core/deployment/logic.md) | ergoms, commands.conf, GeoIP, Redis, nginx, TLS, realtime за reverse proxy |
+| [`.cursor/rules/deployment-infra.mdc`](../.cursor/rules/deployment-infra.mdc) | Redis, nginx, TLS — правила для агента Cursor |
 | `modules/<имя>/logic.md` | контракты конкретного модуля (если есть) |
 
 ## Куда смотреть дальше
@@ -55,4 +50,4 @@
 | Как запускать проект при разработке | [development.md](development.md) |
 | Справочник команд ergoms | [cli.md](cli.md) |
 | Если установка завершилась с ошибкой | [troubleshooting.md](troubleshooting.md) |
-| Системные службы на Linux | [deployment.md](deployment.md) |
+| Системные службы на Linux / Windows | [deployment.md](deployment.md) |

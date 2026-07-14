@@ -10,12 +10,14 @@ ERGO MS — это модульный фреймворк для веб-прил�
 
 | Каталог | Назначение |
 |---------|------------|
-| `core/api/` | Django API: CMS, права, уведомления, аудит действий, интеграции |
-| `core/client/` | Vue-клиент |
-| `core/media_api/` | раздача и загрузка файлов |
-| `core/deployment/` | ergoms, скрипты установки и запуска |
+| `core/api/` | Django API: CMS, права, уведомления, аудит действий, интеграции (**submodule**) |
+| `core/client/` | Vue-клиент (**submodule**) |
+| `core/media_api/` | раздача и загрузка файлов (**submodule**) |
+| `core/deployment/` | ergoms, скрипты установки и запуска (в корневом репозитории) |
 
-Модули лежат в `modules/<имя>/`. Каждый модуль — это отдельный git-submodule со своим репозиторием. У модуля может быть серверная часть (`api/`), клиентская (`client/`), или обе сразу. Типичный модуль с клиентом описывает маршруты в `client/js/routes.js`, пункты sidebar — в миграции API; Django-приложение регистрирует в `api/apps.py`.
+Части `core/api`, `core/client`, `core/media_api` подключаются как **git-submodule** — см. `.gitmodules`. После клонирования мета-репозитория выполните `git submodule update --init --recursive`.
+
+Модули лежат в `modules/<имя>/`. Каждый модуль — отдельный git-submodule со своим репозиторием. У модуля может быть серверная часть (`api/`), клиентская (`client/`), или обе сразу. Типичный модуль с клиентом описывает маршруты в `client/js/routes.js`, пункты sidebar — в миграции API; Django-приложение регистрирует в `api/apps.py`.
 
 Связь «модуль — модуль» идёт только через **мост** (ModuleBridge): на сервере это `core/api/src/core/integrations/`, на клиенте — `@/integrations/ModuleBridge.js`. Прямые импорты из одного модуля в другой запрещены архитектурой и проверяются изоляцией.
 
@@ -41,7 +43,21 @@ Python-окружение одно на весь проект: `virtual_env/pyth
 
 Краткие README по частям ядра: [`core/api/`](../core/api/README.md), [`core/client/`](../core/client/README.md), [`core/media_api/`](../core/media_api/README.md).
 
-Запуск фоновой обработки: `ergoms start-worker` и `ergoms start-beat`. Если отдельные секции Celery в YAML не заданы, система использует локальный SQLite в `virtual_env/celery/` как запасной вариант.
+Запуск фоновой обработки: `ergoms start-worker` и `ergoms start-beat`. Если отдельные секции Celery в YAML не заданы, система использует локальный SQLite в `virtual_env/celery/` как запасной вариант. Альтернатива для production — брокер на Redis (`CELERY_BROKER_BACKEND=redis` или `REDIS_ENABLED=true`).
+
+## Кэш, channel layer и Redis
+
+Для одного процесса API при разработке достаточно `API_CACHE_BACKEND=locmem` и `CHANNEL_LAYER_BACKEND=memory`. Если API или Celery работают в **нескольких процессах**, push realtime и общий кэш требуют общий backend:
+
+| Компонент | Dev (один процесс) | Несколько процессов |
+|-----------|-------------------|---------------------|
+| Кэш Django | `locmem` | `redis` (или `file` на Linux) |
+| Channel layer | `memory` | `postgres` или `redis` |
+| Celery broker | SQLite / PostgreSQL из `databases.yaml` | `redis` или общая БД |
+
+Portable Redis: `ergoms install-redis`, затем `REDIS_ENABLED=true` в `.env`. Effective-значения URL собирает [`redis_runtime.py`](../core/api/src/config/redis_runtime.py) — при включённом Redis без явных override подставляются backend'ы `redis`.
+
+Подробнее — [configuration.md](configuration.md#redis-и-несколько-процессов), [`core/deployment/logic.md`](../core/deployment/logic.md#redis-optional-portable-packages), [`.cursor/rules/deployment-infra.mdc`](../.cursor/rules/deployment-infra.mdc).
 
 ## Боковое меню
 
@@ -78,3 +94,4 @@ Python-окружение одно на весь проект: `virtual_env/pyth
 | Структура каталогов и конфигурации | [structure.md](structure.md) |
 | Справочник команд ergoms | [cli.md](cli.md) |
 | Настройка `.env` и баз данных | [configuration.md](configuration.md) |
+| Redis, nginx, TLS | [configuration.md](configuration.md#redis-и-несколько-процессов), [cli.md](cli.md#nginx-опционально) |

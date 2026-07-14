@@ -10,9 +10,14 @@ from pathlib import Path
 
 from deployment_env import PROJECT_ROOT, resolve_public_host
 
+_DEPLOYMENT_DIR = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = Path(__file__).resolve().parent
+if str(_DEPLOYMENT_DIR) not in sys.path:
+    sys.path.insert(0, str(_DEPLOYMENT_DIR))
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
+
+from console_tags import format_console  # noqa: E402
 from log_env import log_file_path, nginx_access_log_enabled  # noqa: E402
 
 
@@ -99,6 +104,12 @@ def nginx_log_tail_paths() -> list[Path]:
     return unique
 
 
+def _print_client_hint(url: str) -> None:
+    print(format_console('info', 'NGINX_ENABLED=true — клиент отдаётся через nginx.'))
+    print(format_console('info', f'Откройте {url}'))
+    print(format_console('info', 'После правок клиента: ergoms client-build && ergoms reload-nginx'))
+
+
 def tail_log_files(paths: list[Path], *, wait_sec: float = 10.0) -> int:
     deadline = time.monotonic() + wait_sec
     handles: dict[Path, object] = {}
@@ -114,16 +125,16 @@ def tail_log_files(paths: list[Path], *, wait_sec: float = 10.0) -> int:
         if handles:
             break
         if time.monotonic() >= deadline:
-            print('[ergoms] Nginx log files не найден. Nginx работает; ожидание (Ctrl+C для выхода)...')
+            print(format_console('info', 'Файлы логов nginx не найдены. Nginx работает; ожидание (Ctrl+C — выход)...'))
             try:
                 while True:
                     time.sleep(3600)
             except KeyboardInterrupt:
-                print('\n[ergoms] Stopped log streaming.')
+                print(format_console('info', 'Потоковый вывод логов остановлен.'))
             return 0
         time.sleep(0.5)
 
-    print('[ergoms] Потоковый вывод логов nginx (Ctrl+C to exit, nginx keeps running)...')
+    print(format_console('info', 'Потоковый вывод логов nginx (Ctrl+C — выход, nginx продолжит работу)...'))
     try:
         while True:
             for path, handle in list(handles.items()):
@@ -133,7 +144,7 @@ def tail_log_files(paths: list[Path], *, wait_sec: float = 10.0) -> int:
                     line = handle.readline()
             time.sleep(0.3)
     except KeyboardInterrupt:
-        print('\n[ergoms] Stopped log streaming.')
+        print(format_console('info', 'Потоковый вывод логов остановлен.'))
         return 0
     finally:
         for handle in handles.values():
@@ -144,7 +155,7 @@ def run_nginx_foreground() -> int:
     _configure_stdio_utf8()
     nginx_dir, exe, main_conf = nginx_paths()
     if not exe.is_file():
-        print('[ergoms] Nginx не установлен. Выполните: ergoms install-nginx')
+        print(format_console('error', 'Nginx не установлен. Выполните: ergoms install-nginx'))
         return 1
 
     public_host = resolve_public_host()
@@ -157,9 +168,8 @@ def run_nginx_foreground() -> int:
     access_paths = nginx_log_tail_paths()
 
     if is_nginx_running(nginx_dir, exe):
-        print('[ergoms] NGINX_ENABLED=true — nginx is already running.')
-        print(f'[ergoms] Open {url}')
-        print('[ergoms] After UI changes: ergoms client-build && ergoms reload-nginx')
+        print(format_console('info', 'Nginx уже запущен.'))
+        _print_client_hint(url)
         return tail_log_files(access_paths)
 
     test = subprocess.run(
@@ -168,12 +178,11 @@ def run_nginx_foreground() -> int:
         check=False,
     )
     if test.returncode != 0:
-        print(f'[ergoms] Nginx config test failed. See {error_log}')
+        print(format_console('error', f'Проверка конфигурации nginx не прошла. См. {error_log}'))
         return test.returncode
 
-    print('[ergoms] NGINX_ENABLED=true — starting nginx in foreground (Ctrl+C stops nginx).')
-    print(f'[ergoms] Open {url}')
-    print('[ergoms] After UI changes: ergoms client-build && ergoms reload-nginx')
+    print(format_console('info', 'Запуск nginx (Ctrl+C останавливает nginx).'))
+    _print_client_hint(url)
     return subprocess.call(
         [str(exe), '-c', str(main_conf), '-g', 'daemon off;'],
         cwd=str(nginx_dir),

@@ -10,7 +10,13 @@ alwaysApply: false
 - Планировщик: `ergoms start-beat`
 - Остановка: `ergoms stop-worker`, `ergoms stop-beat`
 
-Worker и Beat должны смотреть на **один** брокер (настройки в `databases.yaml`: секции `celery`, `celery_worker`, `celery_beat`).
+Worker и Beat должны смотреть на **один** брокер. Источник настроек:
+
+- **`databases.yaml`** — секции `celery`, `celery_worker`, `celery_beat` (SQLite/PostgreSQL как брокер)
+- **`CELERY_BROKER_BACKEND`** в `.env` — `auto` \| `redis` \| `database` \| `local`
+- При **`REDIS_ENABLED=true`** без явного backend effective — `redis` ([`redis_runtime.py`](../../core/api/src/config/redis_runtime.py))
+
+Подробнее — [`deployment-infra.mdc`](deployment-infra.mdc).
 
 ## Где писать код
 
@@ -50,7 +56,8 @@ ergoms logs celery-beat notifications 200
 | Команды ergoms | [`no-direct-manage-py.mdc`](no-direct-manage-py.mdc) |
 | Логи (файлы, env, Celery) | [`logging.mdc`](logging.mdc) |
 | Модули, tasks.py | [`modules.mdc`](modules.mdc) |
-| Брокер в databases.yaml | [`.docs/configuration.md`](../../.docs/configuration.md) |
+| Брокер в databases.yaml и Redis | [`.docs/configuration.md`](../../.docs/configuration.md) |
+| Redis, nginx | [`deployment-infra.mdc`](deployment-infra.mdc) |
 
 ## Не делай
 

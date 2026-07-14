@@ -305,8 +305,66 @@ function Install-NginxService {
     Write-ColorOutput "[OK] Служба nginx установлена и запущена" Green
 }
 
+function Remove-NginxStalePidFile {
+    param([string]$Root)
+
+    if (-not $Root -or -not (Test-NginxInstalled -Root $Root)) {
+        return
+    }
+
+    $pidFile = Join-Path (Get-NginxDir -Root $Root) 'logs\nginx.pid'
+    if (-not (Test-Path $pidFile)) {
+        return
+    }
+
+    $pidText = (Get-Content -Path $pidFile -ErrorAction SilentlyContinue | Select-Object -First 1)
+    if ($pidText -match '^\d+$') {
+        if (-not (Get-Process -Id ([int]$pidText) -ErrorAction SilentlyContinue)) {
+            Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
+        }
+        return
+    }
+
+    Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
+}
+
+function Wait-NginxProcessStopped {
+    param(
+        [string]$Root = '',
+        [int]$TimeoutSec = 10
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSec)
+    while ((Get-Date) -lt $deadline) {
+        Remove-NginxStalePidFile -Root $Root
+        if (-not (Test-NginxProcessRunning -Root $Root)) {
+            return $true
+        }
+        Start-Sleep -Milliseconds 500
+    }
+
+    Remove-NginxStalePidFile -Root $Root
+    return -not (Test-NginxProcessRunning -Root $Root)
+}
+
+function Stop-ErgoNginxProcessesForce {
+    $procs = Get-Process -Name 'nginx' -ErrorAction SilentlyContinue
+    if ($procs) {
+        foreach ($proc in $procs) {
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    if (Get-Command taskkill.exe -ErrorAction SilentlyContinue) {
+        Start-Process -FilePath 'taskkill.exe' -ArgumentList '/F', '/IM', 'nginx.exe' `
+            -Wait -NoNewWindow -ErrorAction SilentlyContinue | Out-Null
+    }
+}
+
 function Test-NginxProcessRunning {
     param([string]$Root = '')
+
+    Remove-NginxStalePidFile -Root $Root
 
     $service = Get-Service -Name $script:NginxServiceName -ErrorAction SilentlyContinue
     if ($service -and $service.Status -eq 'Running') {
@@ -335,6 +393,8 @@ function Stop-NginxProcess {
         [switch]$Quiet
     )
 
+    Remove-NginxStalePidFile -Root $Root
+
     if (-not (Test-NginxProcessRunning -Root $Root)) {
         if (-not $Quiet) {
             Write-ColorOutput '[SKIP] Nginx не был запущен' Gray
@@ -344,7 +404,7 @@ function Stop-NginxProcess {
 
     if (Test-Path (Join-Path $script:NginxLegacyBaseDir 'nginx.exe')) {
         Stop-NginxLegacyInstall
-        if (-not (Test-NginxProcessRunning -Root $Root)) {
+        if (Wait-NginxProcessStopped -Root $Root -TimeoutSec 8) {
             if (-not $Quiet) {
                 Write-ColorOutput '[OK] Nginx остановлен' Green
             }
@@ -356,9 +416,12 @@ function Stop-NginxProcess {
     if ($service -and $service.Status -eq 'Running') {
         Write-ColorOutput '-> Остановка службы nginx...' Cyan
         Stop-Service -Name $script:NginxServiceName -Force
-        if (Test-NginxProcessRunning -Root $Root) {
-            Write-ColorOutput '[ERROR] Не удалось остановить службу nginx' Red
-            exit 1
+        if (-not (Wait-NginxProcessStopped -Root $Root -TimeoutSec 15)) {
+            Stop-ErgoNginxProcessesForce
+            if (-not (Wait-NginxProcessStopped -Root $Root -TimeoutSec 5)) {
+                Write-ColorOutput '[ERROR] Не удалось остановить службу nginx' Red
+                exit 1
+            }
         }
         Write-ColorOutput '[OK] Служба nginx остановлена' Green
         return
@@ -371,24 +434,25 @@ function Stop-NginxProcess {
             $mainConf = (Join-Path $nginxDir 'conf\nginx.conf') -replace '\\', '/'
             Write-ColorOutput '-> Остановка процесса nginx...' Cyan
             Invoke-NginxCli -NginxExe $nginxExe -Arguments @('-s', 'quit', '-c', $mainConf) -WorkingDirectory $nginxDir | Out-Null
-            Start-Sleep -Seconds 1
-        }
-        $pidFile = Join-Path $nginxDir 'logs\nginx.pid'
-        if (Test-Path $pidFile) {
-            Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
+            if (Wait-NginxProcessStopped -Root $Root -TimeoutSec 8) {
+                if (-not $Quiet) {
+                    Write-ColorOutput '[OK] Nginx остановлен' Green
+                }
+                return
+            }
         }
     }
 
-    $procs = Get-Process -Name 'nginx' -ErrorAction SilentlyContinue
-    if ($procs) {
-        $procs | Stop-Process -Force -ErrorAction SilentlyContinue
-    }
+    Stop-ErgoNginxProcessesForce
+    Remove-NginxStalePidFile -Root $Root
 
-    if (Test-NginxProcessRunning -Root $Root) {
+    if (-not (Wait-NginxProcessStopped -Root $Root -TimeoutSec 5)) {
         Write-ColorOutput '[ERROR] Не удалось остановить nginx' Red
         exit 1
     }
-    Write-ColorOutput '[OK] Nginx остановлен' Green
+    if (-not $Quiet) {
+        Write-ColorOutput '[OK] Nginx остановлен' Green
+    }
 }
 
 function Start-NginxProcess {

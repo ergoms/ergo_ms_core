@@ -110,6 +110,8 @@ sections:
     commands:
       - name: client-build
         summary: "Собрать клиент (npm run build)"
+      - name: client-build-analyze
+        summary: "Собрать клиент с отчётом rollup-plugin-visualizer (dist/stats.html)"
       - name: client-preview
         summary: "Предпросмотр сборки клиента"
       - name: build-all
@@ -334,7 +336,8 @@ platform_sections:
 scenarios:
   - title: "Первичная настройка"
     lines:
-      - "ergoms setup"
+      - "git submodule update --init --recursive"
+      - "ergoms setup (или setup-full из README)"
       - "Проверить .env и databases.yaml"
       - "ergoms migrate-all"
   - title: "Разработка"

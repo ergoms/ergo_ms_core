@@ -11,9 +11,11 @@ alwaysApply: true
 
 ## Ядро и модули
 
-**Ядро** (`core/`) — `api/`, `client/`, `media_api/`, `deployment/`.
+**Ядро** (`core/`) — `api/`, `client/`, `media_api/`, `deployment/`. Части `core/api`, `core/client`, `core/media_api` — **git-submodule** (см. `.gitmodules`), как и `modules/<имя>/`.
 
 **Модули** (`modules/<имя>/`) — отдельные доменные блоки. Подключаются как git-submodule. У модуля может быть сервер (`api/`), клиент (`client/`) или оба.
+
+После `git clone` выполните `git submodule update --init --recursive`, иначе каталоги ядра и модулей могут быть пустыми.
 
 Связь «модуль ↔ модуль» — только через мост (см. [`modules.mdc`](modules.mdc)), не через прямые импорты.
 
@@ -58,7 +60,7 @@ import OrgList from '../../../../modules/organizations/client/pages/OrgList.vue'
 - Прямые static import из submodule в клиентских страницах и composables ядра (кроме инфраструктуры загрузки: `ModuleLoader`, glob в `LayoutMenu.vue`)
 - Обход ModuleBridge ради «удобного» доступа к данным или операциям модуля
 
-Подробности по модулям — в [`modules.mdc`](modules.mdc). Боковое меню — [`menu.mdc`](menu.mdc). Realtime — [`realtime.mdc`](realtime.mdc). Нюансы развёртывания — в [`core/deployment/logic.md`](../../core/deployment/logic.md) и [`.docs/architecture.md`](../../.docs/architecture.md).
+Подробности по модулям — в [`modules.mdc`](modules.mdc). Боковое меню — [`menu.mdc`](menu.mdc). Realtime — [`realtime.mdc`](realtime.mdc). Redis, nginx, TLS — [`deployment-infra.mdc`](deployment-infra.mdc). Нюансы развёртывания — в [`core/deployment/logic.md`](../../core/deployment/logic.md) и [`.docs/architecture.md`](../../.docs/architecture.md).
 
 ## Связанные правила
 
@@ -71,3 +73,4 @@ import OrgList from '../../../../modules/organizations/client/pages/OrgList.vue'
 | Структура каталогов | [`.docs/structure.md`](../../.docs/structure.md) |
 | Боковое меню | [`menu.mdc`](menu.mdc) |
 | Realtime | [`realtime.mdc`](realtime.mdc) |
+| Redis, nginx, TLS | [`deployment-infra.mdc`](deployment-infra.mdc) |

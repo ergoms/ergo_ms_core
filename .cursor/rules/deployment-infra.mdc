@@ -1,0 +1,129 @@
+---
+description: Redis, nginx, TLS — portable packages, ergoms install-*, redis_runtime, production за reverse proxy
+alwaysApply: false
+---
+
+# Инфраструктура развёртывания (Redis, nginx, TLS)
+
+Опциональные компоненты для запуска как на сервере: обратный прокси, общий кэш, channel layer и брокер Celery. **Не входят** в `setup-full` — устанавливаются по необходимости.
+
+## Кратко
+
+- **Redis** — portable-бинарники в `virtual_env/packages/redis/`; `ergoms install-redis`, затем `REDIS_ENABLED=true` в `.env`
+- **nginx** — `virtual_env/packages/nginx/`; `ergoms install-nginx`; шаблон — `core/deployment/nginx/ergo_ms.conf.template`
+- **TLS** (Let's Encrypt) — только Linux: `ergoms install-tls`, `renew-tls`, `status-tls`
+- Effective-значения URL и backend'ов — **`redis_runtime`**, **`nginx_runtime`**, **`tls_runtime`**; скрипты **не пишут** в `.env` — см. [`no-auto-env-write.mdc`](no-auto-env-write.mdc)
+- Production `.env` за nginx — эталон [`core/deployment/nginx/env.example`](../../core/deployment/nginx/env.example)
+
+## Redis
+
+### Когда нужен
+
+| Сценарий | Достаточно без Redis |
+|----------|----------------------|
+| Локальная разработка, один процесс API | `CHANNEL_LAYER_BACKEND=memory`, `API_CACHE_BACKEND=locmem` |
+| Несколько worker API, push между процессами | Нужен `postgres` или `redis` для channel layer |
+| Общий кэш Django между процессами | `redis` (или `file` на Linux) |
+| Celery broker на Redis | `CELERY_BROKER_BACKEND=redis` или `REDIS_ENABLED=true` |
+
+### Установка
+
+```cmd
+ergoms install-redis
+ergoms test-redis
+```
+
+В `.env` вручную: `REDIS_ENABLED=true`. Перезапустите API. Проверка: `ergoms test-redis` → `PONG`.
+
+Служба: `ergoms install-redis-service` (Windows: `ergo_ms_redis`, Linux: `ergo-redis`). Логи — `logs/redis.log`, `ergoms logs ergo-redis` (Linux) или `ergoms logs ergo_ms_redis` (Windows).
+
+### `redis_runtime`
+
+Модуль [`redis_runtime.py`](../../core/api/src/config/redis_runtime.py) собирает URL из `REDIS_HOST`, `REDIS_PORT`, `REDIS_DB_*`:
+
+| DB (по умолчанию) | Назначение |
+|-------------------|------------|
+| 0 | channel layer |
+| 1 | кэш Django |
+| 2 | Celery broker |
+| 3 | Celery result backend |
+
+При `REDIS_ENABLED=true` без явных override:
+
+- `effective_channel_layer_backend()` → `redis`
+- `effective_cache_backend()` → `redis`
+- `effective_celery_broker_backend()` → `redis`
+
+Явные переменные имеют приоритет: `CHANNEL_LAYER_BACKEND`, `API_CACHE_BACKEND`, `CELERY_BROKER_BACKEND`, `*_REDIS_URL`, `CELERY_BROKER_URL`.
+
+## Channel layer
+
+Настройка: [`channel_layers.py`](../../core/api/src/config/settings/channel_layers.py).
+
+| `CHANNEL_LAYER_BACKEND` | Когда |
+|-------------------------|-------|
+| `memory` | dev, один процесс API (по умолчанию без Redis) |
+| `postgres` | несколько worker без Redis — через основную БД |
+| `redis` | несколько worker, с `REDIS_ENABLED` или явным URL |
+
+Realtime push между worker'ами — см. [`realtime.mdc`](realtime.mdc).
+
+## nginx
+
+### Команды
+
+Реализованы в `ergo_ms.ps1` / `ergo_ms.sh` (не в `commands.conf`):
+
+```cmd
+ergoms install-nginx
+ergoms reload-nginx
+ergoms test-nginx
+ergoms status-nginx
+```
+
+Служба: `ergoms install-nginx-service` (Windows).
+
+### Клиент за nginx
+
+В `.env`:
+
+- `CLIENT_USE_RELATIVE_API=true` — API и WebSocket с того же origin, что SPA
+- `NGINX_ENABLED=true`, `NGINX_SERVER_NAME`, `NGINX_PUBLIC_HOST` — см. `env.example` nginx
+
+SSE: location `/api/realtime/stream/` — `proxy_buffering off`, `proxy_read_timeout 3600s` в `ergo_ms.conf.template`.
+
+Логи: `logs/nginx-access.log`, `logs/nginx-error.log`.
+
+## TLS (Linux)
+
+```bash
+sudo ergoms install-tls
+ergoms status-tls
+sudo ergoms renew-tls
+```
+
+Переменные: `ERGO_TLS_EMAIL`, `ERGO_SSL_CERT`, `ERGO_SSL_KEY`, `CORS_ALLOWED_ORIGINS` — см. `core/deployment/nginx/env.example`.
+
+## Запрещено
+
+```python
+# BAD — запись REDIS_ENABLED из install-скрипта
+env_path.write_text(content + "REDIS_ENABLED=true\n")
+```
+
+```python
+# BAD — хардкод redis:// в бизнес-коде вместо redis_runtime
+CACHE_URL = "redis://127.0.0.1:6379/1"
+```
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Realtime, channel layer | [`realtime.mdc`](realtime.mdc) |
+| Celery broker | [`celery.mdc`](celery.mdc) |
+| Логи nginx/redis | [`logging.mdc`](logging.mdc) |
+| Не писать в `.env` | [`no-auto-env-write.mdc`](no-auto-env-write.mdc) |
+| Устройство ergoms | [`core/deployment/logic.md`](../../core/deployment/logic.md) |
+| Настройка для людей | [`.docs/configuration.md`](../../.docs/configuration.md) |
+| Команды | [`.docs/cli.md`](../../.docs/cli.md) |

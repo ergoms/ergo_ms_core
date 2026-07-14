@@ -22,3 +22,4 @@ alwaysApply: true
 |------|------|
 | ergoms, commands.conf | [`ergoms-commands.mdc`](ergoms-commands.mdc) |
 | Развёртывание | [`core/deployment/logic.md`](../../core/deployment/logic.md) |
+| Redis, nginx, TLS | [`deployment-infra.mdc`](deployment-infra.mdc) |

@@ -70,4 +70,5 @@ admin.site.register(MyModel)
 | API, ViewSet | [`api_code.mdc`](api_code.mdc) |
 | Миграции | [`database.mdc`](database.mdc) |
 | WebSocket, polling | [`realtime.mdc`](realtime.mdc) |
+| Channel layer, Redis | [`deployment-infra.mdc`](deployment-infra.mdc) |
 | Глобальный админ | [`global-admin.mdc`](global-admin.mdc) |

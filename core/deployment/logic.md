@@ -28,6 +28,8 @@
 
 `core/deployment/commands.conf` — реестр команд ядра: строки вида `имя-команды=тип:действие`. Модули добавляют свои команды в `modules/<имя>/ergoms.conf`.
 
+Часть команд **не** в `commands.conf`, а встроена в `ergo_ms.ps1` / `ergo_ms.sh`: **nginx**, **redis**, **TLS**, установка служб (`install`, `start`, `stop`). Описания — в `help.manifest.yaml`; правила — [`.cursor/rules/deployment-infra.mdc`](../../.cursor/rules/deployment-infra.mdc).
+
 Команды **разнесены по отдельным файлам** — не один монолитный скрипт на всё, а шаги, которые можно переиспользовать и тестировать.
 
 ## Каталог wrappers
@@ -84,7 +86,65 @@
 2. Перезапустить API
 3. Проверка: `ergoms test-redis` → `PONG`
 
-Переменные: `REDIS_ENABLED`, `REDIS_HOST`, `REDIS_PORT`, `API_CACHE_REDIS_URL`, `CHANNEL_LAYER_REDIS_URL` — см. `.env.example`.
+Переменные: `REDIS_ENABLED`, `REDIS_HOST`, `REDIS_PORT`, `API_CACHE_REDIS_URL`, `CHANNEL_LAYER_REDIS_URL` — см. `.env.example`. Effective-логика — [`redis_runtime.py`](../../core/api/src/config/redis_runtime.py).
+
+## Nginx (optional, portable packages)
+
+Обратный прокси для запуска как на сервере: один origin для клиента, API, WebSocket и media_api. **Не входит** в `setup-full`.
+
+| Что | Где |
+|-----|-----|
+| Бинарники | `virtual_env/packages/nginx/` |
+| Шаблон конфига | `core/deployment/nginx/ergo_ms.conf.template` |
+| Рендер конфига | `core/deployment/scripts/render_nginx_config.py`, `resolve_env.py` |
+| Effective-переменные | `nginx_runtime.py`, `env_resolvers.py` |
+| Windows | `core/deployment/windows/lib/nginx.ps1`, служба `ergo_ms_nginx` (NSSM) |
+| Linux | `core/deployment/linux/lib/nginx.sh`, unit `ergo_ms_nginx.service` |
+| Эталон `.env` | `core/deployment/nginx/env.example` |
+
+### Команды
+
+- `ergoms install-nginx` — установка бинарников, рендер конфига, запуск
+- `ergoms install-nginx-service` — автозапуск (Windows / systemd)
+- `ergoms reload-nginx` — проверка конфига и перезагрузка
+- `ergoms start-nginx` / `stop-nginx` / `restart-nginx` / `status-nginx` / `test-nginx`
+- `ergoms uninstall-nginx` / `uninstall-nginx --purge` (Linux) / `-Purge` (Windows)
+
+Команды реализованы в `ergo_ms.ps1` / `ergo_ms.sh`, не в `commands.conf`.
+
+### Первичная настройка nginx
+
+1. Скопируйте нужные переменные из `core/deployment/nginx/env.example` в корневой `.env` (`NGINX_ENABLED=true`, `CLIENT_USE_RELATIVE_API=true`, …).
+2. `ergoms install-nginx` (на Linux — с `sudo`, если нужны права на unit).
+3. Проверка: `ergoms test-nginx`, `ergoms status-nginx`.
+4. После смены клиента: `ergoms client-build && ergoms reload-nginx`.
+
+Переменные: `NGINX_*`, `CLIENT_USE_RELATIVE_API` — см. `.env.example` и `env.example` nginx.
+
+## TLS (Let's Encrypt, Linux)
+
+Выпуск и обновление сертификатов для nginx. **Только Linux** (certbot, root/sudo).
+
+| Что | Где |
+|-----|-----|
+| Скрипты | `core/deployment/linux/lib/tls.sh`, `core/deployment/scripts/tls_cli.py` |
+| Конфиг доменов | `core/deployment/nginx/tls_config.py`, `tls_runtime.py` |
+| Hook после renew | `core/deployment/nginx/hooks/certbot-deploy-reload-nginx.sh` |
+
+### Команды
+
+- `sudo ergoms install-tls` — certbot, выпуск сертификата, HTTPS в nginx
+- `sudo ergoms renew-tls` — обновление (`certbot renew`)
+- `ergoms status-tls` — срок действия и пути (без root)
+
+### Первичная настройка TLS
+
+1. nginx установлен и `NGINX_ENABLED=true`.
+2. В `.env`: `ERGO_TLS_EMAIL`, домены (`NGINX_SERVER_NAME` или `ERGO_TLS_DOMAINS`).
+3. `sudo ergoms install-tls`.
+4. Сверьте `ergoms status-tls` с путями `ERGO_SSL_CERT` / `ERGO_SSL_KEY` в `.env`.
+
+Переменные: `ERGO_TLS_*`, `ERGO_SSL_CERT`, `ERGO_SSL_KEY`, `CORS_ALLOWED_ORIGINS` — см. `core/deployment/nginx/env.example`.
 
 ## Типичные ошибки
 
@@ -100,4 +160,5 @@
 |------|------|
 | Справочник команд ergoms | [`.docs/cli.md`](../../.docs/cli.md) |
 | Только ergoms, не manage.py | [`.cursor/rules/no-direct-manage-py.mdc`](../../.cursor/rules/no-direct-manage-py.mdc) |
-| Службы Linux | [`.docs/deployment.md`](../../.docs/deployment.md) |
+| Службы Linux / Windows | [`.docs/deployment.md`](../../.docs/deployment.md) |
+| Redis, nginx, TLS (правила агента) | [`.cursor/rules/deployment-infra.mdc`](../../.cursor/rules/deployment-infra.mdc) |

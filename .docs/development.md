@@ -20,9 +20,27 @@
 
 ## Куда смотреть логи
 
-Все журналы складываются в каталог **`logs/`** в корне проекта. Там лежат общие файлы вроде `celery.log`, `celery_worker.log`, `media_api.log`, а также подпапки **`modules/<имя>/`** с логами конкретных модулей. Если фоновый процесс завершается с ошибкой без вывода в терминал, откройте соответствующий файл журнала — одного окна терминала может быть недостаточно.
+Все журналы складываются в каталог **`logs/`** в корне проекта. Основные файлы:
+
+| Файл | Компонент |
+|------|-----------|
+| `api.log` | Django API |
+| `media_api.log` | Media API |
+| `celery_worker.log`, `celery_beat.log`, `celery_tasks.log` | Celery |
+| `nginx-access.log`, `nginx-error.log` | nginx (после `install-nginx`) |
+| `redis.log` | Redis (после `install-redis`) |
+| `client-dev.log` | Vite dev-сервер |
+| `client-browser.log` | ошибки из браузера |
+
+Логи задач модулей Celery — в **`celery_tasks.log`** и **`celery_beat.log`** (фильтр по имени логгера), не в устаревших подпапках `logs/modules/`. Просмотр: `ergoms logs celery-tasks <модуль>`, `ergoms logs celery-beat <модуль>`.
+
+Если фоновый процесс завершается с ошибкой без вывода в терминал, откройте соответствующий файл журнала.
 
 Если API и клиент установлены как системные службы, их журналы доступны через `ergoms logs <имя-службы>` — подробнее в [deployment.md](deployment.md).
+
+## Channel layer при разработке
+
+При одном процессе API (`ergoms dev`) достаточно **`CHANNEL_LAYER_BACKEND=memory`** (значение по умолчанию). Если запущено несколько worker API и push realtime не доходит до клиента — переключите на `postgres` или установите Redis (`REDIS_ENABLED=true`). См. [configuration.md](configuration.md#redis-и-несколько-процессов).
 
 ## Частые команды
 
@@ -55,4 +73,4 @@ ergoms warmup-caches
 | Справочник команд ergoms | [cli.md](cli.md) |
 | Настройка `.env` и баз данных | [configuration.md](configuration.md) |
 | Если что-то не запускается | [troubleshooting.md](troubleshooting.md) |
-| Системные службы (Linux) | [deployment.md](deployment.md) |
+| Системные службы (Linux / Windows) | [deployment.md](deployment.md) |

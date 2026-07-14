@@ -130,3 +130,4 @@ def _handler(user):
 | Человекочитаемо | [`.docs/architecture.md`](../../.docs/architecture.md) |
 | Боковое меню | [`menu.mdc`](menu.mdc) |
 | Справка ergoms модуля | [`ergoms-module-help.mdc`](ergoms-module-help.mdc) |
+| Redis, nginx (prod) | [`deployment-infra.mdc`](deployment-infra.mdc) |

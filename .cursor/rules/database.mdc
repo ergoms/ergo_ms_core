@@ -29,7 +29,7 @@ MyModel.objects.filter(owner=user)
 
 Когда ORM неудобен (отчёты, сложные JOIN) — запросы в `queries.py`, выполнение через `SqlAlchemyManager`, не размазывай SQL по views.
 
-Конфигурация БД — в корневом `databases.yaml`; см. [`.docs/configuration.md`](../../.docs/configuration.md).
+Конфигурация БД — в корневом `databases.yaml`; Celery broker на Redis — `CELERY_BROKER_BACKEND` и `REDIS_ENABLED` в `.env`. См. [`.docs/configuration.md`](../../.docs/configuration.md), [`deployment-infra.mdc`](../../.cursor/rules/deployment-infra.mdc).
 
 ## Модели
 

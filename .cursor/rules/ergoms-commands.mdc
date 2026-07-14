@@ -44,6 +44,17 @@ alwaysApply: false
 
 Формат строки: `имя-команды=тип:команда`. Несколько шагов: `&&`.
 
+## Команды вне commands.conf
+
+**nginx**, **redis**, **TLS**, установка и управление **системными службами** (`install`, `start`, `stop`, `status`, `logs`) реализованы как встроенные команды в:
+
+- Windows: `core/deployment/windows/ergo_ms.ps1`
+- Linux: `core/deployment/linux/ergo_ms.sh`
+
+Они **не** добавляются строками в `commands.conf`. Описания для `ergoms help` — в `help.manifest.yaml` (разделы nginx, redis, TLS, services). Подробности — [`deployment-infra.mdc`](deployment-infra.mdc), [`core/deployment/logic.md`](../../core/deployment/logic.md).
+
+Новую infra-команду добавляют в оба скрипта (`ergo_ms.ps1` / `ergo_ms.sh`), в `help.manifest.yaml` и в `_BUILTIN_COMMANDS` в [`ergoms_help.py`](../../core/deployment/scripts/ergoms_help.py).
+
 ## Точки входа Django-команд ядра
 
 Помимо management-команд Django (discovery, вызов через `ergoms api <команда>`), в `core/api/` есть два отдельных механизма:
@@ -103,3 +114,4 @@ start-client=... start_client_if_dev.py
 | Только ergoms, не manage.py | [`no-direct-manage-py.mdc`](no-direct-manage-py.mdc) |
 | Python-окружение | [`virtual-env.mdc`](virtual-env.mdc) |
 | Windows / Linux | [`oc.mdc`](oc.mdc) |
+| Redis, nginx, TLS | [`deployment-infra.mdc`](deployment-infra.mdc) |

@@ -44,7 +44,7 @@ Add-Content .env "REDIS_ENABLED=true"
 
 - `ConfigScaffolder` создаёт `.env` **один раз** из `.env.example`, если файла ещё нет (`setup-full`)
 - `ergoms env-normalize` — только по явному вызову пользователя
-- `ergoms env-check` — только чтение и отчёт
+- `ergoms env` — только чтение и отчёт
 
 ## Базовый пример (runtime вместо автозаписи)
 
@@ -82,3 +82,4 @@ CACHE_BACKEND = effective_cache_backend()
 |------|------|
 | Конфиденциальные данные в .env | [`security.mdc`](security.mdc) |
 | Первичная настройка | [`.docs/cli.md`](../../.docs/cli.md) |
+| Redis, nginx, TLS | [`deployment-infra.mdc`](deployment-infra.mdc) |

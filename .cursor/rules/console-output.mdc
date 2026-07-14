@@ -86,6 +86,19 @@ Write-ColorOutput "[ПРОПУСК] уже пуст" Gray
 
 Заголовки шагов без метки — русский текст: `-> Шаг 2/9: очистка virtual_env/python...`
 
+## Скрипты ergoms и терминал VS Code
+
+Сообщения для человека в **`core/deployment/scripts/`** (в т.ч. `start_client_if_dev.py`, `nginx_foreground.py`, `ergoms_console.py`) и в shell/PowerShell развёртывания — **русский текст**, метки — `[OK]` / `[INFO]` / `[ERROR]` через [`console_tags.py`](../../core/deployment/console_tags.py).
+
+**Запрещено** в пользовательском выводе:
+
+- английские фразы вроде `Open http://…`, `After UI changes`, `starting nginx in foreground`, `Stopped log streaming`, `nginx is already running`;
+- префикс `[ergoms]` без метки уровня — используй `format_console('info', '…')`.
+
+**Допустимо на английском:** сырой вывод nginx (`nginx: configuration file … test is successful`), tasklist, traceback сторонних инструментов — **не переводить**.
+
+Эталон подсказок при `ergoms start-client` с nginx: [`nginx_foreground.py`](../../core/deployment/scripts/nginx_foreground.py).
+
 ## Связанные правила
 
 | Тема | Файл |

@@ -1,6 +1,6 @@
-# Развёртывание системных служб (Linux)
+# Развёртывание системных служб (Linux / Windows)
 
-На Linux ERGO MS можно зарегистрировать как набор служб **systemd**, чтобы API, клиент, Celery и media_api запускались при старте сервера и перезапускались после сбоев. Для этого используется скрипт **`core/deployment/linux/ergo_ms.sh`**.
+На Linux ERGO MS можно зарегистрировать как набор служб **systemd**, чтобы API, клиент, Celery и media_api запускались при старте сервера и перезапускались после сбоев. Для этого используется скрипт **`core/deployment/linux/ergo_ms.sh`**. На Windows — **`core/deployment/windows/ergo_ms.ps1`** (службы через NSSM).
 
 Путь к корню проекта задаётся переменной **`ERGO_ROOT`** в файле `/etc/default/ergo_ms` или передаётся флагом **`--root`** при установке.
 
@@ -36,8 +36,22 @@ sudo ergoms status
 | `ergo-celery-worker-all` | Celery worker |
 | `ergo-celery-beat` | Celery beat |
 | `ergo-media-api` | Media API |
+| `ergo-redis` | Redis (Linux, после `install-redis-service`) |
+| `ergo_ms_nginx` | nginx (Linux и Windows, после `install-nginx-service`) |
 
-Точные имена могут отличаться, если вы меняли конфигурацию исполнителей в `celery_workers.yaml`; список актуальных служб покажет `ergoms status`.
+### Windows (те же имена приложения, кроме Redis)
+
+| Служба Windows | Компонент |
+|----------------|-----------|
+| `ergo-api-dev` | Django API |
+| `ergo-client-dev` | Vue-клиент |
+| `ergo-celery-worker-all` | Celery worker |
+| `ergo-celery-beat` | Celery beat |
+| `ergo-media-api` | Media API |
+| `ergo_ms_redis` | Redis (после `install-redis-service`) |
+| `ergo_ms_nginx` | nginx (после `install-nginx-service`) |
+
+Точные имена могут отличаться, если вы меняли конфигурацию исполнителей в `celery_workers.yaml` или portable-пакетов; список актуальных служб покажет `ergoms status`.
 
 ## Просмотр логов
 
@@ -57,7 +71,9 @@ ergoms logs ergo-api-dev
 
 ## Windows
 
-Аналогичные сценарии для Windows описаны в **`core/deployment/windows/`** — там свои PowerShell-скрипты и службы. Сначала выполните полную первичную настройку (`setup-full`) или установку служб (`install`), затем управляйте ими через ergoms.
+Аналогичные сценарии для Windows — **`core/deployment/windows/ergo_ms.ps1`**: установка служб (`install`), управление через `ergoms start` / `stop` / `status`. Имена служб Windows: `ergo-api-dev`, `ergo-client-dev`, `ergo-celery-worker-all`, `ergo-celery-beat`, `ergo-media-api`, при необходимости `ergo_ms_redis`, `ergo_ms_nginx`.
+
+Сначала выполните полную первичную настройку (`setup-full`) или установку служб (`install`), затем управляйте ими через ergoms. Опциональные nginx и Redis — [cli.md](cli.md#nginx-опционально), [configuration.md](configuration.md#redis-и-несколько-процессов).
 
 ## См. также
 

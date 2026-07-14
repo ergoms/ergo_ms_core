@@ -535,8 +535,53 @@ nginx_start_service() {
   return 1
 }
 
+_nginx_remove_stale_pid_file() {
+  local root="${1:-}"
+  [[ -z "$root" ]] && return 0
+  _nginx_is_installed "$root" || return 0
+
+  local pid_file
+  pid_file="$(_nginx_packages_dir "$root")/logs/nginx.pid"
+  [[ -f "$pid_file" ]] || return 0
+
+  local pid
+  pid="$(tr -d '[:space:]' <"$pid_file" 2>/dev/null || true)"
+  if [[ "$pid" =~ ^[0-9]+$ ]]; then
+    if ! kill -0 "$pid" 2>/dev/null; then
+      rm -f "$pid_file"
+    fi
+    return 0
+  fi
+  rm -f "$pid_file"
+}
+
+_nginx_wait_stopped() {
+  local root="${1:-}"
+  local timeout_sec="${2:-10}"
+  local i max=$((timeout_sec * 2))
+
+  for ((i = 0; i < max; i++)); do
+    _nginx_remove_stale_pid_file "$root"
+    if ! _nginx_is_running "$root"; then
+      return 0
+    fi
+    sleep 0.5
+  done
+
+  _nginx_remove_stale_pid_file "$root"
+  _nginx_is_running "$root" && return 1
+  return 0
+}
+
+_nginx_force_stop_processes() {
+  pkill -f 'virtual_env/packages/nginx/sbin/nginx' 2>/dev/null || true
+  pkill -f 'virtual_env/packages/nginx/nginx.exe' 2>/dev/null || true
+}
+
 _nginx_is_running() {
   local root="${1:-}"
+
+  _nginx_remove_stale_pid_file "$root"
 
   if [[ -f "$NGINX_UNIT_PATH" ]] && systemctl is-active --quiet "${NGINX_SERVICE_NAME}.service" 2>/dev/null; then
     return 0
@@ -561,6 +606,8 @@ nginx_stop_service() {
   local root="${1:-}"
   local quiet="${2:-}"
 
+  _nginx_remove_stale_pid_file "$root"
+
   if ! _nginx_is_running "$root"; then
     [[ -z "$quiet" ]] && echo "[SKIP] Nginx не был запущен"
     return 0
@@ -569,40 +616,44 @@ nginx_stop_service() {
   if [[ -f "$NGINX_UNIT_PATH" ]] && systemctl is-active --quiet "${NGINX_SERVICE_NAME}.service" 2>/dev/null; then
     echo "-> Остановка службы nginx..."
     _nginx_sudo systemctl stop "${NGINX_SERVICE_NAME}.service"
-    if _nginx_is_running "$root"; then
-      echo "[ERROR] Не удалось остановить службу nginx" >&2
-      return 1
+    if ! _nginx_wait_stopped "$root" 15; then
+      _nginx_force_stop_processes
+      if ! _nginx_wait_stopped "$root" 5; then
+        echo "[ERROR] Не удалось остановить службу nginx" >&2
+        return 1
+      fi
     fi
     echo "[OK] Служба nginx остановлена"
     return 0
   fi
 
   if [[ -n "$root" ]] && _nginx_is_installed "$root"; then
-    local nginx_bin main_conf nginx_dir pid_file
+    local nginx_bin main_conf nginx_dir
     nginx_bin="$(_nginx_binary "$root")"
     main_conf="$(_nginx_main_conf "$root")"
     nginx_dir="$(_nginx_packages_dir "$root")"
-    pid_file="$nginx_dir/logs/nginx.pid"
 
     if [[ -x "$nginx_bin" ]]; then
       echo "-> Остановка процесса nginx..."
       (cd "$nginx_dir" && "$nginx_bin" -s quit -c "$main_conf" 2>/dev/null) || true
-      sleep 1
+      if _nginx_wait_stopped "$root" 8; then
+        [[ -z "$quiet" ]] && echo "[OK] Nginx остановлен"
+        return 0
+      fi
     fi
-    rm -f "$pid_file"
   fi
 
   if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet nginx 2>/dev/null; then
     _nginx_sudo systemctl stop nginx 2>/dev/null || true
   fi
 
-  pkill -f 'virtual_env/packages/nginx/sbin/nginx' 2>/dev/null || true
+  _nginx_force_stop_processes
 
-  if _nginx_is_running "$root"; then
+  if ! _nginx_wait_stopped "$root" 5; then
     echo "[ERROR] Не удалось остановить nginx" >&2
     return 1
   fi
-  echo "[OK] Nginx остановлен"
+  [[ -z "$quiet" ]] && echo "[OK] Nginx остановлен"
 }
 
 nginx_reload_service() {

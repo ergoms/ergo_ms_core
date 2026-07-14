@@ -202,6 +202,7 @@ ergoms logs celery-beat [module] [lines]
 | Ошибки клиента, sanitize | [`log-error.mdc`](log-error.mdc) |
 | Метки консоли ergoms `[OK]`/`[ERROR]`/… | [`console-output.mdc`](console-output.mdc) |
 | Celery, задачи, beat | [`celery.mdc`](celery.mdc) |
+| Redis, nginx | [`deployment-infra.mdc`](deployment-infra.mdc) |
 | Безопасность логов | [`security.mdc`](security.mdc) |
 | Аудит (не путать с app.log) | [`audit.mdc`](audit.mdc) |
 | Команды ergoms | [`no-direct-manage-py.mdc`](no-direct-manage-py.mdc) |

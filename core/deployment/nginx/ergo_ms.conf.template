@@ -16,6 +16,7 @@
 # Upstream-сервисы (ergoms dev / start-media) слушают только localhost.
 
 include ${ERGO_NGINX_SNIPPETS}/http_hardening.conf;
+include ${ERGO_NGINX_SNIPPETS}/compression.conf;
 include ${ERGO_NGINX_SNIPPETS}/rate_limit.conf;
 
 upstream ergo_api {
@@ -77,6 +78,13 @@ ${ERGO_MAINTENANCE_SNIPPET}
     location = /maintenance.json {
         add_header Cache-Control "no-store" always;
         try_files /maintenance.json =404;
+    }
+
+    # --- Vite hashed assets (ergoms client-build -> core/client/dist/assets) ---
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable" always;
+        try_files $uri =404;
     }
 
     # --- Клиент (Vue Router, history mode) ---

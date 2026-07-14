@@ -57,4 +57,6 @@ __pycache__/
 /core/deployment/wrappers/*
 !/core/deployment/wrappers/.gitkeep
 
-/menu-order-config.json
+# Генерируется перед dev/build (scripts/generate-module-globs.js)
+core/client/src/modules/core/sharedGlobs.generated.js
+core/client/dist/

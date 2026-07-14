@@ -103,7 +103,7 @@ databases:
 
 У части модулей есть собственные `.env.example` в каталоге `modules/<имя>/`. При `setup-full` из них создаётся `modules/<имя>/.env`. Переменные из модульных `.env` **переопределяют** одноимённые из корневого `.env` — и на сервере (Django), и при сборке клиента (Vite).
 
-Проверка соответствия example и рабочего файла: `ergoms env-check`.
+Проверка соответствия example и рабочего файла: `ergoms env`.
 
 | Модуль | Файл | Примеры переменных |
 |--------|------|-------------------|
@@ -127,6 +127,77 @@ databases:
 Интервалы polling (секунды): `REALTIME_POLL_*`. SSE keepalive: `REALTIME_SSE_KEEPALIVE_INTERVAL`.
 
 Nginx: отдельный location для `/api/realtime/stream/` — `core/deployment/nginx/ergo_ms.conf.template`. Правила разработки — [`.cursor/rules/realtime.mdc`](../.cursor/rules/realtime.mdc).
+
+## Кэш Django
+
+Переменная **`API_CACHE_BACKEND`** в `.env`:
+
+| Значение | Когда |
+|----------|-------|
+| `locmem` | разработка, один процесс API (по умолчанию) |
+| `file` | без Redis на Linux (не рекомендуется на Windows) |
+| `redis` | несколько процессов, общий кэш |
+
+При `REDIS_ENABLED=true` без явного `API_CACHE_BACKEND` effective-backend — `redis` (см. [`redis_runtime.py`](../core/api/src/config/redis_runtime.py)).
+
+## Celery broker
+
+Помимо секций в `databases.yaml` (SQLite/PostgreSQL) в `.env` задаётся **`CELERY_BROKER_BACKEND`**:
+
+| Значение | Поведение |
+|----------|-----------|
+| `auto` | из `databases.yaml` или локальный SQLite |
+| `redis` | брокер на Redis (`CELERY_BROKER_URL` или `REDIS_DB_CELERY_BROKER`) |
+| `database` | явно через БД |
+| `local` | локальный SQLite в `virtual_env/celery/` |
+
+Расписание Beat (django-celery-beat) хранится в PostgreSQL, не в Redis.
+
+## Redis и несколько процессов {#redis-и-несколько-процессов}
+
+Portable Redis **не входит** в `setup-full`. Установка:
+
+```cmd
+ergoms install-redis
+ergoms test-redis
+```
+
+В `.env` вручную: **`REDIS_ENABLED=true`**, перезапустите API.
+
+При `REDIS_ENABLED=true` модуль [`redis_runtime.py`](../core/api/src/config/redis_runtime.py) по умолчанию включает `redis` для channel layer, кэша и Celery broker — если не заданы явно `CHANNEL_LAYER_BACKEND`, `API_CACHE_BACKEND`, `CELERY_BROKER_BACKEND`.
+
+Типичный набор для production (см. блок «Несколько процессов» в `.env.example`):
+
+```env
+REDIS_ENABLED=true
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+API_CACHE_BACKEND=redis
+CHANNEL_LAYER_BACKEND=redis
+CELERY_BROKER_BACKEND=redis
+```
+
+Разделение баз Redis по умолчанию: DB 0 — channel layer, 1 — кэш, 2 — Celery broker, 3 — result backend (`REDIS_DB_*`).
+
+Альтернатива Redis для channel layer — **`CHANNEL_LAYER_BACKEND=postgres`** (через основную БД).
+
+Подробнее — [`core/deployment/logic.md`](../core/deployment/logic.md#redis-optional-portable-packages), [cli.md](cli.md#redis-опционально).
+
+## Production за nginx
+
+Эталон переменных для запуска за обратным прокси — [`core/deployment/nginx/env.example`](../core/deployment/nginx/env.example). Скопируйте нужные значения в корневой `.env`.
+
+Ключевые переменные:
+
+| Переменная | Назначение |
+|------------|------------|
+| `NGINX_ENABLED` | включить сценарий nginx |
+| `NGINX_SERVER_NAME`, `NGINX_PUBLIC_HOST` | домен |
+| `CLIENT_USE_RELATIVE_API` | API и WebSocket с того же origin, что SPA |
+| `API_DEPLOY_TYPE`, `CLIENT_DEPLOY_TYPE` | `production` |
+| `ERGO_TLS_*`, `ERGO_SSL_CERT`, `ERGO_SSL_KEY` | TLS (Linux, `ergoms install-tls`) |
+
+Команды: `ergoms install-nginx`, `ergoms reload-nginx`, `ergoms test-nginx` — см. [cli.md](cli.md#nginx-опционально).
 
 ## GeoIP (геолокация IP)
 
