@@ -1,0 +1,148 @@
+---
+description: Docker Compose ERGO MS — ergoms docker-*, DOCKER_*, compose profiles; при правках запуска/развёртывания учитывать Docker
+alwaysApply: false
+---
+
+# Docker Compose
+
+Запуск стека в контейнерах — **`ergoms docker-*`** ([`commands.conf`](../../core/deployment/commands.conf)). Конфигурация — **`DOCKER_*`** в `.env`, БД — **`databases.yaml`**. Пользовательская документация — [`.docs/docker.md`](../../.docs/docker.md).
+
+## Кратко
+
+- Команды: `docker-init`, `docker-up`, `docker-down`, `docker-dev`, `docker-prod`, `docker-migrate`, `docker-gen-workers`, `docker-shell-api`, `docker-logs`, `docker-ps`, `docker-build`
+- Каталог: `core/deployment/docker/` — compose-файлы, `Dockerfile.python`, `Dockerfile.client`, `docker_cli.py`, `docker_runtime.py`
+- Режимы: **`dev`** (bind-mount, Vite, runserver) и **`prod`** (daphne, `client-build`, опционально nginx)
+- Profiles: `postgres`, `nginx`, `jupyter` — через `DOCKER_PROFILE_*` в `.env`
+- Генерируемые артефакты — **не коммитить** (см. корневой `.gitignore`)
+- Скрипты **не пишут** в корневой `.env` / `databases.yaml` — только `.compose.env`, `.compose.databases.yaml` и др. — см. [`no-auto-env-write.mdc`](no-auto-env-write.mdc)
+- **При любой правке сценариев запуска или развёртывания** — сверяйся с разделом [«Параллельные сценарии»](#параллельные-сценарии-запуска) ниже
+
+## Параллельные сценарии запуска
+
+В ERGO MS **три равноправных** способа поднять стек. Правка одного **не отменяет** необходимость проверить остальные:
+
+| Сценарий | Точка входа | Когда |
+|----------|-------------|-------|
+| **Разработка на хосте** | `ergoms dev`, `start-client`, `start-worker`, … | повседневная разработка, `virtual_env/` на машине |
+| **Службы ОС + portable infra** | `ergo_ms.ps1` / `ergo_ms.sh`, `install-redis`, `install-nginx` | автозапуск, prod на хосте без контейнеров |
+| **Docker Compose** | `ergoms docker-dev`, `docker-prod`, `docker-*` | изолированный стек, CI, демо, prod в контейнерах |
+
+Общая логика процессов — **`core/api/scripts/start_*.py`**; ergoms и compose вызывают **те же** скрипты, не дублируй бизнес-запуск в Docker отдельным способом без причины.
+
+### Когда применять этот чеклист
+
+Любая задача, которая затрагивает **как** стартует или разворачивается приложение:
+
+- новый или изменённый **сервис** (API, media_api, worker, beat, jupyter, клиент)
+- правки **`commands.conf`**, **`help.manifest.yaml`**, встроенных команд в **`ergo_ms.ps1` / `ergo_ms.sh`**
+- новые **`start_*.py`**, переменные **`.env` / `.env.example`**, **`databases.yaml`**
+- **Redis**, **nginx**, **TLS**, **Celery workers** (`celery_workers.yaml`)
+- **зависимости** образа (Poetry, npm, системные пакеты в Dockerfile)
+- **документацию** запуска ([`.docs/development.md`](../../.docs/development.md), [`.docs/deployment.md`](../../.docs/deployment.md), [`.docs/cli.md`](../../.docs/cli.md))
+
+### Чеклист синхронизации (хост ↔ Docker)
+
+| Шаг | Хост | Docker |
+|-----|------|--------|
+| Точка входа процесса | `commands.conf`, `ergo_ms.ps1` / `ergo_ms.sh` | `command` в `docker-compose*.yml` → тот же `core/api/scripts/start_*.py` |
+| Новый Python-сервис | строка в `commands.conf` + help | сервис в compose + тома + `depends_on`; при workers — `generate_workers_compose.py` |
+| Новый порт / bind | `.env.example`, `*_runtime.py` | тот же ключ порта в compose; в контейнере `*_HOST=0.0.0.0` через [`docker_runtime.py`](../../core/deployment/docker/docker_runtime.py) |
+| Redis / PostgreSQL | portable или внешняя БД, `redis_runtime` | сервисы `redis` / `postgres`, profile; `wait_for_services.py`; хост БД `localhost` → `postgres` в `.compose.databases.yaml` |
+| nginx | `ergo_ms.conf.template`, `install-nginx` | profile `nginx`, `ergo_ms.docker.conf.template`, upstream — **имена сервисов**, не `127.0.0.1` |
+| Celery workers | `celery_workers.yaml`, `start-worker` | `ergoms docker-gen-workers` → `docker-compose.workers.generated.yml` |
+| Env effective | `env_resolvers`, `*_runtime.py` | `build_compose_env_overrides()` в `docker_runtime.py` — не хардкодить в compose то, что уже выводится из `.env` |
+| Зависимости | `ergoms python-install`, `npm install:all` | слои `Dockerfile.python` / `Dockerfile.client`; bind-mount кода в dev |
+| Ожидание готовности | прогрев / health на хосте | [`docker_entrypoint.sh`](../../core/deployment/docker/entrypoint/docker_entrypoint.sh), [`wait_for_services.py`](../../core/deployment/docker/entrypoint/wait_for_services.py) |
+| Справка и docs | `help.manifest.yaml`, `.docs/cli.md`, `logic.md` | раздел `docker` в help, [`.docs/docker.md`](../../.docs/docker.md), этот файл |
+
+### Запрещено при правках развёртывания
+
+- Менять только хостовый путь (`ergoms dev`, службы, portable nginx/redis) и **не проверять** compose / `docker_runtime` / Dockerfile
+- Добавлять **отдельную** команду запуска в compose, отличную от `start_*.py`, если на хосте уже есть единый скрипт
+- Документировать новый способ запуска **только** для хоста — в пользовательской документации укажи эквивалент Docker или явно «не поддерживается в compose» с обоснованием
+- Ломать обратную совместимость `DOCKER_*` и profiles без обновления `.env.example` и [`.docs/docker.md`](../../.docs/docker.md)
+
+### Минимальная проверка после правки
+
+1. Хостовая команда из `commands.conf` по-прежнему работает (или обновлена в help).
+2. Сервис отражён в нужном `docker-compose*.yml` или в автогене workers.
+3. `docker_runtime.build_compose_env_overrides()` покрывает новые переменные окружения.
+4. При новой внешней зависимости — `wait_for_services.py` или `depends_on` с healthcheck.
+5. Обновлены `.env.example`, help и docs при смене контракта.
+
+## Обязательно
+
+- Docker-операции — через **`ergoms docker-*`**, не сырой `docker compose` без подготовки артефактов (или вызывай те же шаги, что `docker_cli.py`: `prepare_compose_artifacts`, `gen-workers`, render nginx)
+- Миграции в контейнере — **`ergoms docker-migrate`** или `ergoms docker-shell-api`, не `python manage.py` на хосте против контейнерной БД
+- Порты на хост — из **существующих** ключей `.env` (`API_PORT`, `CLIENT_PORT`, …), не вводи параллельные `DOCKER_*_PORT` без необходимости
+- При `DOCKER_DATABASE=container` хост `localhost`/`127.0.0.1` в `databases.yaml` → имя сервиса **`postgres`** — логика в [`docker_runtime.py`](../../core/deployment/docker/docker_runtime.py)
+- Celery worker'ы в compose — из **`celery_workers.yaml`** через **`ergoms docker-gen-workers`**; файл `docker-compose.workers.generated.yml` не редактировать вручную
+- Образ Python: entrypoint [`docker_entrypoint.sh`](../../core/deployment/docker/entrypoint/docker_entrypoint.sh) + [`wait_for_services.py`](../../core/deployment/docker/entrypoint/wait_for_services.py) — не обходить ожидание Redis/PostgreSQL в новых Python-сервисах compose
+- Effective env для контейнеров: `REDIS_HOST=redis`, `API_HOST=0.0.0.0`, `DOCKER_ENABLED=true` — в `build_compose_env_overrides()`, не дублировать разрозненно в compose без причины
+- nginx в Docker: upstream — **имена сервисов** compose (`api`, `media-api`), шаблон `nginx/ergo_ms.docker.conf.template`
+
+## Запрещено
+
+```python
+# BAD — запись DOCKER_ENABLED в .env из кода
+env_path.write_text(content + "DOCKER_ENABLED=true\n")
+```
+
+```yaml
+# BAD — правка docker-compose.workers.generated.yml вручную
+# Перегенерируй: ergoms docker-gen-workers
+```
+
+```conf
+# BAD — предлагать python manage.py migrate на хосте против контейнерной БД
+python manage.py migrate
+```
+
+```yaml
+# BAD — 127.0.0.1 как upstream nginx внутри Docker-сети
+proxy_pass http://127.0.0.1:8000;
+```
+
+- Коммитить `.compose.env`, `.compose.databases.yaml`, `docker-compose.workers.generated.yml`, `nginx/ergo_ms.conf.rendered`, `init/postgres/02-celery-databases.sql`
+- Одновременно поднимать portable **redis/nginx на хосте** и те же порты в Docker без смены конфигурации
+- Создавать отдельный `.venv` в Dockerfile вместо `POETRY_VIRTUALENVS_PATH=/app/virtual_env/python` — см. [`virtual-env.mdc`](virtual-env.mdc)
+
+## Структура compose
+
+| Файл | Назначение |
+|------|------------|
+| `docker-compose.yml` | redis, api, media-api, celery-beat |
+| `docker-compose.dev.yml` | сервис `client` (Vite) |
+| `docker-compose.prod.yml` | `client-build` |
+| `docker-compose.postgres.yml` | profile `postgres` |
+| `docker-compose.nginx.yml` | profile `nginx` |
+| `docker-compose.jupyter.yml` | profile `jupyter` |
+| `docker-compose.workers.generated.yml` | Celery workers (автоген) |
+
+Сборка списка `-f` файлов — `compose_file_list()` в [`docker_cli.py`](../../core/deployment/docker/docker_cli.py).
+
+## Переменные (эталон)
+
+Секция **Docker** в [`.env.example`](../../.env.example): `DOCKER_ENABLED`, `DOCKER_MODE`, `DOCKER_DATABASE`, `DOCKER_PROFILE_*`, `DOCKER_COMPOSE_PROJECT`, `DOCKER_VOLUME_*`, `DOCKER_SERVICE_*`.
+
+## Добавление сервиса в compose
+
+1. Базовый или profile-файл в `core/deployment/docker/`
+2. Если Python-сервис — образ `DOCKER_PYTHON_IMAGE`, `env_file: .compose.env`, тома как у `api` (якорь `x-python-volumes` **не** работает между `-f` — дублируй явно, см. `generate_workers_compose.py`)
+3. Команда запуска — скрипт из `core/api/scripts/` (как у существующих сервисов)
+4. При зависимости от БД/Redis — `depends_on` + entrypoint `wait_for_services.py`
+5. Команда ergoms — строка в `commands.conf` + `help.manifest.yaml` (раздел `docker`)
+6. Документация — `.docs/docker.md` и этот файл при смене контракта
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Portable Redis, nginx, TLS на хосте | [`deployment-infra.mdc`](deployment-infra.mdc) |
+| Не писать в `.env` | [`no-auto-env-write.mdc`](no-auto-env-write.mdc) |
+| Команды ergoms | [`no-direct-manage-py.mdc`](no-direct-manage-py.mdc), [`ergoms-commands.mdc`](ergoms-commands.mdc) |
+| Celery, workers | [`celery.mdc`](celery.mdc) |
+| Jupyter | [`deployment-infra.mdc`](deployment-infra.mdc) → Jupyter |
+| Устройство deployment | [`core/deployment/logic.md`](../../core/deployment/logic.md) |
+| Документация для людей | [`.docs/docker.md`](../../.docs/docker.md) |
+| `.gitignore` артефактов | [`gitignore.mdc`](gitignore.mdc) |

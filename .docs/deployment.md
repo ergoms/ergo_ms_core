@@ -2,6 +2,8 @@
 
 На Linux ERGO MS можно зарегистрировать как набор служб **systemd**, чтобы API, клиент, Celery и media_api запускались при старте сервера и перезапускались после сбоев. Для этого используется скрипт **`core/deployment/linux/ergo_ms.sh`**. На Windows — **`core/deployment/windows/ergo_ms.ps1`** (службы через NSSM).
 
+Альтернатива изолированному стеку в контейнерах — **Docker Compose** (`ergoms docker-*`). См. [docker.md](docker.md).
+
 Путь к корню проекта задаётся переменной **`ERGO_ROOT`** в файле `/etc/default/ergo_ms` или передаётся флагом **`--root`** при установке.
 
 ## Установка и управление службами
@@ -80,5 +82,6 @@ ergoms logs ergo-api-dev
 | Вопрос | Документ |
 |--------|----------|
 | Запуск для разработки (без служб) | [development.md](development.md) |
+| Docker Compose | [docker.md](docker.md) |
 | Справочник команд ergoms | [cli.md](cli.md) |
 | Если служба не запускается | [troubleshooting.md](troubleshooting.md) |

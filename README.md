@@ -13,7 +13,8 @@ ERGO MS — модульный фреймворк для корпоративн�
 - [Команды ergoms](.docs/cli.md) — справочник команд
 - [Проблемы при установке](.docs/troubleshooting.md) — типичные ошибки
 - [Системные службы](.docs/deployment.md) — systemd / Windows services, запуск как на сервере
-- [Развёртывание ergoms](core/deployment/logic.md) — commands.conf, GeoIP, Redis, nginx, TLS, realtime за reverse proxy
+- [Docker Compose](.docs/docker.md) — запуск стека в контейнерах (`ergoms docker-*`)
+- [Развёртывание ergoms](core/deployment/logic.md) — commands.conf, GeoIP, Redis, nginx, TLS, Docker, realtime за reverse proxy
 - [Ядро API](core/api/README.md) · [Клиент](core/client/README.md) · [Media API](core/media_api/README.md)
 
 ## Быстрый старт

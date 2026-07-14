@@ -18,6 +18,8 @@ Worker и Beat должны смотреть на **один** брокер. И�
 
 Подробнее — [`deployment-infra.mdc`](deployment-infra.mdc).
 
+В Docker worker'ы поднимаются из **`celery_workers.yaml`** через **`ergoms docker-gen-workers`** → `docker-compose.workers.generated.yml`. При изменении имён, очередей или числа worker'ов — обнови yaml и перегенерируй compose; чеклист — [`docker.mdc`](docker.mdc).
+
 ## Где писать код
 
 **В модуле**, не в ядре (в ядре только инфраструктура, например отправка писем):
@@ -58,6 +60,7 @@ ergoms logs celery-beat notifications 200
 | Модули, tasks.py | [`modules.mdc`](modules.mdc) |
 | Брокер в databases.yaml и Redis | [`.docs/configuration.md`](../../.docs/configuration.md) |
 | Redis, nginx | [`deployment-infra.mdc`](deployment-infra.mdc) |
+| Docker, workers в compose | [`docker.mdc`](docker.mdc) |
 
 ## Не делай
 

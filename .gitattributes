@@ -1,0 +1,2 @@
+# Shell-скрипты для Docker — только LF (CRLF ломает shebang в Linux-контейнере)
+core/deployment/docker/entrypoint/*.sh text eol=lf

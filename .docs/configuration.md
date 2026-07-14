@@ -199,6 +199,14 @@ CELERY_BROKER_BACKEND=redis
 
 Команды: `ergoms install-nginx`, `ergoms reload-nginx`, `ergoms test-nginx` — см. [cli.md](cli.md#nginx-опционально).
 
+## Docker Compose
+
+Переменные **`DOCKER_*`** — секция в `.env.example`. Порты публикуются из `API_PORT`, `CLIENT_PORT`, `MEDIA_API_BIND_PORT` и др.; параметры БД — из `databases.yaml` (при `DOCKER_DATABASE=container` хост `localhost` подменяется на сервис `postgres` внутри compose).
+
+В `.env` задайте `DOCKER_ENABLED=true`, режим `DOCKER_MODE` (`dev` / `prod`) и profiles (`DOCKER_PROFILE_POSTGRES`, `DOCKER_PROFILE_NGINX`, `DOCKER_PROFILE_JUPYTER`). Первый запуск: `ergoms docker-init`.
+
+Скрипты не изменяют корневой `.env` — генерируют только артефакты в `core/deployment/docker/`. Подробнее — [docker.md](docker.md).
+
 ## GeoIP (геолокация IP)
 
 Локальная база DB-IP City Lite для city/country в сессиях и аудите. В `.env`:
@@ -219,3 +227,4 @@ CELERY_BROKER_BACKEND=redis
 | Справочник команд ergoms | [cli.md](cli.md) |
 | Если конфигурация не применяется | [troubleshooting.md](troubleshooting.md) |
 | Запуск для разработки | [development.md](development.md) |
+| Docker Compose | [docker.md](docker.md) |

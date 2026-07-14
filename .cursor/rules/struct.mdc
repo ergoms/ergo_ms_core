@@ -61,7 +61,7 @@ import OrgList from '../../../../modules/organizations/client/pages/OrgList.vue'
 - Прямые static import из submodule в клиентских страницах и composables ядра (кроме инфраструктуры загрузки: `ModuleLoader`, glob в `LayoutMenu.vue`)
 - Обход ModuleBridge ради «удобного» доступа к данным или операциям модуля
 
-Подробности по модулям — в [`modules.mdc`](modules.mdc). Боковое меню — [`menu.mdc`](menu.mdc). Realtime — [`realtime.mdc`](realtime.mdc). Redis, nginx, TLS — [`deployment-infra.mdc`](deployment-infra.mdc). Нюансы развёртывания — в [`core/deployment/logic.md`](../../core/deployment/logic.md) и [`.docs/architecture.md`](../../.docs/architecture.md).
+Подробности по модулям — в [`modules.mdc`](modules.mdc). Боковое меню — [`menu.mdc`](menu.mdc). Realtime — [`realtime.mdc`](realtime.mdc). Redis, nginx, TLS — [`deployment-infra.mdc`](deployment-infra.mdc). Docker Compose — [`docker.mdc`](docker.mdc). Нюансы развёртывания — в [`core/deployment/logic.md`](../../core/deployment/logic.md) и [`.docs/architecture.md`](../../.docs/architecture.md).
 
 ## Связанные правила
 
@@ -75,3 +75,4 @@ import OrgList from '../../../../modules/organizations/client/pages/OrgList.vue'
 | Боковое меню | [`menu.mdc`](menu.mdc) |
 | Realtime | [`realtime.mdc`](realtime.mdc) |
 | Redis, nginx, TLS | [`deployment-infra.mdc`](deployment-infra.mdc) |
+| Docker Compose | [`docker.mdc`](docker.mdc) |

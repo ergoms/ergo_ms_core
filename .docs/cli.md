@@ -180,6 +180,34 @@ ergoms stop-redis
 
 После установки вручную в `.env`: `REDIS_ENABLED=true`, перезапустите API. Служба: `ergoms install-redis-service`.
 
+## Docker Compose {#docker-compose}
+
+Запуск API, клиента, Redis, PostgreSQL, Celery и опционально nginx/Jupyter в контейнерах. Команды в `commands.conf`; переменные — секция **Docker** в `.env.example`, БД — `databases.yaml`.
+
+```cmd
+ergoms docker-init
+ergoms docker-up
+ergoms docker-down
+ergoms docker-restart
+ergoms docker-dev
+ergoms docker-prod
+ergoms docker-build
+ergoms docker-ps
+ergoms docker-logs -f api
+ergoms docker-migrate
+ergoms docker-shell-api
+ergoms docker-gen-workers
+```
+
+- **`docker-init`** — первый запуск: сборка образов, worker-сервисы, `up`, миграции
+- **`docker-dev`** / **`docker-prod`** — `docker-up` с `DOCKER_MODE=dev` или `prod`
+- **`docker-migrate`** — миграции и прогрев кэшей внутри контейнера `api`
+- **`docker-gen-workers`** — пересоздать compose-фрагмент из `celery_workers.yaml`
+
+В `.env` задайте `DOCKER_ENABLED=true`, режим `DOCKER_MODE` и при необходимости profiles (`DOCKER_PROFILE_POSTGRES`, `DOCKER_PROFILE_NGINX`, `DOCKER_PROFILE_JUPYTER`). Подробнее — [docker.md](docker.md) и [`core/deployment/logic.md`](../core/deployment/logic.md#docker-compose).
+
+Не смешивайте Docker-стек с portable Redis/nginx на хосте на тех же портах.
+
 ## TLS (Let's Encrypt, Linux)
 
 ```bash
@@ -244,3 +272,4 @@ install-deps=api:install && npm:run install:all && api:migrate && api:warmup_cac
 | Запуск для разработки, логи | [development.md](development.md) |
 | Настройка `.env` и баз данных | [configuration.md](configuration.md) |
 | Если команда завершилась с ошибкой | [troubleshooting.md](troubleshooting.md) |
+| Docker Compose | [docker.md](docker.md) |

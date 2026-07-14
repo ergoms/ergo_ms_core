@@ -1,11 +1,15 @@
 ---
-description: Redis, nginx, TLS — portable packages, ergoms install-*, redis_runtime, production за reverse proxy
+description: Redis, nginx, TLS, Docker — portable packages, ergoms install-*, redis_runtime, production за reverse proxy
 alwaysApply: false
 ---
 
-# Инфраструктура развёртывания (Redis, nginx, TLS)
+# Инфраструктура развёртывания (Redis, nginx, TLS, Docker)
 
 Опциональные компоненты для запуска как на сервере: обратный прокси, общий кэш, channel layer и брокер Celery. **Не входят** в `setup-full` — устанавливаются по необходимости.
+
+**Docker Compose** — отдельный сценарий (`ergoms docker-*`): Redis, PostgreSQL, nginx и сервисы приложения в контейнерах. Подробности — [`.cursor/rules/docker.mdc`](docker.mdc), [`.docs/docker.md`](../../.docs/docker.md). Не смешивайте portable redis/nginx на хосте и Docker-стек на одних портах.
+
+**При изменении** сценариев запуска, служб, Redis/nginx/TLS или команд ergoms — **обязательно** сверяйтесь с Docker: чеклист «Параллельные сценарии» в [`docker.mdc`](docker.mdc). Хост и compose должны оставаться согласованными.
 
 ## Кратко
 
@@ -139,5 +143,6 @@ CACHE_URL = "redis://127.0.0.1:6379/1"
 | Логи nginx/redis | [`logging.mdc`](logging.mdc) |
 | Не писать в `.env` | [`no-auto-env-write.mdc`](no-auto-env-write.mdc) |
 | Устройство ergoms | [`core/deployment/logic.md`](../../core/deployment/logic.md) |
+| Docker Compose | [`docker.mdc`](docker.mdc) |
 | Настройка для людей | [`.docs/configuration.md`](../../.docs/configuration.md) |
 | Команды | [`.docs/cli.md`](../../.docs/cli.md) |

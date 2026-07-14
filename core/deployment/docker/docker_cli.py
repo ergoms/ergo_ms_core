@@ -187,14 +187,20 @@ def cmd_exec_api_shell(_: argparse.Namespace) -> int:
     return subprocess.call(cmd, cwd=str(cwd))
 
 
+def _api_poetry_command(django_command: str) -> list[str]:
+    """Django-команды через poetry (как ergoms api …) внутри контейнера api."""
+    shell = f'cd /app/core/api && poetry run python -m commands {django_command}'
+    return ['api', 'sh', '-c', shell]
+
+
 def cmd_migrate(_: argparse.Namespace) -> int:
     if not find_docker_compose():
         print(format_console('error', 'Docker не найден.'), file=sys.stderr)
         return 1
     steps = [
-        ['api', 'python', '-m', 'commands', 'makemigrations'],
-        ['api', 'python', '-m', 'commands', 'migrate'],
-        ['api', 'python', '-m', 'commands', 'warmup_caches'],
+        _api_poetry_command('makemigrations'),
+        _api_poetry_command('migrate'),
+        _api_poetry_command('warmup_caches'),
     ]
     for step in steps:
         cmd, cwd = build_compose_cmd('exec', extra_args=step)
@@ -202,6 +208,22 @@ def cmd_migrate(_: argparse.Namespace) -> int:
         if code != 0:
             return code
     return 0
+
+
+def _wait_api_container(timeout_sec: float = 120.0) -> bool:
+    """Ждёт, пока контейнер api перестанет перезапускаться."""
+    import time
+
+    if not find_docker_compose():
+        return False
+    deadline = time.monotonic() + timeout_sec
+    while time.monotonic() < deadline:
+        cmd, cwd = build_compose_cmd('exec', extra_args=['-T', 'api', 'true'])
+        result = subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True, check=False)
+        if result.returncode == 0:
+            return True
+        time.sleep(3)
+    return False
 
 
 def cmd_init(args: argparse.Namespace) -> int:
@@ -216,8 +238,9 @@ def cmd_init(args: argparse.Namespace) -> int:
     if code != 0:
         return code
     print(format_console('info', 'Ожидание готовности API…'))
-    import time
-    time.sleep(8)
+    if not _wait_api_container():
+        print(format_console('error', 'Контейнер api не запустился. Проверьте: ergoms docker-logs api'), file=sys.stderr)
+        return 1
     return cmd_migrate(args)
 
 

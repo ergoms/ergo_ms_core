@@ -125,5 +125,5 @@ databases.yaml
 |------|------|
 | Архитектура, submodule | [`struct.mdc`](struct.mdc) |
 | `virtual_env/python/` | [`virtual-env.mdc`](virtual-env.mdc) |
-| Deployment, docker | [`deployment-infra.mdc`](deployment-infra.mdc) |
+| Deployment, docker | [`deployment-infra.mdc`](deployment-infra.mdc), [`docker.mdc`](docker.mdc) |
 | Модули | [`modules.mdc`](modules.mdc) |

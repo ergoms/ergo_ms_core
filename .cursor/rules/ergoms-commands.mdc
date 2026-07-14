@@ -53,6 +53,10 @@ alwaysApply: false
 
 Они **не** добавляются строками в `commands.conf`. Описания для `ergoms help` — в `help.manifest.yaml` (разделы nginx, redis, TLS, services). Подробности — [`deployment-infra.mdc`](deployment-infra.mdc), [`core/deployment/logic.md`](../../core/deployment/logic.md).
 
+**Docker Compose** — в `commands.conf` (префикс `docker-*`): `docker-init`, `docker-up`, `docker-down`, `docker-dev`, `docker-prod`, `docker-migrate` и др. CLI — [`docker_cli.py`](../../core/deployment/docker/docker_cli.py). Правила — [`docker.mdc`](docker.mdc).
+
+При добавлении или изменении команды **запуска**, **развёртывания** или **инфраструктуры** — сверяйся с чеклистом «Параллельные сценарии» в [`docker.mdc`](docker.mdc): хост (`commands.conf`, `ergo_ms.ps1` / `ergo_ms.sh`) и Docker (`docker-compose*.yml`, `docker_runtime.py`) — **два обязательных** места проверки, если меняется способ поднятия сервиса.
+
 Новую infra-команду добавляют в оба скрипта (`ergo_ms.ps1` / `ergo_ms.sh`), в `help.manifest.yaml` и в `_BUILTIN_COMMANDS` в [`ergoms_help.py`](../../core/deployment/scripts/ergoms_help.py).
 
 ## Точки входа Django-команд ядра
@@ -60,7 +64,7 @@ alwaysApply: false
 Помимо management-команд Django (discovery, вызов через `ergoms api <команда>`), в `core/api/` есть два отдельных механизма:
 
 - `core/api/commands/` — реализация команд `ergoms api install`, `module-add`, `module-remove`, `module-list` (управление зависимостями модулей в `modules/<имя>/pyproject.toml`, точка входа — `commands/__main__.py`).
-- `core/api/scripts/` — точки входа процессов (`start_api.py`, `start_celery_worker.py`, `start_celery_beat.py`, `start_media_api.py`, `start_jupyter.py`, `warmup_caches_if_needed.py`), которые `commands.conf` вызывает напрямую через `virtual_env/python/.../python.exe core/api/scripts/<файл>.py` (без прокси `api:`).
+- `core/api/scripts/` — точки входа процессов (`start_api.py`, `start_celery_worker.py`, `start_celery_beat.py`, `start_media_api.py`, `start_jupyter.py`, `warmup_caches_if_needed.py`), которые `commands.conf` вызывает напрямую через `virtual_env/python/.../python.exe core/api/scripts/<файл>.py` (без прокси `api:`). **Те же скрипты** — `command` сервисов в Docker Compose; при правке запуска обновляй и compose — см. [`docker.mdc`](docker.mdc).
 
 ## Типы префиксов
 

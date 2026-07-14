@@ -146,6 +146,46 @@
 
 Переменные: `ERGO_TLS_*`, `ERGO_SSL_CERT`, `ERGO_SSL_KEY`, `CORS_ALLOWED_ORIGINS` — см. `core/deployment/nginx/env.example`.
 
+## Docker Compose
+
+Запуск стека в контейнерах — альтернатива portable Redis/nginx на хосте и отдельным процессам `ergoms dev`. Команды — префикс **`ergoms docker-*`** в `commands.conf`; CLI — [`docker_cli.py`](docker/docker_cli.py).
+
+| Что | Где |
+|-----|-----|
+| Compose-файлы | `core/deployment/docker/docker-compose*.yml` |
+| Образы | `Dockerfile.python`, `Dockerfile.client` |
+| Effective env (read-only) | [`docker_runtime.py`](docker/docker_runtime.py) |
+| Entrypoint | `entrypoint/docker_entrypoint.sh`, `wait_for_services.py` |
+| Worker-сервисы | `generate_workers_compose.py` → `docker-compose.workers.generated.yml` |
+| nginx в Docker | `nginx/ergo_ms.docker.conf.template` → `ergo_ms.conf.rendered` |
+
+### Команды
+
+- `ergoms docker-init` — build, gen-workers, up, migrate
+- `ergoms docker-up` / `docker-down` / `docker-restart`
+- `ergoms docker-dev` / `docker-prod` — режим из `--mode` или `DOCKER_MODE` в `.env`
+- `ergoms docker-build`, `docker-ps`, `docker-logs`, `docker-migrate`, `docker-shell-api`, `docker-gen-workers`
+
+Описания для `ergoms help` — раздел `docker` в [`help.manifest.yaml`](help.manifest.yaml).
+
+### Первичная настройка Docker
+
+1. Docker Desktop / Docker Engine + Compose V2
+2. В `.env`: `DOCKER_ENABLED=true`, `DOCKER_MODE`, profiles (`DOCKER_PROFILE_*`)
+3. `databases.yaml` — при `DOCKER_DATABASE=container` хост `localhost` подменяется на сервис `postgres`
+4. `ergoms docker-init`
+
+Переменные: секция **Docker** в `.env.example`. Порты — `API_PORT`, `CLIENT_PORT` и др. (не отдельные `DOCKER_*_PORT`).
+
+### Генерируемые артефакты (не в git)
+
+- `.compose.env`, `.compose.databases.yaml`
+- `docker-compose.workers.generated.yml`
+- `init/postgres/02-celery-databases.sql`
+- `nginx/ergo_ms.conf.rendered`
+
+Скрипты **не пишут** в корневой `.env` / `databases.yaml` — только артефакты в `core/deployment/docker/`. Подробнее — [`.docs/docker.md`](../../.docs/docker.md), [`.cursor/rules/docker.mdc`](../../.cursor/rules/docker.mdc).
+
 ## Типичные ошибки
 
 | Симптом | Что проверить |
@@ -162,3 +202,5 @@
 | Только ergoms, не manage.py | [`.cursor/rules/no-direct-manage-py.mdc`](../../.cursor/rules/no-direct-manage-py.mdc) |
 | Службы Linux / Windows | [`.docs/deployment.md`](../../.docs/deployment.md) |
 | Redis, nginx, TLS (правила агента) | [`.cursor/rules/deployment-infra.mdc`](../../.cursor/rules/deployment-infra.mdc) |
+| Docker Compose (правила агента) | [`.cursor/rules/docker.mdc`](../../.cursor/rules/docker.mdc) |
+| Docker (документация) | [`.docs/docker.md`](../../.docs/docker.md) |

@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-WAIT_SCRIPT="/app/core/deployment/docker/entrypoint/wait_for_services.py"
+WAIT_SCRIPT="/usr/local/lib/ergo-ms/wait_for_services.py"
 
 if [ -f "$WAIT_SCRIPT" ]; then
   python "$WAIT_SCRIPT" || exit 1

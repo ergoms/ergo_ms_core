@@ -90,10 +90,24 @@ git submodule update --init --recursive
 2. Перезагрузите: `ergoms reload-nginx`.
 3. Убедитесь, что в шаблоне `ergo_ms.conf.template` для SSE отключён `proxy_buffering` — см. [realtime.mdc](../.cursor/rules/realtime.mdc).
 
+## Docker Compose
+
+Симптом: `ergoms docker-up` завершается с ошибкой или контейнер `api` перезапускается.
+
+1. Проверьте, что Docker запущен: `docker compose version`.
+2. Статус контейнеров: `ergoms docker-ps`; журнал: `ergoms docker-logs api` или `ergoms docker-logs postgres`.
+3. База данных: `databases.yaml` и сгенерированный `core/deployment/docker/.compose.databases.yaml`; при `DOCKER_DATABASE=container` хост в yaml должен быть `localhost` (подменится на `postgres`).
+4. Порт занят — смените `API_PORT` / `CLIENT_PORT` в `.env` или остановите portable-службы и хостовый `ergoms dev`.
+5. После правки `celery_workers.yaml`: `ergoms docker-gen-workers` и `ergoms docker-restart`.
+6. Миграции: `ergoms docker-migrate`.
+
+Подробнее — [docker.md](docker.md).
+
 ## См. также
 
 | Вопрос | Документ |
 |--------|----------|
 | Настройка `.env` и баз данных | [configuration.md](configuration.md) |
 | Справочник команд ergoms | [cli.md](cli.md) |
+| Docker Compose | [docker.md](docker.md) |
 | Запуск для разработки | [development.md](development.md) |
