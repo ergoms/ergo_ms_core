@@ -1,5 +1,5 @@
 ---
-description: Темы light/dark, UI-токены и шрифты — только система ядра
+description: Темы оформления — глобальные и модульные, theme-defaults.js, ModuleThemeScope, UI-токены, шрифты
 globs:
   - core/client/**/*.vue
   - core/client/**/*.scss
@@ -14,9 +14,33 @@ alwaysApply: false
 ---
 # Темы оформления
 
-Переключение светлая / тёмная / авто — через настройки CMS и `theme-manager.js`. На `<html>` ставится `data-bs-theme`.
+## Кратко
 
-## Цвета в стилях
+- **Сайт (ядро + оболочка):** `theme-manager.js` на `<html>`, активная тема — `GET settings/themes/active/`, редактор — `/settings/themes` (область «Сайт»).
+- **Модуль с отдельной палитрой:** только hook `theme-defaults.js` + `theme-bootstrap.scss`, runtime — `ModuleThemeScope`, управление — тот же редактор (область «Модуль»). **Пара light+dark** — вариант выбирается по **глобальному** режиму пользователя (светлая / тёмная / авто), нельзя активировать только один вариант.
+- **Модуль без отдельной палитры:** стили через `var(--ui-*)` / `var(--color-*)`, hook темы **не** нужен.
+- В модуле с hook: `useModuleThemeMode`, не `useThemeMode`. Графики — слушать `ergo:module-theme-change` (и при необходимости `ergo:theme-change` для оболочки).
+
+---
+
+## Когда какая схема
+
+| Ситуация | Что делать |
+|----------|------------|
+| Обычные страницы модуля, достаточно цветов сайта | `var(--ui-*)` в SCSS, без `theme-defaults.js` |
+| Отдельная палитра модуля (другой accent, фоны, неоновые токены) | **Обязательно** hook + редактор ядра — см. раздел «Модульные темы» |
+| Страницы ядра (CMS, админка) | Глобальная тема, `useThemeMode` |
+| Шапка и боковое меню на страницах модуля | Всегда **глобальная** тема сайта, не модульная |
+
+Эталон модульной темы: [`modules/ai_assistant/client/js/theme-defaults.js`](../../modules/ai_assistant/client/js/theme-defaults.js), [`theme-bootstrap.scss`](../../modules/ai_assistant/client/styles/theme-bootstrap.scss).
+
+---
+
+## Глобальная тема (сайт)
+
+Переключение светлая / тёмная / авто — настройки пользователя и `theme-manager.js`. На `<html>` ставится `data-bs-theme`. Активная палитра — модель `Theme` (`module_key` пустой), кеш `localStorage['activeTheme']`.
+
+### Цвета в стилях
 
 Не хардкодь `#fff`, `#212529` и т.п. Используй переменные:
 
@@ -32,10 +56,10 @@ alwaysApply: false
 
 Тёмная тема: селектор `[data-bs-theme='dark']`, не отдельный класс на компоненте.
 
-Токены ядра: `core/client/src/scss/_theme.scss`, `core/client/src/scss/ui/_tokens.scss`.  
+Токены ядра: [`core/client/src/scss/_theme.scss`](../../core/client/src/scss/_theme.scss), [`core/client/src/scss/ui/_tokens.scss`](../../core/client/src/scss/ui/_tokens.scss).  
 Не копируй `_tokens.scss` в модуль — не импортируй `ui/scss/index.scss` в `routes.js` (уже в `styles.scss`).
 
-## JavaScript
+### JavaScript (ядро и модули без отдельной палитры)
 
 ```js
 import { useThemeMode } from '@/composables/useThemeMode.js'
@@ -45,7 +69,142 @@ import { useApexTheme, buildApexOptions } from '@/composables/useApexTheme.js'
 Не читай тему из `localStorage` вручную.  
 Графики (Apex/canvas) — пересобирай при смене темы через `useThemeMode` или событие `ergo:theme-change`.
 
-Новые UI-токены — только в `core/client/src/scss/ui/`.
+Новые **глобальные** UI-токены `--ui-*` — только в `core/client/src/scss/ui/`.
+
+---
+
+## Модульные темы
+
+Модуль с **отдельной палитрой** регистрирует тему через hook-файлы; ядро применяет её **только в контенте** маршрутов модуля. Оболочка (шапка, боковое меню) остаётся на глобальной теме.
+
+### Инфраструктура ядра (не дублировать в модуле)
+
+| Компонент | Путь |
+|-----------|------|
+| Scoped-обёртка | [`ModuleThemeScope.vue`](../../core/client/src/components/ModuleThemeScope.vue) в [`RouteViewAnimated.vue`](../../core/client/src/components/RouteViewAnimated.vue) |
+| Runtime CSS модуля | [`module-theme-manager.js`](../../core/client/src/js/module-theme-manager.js), [`module-theme-service.js`](../../core/client/src/js/module-theme-service.js) |
+| Генерация CSS | [`theme-css-builder.js`](../../core/client/src/js/theme-css-builder.js) |
+| Discovery manifest'ов | [`ThemeDefaultsManager.js`](../../core/client/src/modules/themes/ThemeDefaultsManager.js), glob `client/js/theme-defaults.js` |
+| Редактор | [`/settings/themes`](../../core/client/src/core/cms/adp/settings/themeEditor/ThemeEditor.vue) — SelectBox «Область» |
+| API | `GET settings/themes/active/?module=<ключ>` (ответ — **пара** `variants.light` / `variants.dark`), `GET settings/themes/?module=<ключ>&as_pairs=true`, `POST settings/themes/sync-module-defaults/` |
+| Модель | `Theme.module_key`, `Theme.module_pair`, `Theme.module_tokens` в [`settings/models.py`](../../core/api/src/core/settings/models.py) |
+
+`route.meta.moduleKey` проставляет [`RouteManager.js`](../../core/client/src/modules/routes/RouteManager.js) автоматически для внешних модулей.
+
+### Обязательно (модуль с отдельной палитрой)
+
+1. **`client/js/theme-defaults.js`** — единственный источник дефолтов для API и редактора (`moduleKey`, `modulePair`, `colors`, `moduleTokens`, `systemThemes` — **две** записи с одним `module_pair` и разным `base_theme`: `light` и `dark`).
+2. **`client/styles/theme-bootstrap.scss`** — алиасы `--<module>-*` на `var(--color-*)` / `var(--ui-*)`; импорт **один раз** в `client/js/routes.js`.
+3. Цвета, которые админ может менять в редакторе — через CSS-переменные (`--color-*`, `--<module>-*`), **не** через хардкод hex в компонентах.
+4. **`useModuleThemeMode('module_key')`** (или без аргумента внутри `ModuleThemeScope`) для light/dark **внутри** модуля.
+5. Активация — **вся пара** целиком в `/settings/themes` → область модуля; отображаемый вариант следует глобальной теме сайта (`theme-manager.js`, `ergo:theme-change`). Синхронизация системных пар — `POST settings/themes/sync-module-defaults/`.
+6. Модалки и overlay модуля — рендер **внутри** scope (`ModalCenter` без teleport в `body`).
+
+### Hook `theme-defaults.js`
+
+```js
+/** modules/<имя>/client/js/theme-defaults.js */
+export default {
+  moduleKey: 'ai_assistant',
+  displayName: 'AI-ассистент',
+  modulePair: 'default',
+  baseTheme: 'dark',
+  colors: {
+    accent: '#3ae8ff',
+    background: '#050508',
+    // … остальные ключи COLOR_VAR_MAP из theme-manager
+  },
+  bootstrap_colors: {},
+  moduleTokens: {
+    neonCyan: '#3ae8ff',
+    glowCyan: '0 0 20px rgba(58, 232, 255, 0.4)',
+  },
+  systemThemes: [
+    { name: 'Neural (AI-ассистент)', base_theme: 'dark', module_pair: 'default', is_default: true },
+    { name: 'Neural (AI-ассистент)', base_theme: 'light', module_pair: 'default', is_default: true, colors: { /* светлые */ } },
+  ],
+}
+```
+
+Ключ `modulePair` / `module_pair` в `systemThemes` связывает light и dark в одну активируемую пару.
+
+Ключи `colors` — те же 10 полей, что в [`theme-manager.js`](../../core/client/src/js/theme-manager.js) / [`bootstrap-variables.js`](../../core/client/src/js/bootstrap-variables.js).  
+`moduleTokens` → runtime CSS `--<module-key-kebab>-<token-kebab>` (например `neonCyan` → `--ai-assistant-neon-cyan`).
+
+### Hook `theme-bootstrap.scss`
+
+```scss
+// modules/<имя>/client/styles/theme-bootstrap.scss
+[data-ergo-module-theme='ai_assistant'] {
+  --ai-accent: var(--color-accent);
+  --ai-bg-primary: var(--color-background);
+  --ai-neon-cyan: var(--ai-assistant-neon-cyan, #3ae8ff);
+}
+```
+
+В компонентах модуля: `var(--ai-bg-primary)`, не `$dark-bg-primary` и не `#050508`.
+
+### JavaScript внутри модуля с hook
+
+```js
+import { useModuleThemeMode } from '@/composables/useModuleThemeMode.js'
+
+const { isDark, isLight, resolvedMode } = useModuleThemeMode('ai_assistant')
+```
+
+Графики в модуле с отдельной палитрой — подписка на `ergo:module-theme-change` (см. [`module-theme-manager.js`](../../core/client/src/js/module-theme-manager.js)) в дополнение к `ergo:theme-change`, если виджет реагирует на оболочку.
+
+### Плохо / хорошо
+
+```scss
+/* BAD — локальная палитра, обход системы тем */
+$neon-cyan: #3ae8ff;
+.panel { background: #050508; border: 1px solid $neon-cyan; }
+
+/* GOOD — палитра из scope модульной темы */
+.panel {
+  background: var(--ai-bg-primary);
+  border: 1px solid var(--ai-neon-cyan);
+}
+```
+
+```js
+// BAD — в модуле с theme-defaults.js читается глобальный html
+import { useThemeMode } from '@/composables/useThemeMode.js'
+const { isDark } = useThemeMode()
+
+// GOOD
+import { useModuleThemeMode } from '@/composables/useModuleThemeMode.js'
+const { isDark } = useModuleThemeMode('ai_assistant')
+```
+
+```vue
+<!-- BAD — свой редактор или хранение темы в модуле -->
+<ThemeEditorPanel v-model="localTheme" />
+
+<!-- BAD — модалка вне scope -->
+<Teleport to="body"><MyModal /></Teleport>
+```
+
+```js
+// BAD — дублирование дефолтов только в SCSS, без theme-defaults.js
+// Редактор и API не увидят палитру
+
+// GOOD — дефолты в theme-defaults.js; SCSS только алиасы на var(--color-*)
+```
+
+### Запрещено (модульные темы)
+
+- Отдельная палитра модуля **без** `theme-defaults.js` (hex в `_variables.scss`, `$dark-bg-*` и т.п.)
+- Редактор тем, страница настроек темы, CRUD темы в модуле
+- `useThemeMode()` на страницах модуля с зарегистрированной модульной темой
+- Инжект `<style>` с палитрой модуля вручную — только `module-theme-manager` ядра
+- Teleport модалок модуля в `body` (теряется `data-ergo-module-theme`)
+- Копирование `theme-manager.js` / `ModuleThemeScope` в модуль
+- Активировать только светлый или только тёмный вариант модуля отдельно от пары
+- Разный `module_pair` для light и dark одного набора
+
+---
 
 ## Шрифты — только локально / system stack
 
@@ -85,17 +244,23 @@ code, pre {
 
 **В JS** (ApexCharts, canvas): `fontFamily: 'system-ui, sans-serif'` или CSS-переменная, не имя шрифта с CDN.
 
-## Запрещено
+---
 
-- Локальные палитры, не связанные с `--ui-*` / `--color-*`
+## Запрещено (общее)
+
+- Локальные палитры, не связанные с `--ui-*` / `--color-*` / модульными `--<module>-*`
 - Только `@media (prefers-color-scheme: dark)` без учёта выбора пользователя
-- Редактор тем в модуле (только в ядре)
+- Редактор тем в модуле (только ядро, `/settings/themes`)
 - **Любые внешние шрифты** (см. раздел «Шрифты» выше)
+- Обход `theme-defaults.js` для модуля с отдельной визуальной идентичностью
+
+---
 
 ## Связанные правила
 
 | Тема | Файл |
 |------|------|
+| Структура модулей, hook-файлы | [`modules.mdc`](modules.mdc) |
 | Клиент Vue | [`client_code.mdc`](client_code.mdc) |
 | Компоненты UI | [`components.mdc`](components.mdc) |
 | Безопасность (CSP) | [`security.mdc`](security.mdc) |

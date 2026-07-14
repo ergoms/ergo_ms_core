@@ -112,7 +112,7 @@
             "hide": true,
             "dependsOrder": "parallel",
             "dependsOn": [
-                "Nginx / Client",
+                "Optional Services",
                 "API",
                 "Media API",
                 "Celery Worker",
@@ -137,6 +137,20 @@
                 "showReuseMessage": false,
                 "close": true
             }
+        },
+        {
+            "label": "Optional Services",
+            "hide": true,
+            "type": "multi-terminal",
+            "source": {
+                "file": ".vscode/optional-services.runtime.yaml",
+                "path": "services"
+            },
+            "commandTemplate": "ergoms start-${key}-dev",
+            "nameTemplate": "${key}",
+            "group": "optional-services",
+            "delay": 300,
+            "hideControlTerminal": true
         },
         {
             "label": "Nginx / Client",
@@ -228,6 +242,30 @@
                 "reveal": "always",
                 "panel": "new"
             },
+            "problemMatcher": []
+        },
+        {
+            "label": "Jupyter: Start",
+            "type": "shell",
+            "command": "ergoms start-jupyter",
+            "options": { "cwd": "${workspaceFolder}" },
+            "windows": {
+                "options": {
+                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                }
+            },
+            "linux": {
+                "options": {
+                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                }
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new"
+            },
+            "group": { "kind": "build", "isDefault": false },
             "problemMatcher": []
         },
         {

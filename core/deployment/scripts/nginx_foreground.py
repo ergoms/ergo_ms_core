@@ -110,9 +110,16 @@ def _print_client_hint(url: str) -> None:
     print(format_console('info', 'После правок клиента: ergoms client-build && ergoms reload-nginx'))
 
 
-def tail_log_files(paths: list[Path], *, wait_sec: float = 10.0) -> int:
+def tail_log_files(
+    paths: list[Path],
+    *,
+    wait_sec: float = 10.0,
+    service: str = 'nginx',
+    process_keeps_running: bool = True,
+) -> int:
     deadline = time.monotonic() + wait_sec
     handles: dict[Path, object] = {}
+    service_lower = service.lower()
 
     while not handles:
         for path in paths:
@@ -125,7 +132,10 @@ def tail_log_files(paths: list[Path], *, wait_sec: float = 10.0) -> int:
         if handles:
             break
         if time.monotonic() >= deadline:
-            print(format_console('info', 'Файлы логов nginx не найдены. Nginx работает; ожидание (Ctrl+C — выход)...'))
+            print(format_console(
+                'info',
+                f'Файлы логов {service} не найдены. {service} работает; ожидание (Ctrl+C — выход)...',
+            ))
             try:
                 while True:
                     time.sleep(3600)
@@ -134,7 +144,11 @@ def tail_log_files(paths: list[Path], *, wait_sec: float = 10.0) -> int:
             return 0
         time.sleep(0.5)
 
-    print(format_console('info', 'Потоковый вывод логов nginx (Ctrl+C — выход, nginx продолжит работу)...'))
+    if process_keeps_running:
+        tail_hint = f'Потоковый вывод логов {service_lower} (Ctrl+C — выход, {service} продолжит работу)...'
+    else:
+        tail_hint = f'Потоковый вывод логов {service_lower} (Ctrl+C — выход)...'
+    print(format_console('info', tail_hint))
     try:
         while True:
             for path, handle in list(handles.items()):

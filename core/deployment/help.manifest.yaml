@@ -125,7 +125,9 @@ sections:
       - name: warmup-caches
         summary: "Прогреть кэши ядра (apps, celery, modules_env)"
       - name: warmup-caches-if-needed
-        summary: "Прогрев только при пустом или устаревшем кэше"
+        summary: "Redis (если включён) и прогрев только при пустом или устаревшем кэше"
+      - name: ensure-redis-dev
+        summary: "Запустить Redis для разработки без терминала логов"
       - name: warmup-celery
         summary: "Прогреть только celery-кэши"
       - name: invalidate-caches
@@ -300,6 +302,15 @@ sections:
       - "ergoms poetry <аргументы>                   — Poetry"
       - "ergoms npm <аргументы>                      — npm"
       - "ergoms media_api <аргументы>                — Media API manage.py"
+
+  - id: mcp_cursor
+    title: "MCP (Cursor)"
+    note: "Серверы регистрируются в .cursor/mcp.json; включение — в Cursor: Settings → Tools & MCP."
+    commands:
+      - name: mcp-list
+        summary: "Список MCP-серверов (ядро + модули с mcp/manifest.yaml)"
+      - name: mcp-sync
+        summary: "Пересобрать .cursor/mcp.json после добавления MCP в модуль"
 
 platform_sections:
   windows:

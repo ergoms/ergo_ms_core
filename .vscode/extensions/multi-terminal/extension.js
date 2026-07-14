@@ -82,11 +82,13 @@ function getValueByPath(obj, pathStr) {
 /**
  * Читает список из YAML/JSON файла
  */
-function readSourceFile(workspaceRoot, sourceConfig) {
+function readSourceFile(workspaceRoot, sourceConfig, silent = false) {
     const filePath = path.join(workspaceRoot, sourceConfig.file);
     
     if (!fs.existsSync(filePath)) {
-        vscode.window.showErrorMessage(`Файл не найден: ${sourceConfig.file}`);
+        if (!silent) {
+            vscode.window.showErrorMessage(`Файл не найден: ${sourceConfig.file}`);
+        }
         return [];
     }
     
@@ -190,8 +192,8 @@ async function runTask(name, command, cwd, group) {
 /**
  * Обрабатывает один источник данных и возвращает список задач
  */
-function processSource(workspaceRoot, sourceConfig, defaultCwd) {
-    const items = readSourceFile(workspaceRoot, sourceConfig);
+function processSource(workspaceRoot, sourceConfig, defaultCwd, silent = false) {
+    const items = readSourceFile(workspaceRoot, sourceConfig, silent);
     const commandTemplate = sourceConfig.commandTemplate || 'echo ${key}';
     const nameTemplate = sourceConfig.nameTemplate || 'Task: ${key}';
     
@@ -216,6 +218,7 @@ async function executeMultiTerminalTask(task) {
     const delay = definition.delay || 300;
     const group = definition.group || task.name;
     const cwd = definition.cwd ? path.join(workspaceRoot, definition.cwd) : workspaceRoot;
+    const silentEmpty = Boolean(definition.hideControlTerminal);
     
     let tasks = [];
     
@@ -235,19 +238,21 @@ async function executeMultiTerminalTask(task) {
             commandTemplate: definition.commandTemplate || 'echo ${key}',
             nameTemplate: definition.nameTemplate || 'Task: ${key}'
         };
-        tasks = tasks.concat(processSource(workspaceRoot, sourceWithTemplates, cwd));
+        tasks = tasks.concat(processSource(workspaceRoot, sourceWithTemplates, cwd, silentEmpty));
     }
     
     // Вариант 3: Несколько источников (НОВОЕ!)
     if (definition.sources && Array.isArray(definition.sources)) {
         for (const sourceConfig of definition.sources) {
-            const sourceTasks = processSource(workspaceRoot, sourceConfig, cwd);
+            const sourceTasks = processSource(workspaceRoot, sourceConfig, cwd, silentEmpty);
             tasks = tasks.concat(sourceTasks);
         }
     }
     
     if (tasks.length === 0) {
-        vscode.window.showWarningMessage('Нет задач для запуска');
+        if (!definition.hideControlTerminal) {
+            vscode.window.showWarningMessage('Нет задач для запуска');
+        }
         return;
     }
     

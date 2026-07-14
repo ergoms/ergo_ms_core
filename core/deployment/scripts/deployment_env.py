@@ -30,6 +30,10 @@ def is_nginx_enabled() -> bool:
     return read_env('NGINX_ENABLED', 'false').lower() in ('1', 'true', 'yes')
 
 
+def is_redis_enabled() -> bool:
+    return read_env('REDIS_ENABLED', 'false').lower() in ('1', 'true', 'yes')
+
+
 def resolve_public_host() -> str:
     explicit = read_env('NGINX_PUBLIC_HOST')
     if explicit:

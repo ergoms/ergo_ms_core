@@ -1,5 +1,5 @@
 ---
-description: Модули modules/ — структура, регистрация, ModuleBridge, Celery, git-submodule
+description: Модули modules/ — структура, регистрация, ModuleBridge, theme-defaults.js, Celery, git-submodule
 alwaysApply: true
 ---
 # Модули
@@ -20,7 +20,10 @@ modules/<имя>/
 │   │   ├── endpoints.js     # адреса API для клиента (если нужны)
 │   │   ├── permission-rules.js
 │   │   ├── routeGuard.js      # опционально: guard для Vue Router
-│   │   └── integrations.js  # операции моста на клиенте
+│   │   ├── integrations.js  # операции моста на клиенте
+│   │   └── theme-defaults.js  # обязателен, если у модуля отдельная палитра (themes.mdc)
+│   ├── styles/
+│   │   └── theme-bootstrap.scss  # обязателен вместе с theme-defaults.js
 │   ├── pages/ или components/
 │   └── ui/                  # общий UI-kit (по образцу competence_core, lms)
 ├── ergoms.conf              # команды модуля (необязательно)
@@ -61,6 +64,34 @@ class MyModuleConfig(AppConfig):
 
 Пункты выпадающего меню пользователя в шапке (`UserMenu`) — через `bridge.provideMany` в группе `header.userMenu.items`. Эталон: [`organizations/client/js/headerUserMenu.js`](../../modules/organizations/client/js/headerUserMenu.js), подключается из `integrations.js`. Сбор в ядре — [`headerUserMenu.js`](../../core/client/src/integrations/headerUserMenu.js). Это **не** боковое меню: sidebar — миграции API, шапка — ModuleBridge.
 
+## Темы оформления модуля
+
+Подробности — [`themes.mdc`](themes.mdc). Кратко:
+
+| Нужна отдельная палитра модуля? | Действие |
+|--------------------------------|----------|
+| **Нет** — хватает цветов сайта | Стили через `var(--ui-*)`, hook темы не создавай |
+| **Да** — свой accent, фоны, неоновые токены | **Только** через hook + редактор ядра |
+
+### Обязательно (модуль с отдельной палитрой)
+
+1. `client/js/theme-defaults.js` — дефолты для API и `/settings/themes`
+2. `client/styles/theme-bootstrap.scss` — алиасы `--<module>-*`; импорт в `routes.js`
+3. `useModuleThemeMode('module_key')` вместо `useThemeMode()` на страницах модуля
+4. Цвета в SCSS — `var(--color-*)` / `var(--<module>-*)`, не hex и не `$palette-*` для настраиваемых полей
+5. Правки палитры админом — только `/settings/themes` → область модуля, **не** UI в модуле
+
+Эталон: [`ai_assistant/client/js/theme-defaults.js`](../../modules/ai_assistant/client/js/theme-defaults.js), [`ai_assistant/client/styles/theme-bootstrap.scss`](../../modules/ai_assistant/client/styles/theme-bootstrap.scss).
+
+`theme-defaults.js` подхватывает `ModuleLoader` (glob prebuild). Ядро не импортирует бизнес-код модуля — только hook, как `integrations.js` (см. [`struct.mdc`](struct.mdc)).
+
+### Запрещено
+
+- Локальные SCSS-палитры с hex (`$neon-cyan`, `$dark-bg-*`) **вместо** hook, если палитра должна настраиваться
+- Свой редактор / настройки темы в модуле
+- `useThemeMode()` на страницах модуля с `theme-defaults.js`
+- Teleport модалок в `body` (ломает `ModuleThemeScope`)
+
 ## Имена
 
 - Папка модуля: `kebab-case` (`video-analysis`)
@@ -70,7 +101,7 @@ class MyModuleConfig(AppConfig):
 
 **Сервер:** внутри модуля — относительные; из ядра — `from src.core...`; из другого модуля — **запрещено**.
 
-**Ядро → модуль:** бизнес-код модуля — **запрещён**; hook-файлы для discovery (apps, `permission_catalog`, `celery_config`, `client/js/*`) — **допустимы** через инфраструктуру ядра. Подробности — [`struct.mdc`](struct.mdc) → «Импорты из `modules/` в ядре».
+**Ядро → модуль:** бизнес-код модуля — **запрещён**; hook-файлы для discovery (apps, `permission_catalog`, `celery_config`, `client/js/theme-defaults.js`, `client/js/*`) — **допустимы** через инфраструктуру ядра. Подробности — [`struct.mdc`](struct.mdc) → «Импорты из `modules/` в ядре».
 
 **Клиент:** из ядра — `@/...`; из другого модуля — **запрещено**.
 
@@ -116,11 +147,13 @@ def _handler(user):
 - Менять ядро ради одного модуля
 - Прямые импорты между модулями
 - Регистрировать модуль вручную в настройках
+- Отдельная палитра модуля без `theme-defaults.js` и редактора ядра (см. [`themes.mdc`](themes.mdc))
 
 ## Связанные правила
 
 | Тема | Файл |
 |------|------|
+| Темы оформления, hook, ModuleThemeScope | [`themes.mdc`](themes.mdc) |
 | Архитектура | [`struct.mdc`](struct.mdc) |
 | API, ViewSet | [`api_code.mdc`](api_code.mdc) |
 | Клиент, маршруты | [`client_code.mdc`](client_code.mdc) |

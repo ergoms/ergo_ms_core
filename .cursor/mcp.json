@@ -1,11 +1,10 @@
 {
     "mcpServers": {
-        "ergo-filesystem": {
-            "command": "npx",
+        "ergo-api": {
+            "command": "node",
             "args": [
-                "-y",
-                "@modelcontextprotocol/server-filesystem",
-                "."
+                ".cursor/mcp_launcher.js",
+                ".cursor/mcp_api_server.py"
             ]
         },
         "ergo-database-postgres": {
@@ -16,18 +15,26 @@
                 "default"
             ]
         },
-        "ergo-api": {
-            "command": "node",
+        "ergo-filesystem": {
+            "command": "npx",
             "args": [
-                ".cursor/mcp_launcher.js",
-                ".cursor/mcp_api_server.py"
+                "-y",
+                "@modelcontextprotocol/server-filesystem",
+                "."
             ]
         },
-        "ergo_ollama": {
+        "ergo-media-api": {
             "command": "node",
             "args": [
                 ".cursor/mcp_launcher.js",
-                ".cursor/mcp_ollama_server.py"
+                ".cursor/mcp_media_api_server.py"
+            ]
+        },
+        "ergo-module-ollama-framework": {
+            "command": "node",
+            "args": [
+                ".cursor/mcp_launcher.js",
+                "modules/ollama_framework/mcp/server.py"
             ]
         }
     }

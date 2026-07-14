@@ -1,15 +1,20 @@
-"""Генерация .vscode/logs-services.runtime.yaml с учётом NGINX_ENABLED."""
+"""Генерация runtime YAML для VS Code: логи и опциональные сервисы (nginx, client, Redis)."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from deployment_env import PROJECT_ROOT, is_nginx_enabled
+from deployment_env import PROJECT_ROOT, is_nginx_enabled, is_redis_enabled
 
-RUNTIME_YAML = PROJECT_ROOT / '.vscode' / 'logs-services.runtime.yaml'
+LOGS_RUNTIME_YAML = PROJECT_ROOT / '.vscode' / 'logs-services.runtime.yaml'
+OPTIONAL_SERVICES_RUNTIME_YAML = PROJECT_ROOT / '.vscode' / 'optional-services.runtime.yaml'
 
-BASE_HEADER = """# Сгенерировано sync_vscode_logs_services.py — не редактировать вручную.
-# Источник: .vscode/logs-services.yaml + NGINX_ENABLED из .env
+LOGS_HEADER = """# Сгенерировано sync_vscode_logs_services.py — не редактировать вручную.
+# Источник: .vscode/logs-services.yaml + NGINX_ENABLED / REDIS_ENABLED из .env
+"""
+
+OPTIONAL_SERVICES_HEADER = """# Сгенерировано sync_vscode_logs_services.py — не редактировать вручную.
+# Источник: NGINX_ENABLED / REDIS_ENABLED из .env (терминалы Start All Services)
 """
 
 
@@ -17,8 +22,8 @@ def _service_block(name: str, description: str) -> str:
     return f'  {name}:\n    description: "{description}"\n'
 
 
-def build_yaml() -> str:
-    lines = [BASE_HEADER.rstrip(), '', 'services:']
+def build_logs_yaml() -> str:
+    lines = [LOGS_HEADER.rstrip(), '', 'services:']
     lines.append(_service_block('ergo-api-dev', 'Django API server').rstrip())
     if is_nginx_enabled():
         lines.append(_service_block('ergo_ms_nginx', 'Nginx reverse proxy').rstrip())
@@ -26,15 +31,30 @@ def build_yaml() -> str:
         lines.append(_service_block('ergo-client-dev', 'Vue.js client dev server').rstrip())
     lines.append(_service_block('ergo-media-api', 'Media API (CDN / file server)').rstrip())
     lines.append(_service_block('ergo-celery-beat', 'Celery Beat scheduler').rstrip())
-    lines.append(_service_block('ergo-redis', 'Redis (optional)').rstrip())
+    if is_redis_enabled():
+        lines.append(_service_block('ergo-redis', 'Redis').rstrip())
+    return '\n'.join(lines) + '\n'
+
+
+def build_optional_services_yaml() -> str:
+    lines = [OPTIONAL_SERVICES_HEADER.rstrip(), '', 'services:']
+    if is_nginx_enabled():
+        lines.append(_service_block('nginx', 'Nginx reverse proxy').rstrip())
+    else:
+        lines.append(_service_block('client', 'Vue.js client dev server').rstrip())
+    if is_redis_enabled():
+        lines.append(_service_block('redis', 'Redis').rstrip())
     return '\n'.join(lines) + '\n'
 
 
 def main() -> int:
-    RUNTIME_YAML.parent.mkdir(parents=True, exist_ok=True)
-    RUNTIME_YAML.write_text(build_yaml(), encoding='utf-8')
+    LOGS_RUNTIME_YAML.parent.mkdir(parents=True, exist_ok=True)
+    LOGS_RUNTIME_YAML.write_text(build_logs_yaml(), encoding='utf-8')
+    OPTIONAL_SERVICES_RUNTIME_YAML.write_text(build_optional_services_yaml(), encoding='utf-8')
     mode = 'nginx' if is_nginx_enabled() else 'client'
-    print(f'[ergoms] Updated {RUNTIME_YAML} (mode: {mode})')
+    redis = 'redis' if is_redis_enabled() else 'no-redis'
+    print(f'[ergoms] Updated {LOGS_RUNTIME_YAML} (mode: {mode}, {redis})')
+    print(f'[ergoms] Updated {OPTIONAL_SERVICES_RUNTIME_YAML} (mode: {mode}, {redis})')
     return 0
 
 

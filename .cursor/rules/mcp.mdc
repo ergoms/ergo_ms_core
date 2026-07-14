@@ -1,0 +1,81 @@
+---
+description: MCP серверы ERGO MS — модульный mcp/, registry, mcp-sync, отдельная строка в Cursor на модуль
+globs: "modules/**/mcp/**,.cursor/mcp*.yaml,.cursor/mcp*.py"
+alwaysApply: false
+---
+
+# MCP-серверы (Cursor)
+
+MCP даёт агенту Cursor инструменты для работы с API, файлами и сервисами проекта. **Один модуль — один MCP-сервер — одна строка** в Settings → Tools & MCP.
+
+## Кратко
+
+- Код MCP модуля — только в `modules/<имя>/mcp/` (`manifest.yaml` + `server.py`).
+- Ядро: [`.cursor/mcp.registry.yaml`](../../.cursor/mcp.registry.yaml), [`.cursor/mcp_sync.py`](../../.cursor/mcp_sync.py), launcher [`.cursor/mcp_launcher.js`](../../.cursor/mcp_launcher.js).
+- После добавления или изменения MCP: `ergoms mcp-sync`, затем Reload MCP в Cursor.
+- Включение серверов — **в интерфейсе Cursor** (Settings → Tools & MCP), не через ergoms.
+
+## Обязательно
+
+| Что | Где |
+|-----|-----|
+| Manifest | `modules/<имя>/mcp/manifest.yaml` |
+| Сервер | `modules/<имя>/mcp/server.py` |
+| Имя в Cursor | `ergo-module-<kebab-case>` (уникально в проекте) |
+| Tools | `<module>_<action>` или устоявшиеся (`ollama_*`) |
+| Секреты | из `.env`, не в manifest и не в коде |
+
+### manifest.yaml
+
+```yaml
+module: video_analysis
+server:
+  name: ergo-module-video-analysis
+  description: "MCP модуля video_analysis — кратко о назначении"
+  script: mcp/server.py
+```
+
+`script` — путь **относительно корня модуля**. Файл должен существовать, иначе sync пропустит manifest.
+
+### server.py
+
+- `Server("ergo-module-<имя>")` — то же имя, что в manifest.
+- stdio через `mcp.server.stdio`; зависимости — Poetry проекта (`mcp`, `httpx`).
+- Запуск: `node .cursor/mcp_launcher.js modules/<имя>/mcp/server.py` (формирует sync).
+- Без Django init, если не нужен; конфиг — чтение `.env` как в [`.cursor/mcp_api_server.py`](../../.cursor/mcp_api_server.py).
+
+### Ядерные MCP
+
+Только в `.cursor/`: `ergo-api`, `ergo-media-api`, `ergo-database-postgres`, `ergo-filesystem` — декларация в `mcp.registry.yaml`.
+
+## Запрещено
+
+- MCP-код модуля в `.cursor/mcp_<module>_*.py`
+- Один gateway на все модули (в Cursor будет одна строка вместо отдельных)
+- Прямые импорты между модулями в MCP (HTTP, bridge — да)
+- Секреты в manifest, git или hardcode
+
+## Команды
+
+| Команда | Назначение |
+|---------|------------|
+| `ergoms mcp-list` | Все серверы (ядро + модули) |
+| `ergoms mcp-sync` | Пересобрать `.cursor/mcp.json` |
+
+## Эталоны
+
+| Что | Файл |
+|-----|------|
+| Рабочий модульный MCP | [`modules/ollama_framework/mcp/`](../../modules/ollama_framework/mcp/) |
+| Шаблон manifest | [`modules/module_template/mcp/manifest.yaml`](../../modules/module_template/mcp/manifest.yaml) |
+| Шаблон server | [`modules/module_template/mcp/server.py.example`](../../modules/module_template/mcp/server.py.example) |
+| Ядерный MCP | [`.cursor/mcp_api_server.py`](../../.cursor/mcp_api_server.py) |
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Модули | [`modules.mdc`](modules.mdc) |
+| Ollama MCP | [`ollama-framework.mdc`](ollama-framework.mdc) |
+| Безопасность | [`security.mdc`](security.mdc) |
+| ergoms | [`no-direct-manage-py.mdc`](no-direct-manage-py.mdc) |

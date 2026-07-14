@@ -1,0 +1,28 @@
+# Реестр ядерных MCP-серверов ERGO MS.
+# Модульные серверы — modules/<имя>/mcp/manifest.yaml (discovery в mcp_sync.py).
+# Сборка: ergoms mcp-sync → .cursor/mcp.json
+
+servers:
+  - name: ergo-filesystem
+    description: "Файловая система проекта (MCP filesystem)"
+    type: npx
+    package: "@modelcontextprotocol/server-filesystem"
+    args:
+      - "."
+
+  - name: ergo-database-postgres
+    description: "PostgreSQL через databases.yaml"
+    type: python
+    script: .cursor/mcp_database_wrapper.py
+    extra_args:
+      - default
+
+  - name: ergo-api
+    description: "HTTP-запросы к Django API ErgoMS"
+    type: python
+    script: .cursor/mcp_api_server.py
+
+  - name: ergo-media-api
+    description: "Media API — upload, signed URL, internal read/write"
+    type: python
+    script: .cursor/mcp_media_api_server.py
