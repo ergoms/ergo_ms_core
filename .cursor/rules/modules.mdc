@@ -75,7 +75,7 @@ class MyModuleConfig(AppConfig):
 
 ### Обязательно (модуль с отдельной палитрой)
 
-1. `client/js/theme-defaults.js` — дефолты для API и `/settings/themes`
+1. `client/js/theme-defaults.js` — дефолты и **пара** light+dark (`modulePair`, `systemThemes` с двумя `base_theme`)
 2. `client/styles/theme-bootstrap.scss` — алиасы `--<module>-*`; импорт в `routes.js`
 3. `useModuleThemeMode('module_key')` вместо `useThemeMode()` на страницах модуля
 4. Цвета в SCSS — `var(--color-*)` / `var(--<module>-*)`, не hex и не `$palette-*` для настраиваемых полей
