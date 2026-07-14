@@ -1,13 +1,15 @@
 """
-Запуск Redis и потоковый вывод логов для VS Code / ergoms start-redis-dev.
+Запуск Redis в foreground для VS Code / ergoms start-redis-dev.
 
-При REDIS_ENABLED=true: ergoms start-redis (если ещё не запущен), затем tail redis.log.
+При REDIS_ENABLED=true: handoff от detached warmup, foreground в терминале;
+закрытие терминала или Ctrl+C останавливает Redis сессии разработки.
 При REDIS_ENABLED=false: выход без сообщений (задача VS Code не занимает терминал).
 """
 
 from __future__ import annotations
 
 import sys
+import time
 from pathlib import Path
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
@@ -19,10 +21,16 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 from console_tags import format_console  # noqa: E402
 from deployment_env import PROJECT_ROOT, is_redis_enabled  # noqa: E402
-from ensure_redis_if_enabled import ensure_redis_for_dev  # noqa: E402
 from install_redis import is_installed, ping_redis, redis_packages_dir  # noqa: E402
 from log_env import log_file_path  # noqa: E402
 from nginx_foreground import _configure_stdio_utf8, tail_log_files  # noqa: E402
+from redis_dev import (  # noqa: E402
+    clear_dev_session_marker,
+    is_redis_managed_service,
+    read_dev_session_marker,
+    run_redis_foreground,
+    stop_redis_for_dev,
+)
 
 
 def redis_log_tail_paths() -> list[Path]:
@@ -51,14 +59,30 @@ def main() -> int:
         print(format_console('error', 'Redis не установлен. Выполните: ergoms install-redis'))
         return 1
 
-    if ping_redis(PROJECT_ROOT):
-        print(format_console('info', 'Redis уже запущен.'))
-    else:
-        code = ensure_redis_for_dev()
-        if code != 0:
-            return code
+    if is_redis_managed_service(PROJECT_ROOT):
+        print(format_console('info', 'Redis работает как служба ОС; терминал не управляет процессом.'))
+        return tail_log_files(redis_log_tail_paths(), service='Redis', process_keeps_running=True)
 
-    return tail_log_files(redis_log_tail_paths(), service='Redis')
+    marker = read_dev_session_marker(PROJECT_ROOT)
+
+    if ping_redis(PROJECT_ROOT):
+        if marker is None:
+            print(format_console(
+                'info',
+                'Redis уже запущен (внешний); закрытие терминала не остановит сервер.',
+            ))
+            return tail_log_files(redis_log_tail_paths(), service='Redis', process_keeps_running=True)
+
+        print(format_console('info', 'Передача управления Redis в терминал разработки...'))
+        stop_redis_for_dev(PROJECT_ROOT)
+        clear_dev_session_marker(PROJECT_ROOT)
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline and ping_redis(PROJECT_ROOT):
+            time.sleep(0.2)
+    elif marker is not None:
+        clear_dev_session_marker(PROJECT_ROOT)
+
+    return run_redis_foreground(PROJECT_ROOT)
 
 
 if __name__ == '__main__':

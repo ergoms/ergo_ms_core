@@ -65,6 +65,8 @@ function Render-NginxTemplate {
     $content = $content -replace '\$\{ERGO_HOST_POLICY_BLOCKS\}', ''
     $content = $content -replace '\$\{ERGO_HTTP_CANONICAL_REDIRECT\}', 'https://$host$request_uri'
     $content = $content -replace '\$\{ERGO_MAINTENANCE_SNIPPET\}', $maintenanceSnippet
+    $content = $content -replace '\$\{ERGO_JUPYTER_UPSTREAM\}', ''
+    $content = $content -replace '\$\{ERGO_JUPYTER_LOCATION\}', ''
 
     return $content
 }

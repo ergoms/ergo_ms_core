@@ -17,6 +17,7 @@ if str(_NGINX_DIR) not in sys.path:
 from detect_lan_ip import detect_lan_ip  # noqa: E402
 from host_policy import is_valid_hostname  # noqa: E402
 from tls_config import cert_exists, cert_paths, primary_domain  # noqa: E402
+from jupyter_nginx import resolve_jupyter_vars  # noqa: E402
 
 
 def read_env_file(path: Path) -> dict[str, str]:
@@ -87,3 +88,8 @@ def resolve_nginx_vars(values: dict[str, str]) -> dict[str, str]:
     if ssl_key:
         resolved['ERGO_SSL_KEY'] = ssl_key
     return resolved
+
+
+def resolve_jupyter_deployment_vars(values: dict[str, str]) -> dict[str, str]:
+    """Effective Jupyter-переменные для render_nginx_config и ergoms resolve_env."""
+    return resolve_jupyter_vars(values)

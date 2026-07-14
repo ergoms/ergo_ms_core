@@ -69,7 +69,7 @@ sections:
       - name: start-beat
         summary: "Celery beat"
       - name: start-jupyter
-        summary: "Jupyter с Django-ядром"
+        summary: "JupyterLab с Django-ядром (режимы local/lan/nginx — API_JUPYTER_* в .env)"
       - name: stop-worker
         summary: "Остановить все Celery worker"
       - name: stop-beat

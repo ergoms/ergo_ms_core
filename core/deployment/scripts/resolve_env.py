@@ -16,7 +16,7 @@ PROJECT_ROOT = _DEPLOYMENT_DIR.parent.parent
 if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 
-from env_resolvers import read_env_file, resolve_nginx_vars  # noqa: E402
+from env_resolvers import read_env_file, resolve_jupyter_deployment_vars, resolve_nginx_vars  # noqa: E402
 
 
 def main() -> int:
@@ -25,13 +25,15 @@ def main() -> int:
 
     parser = argparse.ArgumentParser(description='Resolve effective env (read-only)')
     parser.add_argument('--root', type=Path, default=PROJECT_ROOT)
-    parser.add_argument('--scope', choices=('nginx',), default='nginx')
+    parser.add_argument('--scope', choices=('nginx', 'jupyter'), default='nginx')
     parser.add_argument('--json', action='store_true', help='JSON object')
     args = parser.parse_args()
 
     raw = read_env_file(args.root / '.env')
     if args.scope == 'nginx':
         resolved = resolve_nginx_vars(raw)
+    elif args.scope == 'jupyter':
+        resolved = resolve_jupyter_deployment_vars(raw)
     else:
         resolved = {}
 

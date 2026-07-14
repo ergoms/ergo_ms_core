@@ -29,6 +29,8 @@ upstream ergo_media {
     keepalive 8;
 }
 
+${ERGO_JUPYTER_UPSTREAM}
+
 ${ERGO_HOST_POLICY_BLOCKS}
 # Редирект HTTP -> HTTPS (закомментируйте блок server :80, если TLS только на балансировщике)
 server {
@@ -157,4 +159,6 @@ ${ERGO_MAINTENANCE_SNIPPET}
         proxy_pass http://ergo_media;
         access_log off;
     }
+
+${ERGO_JUPYTER_LOCATION}
 }

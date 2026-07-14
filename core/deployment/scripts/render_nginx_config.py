@@ -14,6 +14,10 @@ DEPLOYMENT_NGINX = PROJECT_ROOT / 'core' / 'deployment' / 'nginx'
 sys.path.insert(0, str(DEPLOYMENT_NGINX))
 
 from host_policy import compute_template_vars  # noqa: E402
+from jupyter_nginx import (  # noqa: E402
+    render_jupyter_location_block,
+    render_jupyter_upstream_block,
+)
 
 
 def _read_env(path: Path) -> dict[str, str]:
@@ -75,6 +79,8 @@ def render_template(
             '${ERGO_ROOT}',
             root_forward,
         )
+    jupyter_upstream = render_jupyter_upstream_block(values)
+    jupyter_location = render_jupyter_location_block(values)
     replacements = {
         '${ERGO_ROOT}': root_forward,
         '${ERGO_SERVER_NAME}': server_name,
@@ -86,6 +92,8 @@ def render_template(
         '${ERGO_HOST_POLICY_BLOCKS}': extra['ERGO_HOST_POLICY_BLOCKS'],
         '${ERGO_HTTP_CANONICAL_REDIRECT}': extra['ERGO_HTTP_CANONICAL_REDIRECT'],
         '${ERGO_MAINTENANCE_SNIPPET}': maintenance_snippet,
+        '${ERGO_JUPYTER_UPSTREAM}': jupyter_upstream,
+        '${ERGO_JUPYTER_LOCATION}': jupyter_location,
     }
 
     content = re.sub(

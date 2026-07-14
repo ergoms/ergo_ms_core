@@ -12,7 +12,7 @@ alwaysApply: false
 - **Redis** — portable-бинарники в `virtual_env/packages/redis/`; `ergoms install-redis`, затем `REDIS_ENABLED=true` в `.env`
 - **nginx** — `virtual_env/packages/nginx/`; `ergoms install-nginx`; шаблон — `core/deployment/nginx/ergo_ms.conf.template`
 - **TLS** (Let's Encrypt) — только Linux: `ergoms install-tls`, `renew-tls`, `status-tls`
-- Effective-значения URL и backend'ов — **`redis_runtime`**, **`nginx_runtime`**, **`tls_runtime`**; скрипты **не пишут** в `.env` — см. [`no-auto-env-write.mdc`](no-auto-env-write.mdc)
+- Effective-значения URL и backend'ов — **`redis_runtime`**, **`nginx_runtime`**, **`tls_runtime`**, **`jupyter_runtime`**; скрипты **не пишут** в `.env` — см. [`no-auto-env-write.mdc`](no-auto-env-write.mdc)
 - Production `.env` за nginx — эталон [`core/deployment/nginx/env.example`](../../core/deployment/nginx/env.example)
 
 ## Redis
@@ -93,6 +93,20 @@ ergoms status-nginx
 SSE: location `/api/realtime/stream/` — `proxy_buffering off`, `proxy_read_timeout 3600s` в `ergo_ms.conf.template`.
 
 Логи: `logs/nginx-access.log`, `logs/nginx-error.log`.
+
+## Jupyter
+
+Запуск: `ergoms start-jupyter`. Effective-настройки — [`jupyter_runtime.py`](../../core/api/src/config/jupyter_runtime.py).
+
+| Режим (`API_JUPYTER_ACCESS_MODE`) | Доступ | Безопасность |
+|-----------------------------------|--------|--------------|
+| `local` / `auto` (по умолчанию) | `http://localhost:8002/lab` | без токена, только локально |
+| `lan` / `API_JUPYTER_ALLOW_REMOTE=true` | `http://<LAN-IP>:8002/lab?token=...` | обязателен `API_JUPYTER_TOKEN` |
+| `nginx` / `API_JUPYTER_BEHIND_NGINX=true` | `https://<домен>/jupyter/lab?token=...` | токен + admin gate (nginx `auth_request` → `/api/internal/jupyter-access/`) |
+
+Ключи: `API_JUPYTER_BIND_HOST`, `API_JUPYTER_BIND_PORT`, `API_JUPYTER_BASE_PATH`, `API_JUPYTER_URL`, `API_JUPYTER_TOKEN`. Токен **не** генерируется скриптами — задайте в `.env` вручную.
+
+За nginx: `ergoms install-nginx` подставляет upstream и location из `snippets/jupyter_*.conf` при `NGINX_ENABLED=true` и `API_JUPYTER_BEHIND_NGINX=true`. Процесс Jupyter слушает `127.0.0.1:8002`.
 
 ## TLS (Linux)
 

@@ -24,6 +24,12 @@ from deployment_env import PROJECT_ROOT, is_redis_enabled  # noqa: E402
 from install_redis import is_installed, ping_redis  # noqa: E402
 from log_env import log_file_path  # noqa: E402
 from nginx_foreground import _configure_stdio_utf8  # noqa: E402
+from redis_dev import (  # noqa: E402
+    is_redis_managed_service,
+    read_dev_session_marker,
+    read_redis_pid,
+    write_dev_session_marker,
+)
 
 
 def ensure_redis_for_dev(*, quiet: bool = False) -> int:
@@ -31,6 +37,7 @@ def ensure_redis_for_dev(*, quiet: bool = False) -> int:
     Запускает Redis, если REDIS_ENABLED=true и процесс ещё не отвечает на ping.
 
     При REDIS_ENABLED=false возвращает 0 без действий.
+    После detached-старта записывает dev-session marker для handoff в терминал.
     """
     if not is_redis_enabled():
         return 0
@@ -38,6 +45,11 @@ def ensure_redis_for_dev(*, quiet: bool = False) -> int:
     if not is_installed(PROJECT_ROOT):
         print(format_console('error', 'Redis не установлен. Выполните: ergoms install-redis'))
         return 1
+
+    if is_redis_managed_service(PROJECT_ROOT):
+        if not quiet:
+            print(format_console('info', 'Redis работает как служба ОС.'))
+        return 0
 
     if ping_redis(PROJECT_ROOT):
         if not quiet:
@@ -56,6 +68,9 @@ def ensure_redis_for_dev(*, quiet: bool = False) -> int:
     deadline = time.monotonic() + 15.0
     while time.monotonic() < deadline:
         if ping_redis(PROJECT_ROOT):
+            if read_dev_session_marker(PROJECT_ROOT) is None:
+                pid = read_redis_pid(PROJECT_ROOT)
+                write_dev_session_marker(PROJECT_ROOT, pid=pid, source='warmup')
             if not quiet:
                 print(format_console('ok', 'Redis запущен.'))
             return 0
