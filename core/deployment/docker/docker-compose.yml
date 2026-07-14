@@ -4,10 +4,10 @@
 name: ${DOCKER_COMPOSE_PROJECT:-ergo_ms}
 
 x-python-volumes: &python_volumes
-  - ${ERGO_PROJECT_ROOT:-../..}:/app
+  - ${ERGO_PROJECT_ROOT:-../../..}:/app
   - ./.compose.databases.yaml:/app/databases.yaml:ro
-  - ${ERGO_LOGS_BIND:-../../logs}:/app/logs
-  - ${ERGO_MEDIA_BIND:-../../media}:/app/media
+  - ${ERGO_LOGS_BIND:-../../../logs}:/app/logs
+  - ${ERGO_MEDIA_BIND:-../../../media}:/app/media
   - celery_cache:/app/virtual_env/cache
   - poetry_venv:/app/virtual_env/python
 
@@ -28,7 +28,7 @@ services:
   api:
     image: ${DOCKER_PYTHON_IMAGE:-ergo_ms-python:local}
     build:
-      context: ../..
+      context: ../../..
       dockerfile: core/deployment/docker/Dockerfile.python
     env_file:
       - .compose.env

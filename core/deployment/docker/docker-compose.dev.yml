@@ -11,13 +11,13 @@ services:
   client:
     image: ${DOCKER_NODE_IMAGE:-ergo_ms-client:local}
     build:
-      context: ../..
+      context: ../../..
       dockerfile: core/deployment/docker/Dockerfile.client
     env_file:
       - .compose.env
     working_dir: /app
     volumes:
-      - ${ERGO_PROJECT_ROOT:-../..}:/app
+      - ${ERGO_PROJECT_ROOT:-../../..}:/app
       - node_modules:/app/node_modules
       - client_node_modules:/app/core/client/node_modules
     ports:

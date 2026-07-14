@@ -17,12 +17,21 @@ WORKERS_CONFIG = PROJECT_ROOT / 'celery_workers.yaml'
 WORKERS_EXAMPLE = PROJECT_ROOT / 'celery_workers.yaml.example'
 OUTPUT = DOCKER_DIR / 'docker-compose.workers.generated.yml'
 
+# Дублирует x-python-volumes из docker-compose.yml (якоря не работают между -f файлами).
+PYTHON_VOLUMES_YAML = """    volumes:
+      - ${ERGO_PROJECT_ROOT:-../../..}:/app
+      - ./.compose.databases.yaml:/app/databases.yaml:ro
+      - ${ERGO_LOGS_BIND:-../../../logs}:/app/logs
+      - ${ERGO_MEDIA_BIND:-../../../media}:/app/media
+      - celery_cache:/app/virtual_env/cache
+      - poetry_venv:/app/virtual_env/python"""
+
 PYTHON_SERVICE_TEMPLATE = """
   celery-worker-{name}:
     image: ${{DOCKER_PYTHON_IMAGE:-ergo_ms-python:local}}
     env_file:
       - .compose.env
-    volumes: *python_volumes
+{volumes}
     depends_on:
       redis:
         condition: service_started
@@ -55,7 +64,13 @@ services:
     blocks = []
     for name in workers:
         safe = ''.join(ch if ch.isalnum() or ch in '-_' else '-' for ch in name)
-        blocks.append(PYTHON_SERVICE_TEMPLATE.format(name=safe, worker_key=name))
+        blocks.append(
+            PYTHON_SERVICE_TEMPLATE.format(
+                name=safe,
+                worker_key=name,
+                volumes=PYTHON_VOLUMES_YAML,
+            )
+        )
     return header + '\n'.join(blocks)
 
 
