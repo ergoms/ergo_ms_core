@@ -176,3 +176,10 @@
     branch = main
     update = merge
     ignore = all
+
+[submodule "modules/hunter_s_notes"]
+	path = modules/hunter_s_notes
+	url = https://github.com/kotomafia/hunter-s_notes.git
+	branch = dev
+    update = merge
+    ignore = all
