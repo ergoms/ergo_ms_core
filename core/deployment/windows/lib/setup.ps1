@@ -98,27 +98,61 @@ function Update-ModuleSubmodules {
             return
         }
 
-        $paths = @($entries | ForEach-Object { $_.Path })
-        Write-ColorOutput "-> Обновление submodule модулей ($($paths.Count))..." Yellow
-        & git submodule update --init --remote @paths
-        if ($LASTEXITCODE -ne 0) { throw "Git submodule update failed" }
+        Write-ColorOutput "-> Обновление submodule модулей ($($entries.Count))..." Yellow
 
-        Write-ColorOutput "-> Переключение модулей на настроенные ветки..." Yellow
+        $succeeded = @()
+        $failed = @()
+        $skipped = @()
+
         foreach ($entry in $entries) {
-            Write-ColorOutput "  $($entry.Path) -> $($entry.Branch)" Gray
+            $known = & git ls-files -s -- $entry.Path
+            if (-not $known) {
+                Write-ColorOutput "[SKIP] $($entry.Path) не зарегистрирован в git (нет в индексе)" Gray
+                $skipped += $entry.Path
+                continue
+            }
+
+            Write-ColorOutput "  $($entry.Path)..." Gray
+            & git submodule update --init --remote $entry.Path
+            if ($LASTEXITCODE -ne 0) {
+                Write-ColorOutput "[WARNING] Не удалось обновить $($entry.Path)" Yellow
+                $failed += $entry.Path
+                continue
+            }
+
             Push-Location $entry.Path
             & git checkout $entry.Branch
             if ($LASTEXITCODE -ne 0) {
                 Write-ColorOutput "[WARNING] Не удалось переключить $($entry.Branch) в $($entry.Path)" Yellow
             }
             Pop-Location
+
+            $succeeded += $entry.Path
         }
 
-        Write-ColorOutput "[OK] Git submodule модулей обновлены" Green
+        if ($succeeded.Count -gt 0) {
+            $summary = "[OK] Обновлено модулей: $($succeeded.Count)"
+            if ($skipped.Count -gt 0 -or $failed.Count -gt 0) {
+                $summary += ". Пропущено: $($skipped.Count). С ошибкой: $($failed.Count)"
+            }
+            Write-ColorOutput $summary Green
+            foreach ($path in $failed) {
+                Write-ColorOutput "  - $path" Yellow
+            }
+        }
+        elseif ($failed.Count -gt 0) {
+            Write-ColorOutput "[ERROR] Не удалось обновить ни одного модуля ($($failed.Count))" Red
+            foreach ($path in $failed) {
+                Write-ColorOutput "  - $path" Red
+            }
+            exit 1
+        }
+        else {
+            Write-ColorOutput "[WARNING] Нет модулей для обновления" Yellow
+        }
     }
     catch {
         Write-ColorOutput "[ERROR] Не удалось обновить git submodule модулей: $($_.Exception.Message)" Red
-        Pop-Location
         exit 1
     }
     finally {

@@ -28,6 +28,7 @@ from docker_runtime import (  # noqa: E402
     compose_profiles,
     docker_mode,
     effective_docker_build_policy,
+    postgres_container_env,
     prepare_compose_artifacts,
 )
 
@@ -99,6 +100,8 @@ COMPOSE_ARTIFACT_PATHS = (
 )
 
 SETUP_MARKER_REL = Path('logs/.ergo-docker-setup-ok')
+DOCKER_PYTHON_INSTALL_LOG = 'logs/docker/python-install.log'
+DOCKER_NPM_INSTALL_LOG = 'logs/docker/npm-install.log'
 
 
 def _docker_image_exists(image_ref: str) -> bool:
@@ -241,11 +244,52 @@ def cmd_up(args: argparse.Namespace) -> int:
 
 
 def _bootstrap_service_names(raw_env: dict[str, str]) -> list[str]:
+    """Инфраструктура для установки зависимостей — без api и прочих приложений."""
     services = ['redis']
     if _env_db_container(raw_env):
         services.append('postgres')
-    services.append('api')
     return services
+
+
+def _run_api_oneoff(shell: str, *, mode: str | None = None) -> int:
+    """Одноразовый контейнер api (общий poetry_venv), без TTY — для долгого pip install."""
+    cmd, cwd = build_compose_cmd(
+        'run',
+        mode=mode,
+        extra_args=['--rm', '--no-deps', '-T', 'api', 'sh', '-c', shell],
+    )
+    return subprocess.call(cmd, cwd=str(cwd))
+
+
+def _wait_bootstrap_infra(mode: str | None, raw_env: dict[str, str], timeout_sec: float = 180.0) -> bool:
+    """Ждёт готовности redis/postgres (healthcheck через exec, без docker compose wait)."""
+    import time
+
+    services = _bootstrap_service_names(raw_env)
+    pg_user = postgres_container_env(raw_env).get('POSTGRES_USER', 'postgres')
+    deadline = time.monotonic() + timeout_sec
+
+    while time.monotonic() < deadline:
+        ping_cmd, ping_cwd = build_compose_cmd('exec', mode=mode, extra_args=['-T', 'redis', 'redis-cli', 'ping'])
+        ping = subprocess.run(ping_cmd, cwd=str(ping_cwd), capture_output=True, text=True, check=False)
+        redis_ok = ping.returncode == 0 and 'PONG' in (ping.stdout or '')
+
+        postgres_ok = True
+        if 'postgres' in services:
+            pg_cmd, pg_cwd = build_compose_cmd(
+                'exec',
+                mode=mode,
+                extra_args=['-T', 'postgres', 'pg_isready', '-U', pg_user],
+            )
+            pg = subprocess.run(pg_cmd, cwd=str(pg_cwd), capture_output=True, text=True, check=False)
+            postgres_ok = pg.returncode == 0
+
+        if redis_ok and postgres_ok:
+            return True
+        time.sleep(2)
+
+    print(format_console('error', 'redis/postgres не готовы. Проверьте: ergoms docker-ps'), file=sys.stderr)
+    return False
 
 
 def _setup_marker_path(project_root: Path) -> Path:
@@ -283,13 +327,15 @@ def cmd_install_npm_deps(mode: str | None = None) -> int:
     service = _npm_client_service(resolved_mode)
     shell = (
         'mkdir -p /app/logs/docker '
-        '&& DOCKER_NPM_INSTALL=always /usr/local/bin/ergo-ensure-npm-deps.sh'
+        '&& DOCKER_NPM_INSTALL=always /usr/local/bin/ergo-ensure-npm-deps.sh '
+        '2>&1 | tee -a /app/logs/docker/npm-install.log'
     )
     print(format_console('info', f'Установка npm-зависимостей ({service})…'))
+    print(format_console('info', f'Журнал: {DOCKER_NPM_INSTALL_LOG}'))
     cmd, cwd = build_compose_cmd(
         'run',
         mode=resolved_mode,
-        extra_args=['--rm', '--no-deps', service, 'sh', '-c', shell],
+        extra_args=['--rm', '--no-deps', '-T', service, 'sh', '-c', shell],
     )
     return subprocess.call(cmd, cwd=str(cwd))
 
@@ -311,9 +357,8 @@ def _bootstrap_and_up(args: argparse.Namespace) -> int:
     if code != 0:
         return code
 
-    print(format_console('info', 'Ожидание готовности API…'))
-    if not _wait_api_container():
-        print(format_console('error', 'Контейнер api не запустился. Проверьте: ergoms docker-logs api'), file=sys.stderr)
+    print(format_console('info', 'Ожидание redis и postgres…'))
+    if not _wait_bootstrap_infra(args.mode, raw):
         return 1
 
     code = cmd_install_deps(args)
@@ -330,7 +375,7 @@ def _bootstrap_and_up(args: argparse.Namespace) -> int:
 
     _mark_setup_complete(root)
 
-    print(format_console('info', 'Запуск остальных сервисов…'))
+    print(format_console('info', 'Запуск сервисов приложения…'))
     cmd, cwd = build_compose_cmd('up', mode=args.mode, extra_args=['-d', *args.extra])
     return subprocess.call(cmd, cwd=str(cwd))
 
@@ -378,30 +423,50 @@ def _api_poetry_command(django_command: str) -> list[str]:
     return ['api', 'sh', '-c', shell]
 
 
-def cmd_install_deps(_: argparse.Namespace) -> int:
+def _api_install_shell() -> str:
+    return (
+        'mkdir -p /app/logs/docker '
+        '&& cd /app/core/api '
+        '&& poetry run python -m commands install 2>&1 | tee -a /app/logs/docker/python-install.log'
+    )
+
+
+def _api_migrate_shell() -> str:
+    return (
+        'mkdir -p /app/logs/docker '
+        '&& cd /app/core/api '
+        '&& (poetry run python -m commands migrate '
+        '&& poetry run python -m commands warmup_caches) '
+        '2>&1 | tee -a /app/logs/docker/migrate.log'
+    )
+
+
+def cmd_install_deps(args: argparse.Namespace | None = None) -> int:
     """Установка Python-зависимостей ядра и модулей (как ergoms python-install)."""
     if not find_docker_compose():
         print(format_console('error', 'Docker не найден.'), file=sys.stderr)
         return 1
-    print(format_console('info', 'Установка Python-зависимостей в контейнере api…'))
-    cmd, cwd = build_compose_cmd('exec', extra_args=_api_poetry_command('install'))
-    return subprocess.call(cmd, cwd=str(cwd))
+    mode = getattr(args, 'mode', None) if args is not None else None
+    print(format_console('info', 'Установка Python-зависимостей (ядро + модули)…'))
+    print(format_console(
+        'info',
+        'Модульные пакеты (torch и др.) могут скачиваться долго — прогресс в '
+        f'{DOCKER_PYTHON_INSTALL_LOG}',
+    ))
+    code = _run_api_oneoff(_api_install_shell(), mode=mode)
+    if code != 0:
+        print(format_console('error', f'Установка Python прервалась. Журнал: {DOCKER_PYTHON_INSTALL_LOG}'), file=sys.stderr)
+        print(format_console('info', 'Повторите: ergoms docker-init — pip продолжит с уже скачанных пакетов.'), file=sys.stderr)
+    return code
 
 
-def cmd_migrate(_: argparse.Namespace) -> int:
+def cmd_migrate(args: argparse.Namespace | None = None) -> int:
     if not find_docker_compose():
         print(format_console('error', 'Docker не найден.'), file=sys.stderr)
         return 1
-    steps = [
-        _api_poetry_command('migrate'),
-        _api_poetry_command('warmup_caches'),
-    ]
-    for step in steps:
-        cmd, cwd = build_compose_cmd('exec', extra_args=step)
-        code = subprocess.call(cmd, cwd=str(cwd))
-        if code != 0:
-            return code
-    return 0
+    mode = getattr(args, 'mode', None) if args is not None else None
+    print(format_console('info', 'Миграции и прогрев кэшей…'))
+    return _run_api_oneoff(_api_migrate_shell(), mode=mode)
 
 
 def _wait_api_container(timeout_sec: float = 120.0) -> bool:

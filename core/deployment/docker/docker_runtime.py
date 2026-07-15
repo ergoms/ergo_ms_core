@@ -186,6 +186,8 @@ def build_compose_env_overrides(raw_env: dict[str, str]) -> dict[str, str]:
     overrides.setdefault('DOCKER_NPM_INSTALL', effective_docker_npm_install(raw_env))
     overrides.setdefault('ERGO_DOCKER_LOG_DIR', '/app/logs/docker')
     overrides.setdefault('ERGO_DOCKER_SETUP_MARKER', '/app/logs/.ergo-docker-setup-ok')
+    overrides.setdefault('PIP_DEFAULT_TIMEOUT', '300')
+    overrides.setdefault('PIP_RETRIES', '10')
 
     return overrides
 

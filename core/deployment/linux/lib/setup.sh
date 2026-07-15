@@ -60,13 +60,12 @@ update_module_submodules() {
     exit 0
   fi
 
-  echo "-> Обновление ${#module_paths[@]} submodule модулей..."
-  if ! git submodule update --init --remote "${module_paths[@]}"; then
-    echo "[ERROR] Не удалось обновить git submodule модулей" >&2
-    exit 1
-  fi
+  local succeeded=0
+  local failed=0
+  local skipped=0
+  local -a failed_paths=()
 
-  echo "-> Переключение модулей на настроенные ветки..."
+  echo "-> Обновление ${#module_paths[@]} submodule модулей..."
   while IFS=' ' read -r key path; do
     [[ "$path" == modules/* ]] || continue
     name="${key#submodule.}"
@@ -74,14 +73,52 @@ update_module_submodules() {
     branch="$(git config -f "$gitmodules" "submodule.$name.branch")"
     branch="${branch:-dev}"
 
-    echo "  $path -> $branch"
+    if [[ -z "$(git ls-files -s -- "$path")" ]]; then
+      echo "[SKIP] $path не зарегистрирован в git (нет в индексе)"
+      skipped=$((skipped + 1))
+      continue
+    fi
+
+    echo "  $path..."
+    if ! git submodule update --init --remote -- "$path"; then
+      echo "[WARNING] Не удалось обновить $path" >&2
+      failed=$((failed + 1))
+      failed_paths+=("$path")
+      continue
+    fi
+
     if ! (cd "$root/$path" && git checkout "$branch"); then
       echo "[WARNING] Не удалось переключить ветку $branch в $path" >&2
     fi
+
+    succeeded=$((succeeded + 1))
   done < <(git config -f "$gitmodules" --get-regexp '^submodule\..*\.path$' | awk '{print $1, $2}')
 
   cd "$root" || exit 1
-  echo "[OK] Git submodule модулей обновлены"
+
+  if [[ "$succeeded" -gt 0 ]]; then
+    local summary="[OK] Обновлено модулей: $succeeded"
+    if [[ "$skipped" -gt 0 || "$failed" -gt 0 ]]; then
+      summary="$summary. Пропущено: $skipped. С ошибкой: $failed"
+    fi
+    echo "$summary"
+    local fp
+    for fp in "${failed_paths[@]}"; do
+      echo "  - $fp" >&2
+    done
+    return 0
+  fi
+
+  if [[ "$failed" -gt 0 ]]; then
+    echo "[ERROR] Не удалось обновить ни одного модуля ($failed)" >&2
+    local fp
+    for fp in "${failed_paths[@]}"; do
+      echo "  - $fp" >&2
+    done
+    exit 1
+  fi
+
+  echo "[WARNING] Нет модулей для обновления" >&2
 }
 
 scaffold_config_files() {
