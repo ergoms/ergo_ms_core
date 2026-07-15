@@ -252,11 +252,23 @@ def _bootstrap_service_names(raw_env: dict[str, str]) -> list[str]:
 
 
 def _run_api_oneoff(shell: str, *, mode: str | None = None) -> int:
-    """Одноразовый контейнер api (общий poetry_venv), без TTY — для долгого pip install."""
+    """Одноразовый контейнер api: вывод в терминал и в logs/docker/*.log (tee в shell)."""
     cmd, cwd = build_compose_cmd(
         'run',
         mode=mode,
-        extra_args=['--rm', '--no-deps', '-T', 'api', 'sh', '-c', shell],
+        extra_args=[
+            '--rm',
+            '--no-deps',
+            '-T',
+            '-e',
+            'ERGO_DOCKER_SERVICE_NAME=',
+            '-e',
+            'ERGO_DOCKER_CONSOLE_OUTPUT=1',
+            'api',
+            'sh',
+            '-c',
+            shell,
+        ],
     )
     return subprocess.call(cmd, cwd=str(cwd))
 
@@ -450,7 +462,7 @@ def cmd_install_deps(args: argparse.Namespace | None = None) -> int:
     print(format_console('info', 'Установка Python-зависимостей (ядро + модули)…'))
     print(format_console(
         'info',
-        'Модульные пакеты (torch и др.) могут скачиваться долго — прогресс в '
+        'Прогресс — в этом терминале и в '
         f'{DOCKER_PYTHON_INSTALL_LOG}',
     ))
     code = _run_api_oneoff(_api_install_shell(), mode=mode)

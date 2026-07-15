@@ -19,12 +19,18 @@ if command -v poetry >/dev/null 2>&1 && [ -f /app/pyproject.toml ]; then
   fi
 fi
 
-if [ -n "${ERGO_DOCKER_SERVICE_NAME:-}" ]; then
+if [ -n "${ERGO_DOCKER_SERVICE_NAME:-}" ] && [ "${ERGO_DOCKER_CONSOLE_OUTPUT:-}" != "1" ]; then
   LOG_DIR="${ERGO_DOCKER_LOG_DIR:-/app/logs/docker}"
   mkdir -p "$LOG_DIR"
   LOG_FILE="$LOG_DIR/${ERGO_DOCKER_SERVICE_NAME}.log"
   echo "[INFO] Журнал Docker: ${LOG_FILE}" >&2
   exec >>"$LOG_FILE" 2>&1
+fi
+
+if [ -n "${ERGO_DOCKER_SERVICE_NAME:-}" ] && [ "${ERGO_DOCKER_CONSOLE_OUTPUT:-}" = "1" ]; then
+  LOG_DIR="${ERGO_DOCKER_LOG_DIR:-/app/logs/docker}"
+  mkdir -p "$LOG_DIR"
+  echo "[INFO] Вывод также пишется в ${LOG_DIR}/ (см. tee в команде установки)" >&2
 fi
 
 exec "$@"
