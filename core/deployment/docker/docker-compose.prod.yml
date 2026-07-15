@@ -13,6 +13,9 @@ services:
       dockerfile: core/deployment/docker/Dockerfile.client
     env_file:
       - .compose.env
+    environment:
+      ERGO_DOCKER_SERVICE_NAME: client-build
+      ERGO_DOCKER_REQUIRES_SETUP: "1"
     working_dir: /app
     volumes:
       - ${ERGO_PROJECT_ROOT:-../../..}:/app
@@ -23,7 +26,10 @@ services:
     networks:
       - ergo_net
     command: >
-      sh -c "/usr/local/bin/ergo-ensure-npm-deps.sh
+      sh -c "/usr/local/bin/ergo-wait-docker-setup.sh
+      && mkdir -p /app/logs/docker
+      && exec >>/app/logs/docker/client-build.log 2>&1
+      && /usr/local/bin/ergo-ensure-npm-deps.sh
       && npm run build --prefix core/client"
     restart: "no"
 

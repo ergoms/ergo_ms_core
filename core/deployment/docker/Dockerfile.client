@@ -10,6 +10,10 @@ ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 
 WORKDIR /app
 
+COPY core/deployment/docker/entrypoint/wait_for_docker_setup.sh /usr/local/bin/ergo-wait-docker-setup.sh
+RUN sed -i 's/\r$//' /usr/local/bin/ergo-wait-docker-setup.sh \
+    && chmod +x /usr/local/bin/ergo-wait-docker-setup.sh
+
 COPY core/deployment/docker/entrypoint/ensure_npm_deps.sh /usr/local/bin/ergo-ensure-npm-deps.sh
 RUN sed -i 's/\r$//' /usr/local/bin/ergo-ensure-npm-deps.sh \
     && chmod +x /usr/local/bin/ergo-ensure-npm-deps.sh

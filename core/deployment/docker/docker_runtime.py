@@ -184,6 +184,8 @@ def build_compose_env_overrides(raw_env: dict[str, str]) -> dict[str, str]:
     overrides.setdefault('DOCKER_DEPS_CACHE', deps_cache)
     overrides.setdefault('DOCKER_BUILD_POLICY', effective_docker_build_policy(raw_env))
     overrides.setdefault('DOCKER_NPM_INSTALL', effective_docker_npm_install(raw_env))
+    overrides.setdefault('ERGO_DOCKER_LOG_DIR', '/app/logs/docker')
+    overrides.setdefault('ERGO_DOCKER_SETUP_MARKER', '/app/logs/.ergo-docker-setup-ok')
 
     return overrides
 
@@ -275,7 +277,10 @@ def resolve_volume_binds(project_root: Path, raw_env: dict[str, str]) -> dict[st
         'ERGO_CELERY_CACHE_BIND': resolve_celery_cache_bind(project_root, raw_env),
     }
     if logs_mode == 'bind':
-        binds['ERGO_LOGS_BIND'] = str((project_root / 'logs').resolve()).replace('\\', '/')
+        logs_dir = (project_root / 'logs').resolve()
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        (logs_dir / 'docker').mkdir(parents=True, exist_ok=True)
+        binds['ERGO_LOGS_BIND'] = str(logs_dir).replace('\\', '/')
     else:
         binds['ERGO_LOGS_BIND'] = 'ergo_logs'
     if media_mode == 'bind':

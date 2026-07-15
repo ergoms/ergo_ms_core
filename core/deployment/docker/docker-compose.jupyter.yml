@@ -6,6 +6,9 @@ services:
     profiles: ["jupyter"]
     env_file:
       - .compose.env
+    environment:
+      ERGO_DOCKER_SERVICE_NAME: jupyter
+      ERGO_DOCKER_REQUIRES_SETUP: "1"
     volumes:
       - ${ERGO_PROJECT_ROOT:-../../..}:/app
       - ./.compose.databases.yaml:/app/databases.yaml:ro

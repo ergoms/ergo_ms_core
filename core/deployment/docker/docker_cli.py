@@ -98,6 +98,8 @@ COMPOSE_ARTIFACT_PATHS = (
     DOCKER_DIR / 'nginx' / 'ergo_ms.conf.rendered',
 )
 
+SETUP_MARKER_REL = Path('logs/.ergo-docker-setup-ok')
+
 
 def _docker_image_exists(image_ref: str) -> bool:
     if not shutil.which('docker'):
@@ -226,7 +228,110 @@ def build_compose_cmd(
 
 
 def cmd_up(args: argparse.Namespace) -> int:
-    cmd, cwd = build_compose_cmd('up', mode=args.mode, extra_args=['-d'] + args.extra)
+    root = PROJECT_ROOT.resolve()
+    raw = read_env_file(root / '.env')
+    if args.mode:
+        raw = dict(raw)
+        raw['DOCKER_MODE'] = args.mode
+    if _setup_marker_exists(root):
+        cmd, cwd = build_compose_cmd('up', mode=args.mode, extra_args=['-d'] + args.extra)
+        return subprocess.call(cmd, cwd=str(cwd))
+    print(format_console('info', 'Первичная установка: поднимаем только redis, postgres и api…'))
+    return _bootstrap_and_up(args)
+
+
+def _bootstrap_service_names(raw_env: dict[str, str]) -> list[str]:
+    services = ['redis']
+    if _env_db_container(raw_env):
+        services.append('postgres')
+    services.append('api')
+    return services
+
+
+def _setup_marker_path(project_root: Path) -> Path:
+    return project_root / SETUP_MARKER_REL
+
+
+def _setup_marker_exists(project_root: Path) -> bool:
+    return _setup_marker_path(project_root).is_file()
+
+
+def _clear_setup_marker(project_root: Path) -> None:
+    marker = _setup_marker_path(project_root)
+    if marker.is_file():
+        marker.unlink()
+
+
+def _mark_setup_complete(project_root: Path) -> None:
+    marker = _setup_marker_path(project_root)
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    (marker.parent / 'docker').mkdir(parents=True, exist_ok=True)
+    marker.touch()
+    print(format_console('ok', f'Установка завершена: {SETUP_MARKER_REL.as_posix()}'))
+
+
+def _npm_client_service(mode: str) -> str:
+    return 'client' if mode == 'dev' else 'client-build'
+
+
+def cmd_install_npm_deps(mode: str | None = None) -> int:
+    """Установка npm-зависимостей (как ergoms npm run install:all) в одноразовом контейнере client."""
+    if not find_docker_compose():
+        print(format_console('error', 'Docker не найден.'), file=sys.stderr)
+        return 1
+    resolved_mode = mode or docker_mode(read_env_file(PROJECT_ROOT / '.env'))
+    service = _npm_client_service(resolved_mode)
+    shell = (
+        'mkdir -p /app/logs/docker '
+        '&& DOCKER_NPM_INSTALL=always /usr/local/bin/ergo-ensure-npm-deps.sh'
+    )
+    print(format_console('info', f'Установка npm-зависимостей ({service})…'))
+    cmd, cwd = build_compose_cmd(
+        'run',
+        mode=resolved_mode,
+        extra_args=['--rm', '--no-deps', service, 'sh', '-c', shell],
+    )
+    return subprocess.call(cmd, cwd=str(cwd))
+
+
+def _bootstrap_and_up(args: argparse.Namespace) -> int:
+    root = PROJECT_ROOT.resolve()
+    raw = read_env_file(root / '.env')
+    if args.mode:
+        raw = dict(raw)
+        raw['DOCKER_MODE'] = args.mode
+
+    print(format_console('info', 'Остановка сервисов до завершения установки…'))
+    stop_cmd, cwd = build_compose_cmd('stop', mode=args.mode, extra_args=[])
+    subprocess.call(stop_cmd, cwd=str(cwd))
+
+    bootstrap = _bootstrap_service_names(raw)
+    cmd, cwd = build_compose_cmd('up', mode=args.mode, extra_args=['-d', *bootstrap, *args.extra])
+    code = subprocess.call(cmd, cwd=str(cwd))
+    if code != 0:
+        return code
+
+    print(format_console('info', 'Ожидание готовности API…'))
+    if not _wait_api_container():
+        print(format_console('error', 'Контейнер api не запустился. Проверьте: ergoms docker-logs api'), file=sys.stderr)
+        return 1
+
+    code = cmd_install_deps(args)
+    if code != 0:
+        return code
+
+    code = cmd_install_npm_deps(args.mode)
+    if code != 0:
+        return code
+
+    code = cmd_migrate(args)
+    if code != 0:
+        return code
+
+    _mark_setup_complete(root)
+
+    print(format_console('info', 'Запуск остальных сервисов…'))
+    cmd, cwd = build_compose_cmd('up', mode=args.mode, extra_args=['-d', *args.extra])
     return subprocess.call(cmd, cwd=str(cwd))
 
 
@@ -378,29 +483,22 @@ def cmd_clean(args: argparse.Namespace) -> int:
 
     print(format_console('info', 'Удаление сгенерированных файлов compose…'))
     remove_compose_artifacts()
+    _clear_setup_marker(PROJECT_ROOT.resolve())
     print(format_console('ok', 'Docker-стек ERGO MS полностью удалён. Для нового запуска: ergoms docker-init'))
     return 0
 
 
 def cmd_init(args: argparse.Namespace) -> int:
+    root = PROJECT_ROOT.resolve()
+    _clear_setup_marker(root)
     code = cmd_build(args, skip_if_present=True)
     if code != 0:
         return code
     code = run_generate_workers()
     if code != 0:
         return code
-    prepare_compose_artifacts(PROJECT_ROOT)
-    code = cmd_up(args)
-    if code != 0:
-        return code
-    print(format_console('info', 'Ожидание готовности API…'))
-    if not _wait_api_container():
-        print(format_console('error', 'Контейнер api не запустился. Проверьте: ergoms docker-logs api'), file=sys.stderr)
-        return 1
-    code = cmd_install_deps(args)
-    if code != 0:
-        return code
-    return cmd_migrate(args)
+    prepare_compose_artifacts(root)
+    return _bootstrap_and_up(args)
 
 
 def main() -> int:

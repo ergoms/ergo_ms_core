@@ -50,6 +50,8 @@ __pycache__/
 
 /logs/*
 !/logs/.gitkeep
+!/logs/docker/
+!/logs/docker/.gitkeep
 
 /media/*
 !/media/.gitkeep

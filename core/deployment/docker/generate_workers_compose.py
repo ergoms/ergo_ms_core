@@ -31,6 +31,9 @@ PYTHON_SERVICE_TEMPLATE = """
     image: ${{DOCKER_PYTHON_IMAGE:-ergo_ms-python:local}}
     env_file:
       - .compose.env
+    environment:
+      ERGO_DOCKER_SERVICE_NAME: celery-worker-{name}
+      ERGO_DOCKER_REQUIRES_SETUP: "1"
 {volumes}
     depends_on:
       redis:

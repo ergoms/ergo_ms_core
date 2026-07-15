@@ -34,6 +34,9 @@ services:
         ERGO_DOCKER_DEPS_CACHE: ${DOCKER_DEPS_CACHE:-internal}
     env_file:
       - .compose.env
+    environment:
+      ERGO_DOCKER_SERVICE_NAME: api
+      ERGO_DOCKER_REQUIRES_SETUP: "0"
     volumes: *python_volumes
     ports:
       - "${API_PORT:-8000}:${API_PORT:-8000}"
@@ -49,6 +52,9 @@ services:
     image: ${DOCKER_PYTHON_IMAGE:-ergo_ms-python:local}
     env_file:
       - .compose.env
+    environment:
+      ERGO_DOCKER_SERVICE_NAME: media-api
+      ERGO_DOCKER_REQUIRES_SETUP: "1"
     volumes: *python_volumes
     ports:
       - "${MEDIA_API_BIND_PORT:-8003}:${MEDIA_API_BIND_PORT:-8003}"
@@ -64,6 +70,9 @@ services:
     image: ${DOCKER_PYTHON_IMAGE:-ergo_ms-python:local}
     env_file:
       - .compose.env
+    environment:
+      ERGO_DOCKER_SERVICE_NAME: celery-beat
+      ERGO_DOCKER_REQUIRES_SETUP: "1"
     volumes: *python_volumes
     depends_on:
       redis:

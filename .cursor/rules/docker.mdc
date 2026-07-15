@@ -51,8 +51,8 @@ alwaysApply: false
 | nginx | `ergo_ms.conf.template`, `install-nginx` | profile `nginx`, `ergo_ms.docker.conf.template`, upstream — **имена сервисов**, не `127.0.0.1` |
 | Celery workers | `celery_workers.yaml`, `start-worker` | `ergoms docker-gen-workers` → `docker-compose.workers.generated.yml` |
 | Env effective | `env_resolvers`, `*_runtime.py` | `build_compose_env_overrides()` в `docker_runtime.py` — не хардкодить в compose то, что уже выводится из `.env` |
-| Зависимости | `ergoms python-install`, `npm run install:all` | `Dockerfile.python` (`--no-root` + BuildKit), `Dockerfile.client` (только Node + `ensure_npm_deps.sh`), `api install` при init, `ensure_npm_deps.sh` → `npm run install:all` при старте client; env `DOCKER_*_CACHE`, `DOCKER_BUILD_POLICY`, `DOCKER_NPM_INSTALL` |
-| Ожидание готовности | прогрев / health на хосте | [`docker_entrypoint.sh`](../../core/deployment/docker/entrypoint/docker_entrypoint.sh), [`wait_for_services.py`](../../core/deployment/docker/entrypoint/wait_for_services.py) |
+| Зависимости | `ergoms python-install`, `npm run install:all` | bootstrap: только `redis`+`postgres`+`api` → `api install` + npm + migrate → маркер `logs/.ergo-docker-setup-ok` → остальные сервисы; `Dockerfile.client` (Node + `ensure_npm_deps.sh`); env `DOCKER_NPM_INSTALL` |
+| Ожидание готовности | прогрев / health на хосте | `wait_for_docker_setup.py` + `wait_for_services.py`; журналы stdout в `logs/docker/<service>.log` |
 | Справка и docs | `help.manifest.yaml`, `.docs/cli.md`, `logic.md` | раздел `docker` в help, [`.docs/docker.md`](../../.docs/docker.md), этот файл |
 
 ### Запрещено при правках развёртывания
