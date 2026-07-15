@@ -45,6 +45,9 @@ __pycache__/
 /virtual_env/cache/*
 !/virtual_env/cache/.gitkeep
 
+/virtual_env/docker-cache/*
+!/virtual_env/docker-cache/.gitkeep
+
 /logs/*
 !/logs/.gitkeep
 
@@ -64,7 +67,6 @@ __pycache__/
 /core/deployment/docker/.compose.databases.yaml
 /core/deployment/docker/docker-compose.workers.generated.yml
 /core/deployment/docker/docker-compose.build.generated.yml
-/.docker-cache/
 /core/deployment/docker/init/postgres/02-celery-databases.sql
 /core/deployment/docker/nginx/ergo_ms.conf.rendered
 

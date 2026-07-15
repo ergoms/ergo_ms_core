@@ -153,6 +153,7 @@ clear_project_dependencies() {
     "virtual_env/resources"
     "virtual_env/trained_models"
     "virtual_env/cache"
+    "virtual_env/docker-cache"
   )
 
   echo ""

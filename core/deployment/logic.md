@@ -162,7 +162,7 @@
 ### Команды
 
 - `ergoms docker-init` — build, gen-workers, up, install, migrate
-- `ergoms docker-clean --yes` — down с томами, локальные образы, артефакты compose
+- `ergoms docker-clean` — down с томами, локальные образы, артефакты compose (подтверждение в терминале; `--yes` — без вопроса)
 - `ergoms docker-up` / `docker-down` / `docker-restart`
 - `ergoms docker-dev` / `docker-prod` — режим из `--mode` или `DOCKER_MODE` в `.env`
 - `ergoms docker-build`, `docker-ps`, `docker-logs`, `docker-migrate`, `docker-shell-api`, `docker-gen-workers`

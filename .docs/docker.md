@@ -130,7 +130,7 @@ ergoms docker-gen-workers
 | `DOCKER_VOLUME_MEDIA` | `bind` | `bind` — каталог `media/` проекта |
 | `DOCKER_VOLUME_CELERY_CACHE` | `named` | `named` — том Docker; `bind` — `virtual_env/cache` на хосте |
 | `DOCKER_BUILD_CACHE` | `true` | BuildKit при `ergoms docker-build` |
-| `DOCKER_DEPS_CACHE` | `internal` | `internal` / `project` (ещё `.docker-cache/`) / `off` — кэш загрузок Poetry/npm |
+| `DOCKER_DEPS_CACHE` | `internal` | `internal` / `project` (ещё `virtual_env/docker-cache/`) / `off` — кэш загрузок Poetry/npm |
 | `DOCKER_BUILD_POLICY` | `if-missing` | `if-missing` — пропуск build в `docker-init`, если образы есть; `always` — всегда |
 | `DOCKER_NPM_INSTALL` | `smart` | `smart` — npm только при изменении lock/package.json; `always` — каждый старт client |
 
@@ -166,12 +166,12 @@ ergoms docker-gen-workers
 Сборка образов (`Dockerfile.python`, `Dockerfile.client`):
 
 - слой Poetry — только `pyproject.toml` + `poetry.lock` (`poetry install --no-root`); полная установка ядра и модулей — **`api install`** при `docker-init`;
-- npm ядра — `npm ci` на этапе build; модульные пакеты — `ensure_npm_deps.sh` при старте client.
+- npm — **`ensure_npm_deps.sh`** при старте client (`npm run install:all`, как `ergoms setup-full`); зависимости хранятся в томах `node_modules` / `npm_cache`.
 
 | Режим `DOCKER_DEPS_CACHE` | Поведение |
 |---------------------------|-----------|
 | `internal` (по умолчанию) | BuildKit cache mount (wheel/npm внутри Docker) |
-| `project` | дополнительно каталог `.docker-cache/` в корне проекта |
+| `project` | дополнительно каталог `virtual_env/docker-cache/` |
 | `off` | без cache mount — каждый build качает пакеты заново |
 
 **Скачать всё заново:**
@@ -187,7 +187,7 @@ ergoms docker-build -- --no-cache
 ergoms docker-init
 ```
 
-Очистка: удалите `.docker-cache/`, тома `*_poetry_venv`, `*_node_modules` или выполните `ergoms docker-clean --yes`. Internal BuildKit-кэш — `docker builder prune` (вручную).
+Очистка: удалите `virtual_env/docker-cache/`, тома `*_poetry_venv`, `*_node_modules` или выполните `ergoms docker-clean --yes`. Internal BuildKit-кэш — `docker builder prune` (вручную).
 
 ## PostgreSQL в контейнере
 

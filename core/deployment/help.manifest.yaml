@@ -88,8 +88,7 @@ sections:
       - name: docker-init
         summary: "Первый запуск: build, worker-сервисы, up, install, migrate"
       - name: docker-clean
-        invoke: "ergoms docker-clean --yes"
-        summary: "Полная очистка: контейнеры, тома, локальные образы, артефакты compose (--yes)"
+        summary: "Полная очистка: контейнеры, тома, локальные образы, артефакты compose (подтверждение в терминале)"
       - name: docker-up
         summary: "Поднять стек (режим DOCKER_MODE, profiles из .env)"
       - name: docker-down

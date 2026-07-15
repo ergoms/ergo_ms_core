@@ -108,7 +108,7 @@ def resolve_celery_cache_bind(project_root: Path, raw_env: dict[str, str]) -> st
 
 
 def resolve_docker_cache_dir(project_root: Path) -> str:
-    cache_dir = (project_root / '.docker-cache').resolve()
+    cache_dir = (project_root / 'virtual_env' / 'docker-cache').resolve()
     cache_dir.mkdir(parents=True, exist_ok=True)
     return str(cache_dir).replace('\\', '/')
 
@@ -116,7 +116,6 @@ def resolve_docker_cache_dir(project_root: Path) -> str:
 def build_compose_build_cache_content(cache_dir: str) -> str:
     """Фрагмент compose для project-кэша BuildKit (local cache)."""
     api_cache = f'{cache_dir}/build-api'
-    client_cache = f'{cache_dir}/build-client'
     return f"""# Автогенерация: prepare_compose_artifacts (DOCKER_DEPS_CACHE=project)
 services:
   api:
@@ -125,18 +124,6 @@ services:
         - type=local,src={api_cache}
       cache_to:
         - type=local,dest={api_cache},mode=max
-  client:
-    build:
-      cache_from:
-        - type=local,src={client_cache}
-      cache_to:
-        - type=local,dest={client_cache},mode=max
-  client-build:
-    build:
-      cache_from:
-        - type=local,src={client_cache}
-      cache_to:
-        - type=local,dest={client_cache},mode=max
 """
 
 
@@ -286,7 +273,6 @@ def resolve_volume_binds(project_root: Path, raw_env: dict[str, str]) -> dict[st
     binds: dict[str, str] = {
         'ERGO_PROJECT_ROOT': str(project_root.resolve()).replace('\\', '/'),
         'ERGO_CELERY_CACHE_BIND': resolve_celery_cache_bind(project_root, raw_env),
-        'ERGO_DOCKER_CACHE_DIR': resolve_docker_cache_dir(project_root),
     }
     if logs_mode == 'bind':
         binds['ERGO_LOGS_BIND'] = str((project_root / 'logs').resolve()).replace('\\', '/')
@@ -319,9 +305,10 @@ def prepare_compose_artifacts(project_root: Path | None = None) -> dict[str, Pat
     write_celery_init_sql(celery_sql, root)
 
     if effective_docker_deps_cache(raw) == 'project':
+        cache_dir = resolve_docker_cache_dir(root)
         write_compose_build_cache(
             BUILD_CACHE_OUTPUT,
-            build_compose_build_cache_content(binds['ERGO_DOCKER_CACHE_DIR']),
+            build_compose_build_cache_content(cache_dir),
         )
     else:
         remove_compose_build_cache(BUILD_CACHE_OUTPUT)

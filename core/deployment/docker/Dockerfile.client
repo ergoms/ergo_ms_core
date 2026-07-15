@@ -1,28 +1,14 @@
 # syntax=docker/dockerfile:1.4
 # ERGO MS — Node-образ для клиента (dev Vite / prod build)
+#
+# npm-зависимости не ставятся при сборке образа: в compose проект bind-mount'ится,
+# node_modules — в именованных томах, установка — ensure_npm_deps.sh → npm run install:all
+# (тот же сценарий, что ergoms setup-full).
 FROM node:20-bookworm-slim
-
-ARG ERGO_DOCKER_DEPS_CACHE=internal
 
 ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 
 WORKDIR /app
-
-COPY package.json package-lock.json ./
-COPY core/client/package.json ./core/client/
-
-RUN mkdir -p core/client modules
-
-COPY core/deployment/scripts/sync-module-npm-deps.js ./core/deployment/scripts/sync-module-npm-deps.js
-
-RUN --mount=type=cache,id=ergo_npm_cache,target=/root/.npm,sharing=locked \
-    sh -c 'if [ "$ERGO_DOCKER_DEPS_CACHE" != "off" ]; then \
-      npm ci --workspaces --include-workspace-root --ignore-scripts; \
-    fi'
-
-RUN sh -c 'if [ "$ERGO_DOCKER_DEPS_CACHE" = "off" ]; then \
-      npm ci --workspaces --include-workspace-root --ignore-scripts; \
-    fi'
 
 COPY core/deployment/docker/entrypoint/ensure_npm_deps.sh /usr/local/bin/ergo-ensure-npm-deps.sh
 RUN sed -i 's/\r$//' /usr/local/bin/ergo-ensure-npm-deps.sh \

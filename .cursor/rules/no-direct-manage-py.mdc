@@ -30,7 +30,7 @@ priority: critical
 | Redis (опционально) | `ergoms install-redis`, `ergoms test-redis` |
 | nginx (опционально) | `ergoms install-nginx`, `ergoms reload-nginx` |
 | Docker: первый запуск | `ergoms docker-init` |
-| Docker: полная очистка стека | `ergoms docker-clean --yes` |
+| Docker: полная очистка стека | `ergoms docker-clean` |
 | Docker: миграции | `ergoms docker-migrate` |
 | Docker: стек | `ergoms docker-up`, `ergoms docker-down`, `ergoms docker-dev`, `ergoms docker-prod` |
 | Сверка `.env` с примерами | `ergoms env` |

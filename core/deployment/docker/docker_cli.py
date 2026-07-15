@@ -25,7 +25,6 @@ from env_resolvers import read_env_file  # noqa: E402
 
 from docker_runtime import (  # noqa: E402
     BUILD_CACHE_OUTPUT,
-    PROJECT_ROOT as RUNTIME_ROOT,
     compose_profiles,
     docker_mode,
     effective_docker_build_policy,
@@ -50,8 +49,6 @@ def find_docker_compose() -> list[str]:
         )
         if result.returncode == 0:
             return ['docker', 'compose']
-    if shutil.which('docker-compose'):
-        return ['docker-compose']
     return []
 
 
@@ -325,16 +322,44 @@ def remove_compose_artifacts() -> None:
             print(format_console('ok', f'Удалён {path.relative_to(PROJECT_ROOT)}'))
 
 
-def cmd_clean(args: argparse.Namespace) -> int:
-    if not args.yes:
+_CLEAN_CONFIRM_TEXT = (
+    'Полная очистка удалит контейнеры, тома (включая PostgreSQL), локальные образы '
+    'и сгенерированные файлы compose.'
+)
+
+
+def _confirm_docker_clean(*, assume_yes: bool) -> bool:
+    if assume_yes:
+        return True
+
+    print(format_console('warning', _CLEAN_CONFIRM_TEXT))
+
+    if not sys.stdin.isatty():
         print(
             format_console(
                 'error',
-                'Полная очистка удалит контейнеры, тома (включая PostgreSQL), локальные образы '
-                'и сгенерированные файлы compose. Повторите с --yes.',
+                'Интерактивное подтверждение недоступно. Повторите с --yes.',
             ),
             file=sys.stderr,
         )
+        return False
+
+    try:
+        answer = input('Продолжить? (y/N): ').strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        print(format_console('info', 'Очистка отменена.'))
+        return False
+
+    if answer in ('y', 'yes'):
+        return True
+
+    print(format_console('info', 'Очистка отменена.'))
+    return False
+
+
+def cmd_clean(args: argparse.Namespace) -> int:
+    if not _confirm_docker_clean(assume_yes=args.yes):
         return 1
 
     if not find_docker_compose():
@@ -407,7 +432,7 @@ def main() -> int:
     clean_p.add_argument(
         '--yes',
         action='store_true',
-        help='подтвердить удаление контейнеров, томов, локальных образов и артефактов compose',
+        help='пропустить интерактивное подтверждение (для скриптов и неинтерактивного запуска)',
     )
     clean_p.set_defaults(handler=cmd_clean)
 

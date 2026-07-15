@@ -13,8 +13,6 @@ services:
     build:
       context: ../../..
       dockerfile: core/deployment/docker/Dockerfile.client
-      args:
-        ERGO_DOCKER_DEPS_CACHE: ${DOCKER_DEPS_CACHE:-internal}
     env_file:
       - .compose.env
     working_dir: /app
