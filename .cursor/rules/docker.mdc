@@ -9,7 +9,7 @@ alwaysApply: false
 
 ## Кратко
 
-- Команды: `docker-init`, `docker-up`, `docker-down`, `docker-dev`, `docker-prod`, `docker-migrate`, `docker-gen-workers`, `docker-shell-api`, `docker-logs`, `docker-ps`, `docker-build`
+- Команды: `docker-init`, `docker-clean`, `docker-up`, `docker-down`, `docker-dev`, `docker-prod`, `docker-migrate`, `docker-gen-workers`, `docker-shell-api`, `docker-logs`, `docker-ps`, `docker-build`
 - Каталог: `core/deployment/docker/` — compose-файлы, `Dockerfile.python`, `Dockerfile.client`, `docker_cli.py`, `docker_runtime.py`
 - Режимы: **`dev`** (bind-mount, Vite, runserver) и **`prod`** (daphne, `client-build`, опционально nginx)
 - Profiles: `postgres`, `nginx`, `jupyter` — через `DOCKER_PROFILE_*` в `.env`
@@ -51,7 +51,7 @@ alwaysApply: false
 | nginx | `ergo_ms.conf.template`, `install-nginx` | profile `nginx`, `ergo_ms.docker.conf.template`, upstream — **имена сервисов**, не `127.0.0.1` |
 | Celery workers | `celery_workers.yaml`, `start-worker` | `ergoms docker-gen-workers` → `docker-compose.workers.generated.yml` |
 | Env effective | `env_resolvers`, `*_runtime.py` | `build_compose_env_overrides()` в `docker_runtime.py` — не хардкодить в compose то, что уже выводится из `.env` |
-| Зависимости | `ergoms python-install`, `npm install:all` | слои `Dockerfile.python` / `Dockerfile.client`; bind-mount кода в dev |
+| Зависимости | `ergoms python-install`, `npm install:all` | `Dockerfile.python` (`--no-root` + BuildKit), `Dockerfile.client` (`npm ci`), `api install` при init, `ensure_npm_deps.sh`; env `DOCKER_*_CACHE`, `DOCKER_BUILD_POLICY`, `DOCKER_NPM_INSTALL` |
 | Ожидание готовности | прогрев / health на хосте | [`docker_entrypoint.sh`](../../core/deployment/docker/entrypoint/docker_entrypoint.sh), [`wait_for_services.py`](../../core/deployment/docker/entrypoint/wait_for_services.py) |
 | Справка и docs | `help.manifest.yaml`, `.docs/cli.md`, `logic.md` | раздел `docker` в help, [`.docs/docker.md`](../../.docs/docker.md), этот файл |
 
@@ -118,12 +118,15 @@ proxy_pass http://127.0.0.1:8000;
 | `docker-compose.nginx.yml` | profile `nginx` |
 | `docker-compose.jupyter.yml` | profile `jupyter` |
 | `docker-compose.workers.generated.yml` | Celery workers (автоген) |
+| `docker-compose.build.generated.yml` | local BuildKit cache (`DOCKER_DEPS_CACHE=project`) |
 
 Сборка списка `-f` файлов — `compose_file_list()` в [`docker_cli.py`](../../core/deployment/docker/docker_cli.py).
 
 ## Переменные (эталон)
 
-Секция **Docker** в [`.env.example`](../../.env.example): `DOCKER_ENABLED`, `DOCKER_MODE`, `DOCKER_DATABASE`, `DOCKER_PROFILE_*`, `DOCKER_COMPOSE_PROJECT`, `DOCKER_VOLUME_*`, `DOCKER_SERVICE_*`.
+Секция **Docker** в [`.env.example`](../../.env.example): `DOCKER_ENABLED`, `DOCKER_MODE`, `DOCKER_DATABASE`, `DOCKER_PROFILE_*`, `DOCKER_COMPOSE_PROJECT`, `DOCKER_VOLUME_*`, `DOCKER_SERVICE_*`, `DOCKER_BUILD_CACHE`, `DOCKER_DEPS_CACHE`, `DOCKER_BUILD_POLICY`, `DOCKER_NPM_INSTALL`.
+
+Кэш зависимостей: build — слой `poetry install --no-root` + BuildKit; runtime — `poetry_venv` / `node_modules` volumes, `api install` при init, `ensure_npm_deps.sh` для client. Bind хостового `virtual_env/python/` **не** поддерживается (Windows/Linux venv несовместимы).
 
 ## Добавление сервиса в compose
 

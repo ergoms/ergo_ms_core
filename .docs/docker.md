@@ -30,7 +30,7 @@ ERGO MS можно запустить в контейнерах через **Doc
    ergoms docker-init
    ```
 
-   Команда собирает образы, генерирует worker-сервисы из `celery_workers.yaml`, поднимает контейнеры и применяет миграции.
+   Команда собирает образы, генерирует worker-сервисы из `celery_workers.yaml`, поднимает контейнеры, устанавливает Python-зависимости модулей и применяет миграции.
 
 4. Откройте приложение:
 
@@ -92,6 +92,7 @@ ERGO MS можно запустить в контейнерах через **Doc
 
 ```cmd
 ergoms docker-init
+ergoms docker-clean --yes
 ergoms docker-up
 ergoms docker-down
 ergoms docker-restart
@@ -105,7 +106,8 @@ ergoms docker-shell-api
 ergoms docker-gen-workers
 ```
 
-- **`docker-migrate`** — `makemigrations`, `migrate`, `warmup_caches` внутри контейнера `api`
+- **`docker-clean --yes`** — остановить стек, удалить тома и локальные образы, очистить `.compose.env` и прочие артефакты в `core/deployment/docker/` (данные PostgreSQL в томе будут потеряны)
+- **`docker-migrate`** — `migrate`, `warmup_caches` внутри контейнера `api` (без `makemigrations`; новые миграции — `ergoms db-makemigrations` на хосте или `ergoms migrate-all`)
 - **`docker-gen-workers`** — пересоздать `docker-compose.workers.generated.yml` после правки `celery_workers.yaml`
 - **`docker-shell-api`** — интерактивная shell в контейнере API
 
@@ -126,6 +128,11 @@ ergoms docker-gen-workers
 | `DOCKER_COMPOSE_PROJECT` | `ergo_ms` | Имя проекта compose (префикс томов) |
 | `DOCKER_VOLUME_LOGS` | `bind` | `bind` — каталог `logs/` проекта; иначе named volume |
 | `DOCKER_VOLUME_MEDIA` | `bind` | `bind` — каталог `media/` проекта |
+| `DOCKER_VOLUME_CELERY_CACHE` | `named` | `named` — том Docker; `bind` — `virtual_env/cache` на хосте |
+| `DOCKER_BUILD_CACHE` | `true` | BuildKit при `ergoms docker-build` |
+| `DOCKER_DEPS_CACHE` | `internal` | `internal` / `project` (ещё `.docker-cache/`) / `off` — кэш загрузок Poetry/npm |
+| `DOCKER_BUILD_POLICY` | `if-missing` | `if-missing` — пропуск build в `docker-init`, если образы есть; `always` — всегда |
+| `DOCKER_NPM_INSTALL` | `smart` | `smart` — npm только при изменении lock/package.json; `always` — каждый старт client |
 
 При `DOCKER_DATABASE=host` в `databases.yaml` укажите хост, доступный из контейнера (на Docker Desktop — часто `host.docker.internal`).
 
@@ -138,6 +145,7 @@ ergoms docker-gen-workers
 | `.compose.env` | merged `.env` + runtime-overrides для контейнеров |
 | `.compose.databases.yaml` | `databases.yaml` с подставленным хостом postgres |
 | `docker-compose.workers.generated.yml` | Celery worker'ы |
+| `docker-compose.build.generated.yml` | local BuildKit cache (`DOCKER_DEPS_CACHE=project`) |
 | `init/postgres/02-celery-databases.sql` | доп. БД Celery при первом старте postgres |
 | `nginx/ergo_ms.conf.rendered` | конфиг nginx для Docker |
 
@@ -146,11 +154,40 @@ ergoms docker-gen-workers
 ## Тома и данные
 
 - **Код проекта** — bind-mount всего корня в `/app` (изменения на хосте видны в контейнере)
-- **`poetry_venv`**, **`celery_cache`**, **`node_modules`** — named volumes (ускоряют повторный старт)
+- **`poetry_venv`**, **`node_modules`**, **`npm_cache`** — named volumes (ускоряют повторный старт)
+- **`celery_cache`** — named volume или bind `virtual_env/cache` (`DOCKER_VOLUME_CELERY_CACHE=bind`)
 - **`postgres_data`** — данные PostgreSQL (profile postgres)
 - **`logs/`** и **`media/`** — по умолчанию bind на хост (`DOCKER_VOLUME_*=bind`)
 
 Журналы API по-прежнему пишутся в `logs/` на хосте при bind-режиме.
+
+## Кэш зависимостей
+
+Сборка образов (`Dockerfile.python`, `Dockerfile.client`):
+
+- слой Poetry — только `pyproject.toml` + `poetry.lock` (`poetry install --no-root`); полная установка ядра и модулей — **`api install`** при `docker-init`;
+- npm ядра — `npm ci` на этапе build; модульные пакеты — `ensure_npm_deps.sh` при старте client.
+
+| Режим `DOCKER_DEPS_CACHE` | Поведение |
+|---------------------------|-----------|
+| `internal` (по умолчанию) | BuildKit cache mount (wheel/npm внутри Docker) |
+| `project` | дополнительно каталог `.docker-cache/` в корне проекта |
+| `off` | без cache mount — каждый build качает пакеты заново |
+
+**Скачать всё заново:**
+
+```env
+DOCKER_DEPS_CACHE=off
+DOCKER_BUILD_POLICY=always
+DOCKER_NPM_INSTALL=always
+```
+
+```cmd
+ergoms docker-build -- --no-cache
+ergoms docker-init
+```
+
+Очистка: удалите `.docker-cache/`, тома `*_poetry_venv`, `*_node_modules` или выполните `ergoms docker-clean --yes`. Internal BuildKit-кэш — `docker builder prune` (вручную).
 
 ## PostgreSQL в контейнере
 

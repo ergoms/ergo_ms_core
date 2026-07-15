@@ -156,6 +156,7 @@ def _handler(user):
 | Темы оформления, hook, ModuleThemeScope | [`themes.mdc`](themes.mdc) |
 | Архитектура | [`struct.mdc`](struct.mdc) |
 | API, ViewSet | [`api_code.mdc`](api_code.mdc) |
+| Миграции `api/migrations/` | [`django-migrations.mdc`](django-migrations.mdc) |
 | Клиент, маршруты | [`client_code.mdc`](client_code.mdc) |
 | Celery в модуле | [`celery.mdc`](celery.mdc) |
 | Безопасность, public_id | [`security.mdc`](security.mdc) |

@@ -1,10 +1,14 @@
+# syntax=docker/dockerfile:1.4
 # ERGO MS — общий Python-образ (API, media_api, Celery, Jupyter)
 FROM python:3.12-slim-bookworm AS base
+
+ARG ERGO_DOCKER_DEPS_CACHE=internal
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONIOENCODING=utf-8 \
     PYTHONUTF8=1 \
+    PYTHONPATH=/app \
     POETRY_VERSION=2.1.3 \
     POETRY_VIRTUALENVS_PATH=/app/virtual_env/python \
     POETRY_NO_INTERACTION=1 \
@@ -22,21 +26,29 @@ RUN apt-get update \
 
 WORKDIR /app
 
-# Зависимости — отдельный слой для кэша
+# Зависимости lock — отдельный слой (без modules/, чтобы правки кода не сбрасывали кэш)
 COPY pyproject.toml poetry.lock ./
 
 RUN mkdir -p core/api core/media_api modules virtual_env/python virtual_env/cache logs media notebooks \
     /usr/local/lib/ergo-ms
 
-# Минимальный каркас для poetry install (полный код — bind-mount в dev или COPY в prod)
+RUN --mount=type=cache,id=ergo_poetry_cache,target=/tmp/poetry-cache,sharing=locked \
+    sh -c 'if [ "$ERGO_DOCKER_DEPS_CACHE" != "off" ]; then \
+      poetry install --no-root --no-ansi \
+      && poetry run python -c "import django; print(\"django ok\")"; \
+    fi'
+
+RUN sh -c 'if [ "$ERGO_DOCKER_DEPS_CACHE" = "off" ]; then \
+      poetry install --no-root --no-ansi \
+      && poetry run python -c "import django; print(\"django ok\")"; \
+    fi'
+
+# Код образа (в dev полный проект — bind-mount; полная установка ядра+модулей — api install при init)
 COPY core/api/src ./core/api/src
 COPY core/api/commands ./core/api/commands
 COPY core/api/scripts ./core/api/scripts
 COPY core/media_api/src ./core/media_api/src
 COPY modules ./modules
-
-RUN poetry install --no-interaction --no-ansi \
-    && poetry run python -c "import django; print('django ok')"
 
 # Вне /app — bind-mount проекта на Windows не перезаписывает entrypoint (CRLF)
 COPY core/deployment/docker/entrypoint/wait_for_services.py /usr/local/lib/ergo-ms/wait_for_services.py

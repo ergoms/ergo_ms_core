@@ -23,7 +23,7 @@ PYTHON_VOLUMES_YAML = """    volumes:
       - ./.compose.databases.yaml:/app/databases.yaml:ro
       - ${ERGO_LOGS_BIND:-../../../logs}:/app/logs
       - ${ERGO_MEDIA_BIND:-../../../media}:/app/media
-      - celery_cache:/app/virtual_env/cache
+      - ${ERGO_CELERY_CACHE_BIND:-celery_cache}:/app/virtual_env/cache
       - poetry_venv:/app/virtual_env/python"""
 
 PYTHON_SERVICE_TEMPLATE = """
@@ -77,14 +77,20 @@ services:
 def main() -> int:
     parser = argparse.ArgumentParser(description='Generate docker-compose workers fragment')
     parser.add_argument('--output', type=Path, default=OUTPUT)
+    parser.add_argument(
+        '--quiet',
+        action='store_true',
+        help='не выводить сообщение об успешной генерации',
+    )
     args = parser.parse_args()
 
     workers = load_workers_config()
     content = generate(workers)
     args.output.write_text(content, encoding='utf-8')
-    if hasattr(sys.stdout, 'reconfigure'):
-        sys.stdout.reconfigure(encoding='utf-8')
-    print(f'[OK] Сгенерировано worker-сервисов: {len(workers)} -> {args.output}')
+    if not args.quiet:
+        if hasattr(sys.stdout, 'reconfigure'):
+            sys.stdout.reconfigure(encoding='utf-8')
+        print(f'[OK] Сгенерировано worker-сервисов: {len(workers)} -> {args.output}')
     return 0
 
 

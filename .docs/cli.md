@@ -186,6 +186,7 @@ ergoms stop-redis
 
 ```cmd
 ergoms docker-init
+ergoms docker-clean --yes
 ergoms docker-up
 ergoms docker-down
 ergoms docker-restart
@@ -200,6 +201,7 @@ ergoms docker-gen-workers
 ```
 
 - **`docker-init`** — первый запуск: сборка образов, worker-сервисы, `up`, миграции
+- **`docker-clean --yes`** — полная очистка: контейнеры, тома (включая PostgreSQL), локальные образы, сгенерированные файлы compose
 - **`docker-dev`** / **`docker-prod`** — `docker-up` с `DOCKER_MODE=dev` или `prod`
 - **`docker-migrate`** — миграции и прогрев кэшей внутри контейнера `api`
 - **`docker-gen-workers`** — пересоздать compose-фрагмент из `celery_workers.yaml`

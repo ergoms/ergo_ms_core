@@ -1,0 +1,95 @@
+---
+description: Django-миграции ERGO MS — индексы с явными name, нумерация, makemigrations без циклов, ergoms
+globs: "**/migrations/*.py"
+alwaysApply: false
+---
+
+# Django-миграции — без расхождений с моделью
+
+Правило для `makemigrations` / `migrate` в `core/api` и `modules/*/api`. Команды — только через ergoms ([`no-direct-manage-py.mdc`](no-direct-manage-py.mdc)).
+
+## Кратко
+
+- Индексы в модели и в миграции — **одни и те же явные** `name=`.
+- Запрещены placeholder-имена индексов (`a1b2c3`, `d4e5f6`, `foo`, `bar`).
+- Один номер миграции — один файл; не создавай второй `0025_*`, если уже есть `0025_*`.
+- После правок: `ergoms api makemigrations --dry-run` **дважды подряд** → оба раза `No changes detected`.
+- Уже применённую миграцию не переписывай «задним числом» — добавляй следующую по номеру.
+
+## Обязательно
+
+### Индексы в `Meta.indexes`
+
+Если в модели есть `models.Index(...)`, задай **`name=`** — тот же строковый литерал, что в `AddIndex` / `CreateModel`.
+
+Порядок действий при **новом** индексе:
+
+1. Добавь `Index(fields=[...])` в модель **без** `name`.
+2. `ergoms api makemigrations <app>`.
+3. Скопируй сгенерированное имя из миграции в модель как `name='...'`.
+4. Снова `ergoms api makemigrations <app> --dry-run` — изменений быть не должно.
+
+Эталон: [`Theme`](../../core/api/src/core/settings/models.py) и [`0023_theme_module_key.py`](../../core/api/src/core/settings/migrations/0023_theme_module_key.py).
+
+### Нумерация и цепочка
+
+- Следующий файл: `NNNN_<краткое_имя>.py`, где `NNNN` — на 1 больше последней миграции приложения.
+- `dependencies` — на реально существующую миграцию; не дублируй номер (конфликт `0025_theme_module_pair` + `0025_rename_...`).
+- Data-миграции (`RunPython`, seed) — **после** schema-миграций, от которых зависят поля.
+
+### Метаданные полей
+
+`help_text`, `verbose_name`, `choices`, `default` в **новой** `AddField` / `AlterField` должны совпадать с моделью. Иначе autodetector снова предложит `AlterField` только ради текста.
+
+### Проверка перед завершением задачи
+
+```powershell
+ergoms api makemigrations --dry-run
+ergoms api makemigrations --dry-run
+```
+
+Если второй запуск что-то генерирует — исправь модель или миграцию, не коммить «полуфабрикат».
+
+## Запрещено
+
+```python
+# BAD — выдуманное имя индекса
+models.Index(fields=['module_key', 'is_active'], name='settings_th_module__a1b2c3_idx')
+
+# BAD — индекс в модели без name, а в миграции — с name (или наоборот)
+indexes = [models.Index(fields=['status', 'created_at'])]
+
+# BAD — второй файл с тем же номером
+# 0025_foo.py уже есть → не создавай 0025_bar.py, только 0026_bar.py
+
+# BAD — править содержимое уже применённой миграции вместо новой
+# (ломает согласованность у тех, кто успел применить старую версию файла)
+```
+
+```python
+# GOOD — одно имя в модели и в миграции
+indexes = [
+    models.Index(
+        fields=['module_key', 'is_active'],
+        name='settings_th_module__48e8e9_idx',
+    ),
+]
+```
+
+## Уже применённые миграции с ошибочными именами
+
+Не перегенерируй бесконечные `RenameIndex`. Схема:
+
+1. В **модели** и в **исходной** schema-миграции (если ещё не в prod) — канонические имена.
+2. Отдельная миграция с **условным** переименованием в БД для старых установок.
+
+Эталон: [`0026_align_theme_legacy_index_names.py`](../../core/api/src/core/settings/migrations/0026_align_theme_legacy_index_names.py) — проверка `pg_indexes`, переименование только если старое имя есть и нового ещё нет.
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| ORM, ergoms migrate | [`database.mdc`](database.mdc) |
+| Django, User, apps | [`django.mdc`](django.mdc) |
+| Модули, `api/migrations/` | [`modules.mdc`](modules.mdc) |
+| Submodule — куда коммитить | [`gitignore.mdc`](gitignore.mdc) |

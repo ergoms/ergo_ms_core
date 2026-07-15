@@ -11,7 +11,7 @@ services:
       - ./.compose.databases.yaml:/app/databases.yaml:ro
       - ${ERGO_LOGS_BIND:-../../../logs}:/app/logs
       - ${ERGO_MEDIA_BIND:-../../../media}:/app/media
-      - celery_cache:/app/virtual_env/cache
+      - ${ERGO_CELERY_CACHE_BIND:-celery_cache}:/app/virtual_env/cache
       - poetry_venv:/app/virtual_env/python
       - ${ERGO_PROJECT_ROOT:-../../..}/notebooks:/app/notebooks
     ports:

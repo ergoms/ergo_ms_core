@@ -8,6 +8,7 @@ alwaysApply: false
 ## Кратко
 
 - Таблицы — только через миграции Django (`ergoms db-makemigrations`, `ergoms db-migrate`).
+- Индексы, нумерация файлов, цикл `makemigrations` — [`django-migrations.mdc`](django-migrations.mdc).
 - Обычная работа — ORM Django.
 - Сложные выборки — SQL через `SqlAlchemyManager` (`core/api/src/core/utils/database/base.py`).
 - Конфиг подключений — `DBConfig` (`core/api/src/core/utils/database/dbconfig.py`).
@@ -39,6 +40,7 @@ MyModel.objects.filter(owner=user)
 
 | Тема | Файл |
 |------|------|
+| Индексы, нумерация, dry-run | [`django-migrations.mdc`](django-migrations.mdc) |
 | Django, расширение User | [`django.mdc`](django.mdc) |
 | Python-окружение | [`virtual-env.mdc`](virtual-env.mdc) |
 | API | [`api_code.mdc`](api_code.mdc) |

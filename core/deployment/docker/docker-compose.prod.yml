@@ -11,18 +11,30 @@ services:
     build:
       context: ../../..
       dockerfile: core/deployment/docker/Dockerfile.client
+      args:
+        ERGO_DOCKER_DEPS_CACHE: ${DOCKER_DEPS_CACHE:-internal}
     env_file:
       - .compose.env
     working_dir: /app
     volumes:
       - ${ERGO_PROJECT_ROOT:-../../..}:/app
       - client_dist:/app/core/client/dist
+      - node_modules:/app/node_modules
+      - client_node_modules:/app/core/client/node_modules
+      - npm_cache:/root/.npm
     networks:
       - ergo_net
     command: >
-      sh -c "npm run install:all && npm run build --prefix core/client"
+      sh -c "/usr/local/bin/ergo-ensure-npm-deps.sh
+      && npm run build --prefix core/client"
     restart: "no"
 
 volumes:
   client_dist:
     name: ${DOCKER_COMPOSE_PROJECT:-ergo_ms}_client_dist
+  node_modules:
+    name: ${DOCKER_COMPOSE_PROJECT:-ergo_ms}_node_modules
+  client_node_modules:
+    name: ${DOCKER_COMPOSE_PROJECT:-ergo_ms}_client_node_modules
+  npm_cache:
+    name: ${DOCKER_COMPOSE_PROJECT:-ergo_ms}_npm_cache

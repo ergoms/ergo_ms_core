@@ -63,6 +63,8 @@ __pycache__/
 /core/deployment/docker/.compose.env
 /core/deployment/docker/.compose.databases.yaml
 /core/deployment/docker/docker-compose.workers.generated.yml
+/core/deployment/docker/docker-compose.build.generated.yml
+/.docker-cache/
 /core/deployment/docker/init/postgres/02-celery-databases.sql
 /core/deployment/docker/nginx/ergo_ms.conf.rendered
 

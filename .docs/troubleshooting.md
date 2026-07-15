@@ -101,6 +101,13 @@ git submodule update --init --recursive
 5. После правки `celery_workers.yaml`: `ergoms docker-gen-workers` и `ergoms docker-restart`.
 6. Миграции: `ergoms docker-migrate`.
 
+Долгий повторный `docker-init`:
+
+1. По умолчанию `DOCKER_BUILD_POLICY=if-missing` — build пропускается, если образы уже есть.
+2. Для принудительной пересборки: `DOCKER_BUILD_POLICY=always` или `ergoms docker-build`.
+3. Скачать зависимости без кэша: `DOCKER_DEPS_CACHE=off`, затем `ergoms docker-build -- --no-cache`.
+4. Очистить `.docker-cache/` или тома `*_poetry_venv`, `*_node_modules`.
+
 Подробнее — [docker.md](docker.md).
 
 ## См. также

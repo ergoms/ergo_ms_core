@@ -25,6 +25,8 @@ from env_resolvers import read_env_file  # noqa: E402
 
 LOCAL_DB_HOSTS = frozenset({'localhost', '127.0.0.1', '::1', ''})
 CELERY_DB_SECTIONS = ('default', 'celery', 'celery_worker', 'celery_beat')
+DOCKER_DEPS_CACHE_VALUES = frozenset({'internal', 'project', 'off'})
+BUILD_CACHE_OUTPUT = _DOCKER_DIR / 'docker-compose.build.generated.yml'
 
 
 def _truthy(value: str | None, default: bool = False) -> bool:
@@ -81,6 +83,74 @@ def write_compose_databases(path: Path, databases: dict[str, Any]) -> None:
     )
 
 
+def effective_docker_deps_cache(raw_env: dict[str, str]) -> str:
+    mode = _env(raw_env, 'DOCKER_DEPS_CACHE', 'internal').lower()
+    return mode if mode in DOCKER_DEPS_CACHE_VALUES else 'internal'
+
+
+def effective_docker_build_policy(raw_env: dict[str, str]) -> str:
+    policy = _env(raw_env, 'DOCKER_BUILD_POLICY', 'if-missing').lower()
+    return policy if policy in ('if-missing', 'always') else 'if-missing'
+
+
+def effective_docker_npm_install(raw_env: dict[str, str]) -> str:
+    mode = _env(raw_env, 'DOCKER_NPM_INSTALL', 'smart').lower()
+    return mode if mode in ('smart', 'always') else 'smart'
+
+
+def resolve_celery_cache_bind(project_root: Path, raw_env: dict[str, str]) -> str:
+    mode = _env(raw_env, 'DOCKER_VOLUME_CELERY_CACHE', 'named').lower()
+    if mode == 'bind':
+        cache_path = (project_root / 'virtual_env' / 'cache').resolve()
+        cache_path.mkdir(parents=True, exist_ok=True)
+        return str(cache_path).replace('\\', '/')
+    return 'celery_cache'
+
+
+def resolve_docker_cache_dir(project_root: Path) -> str:
+    cache_dir = (project_root / '.docker-cache').resolve()
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    return str(cache_dir).replace('\\', '/')
+
+
+def build_compose_build_cache_content(cache_dir: str) -> str:
+    """Фрагмент compose для project-кэша BuildKit (local cache)."""
+    api_cache = f'{cache_dir}/build-api'
+    client_cache = f'{cache_dir}/build-client'
+    return f"""# Автогенерация: prepare_compose_artifacts (DOCKER_DEPS_CACHE=project)
+services:
+  api:
+    build:
+      cache_from:
+        - type=local,src={api_cache}
+      cache_to:
+        - type=local,dest={api_cache},mode=max
+  client:
+    build:
+      cache_from:
+        - type=local,src={client_cache}
+      cache_to:
+        - type=local,dest={client_cache},mode=max
+  client-build:
+    build:
+      cache_from:
+        - type=local,src={client_cache}
+      cache_to:
+        - type=local,dest={client_cache},mode=max
+"""
+
+
+def write_compose_build_cache(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding='utf-8')
+
+
+def remove_compose_build_cache(path: Path | None = None) -> None:
+    target = path or BUILD_CACHE_OUTPUT
+    if target.is_file():
+        target.unlink()
+
+
 def build_compose_env_overrides(raw_env: dict[str, str]) -> dict[str, str]:
     """Runtime-overrides для .compose.env (не дублирует порты — они уже в .env)."""
     overrides: dict[str, str] = {
@@ -119,6 +189,14 @@ def build_compose_env_overrides(raw_env: dict[str, str]) -> dict[str, str]:
 
     media_volume = _env(raw_env, 'DOCKER_VOLUME_MEDIA', 'bind').lower()
     overrides.setdefault('MEDIA_STORAGE_PATH', '/app/media')
+
+    overrides.setdefault('DOCKER_BUILD_CACHE', 'true' if _truthy(raw_env.get('DOCKER_BUILD_CACHE'), default=True) else 'false')
+    deps_cache = effective_docker_deps_cache(raw_env)
+    if not _truthy(raw_env.get('DOCKER_BUILD_CACHE'), default=True):
+        deps_cache = 'off'
+    overrides.setdefault('DOCKER_DEPS_CACHE', deps_cache)
+    overrides.setdefault('DOCKER_BUILD_POLICY', effective_docker_build_policy(raw_env))
+    overrides.setdefault('DOCKER_NPM_INSTALL', effective_docker_npm_install(raw_env))
 
     return overrides
 
@@ -207,6 +285,8 @@ def resolve_volume_binds(project_root: Path, raw_env: dict[str, str]) -> dict[st
     media_mode = _env(raw_env, 'DOCKER_VOLUME_MEDIA', 'bind').lower()
     binds: dict[str, str] = {
         'ERGO_PROJECT_ROOT': str(project_root.resolve()).replace('\\', '/'),
+        'ERGO_CELERY_CACHE_BIND': resolve_celery_cache_bind(project_root, raw_env),
+        'ERGO_DOCKER_CACHE_DIR': resolve_docker_cache_dir(project_root),
     }
     if logs_mode == 'bind':
         binds['ERGO_LOGS_BIND'] = str((project_root / 'logs').resolve()).replace('\\', '/')
@@ -227,7 +307,8 @@ def prepare_compose_artifacts(project_root: Path | None = None) -> dict[str, Pat
 
     merged = merge_env_files(root, raw)
     merged.update(postgres_container_env(raw))
-    merged.update(resolve_volume_binds(root, raw))
+    binds = resolve_volume_binds(root, raw)
+    merged.update(binds)
     write_compose_env(compose_env_path, merged)
 
     databases = build_compose_databases(root, raw)
@@ -237,8 +318,17 @@ def prepare_compose_artifacts(project_root: Path | None = None) -> dict[str, Pat
     celery_sql = _DOCKER_DIR / 'init' / 'postgres' / '02-celery-databases.sql'
     write_celery_init_sql(celery_sql, root)
 
+    if effective_docker_deps_cache(raw) == 'project':
+        write_compose_build_cache(
+            BUILD_CACHE_OUTPUT,
+            build_compose_build_cache_content(binds['ERGO_DOCKER_CACHE_DIR']),
+        )
+    else:
+        remove_compose_build_cache(BUILD_CACHE_OUTPUT)
+
     return {
         'compose_env': compose_env_path,
         'compose_databases': compose_db_path,
         'celery_init_sql': celery_sql,
+        'compose_build_cache': BUILD_CACHE_OUTPUT if BUILD_CACHE_OUTPUT.is_file() else None,
     }
