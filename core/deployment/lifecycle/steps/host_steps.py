@@ -117,30 +117,97 @@ class UpdateModuleSubmodulesStep(DeploymentStep):
         return 'update_module_submodules'
 
     def run(self, ctx: DeploymentContext) -> StepResult:
-        gitmodules = ctx.project_root / '.gitmodules'
+        root = ctx.project_root
+        gitmodules = root / '.gitmodules'
         if not gitmodules.is_file():
             return StepResult(exit_code=1, message='.gitmodules не найден')
         result = subprocess.run(
             ['git', 'config', '-f', '.gitmodules', '--get-regexp', r'^submodule\..*\.path$'],
-            cwd=str(ctx.project_root),
+            cwd=str(root),
             capture_output=True,
             text=True,
             check=False,
         )
-        paths: list[str] = []
+        entries: list[tuple[str, str]] = []
         for line in (result.stdout or '').splitlines():
-            parts = line.split()
-            if len(parts) >= 2 and parts[1].startswith('modules/'):
-                paths.append(parts[1])
-        if not paths:
+            parts = line.split(maxsplit=1)
+            if len(parts) < 2:
+                continue
+            key, path = parts[0], parts[1]
+            if not path.startswith('modules/'):
+                continue
+            name = key.removeprefix('submodule.').removesuffix('.path')
+            entries.append((name, path))
+        if not entries:
             print(format_console('skip', 'Submodule модулей не найдены'))
             return StepResult()
-        for rel in paths:
-            subprocess.call(
-                ['git', 'submodule', 'update', '--init', '--remote', '--', rel],
-                cwd=str(ctx.project_root),
+
+        succeeded = 0
+        skipped = 0
+        failed = 0
+        failed_paths: list[str] = []
+
+        for name, rel in entries:
+            index = subprocess.run(
+                ['git', 'ls-files', '-s', '--', rel],
+                cwd=str(root),
+                capture_output=True,
+                text=True,
+                check=False,
             )
-            branch = 'dev'
-            subprocess.call(['git', 'checkout', branch], cwd=str(ctx.project_root / rel))
-        print(format_console('ok', f'Обновлено модулей: {len(paths)}'))
+            if not (index.stdout or '').strip():
+                print(format_console('skip', f'{rel} не зарегистрирован в git (нет в индексе)'))
+                skipped += 1
+                continue
+
+            branch_result = subprocess.run(
+                ['git', 'config', '-f', '.gitmodules', f'submodule.{name}.branch'],
+                cwd=str(root),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            branch = (branch_result.stdout or '').strip() or 'dev'
+
+            code = subprocess.call(
+                ['git', 'submodule', 'update', '--init', '--remote', '--', rel],
+                cwd=str(root),
+            )
+            if code != 0:
+                print(format_console('warning', f'Не удалось обновить {rel}'), file=sys.stderr)
+                failed += 1
+                failed_paths.append(rel)
+                continue
+
+            sub = root / rel
+            if not sub.is_dir():
+                print(format_console('warning', f'Каталог submodule не найден: {rel}'), file=sys.stderr)
+                failed += 1
+                failed_paths.append(rel)
+                continue
+
+            checkout_code = subprocess.call(['git', 'checkout', branch], cwd=str(sub))
+            if checkout_code != 0:
+                print(
+                    format_console('warning', f'Не удалось переключить ветку {branch} в {rel}'),
+                    file=sys.stderr,
+                )
+            succeeded += 1
+
+        if succeeded > 0:
+            summary = f'Обновлено модулей: {succeeded}'
+            if skipped > 0 or failed > 0:
+                summary += f'. Пропущено: {skipped}. С ошибкой: {failed}'
+            print(format_console('ok', summary))
+            for rel in failed_paths:
+                print(f'  - {rel}', file=sys.stderr)
+            return StepResult()
+
+        if failed > 0:
+            print(format_console('error', f'Не удалось обновить ни одного модуля ({failed})'), file=sys.stderr)
+            for rel in failed_paths:
+                print(f'  - {rel}', file=sys.stderr)
+            return StepResult(exit_code=1, message='Не удалось обновить submodule модулей')
+
+        print(format_console('warning', 'Нет модулей для обновления'), file=sys.stderr)
         return StepResult()
