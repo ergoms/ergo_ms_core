@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 # Nginx management for Linux
 # Portable nginx в virtual_env/packages/nginx (сборка из официального tarball)
 

@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 # Redis management for Linux
 # Portable Redis в virtual_env/packages/redis (сборка из исходников)
 

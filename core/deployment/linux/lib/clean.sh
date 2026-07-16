@@ -1,4 +1,4 @@
-﻿# Clean project dependencies helpers
+# Clean project dependencies helpers
 # Вспомогательные функции для очистки зависимостей проекта
 
 stop_blocking_processes_for_clean() {

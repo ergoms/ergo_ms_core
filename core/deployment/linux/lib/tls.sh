@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 # TLS (Let's Encrypt) for ERGO MS on Linux
 
 TLS_HOOK_NAME='99-ergo-ms-reload-nginx.sh'
