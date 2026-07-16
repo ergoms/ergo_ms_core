@@ -1,33 +1,5 @@
 . "$(dirname "${BASH_SOURCE[0]}")/nginx_common.sh"
 
-  fi
-
-  while (( waited < timeout )); do
-    local busy=0
-    local lock
-    for lock in "${lock_paths[@]}"; do
-      if [[ -e "$lock" ]] && fuser "$lock" >/dev/null 2>&1; then
-        busy=1
-        break
-      fi
-    done
-    if (( busy == 0 )); then
-      return 0
-    fi
-    if (( waited == 0 )); then
-      echo "-> Ожидание блокировки apt/dpkg (запущен другой менеджер пакетов)..."
-    fi
-    sleep 3
-    waited=$((waited + 3))
-  done
-
-  echo "[ERROR] Блокировка apt/dpkg не снята за ${timeout}s." >&2
-  echo "  Wait until unattended-upgrades or apt-get finishes, then retry:" >&2
-  echo "  sudo ergoms install-nginx" >&2
-  echo "  Check: ps aux | grep -E 'apt|dpkg|unattended'" >&2
-  return 1
-}
-
 _nginx_install_build_deps() {
   echo "-> Установка зависимостей сборки..."
   if command -v apt-get >/dev/null 2>&1; then

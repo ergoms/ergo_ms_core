@@ -118,3 +118,30 @@ _nginx_wait_for_apt_locks() {
 
   if ! command -v fuser >/dev/null 2>&1; then
     return 0
+  fi
+
+  while (( waited < timeout )); do
+    local busy=0
+    local lock
+    for lock in "${lock_paths[@]}"; do
+      if [[ -e "$lock" ]] && fuser "$lock" >/dev/null 2>&1; then
+        busy=1
+        break
+      fi
+    done
+    if (( busy == 0 )); then
+      return 0
+    fi
+    if (( waited == 0 )); then
+      echo "-> Ожидание блокировки apt/dpkg (запущен другой менеджер пакетов)..."
+    fi
+    sleep 3
+    waited=$((waited + 3))
+  done
+
+  echo "[ERROR] Блокировка apt/dpkg не снята за ${timeout}s." >&2
+  echo "  Дождитесь завершения unattended-upgrades или apt-get и повторите:" >&2
+  echo "  sudo ergoms install-nginx" >&2
+  echo "  Проверка: ps aux | grep -E 'apt|dpkg|unattended'" >&2
+  return 1
+}
