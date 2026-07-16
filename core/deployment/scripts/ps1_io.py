@@ -1,4 +1,8 @@
-"""Чтение и запись PowerShell-скриптов с UTF-8 BOM (Windows PowerShell 5.1)."""
+"""Чтение и запись PowerShell-скриптов с UTF-8 BOM (Windows PowerShell 5.1).
+
+При правке .ps1 из Python — только write_ps1(), не Path.write_text().
+Проверка репозитория: ergoms ps1-encoding-check (входит в core-rules-check).
+"""
 
 from __future__ import annotations
 

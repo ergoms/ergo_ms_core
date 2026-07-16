@@ -5,7 +5,7 @@ alwaysApply: false
 
 # Команды ergoms (для разработчиков)
 
-Поведение для пользователя и ассистента — [`no-direct-manage-py.mdc`](no-direct-manage-py.mdc). Справочник команд — [`.docs/cli.md`](../../.docs/cli.md). Устройство развёртывания — [`core/deployment/logic.md`](../../core/deployment/logic.md).
+Поведение для пользователя и ассистента — [`no-direct-manage-py.mdc`](no-direct-manage-py.mdc). Справочник команд — [`.docs/cli.md`](../../.docs/cli.md). Устройство развёртывания — [`core/deployment/logic.md`](../../core/deployment/logic.md). Обзор pipeline для людей — [`.docs/lifecycle-pipeline.md`](../../.docs/lifecycle-pipeline.md).
 
 ## Справка (три режима)
 
@@ -37,6 +37,21 @@ alwaysApply: false
 
 При добавлении команды ядра — русский текст в скрипте развёртывания и `summary` в `help.manifest.yaml`.
 
+## Единый lifecycle-pipeline
+
+Составные сценарии (setup, deploy, службы, nginx/redis/TLS, Docker compose, dev) — через [`lifecycle/runner.py`](../../core/deployment/lifecycle/runner.py) → [`DeploymentOrchestrator.run_recipe`](../../core/deployment/lifecycle/orchestrator.py). Реестр рецептов — [`lifecycle/recipes.py`](../../core/deployment/lifecycle/recipes.py). Полное правило — [`lifecycle-pipeline.mdc`](lifecycle-pipeline.mdc).
+
+| Точка входа | Роль |
+|-------------|------|
+| `commands.conf` | `runner.py <recipe>` для составных команд |
+| `ergo_ms.ps1` / `ergo_ms.sh` | Маршрутизация + тонкое делегирование в runner |
+| `docker_cli.py` | argparse → `run_recipe('docker-*')` |
+| `.vscode/tasks.json` | Только `ergoms <команда>`, без прямого `ergo_ms.ps1` / `sudo bash ergo_ms.sh` |
+
+Список рецептов: `python core/deployment/lifecycle/runner.py --list`.
+
+Низкоуровневые примитивы (`api:`, `npm:`, прямой `start_*.py`) остаются в `commands.conf` для разработки.
+
 ## Где описаны команды
 
 - Ядро: `core/deployment/commands.conf` + описания в `help.manifest.yaml`
@@ -46,18 +61,13 @@ alwaysApply: false
 
 ## Команды вне commands.conf
 
-**nginx**, **redis**, **TLS**, установка и управление **системными службами** (`install`, `start`, `stop`, `status`, `logs`) реализованы как встроенные команды в:
+**install-cli**, **help**, маршрутизация — в `ergo_ms.ps1` / `ergo_ms.sh`. **nginx**, **redis**, **TLS**, службы (`install-services`, `start`, `stop`, …) и **setup-full** делегируют в [`lifecycle/runner.py`](../../core/deployment/lifecycle/runner.py) (рецепты `nginx-*`, `redis-*`, `tls-*`, `service-*`, `setup-full`). На Linux `sudo` — внутри runner ([`privilege.py`](../../core/deployment/lifecycle/host/privilege.py)), не в VS Code tasks.
 
-- Windows: `core/deployment/windows/ergo_ms.ps1`
-- Linux: `core/deployment/linux/ergo_ms.sh`
+Описания для `ergoms help` — в `help.manifest.yaml`. Подробности — [`deployment-infra.mdc`](deployment-infra.mdc), [`core/deployment/logic.md`](../../core/deployment/logic.md).
 
-Они **не** добавляются строками в `commands.conf`. Описания для `ergoms help` — в `help.manifest.yaml` (разделы nginx, redis, TLS, services). Подробности — [`deployment-infra.mdc`](deployment-infra.mdc), [`core/deployment/logic.md`](../../core/deployment/logic.md).
+**Docker Compose** — в `commands.conf` (префикс `docker-*`); CLI [`docker_cli.py`](../../core/deployment/docker/docker_cli.py) делегирует `up`/`down`/`build`/`ps`/`logs` в рецепты compose. Правила — [`docker.mdc`](docker.mdc).
 
-**Docker Compose** — в `commands.conf` (префикс `docker-*`): `docker-init`, `docker-up`, `docker-down`, `docker-dev`, `docker-prod`, `docker-migrate` и др. CLI — [`docker_cli.py`](../../core/deployment/docker/docker_cli.py). Правила — [`docker.mdc`](docker.mdc).
-
-При добавлении или изменении команды **запуска**, **развёртывания** или **инфраструктуры** — сверяйся с чеклистом «Параллельные сценарии» в [`docker.mdc`](docker.mdc): хост (`commands.conf`, `ergo_ms.ps1` / `ergo_ms.sh`) и Docker (`docker-compose*.yml`, `docker_runtime.py`) — **два обязательных** места проверки, если меняется способ поднятия сервиса.
-
-Новую infra-команду добавляют в оба скрипта (`ergo_ms.ps1` / `ergo_ms.sh`), в `help.manifest.yaml` и в `_BUILTIN_COMMANDS` в [`ergoms_help.py`](../../core/deployment/scripts/ergoms_help.py).
+При добавлении **составной** команды — рецепт в `recipes.py`, строка в `commands.conf` → `runner.py`, `summary` в help. Для **новой** infra-команды — шаг в `infra_steps.py` или `internal_dispatch`, рецепт, делегирование в `ergo_ms.ps1` / `ergo_ms.sh`, `_BUILTIN_COMMANDS` в [`ergoms_help.py`](../../core/deployment/scripts/ergoms_help.py).
 
 ## Точки входа Django-команд ядра
 
@@ -87,20 +97,24 @@ alwaysApply: false
 ## Примеры в commands.conf
 
 ```conf
+setup=win:py -3.12 core\deployment\lifecycle\runner.py setup-full && linux:python3.12 core/deployment/lifecycle/runner.py setup-full
+install-deps=win:virtual_env\python\Scripts\python.exe core\deployment\lifecycle\runner.py install-deps && linux:...
+start-all-services=win:... runner.py start-all && linux:...
+dev=win:... runner.py dev-api && linux:...
 migrate-all=api:makemigrations && api:migrate
-install-deps=api:install && npm:run install:all && api:migrate && api:warmup_caches
-dev=... start_api.py через scripts/
-start-client=... start_client_if_dev.py
 ```
+
+Составные цепочки `api:install && npm:...` для deploy/setup **заменены** на один рецепт runner. Примитивы `api:migrate`, `npm:run build` — по-прежнему допустимы.
 
 Имена команд — kebab-case (`db-migrate`, не `db_migrate` при вызове через ergoms).
 
 ## Новая команда ядра
 
-1. Добавь строку в `core/deployment/commands.conf`.
-2. Добавь `summary` в `core/deployment/help.manifest.yaml`.
-3. При необходимости — скрипт в `core/deployment/windows/` или `linux/`.
-4. Проверь на обеих ОС ([`oc.mdc`](oc.mdc)).
+1. Для **составной** команды — рецепт в [`lifecycle/recipes.py`](../../core/deployment/lifecycle/recipes.py) и строка `runner.py <recipe>` в `commands.conf` (или builtin → runner в `ergo_ms.ps1` / `ergo_ms.sh`).
+2. Для **примитива** — строка `api:` / `npm:` / `shell:` в `commands.conf`.
+3. Добавь `summary` в `core/deployment/help.manifest.yaml`.
+4. При необходимости — шаг в `lifecycle/steps/` или скрипт в `core/deployment/scripts/`.
+5. Проверь на обеих ОС ([`oc.mdc`](oc.mdc)).
 
 Модульную команду — в `modules/<имя>/ergoms.conf` и описание в `ergoms.help.yaml`.
 
@@ -114,6 +128,8 @@ start-client=... start_client_if_dev.py
 
 | Тема | Файл |
 |------|------|
+| Lifecycle-pipeline (детали) | [`lifecycle-pipeline.mdc`](lifecycle-pipeline.mdc) |
+| UTF-8 BOM в .ps1 | [`ps1-encoding.mdc`](ps1-encoding.mdc) |
 | Справка модулей | [`ergoms-module-help.mdc`](ergoms-module-help.mdc) |
 | Только ergoms, не manage.py | [`no-direct-manage-py.mdc`](no-direct-manage-py.mdc) |
 | Python-окружение | [`virtual-env.mdc`](virtual-env.mdc) |

@@ -28,7 +28,35 @@
 
 `core/deployment/commands.conf` — реестр команд ядра: строки вида `имя-команды=тип:действие`. Модули добавляют свои команды в `modules/<имя>/ergoms.conf`.
 
-Часть команд **не** в `commands.conf`, а встроена в `ergo_ms.ps1` / `ergo_ms.sh`: **nginx**, **redis**, **TLS**, установка служб (`install`, `start`, `stop`). Описания — в `help.manifest.yaml`; правила — [`.cursor/rules/deployment-infra.mdc`](../../.cursor/rules/deployment-infra.mdc).
+Часть команд **не** в `commands.conf`, а встроена в `ergo_ms.ps1` / `ergo_ms.sh`: **install-cli**, **help**, маршрутизация. Составные сценарии (setup, deploy, службы, nginx/redis/TLS, Docker compose, dev) проходят через единый pipeline — [`lifecycle/runner.py`](lifecycle/runner.py). Описания — в `help.manifest.yaml`; правила — [`.cursor/rules/deployment-infra.mdc`](../../.cursor/rules/deployment-infra.mdc).
+
+## Единый lifecycle-pipeline
+
+Любой составной сценарий установки, развёртывания и эксплуатации:
+
+`ergoms` / `tasks.json` / `ergo_ms.ps1|sh` / `commands.conf` → [`lifecycle/runner.py`](lifecycle/runner.py) → [`DeploymentOrchestrator`](lifecycle/orchestrator.py) → [`DeploymentPipeline`](lifecycle/pipeline.py) → шаги [`DeploymentStep`](lifecycle/steps/base.py).
+
+| Слой | Назначение |
+|------|------------|
+| [`lifecycle/recipes.py`](lifecycle/recipes.py) | Реестр рецептов: `setup-full`, `install-deps`, `deploy-*`, `service-*`, `nginx-*`, `docker-*`, `dev-*` |
+| [`lifecycle/context.py`](lifecycle/context.py) | `runtime` (host/docker), `target`, `options` (sudo, purge, worker_key, …) |
+| [`lifecycle/host/ops.py`](lifecycle/host/ops.py) | venv, `run_api_command`, npm, foreground-скрипты |
+| [`lifecycle/host/privilege.py`](lifecycle/host/privilege.py) | Linux: re-exec через `sudo` для infra-рецептов |
+| [`lifecycle/steps/`](lifecycle/steps/) | Общие (`common_steps`), host, service, infra, compose, dev |
+| [`lifecycle/services/`](lifecycle/services/) | Каталог служб; backends через `internal_dispatch` → `services.ps1` / `services.sh` |
+| [`docker_cli.py`](docker/docker_cli.py) | Тонкий argparse → `run_recipe('docker-*')` |
+
+Низкоуровневые примитивы (`api:migrate`, `npm:run build`, прямой вызов `start_*.py`) остаются в `commands.conf` для разработки; **составные** цепочки — только через runner.
+
+Список рецептов: `python core/deployment/lifecycle/runner.py --list` (или `py -3.12 …` на Windows).
+
+### Задачи VS Code / Cursor
+
+В [`.vscode/tasks.json`](../../.vscode/tasks.json) — **только** `ergoms <команда>`. Прямой вызов `ergo_ms.ps1`, `sudo bash ergo_ms.sh` или `docker_cli.py` из задач **запрещён**. Пример: **Setup Full System** → `ergoms setup && npm run install-extensions`.
+
+### Кодировка PowerShell (Windows)
+
+Файлы `.ps1` в `core/deployment/` с кириллицей — **UTF-8 с BOM** (иначе PowerShell 5.1 ломает разбор). Запись из Python — [`ps1_io.write_ps1()`](scripts/ps1_io.py). Проверка: `ergoms ps1-encoding-check`; исправление: `ergoms ps1-encoding-check --fix` (входит в `core-rules-check`). Подробнее — [`.docs/lifecycle-pipeline.md`](../../.docs/lifecycle-pipeline.md), [`.cursor/rules/ps1-encoding.mdc`](../../.cursor/rules/ps1-encoding.mdc).
 
 Команды **разнесены по отдельным файлам** — не один монолитный скрипт на всё, а шаги, которые можно переиспользовать и тестировать.
 
@@ -110,12 +138,12 @@
 - `ergoms start-nginx` / `stop-nginx` / `restart-nginx` / `status-nginx` / `test-nginx`
 - `ergoms uninstall-nginx` / `uninstall-nginx --purge` (Linux) / `-Purge` (Windows)
 
-Команды реализованы в `ergo_ms.ps1` / `ergo_ms.sh`, не в `commands.conf`.
+Команды nginx/redis/TLS и служб делегируют в [`lifecycle/runner.py`](../../core/deployment/lifecycle/runner.py) (рецепты `nginx-*`, `redis-*`, `tls-*`, `service-*`). На Linux `sudo` выполняется внутри runner (`privilege.py`), не через `sudo bash ergo_ms.sh` в VS Code tasks.
 
 ### Первичная настройка nginx
 
 1. Скопируйте нужные переменные из `core/deployment/nginx/env.example` в корневой `.env` (`NGINX_ENABLED=true`, `CLIENT_USE_RELATIVE_API=true`, …).
-2. `ergoms install-nginx` (на Linux — с `sudo`, если нужны права на unit).
+2. `ergoms install-nginx` (на Linux runner при необходимости запросит `sudo`).
 3. Проверка: `ergoms test-nginx`, `ergoms status-nginx`.
 4. После смены клиента: `ergoms client-build && ergoms reload-nginx`.
 
@@ -148,7 +176,7 @@
 
 ## Docker Compose
 
-Запуск стека в контейнерах — альтернатива portable Redis/nginx на хосте и отдельным процессам `ergoms dev`. Команды — префикс **`ergoms docker-*`** в `commands.conf`; CLI — [`docker_cli.py`](docker/docker_cli.py).
+Запуск стека в контейнерах — альтернатива portable Redis/nginx на хосте и отдельным процессам `ergoms dev`. Команды — префикс **`ergoms docker-*`** в `commands.conf`; CLI [`docker_cli.py`](docker/docker_cli.py) делегирует compose-операции в рецепты `docker-up`, `docker-down`, `docker-build`, … через [`DeploymentOrchestrator.run_recipe`](lifecycle/orchestrator.py).
 
 | Что | Где |
 |-----|-----|
@@ -194,11 +222,15 @@
 | `ergoms` не найден | Первичная настройка: `setup-full` из [README.md](../../README.md) или `install-cli` |
 | Команда есть только на одной ОС | Префикс `win:` / `linux:` в `commands.conf` |
 | Окружение повреждено после ручного venv | Не создавай `.venv` — только `virtual_env/python/` ([`virtual-env.mdc`](../../.cursor/rules/virtual-env.mdc)) |
+| ParserError в `.ps1`, кракозябры вместо кириллицы | UTF-8 без BOM — `ergoms ps1-encoding-check --fix` |
 
 ## См. также
 
 | Тема | Файл |
 |------|------|
+| Lifecycle-pipeline (для людей) | [`.docs/lifecycle-pipeline.md`](../../.docs/lifecycle-pipeline.md) |
+| Lifecycle-pipeline (правило агента) | [`.cursor/rules/lifecycle-pipeline.mdc`](../../.cursor/rules/lifecycle-pipeline.mdc) |
+| UTF-8 BOM в .ps1 | [`.cursor/rules/ps1-encoding.mdc`](../../.cursor/rules/ps1-encoding.mdc) |
 | Справочник команд ergoms | [`.docs/cli.md`](../../.docs/cli.md) |
 | Только ergoms, не manage.py | [`.cursor/rules/no-direct-manage-py.mdc`](../../.cursor/rules/no-direct-manage-py.mdc) |
 | Службы Linux / Windows | [`.docs/deployment.md`](../../.docs/deployment.md) |

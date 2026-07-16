@@ -27,6 +27,8 @@ source "$LIB_DIR/nginx.sh"
 source "$LIB_DIR/redis.sh"
 # shellcheck source=lib/tls.sh
 source "$LIB_DIR/tls.sh"
+# shellcheck source=lib/lifecycle.sh
+source "$LIB_DIR/lifecycle.sh"
 # shellcheck source=lib/help.sh
 source "$LIB_DIR/help.sh"
 
@@ -194,85 +196,39 @@ main() {
       exit 0
     fi
     if [[ "$is_update_submodules_command" == true ]]; then
-      update_submodules "$ERGO_ROOT"
+      invoke_lifecycle_runner "$ERGO_ROOT" update-submodules
       exit 0
     fi
     if [[ "$is_update_module_submodules_command" == true ]]; then
-      update_module_submodules "$ERGO_ROOT"
+      invoke_lifecycle_runner "$ERGO_ROOT" update-module-submodules
       exit 0
     fi
 
-    # Execute nginx command
+    # Execute nginx/tls via lifecycle runner
     if [[ "$is_nginx_command" == true ]]; then
       local nginx_purge=false
+      local extra=()
       while (( "$#" )); do
         case "$1" in
-          --purge)
-            nginx_purge=true; shift ;;
-          *)
-            break ;;
+          --purge) nginx_purge=true; shift ;;
+          --dry-run) extra+=(--dry-run); shift ;;
+          *) break ;;
         esac
       done
-
+      [[ "$nginx_purge" == true ]] && extra+=(--purge)
       case "$command" in
-        install-nginx)
-          require_root_or_sudo
-          nginx_install "$ERGO_ROOT" "${1:-}" "${2:-}" "${3:-false}"
-          ;;
-        install-tls)
-          require_root_or_sudo
-          _nginx_read_env "$ERGO_ROOT"
-          staging="${3:-false}"
-          if _nginx_truthy "${ERGO_TLS_STAGING:-}"; then
-            staging="true"
-          fi
-          tls_install "$ERGO_ROOT" "${1:-}" "${2:-}" "$staging"
-          ;;
-        renew-tls)
-          require_root_or_sudo
-          dry_run="false"
-          if [[ "${1:-}" == "--dry-run" ]]; then
-            dry_run="true"
-          fi
-          tls_renew "$ERGO_ROOT" "$dry_run"
-          ;;
-        status-tls)
-          tls_status "$ERGO_ROOT"
-          ;;
-        uninstall-nginx)
-          require_root_or_sudo
-          nginx_uninstall "$ERGO_ROOT" "$nginx_purge"
-          ;;
-        start-nginx)
-          require_root_or_sudo
-          nginx_start_service "$ERGO_ROOT"
-          ;;
-        stop-nginx)
-          require_root_or_sudo
-          nginx_stop_service "$ERGO_ROOT"
-          ;;
-        restart-nginx)
-          require_root_or_sudo
-          nginx_stop_service "$ERGO_ROOT"
-          nginx_start_service "$ERGO_ROOT"
-          ;;
-        reload-nginx)
-          require_root_or_sudo
-          nginx_reload_service "$ERGO_ROOT"
-          ;;
-        status-nginx)
-          nginx_status_service "$ERGO_ROOT"
-          ;;
-        test-nginx)
-          nginx_test_config "$ERGO_ROOT"
+        install-nginx|install-tls)
+          extra+=(--server-name "${1:-}" --listen-port "${2:-}" --domain "${1:-}" --email "${2:-}")
           ;;
       esac
+      invoke_lifecycle_runner "$ERGO_ROOT" "$command" "${extra[@]}"
       exit 0
     fi
 
-    # Execute redis command
+    # Execute redis via lifecycle runner
     if [[ "$is_redis_command" == true ]]; then
       local redis_port="" redis_purge=false
+      local extra=()
       while (( "$#" )); do
         case "$1" in
           --purge) redis_purge=true; shift ;;
@@ -290,24 +246,15 @@ main() {
             ;;
         esac
       done
+      [[ "$redis_purge" == true ]] && extra+=(--purge)
+      [[ -n "$redis_port" ]] && extra+=(--listen-port "$redis_port")
       case "$command" in
-        install-redis)
-          require_root_or_sudo
-          redis_install "$ERGO_ROOT" "$redis_port" "false"
+        install-redis|install-redis-service)
+          invoke_lifecycle_runner "$ERGO_ROOT" install-redis "${extra[@]}"
           ;;
-        install-redis-service)
-          require_root_or_sudo
-          redis_install "$ERGO_ROOT" "$redis_port" "true"
+        *)
+          invoke_lifecycle_runner "$ERGO_ROOT" "$command" "${extra[@]}"
           ;;
-        uninstall-redis)
-          require_root_or_sudo
-          redis_uninstall "$ERGO_ROOT" "$redis_purge"
-          ;;
-        start-redis)   require_root_or_sudo; redis_start "$ERGO_ROOT" ;;
-        stop-redis)    require_root_or_sudo; redis_stop "$ERGO_ROOT" ;;
-        restart-redis) require_root_or_sudo; redis_restart "$ERGO_ROOT" ;;
-        status-redis)  redis_status "$ERGO_ROOT" ;;
-        test-redis)    redis_test "$ERGO_ROOT" ;;
       esac
       exit 0
     fi
@@ -451,24 +398,49 @@ main() {
 
   # Fast-path commands that don't need install
   case "$command" in
-    start)    start_all; exit 0 ;;
-    stop)     stop_all; exit 0 ;;
-    restart)  restart_all; exit 0 ;;
-    status)   status_all; exit 0 ;;
-    uninstall-services) uninstall_all "$purge"; exit 0 ;;
+    start)    invoke_lifecycle_runner "$ERGO_ROOT" start; exit 0 ;;
+    stop)     invoke_lifecycle_runner "$ERGO_ROOT" stop; exit 0 ;;
+    restart)  invoke_lifecycle_runner "$ERGO_ROOT" restart; exit 0 ;;
+    status)   invoke_lifecycle_runner "$ERGO_ROOT" status; exit 0 ;;
+    uninstall-services)
+      extra=()
+      [[ "$purge" == true ]] && extra+=(--purge)
+      invoke_lifecycle_runner "$ERGO_ROOT" uninstall-services "${extra[@]}"
+      exit 0
+      ;;
     install-cli) create_cli_wrapper "$SELF_SCRIPT"; exit 0 ;;
     uninstall-cli) remove_cli_wrapper; exit 0 ;;
     setup-full)
-      setup_full_system "$ERGO_ROOT"
+      extra=()
+      [[ "${recreate_venv:-false}" == true ]] && extra+=(--recreate-venv)
+      invoke_lifecycle_runner "$ERGO_ROOT" setup-full "${extra[@]}"
+      exit 0
+      ;;
+    install-services)
+      invoke_lifecycle_runner "$ERGO_ROOT" install-services
+      exit 0
+      ;;
+    install-api-service)
+      invoke_lifecycle_runner "$ERGO_ROOT" install-api-service
+      exit 0
+      ;;
+    install-client-service)
+      invoke_lifecycle_runner "$ERGO_ROOT" install-client-service
+      exit 0
+      ;;
+    install-worker-service)
+      invoke_lifecycle_runner "$ERGO_ROOT" install-worker-service
+      exit 0
+      ;;
+    install-beat-service)
+      invoke_lifecycle_runner "$ERGO_ROOT" install-beat-service
+      exit 0
+      ;;
+    install-media-service)
+      invoke_lifecycle_runner "$ERGO_ROOT" install-media-service
       exit 0
       ;;
     install)  ;; # Continue to install flow
-    install-services)  ;; # Continue to install flow
-    install-api-service)  ;; # Continue to install flow
-    install-client-service)  ;; # Continue to install flow
-    install-worker-service)  ;; # Continue to install flow
-    install-beat-service)  ;; # Continue to install flow
-    install-media-service)  ;; # Continue to install flow
     *)        echo "Неизвестная команда: $command" >&2; print_usage "$detected_root"; exit 1 ;;
   esac
 
@@ -480,26 +452,8 @@ main() {
     exit 1
   fi
 
-  # Handle individual service installation
+  # Handle install command (legacy systemd flow)
   case "$command" in
-    install-services)
-      install_services "$ERGO_ROOT"
-      ;;
-    install-api-service)
-      install_single_service "api" "$ERGO_ROOT"
-      ;;
-    install-client-service)
-      install_single_service "client" "$ERGO_ROOT"
-      ;;
-    install-worker-service)
-      install_single_service "worker" "$ERGO_ROOT"
-      ;;
-    install-beat-service)
-      install_single_service "beat" "$ERGO_ROOT"
-      ;;
-    install-media-service)
-      install_single_service "media" "$ERGO_ROOT"
-      ;;
     install)
       write_env_file "$ERGO_ROOT"
       

@@ -10,6 +10,7 @@ sections:
       - "ergoms help modules          — список модулей с ergoms-командами"
       - "ergoms help module <имя>     — справка по модулю"
       - "ergoms <имя_модуля>:<команда> [аргументы] — вызов команды модуля"
+      - "Составные сценарии (setup, deploy, службы, nginx/redis, docker, dev) — lifecycle/runner.py (рецепты); список: py -3.12 core/deployment/lifecycle/runner.py --list"
 
   - id: builtin_services
     title: "Службы ОС (встроенные)"
@@ -198,7 +199,10 @@ sections:
       - name: safe-drop-app
         summary: "Безопасно удалить Django-приложение"
       - name: core-rules-check
-        summary: "Проверка ядра: изоляция модулей, console.error, native select, импорты modules.*"
+        summary: "Проверка ядра: изоляция модулей, console.error, native select, импорты modules.*, UTF-8 BOM в .ps1"
+      - name: ps1-encoding-check
+        invoke: "ergoms ps1-encoding-check [--fix]"
+        summary: "Проверка UTF-8 BOM в .ps1 deployment с кириллицей (Windows PowerShell 5.1)"
       - name: test-smtp
         summary: "Проверка SMTP и отправка тестового письма"
 

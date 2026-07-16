@@ -4,6 +4,14 @@
 
 Технический формат команд (префиксы `api:`, `npm:`, `win:` и т.д.) описан в `.cursor/rules/ergoms-commands.mdc`. Ниже — то, что нужно при локальной разработке и обслуживании проекта.
 
+## Единый lifecycle-pipeline
+
+Составные команды (`setup`, `install-deps`, `deploy-*`, службы, nginx/redis, `docker-*`, `dev`, `start-*`) выполняются через [`core/deployment/lifecycle/runner.py`](../core/deployment/lifecycle/runner.py): рецепт → цепочка шагов. Для вас это прозрачно — вызывайте **`ergoms`** как раньше.
+
+Подробнее: [lifecycle-pipeline.md](lifecycle-pipeline.md). Список рецептов: `py -3.12 core/deployment/lifecycle/runner.py --list`.
+
+Проверка кодировки `.ps1` на Windows: `ergoms ps1-encoding-check` (см. [troubleshooting.md](troubleshooting.md#ошибка-парсинга-powershell-ps1)).
+
 ## Локальная разработка
 
 Для запуска API с прогревом кэшей выполните:

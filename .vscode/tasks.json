@@ -18,7 +18,7 @@
         {
             "label": "Setup Full System",
             "type": "shell",
-            "command": "powershell -ExecutionPolicy Bypass -File \"core/deployment/windows/ergo_ms.ps1\" setup-full && npm run install-extensions",
+            "command": "ergoms setup && npm run install-extensions",
             "options": { "cwd": "${workspaceFolder}" },
             "windows": {
                 "options": {
@@ -29,7 +29,7 @@
                 "options": {
                     "shell": { "executable": "/bin/bash", "args": ["-lc"] }
                 },
-                "command": "sudo bash core/deployment/linux/ergo_ms.sh setup-full && npm run install-extensions"
+                "command": "ergoms setup && npm run install-extensions"
             },
             "presentation": {
                 "echo": true,
@@ -280,8 +280,7 @@
             "linux": {
                 "options": {
                     "shell": { "executable": "/bin/bash", "args": ["-lc"] }
-                },
-                "command": "sudo bash core/deployment/linux/ergo_ms.sh install-nginx"
+                }
             },
             "presentation": {
                 "echo": true,
@@ -305,8 +304,7 @@
             "linux": {
                 "options": {
                     "shell": { "executable": "/bin/bash", "args": ["-lc"] }
-                },
-                "command": "sudo bash core/deployment/linux/ergo_ms.sh stop-nginx"
+                }
             },
             "presentation": {
                 "echo": true,
@@ -328,8 +326,7 @@
             "linux": {
                 "options": {
                     "shell": { "executable": "/bin/bash", "args": ["-lc"] }
-                },
-                "command": "sudo bash core/deployment/linux/ergo_ms.sh reload-nginx"
+                }
             },
             "presentation": {
                 "echo": true,
@@ -351,8 +348,7 @@
             "linux": {
                 "options": {
                     "shell": { "executable": "/bin/bash", "args": ["-lc"] }
-                },
-                "command": "sudo bash core/deployment/linux/ergo_ms.sh uninstall-nginx --purge"
+                }
             },
             "presentation": {
                 "echo": true,
@@ -375,8 +371,7 @@
             "linux": {
                 "options": {
                     "shell": { "executable": "/bin/bash", "args": ["-lc"] }
-                },
-                "command": "sudo bash core/deployment/linux/ergo_ms.sh install-redis"
+                }
             },
             "presentation": {
                 "echo": true,
@@ -400,8 +395,7 @@
             "linux": {
                 "options": {
                     "shell": { "executable": "/bin/bash", "args": ["-lc"] }
-                },
-                "command": "sudo bash core/deployment/linux/ergo_ms.sh stop-redis"
+                }
             },
             "presentation": {
                 "echo": true,
@@ -423,8 +417,7 @@
             "linux": {
                 "options": {
                     "shell": { "executable": "/bin/bash", "args": ["-lc"] }
-                },
-                "command": "sudo bash core/deployment/linux/ergo_ms.sh uninstall-redis --purge"
+                }
             },
             "presentation": {
                 "echo": true,
@@ -447,8 +440,7 @@
             "linux": {
                 "options": {
                     "shell": { "executable": "/bin/bash", "args": ["-lc"] }
-                },
-                "command": "sudo bash core/deployment/linux/ergo_ms.sh restart-redis"
+                }
             },
             "presentation": {
                 "echo": true,
@@ -516,6 +508,141 @@
                 "panel": "shared",
                 "showReuseMessage": false,
                 "close": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Docker: Init",
+            "type": "shell",
+            "command": "ergoms docker-init",
+            "options": { "cwd": "${workspaceFolder}" },
+            "windows": {
+                "options": {
+                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                }
+            },
+            "linux": {
+                "options": {
+                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                }
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared"
+            },
+            "group": { "kind": "build", "isDefault": false },
+            "problemMatcher": []
+        },
+        {
+            "label": "Docker: Up",
+            "type": "shell",
+            "command": "ergoms docker-up",
+            "options": { "cwd": "${workspaceFolder}" },
+            "windows": {
+                "options": {
+                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                }
+            },
+            "linux": {
+                "options": {
+                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                }
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Docker: Down",
+            "type": "shell",
+            "command": "ergoms docker-down",
+            "options": { "cwd": "${workspaceFolder}" },
+            "windows": {
+                "options": {
+                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                }
+            },
+            "linux": {
+                "options": {
+                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                }
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Docker: Restart",
+            "type": "shell",
+            "command": "ergoms docker-restart",
+            "options": { "cwd": "${workspaceFolder}" },
+            "windows": {
+                "options": {
+                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                }
+            },
+            "linux": {
+                "options": {
+                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                }
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Docker: Build",
+            "type": "shell",
+            "command": "ergoms docker-build",
+            "options": { "cwd": "${workspaceFolder}" },
+            "windows": {
+                "options": {
+                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                }
+            },
+            "linux": {
+                "options": {
+                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                }
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Docker: Logs",
+            "type": "shell",
+            "command": "ergoms docker-logs -f",
+            "options": { "cwd": "${workspaceFolder}" },
+            "windows": {
+                "options": {
+                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                }
+            },
+            "linux": {
+                "options": {
+                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                }
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "new"
             },
             "problemMatcher": []
         }

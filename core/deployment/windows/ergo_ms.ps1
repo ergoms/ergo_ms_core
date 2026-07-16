@@ -100,6 +100,8 @@ $LibPath = Join-Path $PSScriptRoot "lib"
 
 . (Join-Path $LibPath "commands.ps1")
 
+. (Join-Path $LibPath "lifecycle.ps1")
+
 
 
 Initialize-ErgomsConsoleEncoding
@@ -404,15 +406,7 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            Write-ColorOutput "-> Установка служб для: $projectRoot" Cyan
-
-            Install-AllServices -Root $projectRoot
-
-            Start-AllServices -ProjectRoot $projectRoot
-
-            Write-ColorOutput "`n[OK] Службы установлены и запущены!" Green
-
-            Show-ServicesStatus -ProjectRoot $projectRoot
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'install-services'
 
         }
 
@@ -420,15 +414,7 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            Write-ColorOutput "-> Установка службы API для: $projectRoot" Cyan
-
-            Install-SingleService -ServiceName "ergo-api-dev" -Root $projectRoot
-
-            Start-Service -Name "ergo-api-dev"
-
-            Write-ColorOutput "`n[OK] Служба API установлена и запущена!" Green
-
-            Show-ServicesStatus -ProjectRoot $projectRoot
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'install-api-service'
 
         }
 
@@ -436,15 +422,7 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            Write-ColorOutput "-> Установка службы клиента для: $projectRoot" Cyan
-
-            Install-SingleService -ServiceName "ergo-client-dev" -Root $projectRoot
-
-            Start-Service -Name "ergo-client-dev"
-
-            Write-ColorOutput "`n[OK] Служба клиента установлена и запущена!" Green
-
-            Show-ServicesStatus -ProjectRoot $projectRoot
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'install-client-service'
 
         }
 
@@ -452,15 +430,7 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            Write-ColorOutput "-> Установка служб воркеров для: $projectRoot" Cyan
-
-            Install-WorkerServices -Root $projectRoot
-
-            Start-WorkerServices -ProjectRoot $projectRoot
-
-            Write-ColorOutput "`n[OK] Службы воркеров установлены и запущены!" Green
-
-            Show-ServicesStatus -ProjectRoot $projectRoot
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'install-worker-service'
 
         }
 
@@ -468,15 +438,7 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            Write-ColorOutput "-> Установка службы Beat для: $projectRoot" Cyan
-
-            Install-SingleService -ServiceName "ergo-celery-beat" -Root $projectRoot
-
-            Start-Service -Name "ergo-celery-beat"
-
-            Write-ColorOutput "`n[OK] Служба Beat установлена и запущена!" Green
-
-            Show-ServicesStatus -ProjectRoot $projectRoot
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'install-beat-service'
 
         }
 
@@ -484,15 +446,7 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            Write-ColorOutput "-> Установка службы Media API для: $projectRoot" Cyan
-
-            Install-SingleService -ServiceName "ergo-media-api" -Root $projectRoot
-
-            Start-Service -Name "ergo-media-api"
-
-            Write-ColorOutput "`n[OK] Служба Media API установлена и запущена!" Green
-
-            Show-ServicesStatus -ProjectRoot $projectRoot
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'install-media-service'
 
         }
 
@@ -556,9 +510,7 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            Start-AllServices -ProjectRoot $projectRoot
-
-            Show-ServicesStatus -ProjectRoot $projectRoot
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'start'
 
         }
 
@@ -566,9 +518,7 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            Stop-AllServices -ProjectRoot $projectRoot
-
-            Show-ServicesStatus -ProjectRoot $projectRoot
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'stop'
 
         }
 
@@ -576,9 +526,7 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            Restart-AllServices -ProjectRoot $projectRoot
-
-            Show-ServicesStatus -ProjectRoot $projectRoot
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'restart'
 
         }
 
@@ -586,7 +534,7 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            Show-ServicesStatus -ProjectRoot $projectRoot
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'status'
 
         }
 
@@ -594,7 +542,11 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            Uninstall-AllServices -PurgeData $Purge -ProjectRoot $projectRoot
+            $extra = @()
+
+            if ($Purge) { $extra += '--purge' }
+
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'uninstall-services' -ExtraArgs $extra
 
         }
 
@@ -676,7 +628,11 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            Setup-FullSystem -Root $projectRoot -RecreateVenv $RecreateVenv
+            $extra = @()
+
+            if ($RecreateVenv) { $extra += '--recreate-venv' }
+
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'setup-full' -ExtraArgs $extra
 
         }
 
@@ -692,7 +648,7 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            Update-Submodules -Root $projectRoot
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'update-submodules'
 
         }
 
@@ -700,7 +656,7 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            Update-ModuleSubmodules -Root $projectRoot
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'update-module-submodules'
 
         }
 
@@ -712,13 +668,21 @@ function Main {
 
             $listenPort = if ($RemainingArgs.Count -ge 2) { $RemainingArgs[1] } else { '' }
 
-            Install-Nginx -Root $projectRoot -ServerName $serverName -ListenPort $listenPort
+            $extra = @()
+
+            if ($serverName) { $extra += @('--server-name', $serverName) }
+
+            if ($listenPort) { $extra += @('--listen-port', $listenPort) }
+
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'install-nginx' -ExtraArgs $extra
 
         }
 
         'install-nginx-service' {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+
+            Load-HeavyModules
 
             $serverName = if ($RemainingArgs.Count -ge 1) { $RemainingArgs[0] } else { '' }
 
@@ -732,7 +696,11 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            Uninstall-Nginx -Root $projectRoot -PurgeData:$Purge
+            $extra = @()
+
+            if ($Purge) { $extra += '--purge' }
+
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'uninstall-nginx' -ExtraArgs $extra
 
         }
 
@@ -740,7 +708,7 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            Start-NginxProcess -Root $projectRoot
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'start-nginx'
 
         }
 
@@ -748,7 +716,7 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            Stop-NginxProcess -Root $projectRoot
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'stop-nginx'
 
         }
 
@@ -756,7 +724,7 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            Restart-NginxProcess -Root $projectRoot
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'restart-nginx'
 
         }
 
@@ -764,7 +732,7 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            Invoke-NginxReload -Root $projectRoot
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'reload-nginx'
 
         }
 
@@ -772,13 +740,15 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            $configure = $RemainingArgs -contains '--configure'
-
             $portArgs = @($RemainingArgs | Where-Object { $_ -ne '--configure' })
 
             $listenPort = if ($portArgs.Count -ge 1) { $portArgs[0] } else { '' }
 
-            Install-Redis -Root $projectRoot -ListenPort $listenPort -Configure:$configure
+            $extra = @()
+
+            if ($listenPort) { $extra += @('--listen-port', $listenPort) }
+
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'install-redis' -ExtraArgs $extra
 
         }
 
@@ -786,13 +756,13 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            $configure = $RemainingArgs -contains '--configure'
+            Load-HeavyModules
 
             $portArgs = @($RemainingArgs | Where-Object { $_ -ne '--configure' })
 
             $listenPort = if ($portArgs.Count -ge 1) { $portArgs[0] } else { '' }
 
-            Install-Redis -Root $projectRoot -ListenPort $listenPort -AsService -Configure:$configure
+            Install-Redis -Root $projectRoot -ListenPort $listenPort -AsService
 
         }
 
@@ -800,7 +770,11 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            Uninstall-Redis -Root $projectRoot -PurgeData:$Purge
+            $extra = @()
+
+            if ($Purge) { $extra += '--purge' }
+
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'uninstall-redis' -ExtraArgs $extra
 
         }
 
@@ -808,7 +782,7 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            Start-RedisProcess -Root $projectRoot
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'start-redis'
 
         }
 
@@ -816,7 +790,7 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            Stop-RedisProcess -Root $projectRoot
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'stop-redis'
 
         }
 
@@ -824,7 +798,7 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            Restart-RedisProcess -Root $projectRoot
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'restart-redis'
 
         }
 

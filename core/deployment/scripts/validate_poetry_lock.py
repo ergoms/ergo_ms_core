@@ -61,16 +61,15 @@ def extract_poetry_dependencies(data: dict) -> set[str]:
 
 
 def collect_module_exclusive_dependencies(project_root: Path, root_deps: set[str]) -> set[str]:
-    modules_dir = project_root / "modules"
+    deployment = project_root / 'core' / 'deployment'
+    if str(deployment) not in sys.path:
+        sys.path.insert(0, str(deployment))
+    from lifecycle.modules.catalog import ModuleCatalog  # noqa: WPS433
+
+    catalog = ModuleCatalog.from_env(project_root)
     exclusive: set[str] = set()
 
-    if not modules_dir.exists():
-        return exclusive
-
-    for module_dir in sorted(modules_dir.iterdir()):
-        if not module_dir.is_dir():
-            continue
-
+    for module_dir in catalog.iter_module_dirs():
         pyproject_path = module_dir / "pyproject.toml"
         if not pyproject_path.exists():
             continue

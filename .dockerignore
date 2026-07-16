@@ -13,3 +13,11 @@ virtual_env/cache
 virtual_env/packages
 .env
 .env.*
+
+# BEGIN ERGO_DISABLED_MODULES
+# Автогенерация: ergoms docker-init / prepare_compose_artifacts
+modules/impuls_analysis/
+modules/porosity_analysis/
+modules/tehcnical_process_analysis/
+modules/video_analysis/
+# END ERGO_DISABLED_MODULES

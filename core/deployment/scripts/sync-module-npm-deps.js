@@ -10,6 +10,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import { loadDisabledModules } from '../../../core/client/scripts/lib/parse-disabled-modules.js'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 const MODULES_ROOT = path.join(ROOT, 'modules')
@@ -20,10 +21,14 @@ function collectModuleDependencies() {
     return []
   }
 
+  const disabledModules = loadDisabledModules()
   const entries = []
 
   for (const dirent of fs.readdirSync(MODULES_ROOT, { withFileTypes: true })) {
     if (!dirent.isDirectory()) {
+      continue
+    }
+    if (disabledModules.has(dirent.name)) {
       continue
     }
 

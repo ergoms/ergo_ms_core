@@ -104,9 +104,18 @@ class ConfigTemplateRegistry:
         if not modules_dir.is_dir():
             return []
 
+        deployment = project_root / 'core' / 'deployment'
+        import sys
+
+        if str(deployment) not in sys.path:
+            sys.path.insert(0, str(deployment))
+        from lifecycle.modules.catalog import ModuleCatalog  # noqa: WPS433
+
+        catalog = ModuleCatalog.from_env(project_root)
+
         templates: list[ConfigTemplate] = []
         for module_dir in sorted(modules_dir.iterdir()):
-            if not module_dir.is_dir():
+            if not module_dir.is_dir() or catalog.is_disabled(module_dir.name):
                 continue
             source = module_dir / '.env.example'
             if not source.is_file():

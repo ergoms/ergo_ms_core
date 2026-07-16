@@ -71,6 +71,7 @@ ergoms warmup-caches
 | Вопрос | Документ |
 |--------|----------|
 | Справочник команд ergoms | [cli.md](cli.md) |
+| Lifecycle-pipeline | [lifecycle-pipeline.md](lifecycle-pipeline.md) |
 | Настройка `.env` и баз данных | [configuration.md](configuration.md) |
 | Если что-то не запускается | [troubleshooting.md](troubleshooting.md) |
 | Системные службы (Linux / Windows) | [deployment.md](deployment.md) |

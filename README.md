@@ -11,6 +11,7 @@ ERGO MS — модульный фреймворк для корпоративн�
 - [Настройка .env и БД](.docs/configuration.md) — первичная конфигурация
 - [Разработка](.docs/development.md) — запуск для разработки и логи
 - [Команды ergoms](.docs/cli.md) — справочник команд
+- [Lifecycle-pipeline](.docs/lifecycle-pipeline.md) — единая цепочка setup, deploy, служб, Docker и dev
 - [Проблемы при установке](.docs/troubleshooting.md) — типичные ошибки
 - [Системные службы](.docs/deployment.md) — systemd / Windows services, запуск как на сервере
 - [Docker Compose](.docs/docker.md) — запуск стека в контейнерах (`ergoms docker-*`)
@@ -46,6 +47,12 @@ git submodule update --init --recursive
 
 **Альтернатива без редактора** — из корня проекта в терминале:
 
+```cmd
+ergoms setup
+```
+
+Если обёртка `ergoms` ещё не установлена, один раз выполните полную настройку через скрипт оболочки (он внутри тоже вызывает lifecycle runner):
+
 Windows (PowerShell):
 
 ```powershell
@@ -56,8 +63,10 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 Linux:
 
 ```bash
-sudo bash core/deployment/linux/ergo_ms.sh setup-full
+bash core/deployment/linux/ergo_ms.sh setup-full
 ```
+
+На Linux для infra-команд (nginx, службы) runner при необходимости запросит `sudo` сам — отдельно оборачивать в `sudo bash …` не нужно.
 
 ### 2. Запуск для разработки
 

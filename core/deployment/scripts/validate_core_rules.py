@@ -9,6 +9,7 @@
 - запрет console.error в прикладном коде клиента (кроме logError.js / logger.js)
 - запрет нативного <select> / b-form-select в .vue ядра
 - запрет from modules. в core/api/src (дополнительный текстовый grep)
+- UTF-8 BOM в .ps1 deployment с не-ASCII (Windows PowerShell 5.1)
 """
 
 from __future__ import annotations
@@ -19,13 +20,19 @@ import subprocess
 import sys
 from pathlib import Path
 
+_SCRIPTS_DIR = Path(__file__).resolve().parent
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
+
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 os.environ.setdefault('PYTHONIOENCODING', 'utf-8')
 
-_DEPLOYMENT_DIR = Path(__file__).resolve().parent.parent
+from validate_ps1_encoding import find_ps1_encoding_violations  # noqa: E402
+
+_DEPLOYMENT_DIR = _SCRIPTS_DIR.parent
 PROJECT_ROOT = _DEPLOYMENT_DIR.parent.parent
 API_DIR = PROJECT_ROOT / 'core' / 'api'
 CLIENT_SRC = PROJECT_ROOT / 'core' / 'client' / 'src'
@@ -179,6 +186,17 @@ def main() -> int:
             print(f'[ERROR] {item}')
     else:
         print('[OK] импорты modules.* в core/api/src не найдены')
+
+    print('\n=== Проверка deployment: UTF-8 BOM в .ps1 ===')
+    ps1_violations = find_ps1_encoding_violations()
+    if ps1_violations:
+        for path in ps1_violations:
+            rel = path.relative_to(PROJECT_ROOT)
+            msg = f'{rel}: нет UTF-8 BOM (кириллица сломает PowerShell 5.1)'
+            all_errors.append(msg)
+            print(f'[ERROR] {msg}')
+    else:
+        print('[OK] все .ps1 deployment с не-ASCII имеют UTF-8 BOM')
 
     if all_errors:
         print(f'\n[ERROR] Проверка завершилась с ошибками: {len(all_errors)}')

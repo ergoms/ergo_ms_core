@@ -110,6 +110,22 @@ git submodule update --init --recursive
 
 Подробнее — [docker.md](docker.md).
 
+## Ошибка парсинга PowerShell (.ps1) {#ошибка-парсинга-powershell-ps1}
+
+Симптом при `ergoms` на Windows: в терминале `ParserError`, «The string is missing the terminator», вместо русского текста — `ÐÐµÐ¸Ð·Ð²ÐµÑÑ‚Ð½Ð°Ñ` и т.п. Часто проявляется при `warmup-caches-if-needed`, `install-nginx`, `start-redis`, службах — когда вызывается `internal_dispatch.ps1`.
+
+**Причина:** файл `.ps1` в `core/deployment/` сохранён в UTF-8 **без BOM**. Windows PowerShell 5.1 читает его в системной кодировке и ломает строки с кириллицей.
+
+**Что сделать:**
+
+```cmd
+ergoms ps1-encoding-check --fix
+```
+
+Повторите команду, которая упала. Для профилактики перед коммитом: `ergoms core-rules-check` (включает проверку BOM).
+
+Подробнее — [lifecycle-pipeline.md](lifecycle-pipeline.md#powershell-и-кириллица-windows).
+
 ## См. также
 
 | Вопрос | Документ |
@@ -118,3 +134,4 @@ git submodule update --init --recursive
 | Справочник команд ergoms | [cli.md](cli.md) |
 | Docker Compose | [docker.md](docker.md) |
 | Запуск для разработки | [development.md](development.md) |
+| Lifecycle-pipeline | [lifecycle-pipeline.md](lifecycle-pipeline.md) |
