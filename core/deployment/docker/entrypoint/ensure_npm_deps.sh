@@ -35,13 +35,67 @@ needs_install() {
   return 1
 }
 
+docker_npm_env() {
+  export npm_config_audit=false
+  export npm_config_fund=false
+  export npm_config_update_notifier=false
+  export npm_config_maxsockets="${npm_config_maxsockets:-8}"
+  export npm_config_fetch_retries=5
+}
+
+docker_npm_install_flags="--ignore-scripts --no-package-lock --no-audit --no-fund --no-bin-links"
+
+# Копирует node_modules из staging (native FS) в именованный том.
+# Bind-mount /app на Docker Desktop (Windows) сильно замедляет npm reify.
+copy_node_modules_tree() {
+  src="$1"
+  dst="$2"
+  mkdir -p "$dst"
+  if [ -d "$src" ]; then
+    find "$dst" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+    cp -a "$src/." "$dst/"
+  fi
+}
+
+prepare_docker_root_manifest() {
+  staging="$1"
+  node -e "
+    const fs = require('fs');
+    const pkg = JSON.parse(fs.readFileSync('/app/package.json', 'utf8'));
+    delete pkg.workspaces;
+    fs.writeFileSync('${staging}/package.json', JSON.stringify(pkg, null, 2));
+  "
+}
+
+docker_install_root_deps() {
+  staging="$(mktemp -d /tmp/ergo-npm-root.XXXXXX)"
+  trap 'rm -rf "$staging"' EXIT INT TERM
+
+  prepare_docker_root_manifest "$staging"
+  if [ -f /app/.npmrc ]; then
+    cp /app/.npmrc "$staging/.npmrc"
+  fi
+
+  echo "[INFO] npm: корневые пакеты (staging, без bind-mount)…"
+  (
+    cd "$staging"
+    npm install $docker_npm_install_flags --loglevel=warn
+  )
+
+  echo "[INFO] npm: копирование корневых пакетов в том node_modules…"
+  copy_node_modules_tree "$staging/node_modules" /app/node_modules
+  rm -rf "$staging"
+  trap - EXIT INT TERM
+}
+
 docker_install_npm_deps() {
-  # В контейнере npm install --workspaces --no-package-lock на Docker Desktop (Windows)
-  # часто зависает на reify; на хосте install:all остаётся прежним.
+  docker_npm_env
   echo "[INFO] npm: установка зависимостей (режим Docker)…"
-  npm install --ignore-scripts --no-workspaces --no-package-lock --no-audit
+  docker_install_root_deps
+  echo "[INFO] npm: модульные пакеты…"
   node core/deployment/scripts/sync-module-npm-deps.js --install-missing
-  npm install --ignore-scripts --prefix core/client --no-package-lock --no-audit
+  echo "[INFO] npm: зависимости client workspace…"
+  npm install $docker_npm_install_flags --prefix core/client --loglevel=warn
 }
 
 if needs_install; then

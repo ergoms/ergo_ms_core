@@ -7,6 +7,36 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEPLOYMENT_NGINX = PROJECT_ROOT / 'core' / 'deployment' / 'nginx'
+_HOST_LOOPBACK = '127.0.0.1'
+
+
+def running_in_container() -> bool:
+    if Path('/.dockerenv').is_file():
+        return True
+    cgroup = Path('/proc/self/cgroup')
+    if cgroup.is_file():
+        try:
+            return 'docker' in cgroup.read_text(encoding='utf-8', errors='ignore')
+        except OSError:
+            pass
+    return False
+
+
+def effective_redis_host() -> str:
+    """Хост Redis для portable Redis на хосте (имя compose-сервиса → 127.0.0.1)."""
+    host = read_env('REDIS_HOST', _HOST_LOOPBACK).strip() or _HOST_LOOPBACK
+    service = read_env('DOCKER_SERVICE_REDIS', 'redis').strip().lower() or 'redis'
+    if not running_in_container() and host.lower() in {service, 'redis'}:
+        return _HOST_LOOPBACK
+    return host
+
+
+def effective_redis_port() -> int:
+    raw = read_env('REDIS_PORT', '6379').strip() or '6379'
+    try:
+        return int(raw)
+    except ValueError:
+        return 6379
 
 
 def read_env(name: str, default: str = '') -> str:

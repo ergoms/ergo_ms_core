@@ -6,6 +6,13 @@
 # (тот же сценарий, что ergoms setup-full).
 FROM node:20-bookworm-slim
 
+# npm 10.8.x в базовом образе на Docker Desktop (Windows) может зависать на reify;
+# 10.9.2+ содержит исправление (npm/cli#7868).
+RUN npm install -g npm@10.9.2 \
+    && npm config set update-notifier false \
+    && npm config set audit false \
+    && npm config set fund false
+
 ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 
 WORKDIR /app

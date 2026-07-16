@@ -77,10 +77,12 @@ class NpmInstallStep(DeploymentStep):
         service = docker_ops.npm_client_service(resolved_mode)
         shell = (
             'mkdir -p /app/logs/docker '
-            '&& DOCKER_NPM_INSTALL=always /usr/local/bin/ergo-ensure-npm-deps.sh '
+            '&& ERGO_DOCKER_SERVICE_NAME=client DOCKER_NPM_INSTALL=always '
+            '/usr/local/bin/ergo-ensure-npm-deps.sh '
             '2>&1 | tee -a /app/logs/docker/npm-install.log'
         )
         print(format_console('info', f'Установка npm-зависимостей ({service})…'))
+        print(format_console('info', 'Прогресс npm — в logs/docker/npm-install.log (первый запуск может занять несколько минут)'))
         cmd, cwd = docker_ops.build_compose_cmd(
             'run',
             mode=ctx.docker_mode,

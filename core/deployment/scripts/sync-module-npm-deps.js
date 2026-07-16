@@ -7,6 +7,7 @@
  */
 
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
@@ -92,10 +93,74 @@ function uniqueMissingPackages(missing) {
   return [...byName.values()]
 }
 
+const DOCKER_NPM_FLAGS = [
+  '--no-save',
+  '--no-package-lock',
+  '--ignore-scripts',
+  '--no-audit',
+  '--no-fund',
+  '--no-bin-links',
+]
+
+function isDockerNpmInstall() {
+  return Boolean(process.env.ERGO_DOCKER_SERVICE_NAME?.trim())
+}
+
+function copyPackageTree(sourceDir, targetDir) {
+  if (fs.existsSync(targetDir)) {
+    fs.rmSync(targetDir, { recursive: true, force: true })
+  }
+  fs.cpSync(sourceDir, targetDir, { recursive: true, force: true })
+}
+
+function installMissingPackagesDocker(specs) {
+  const staging = fs.mkdtempSync(path.join(os.tmpdir(), 'ergo-npm-mod-'))
+  const npmCmd = 'npm'
+
+  console.log(`[npm] Доустановка пакетов в staging (${specs.length}): ${specs.join(', ')}`)
+
+  try {
+    const result = spawnSync(
+      npmCmd,
+      ['install', ...specs, ...DOCKER_NPM_FLAGS, '--loglevel=warn'],
+      {
+        cwd: staging,
+        stdio: 'inherit',
+        env: process.env,
+      },
+    )
+
+    if (result.status !== 0) {
+      process.exit(result.status ?? 1)
+    }
+
+    const stagingModules = path.join(staging, 'node_modules')
+    const targetModules = path.join(ROOT, 'node_modules')
+    fs.mkdirSync(targetModules, { recursive: true })
+
+    for (const entry of fs.readdirSync(stagingModules)) {
+      if (entry.startsWith('.')) {
+        continue
+      }
+      copyPackageTree(
+        path.join(stagingModules, entry),
+        path.join(targetModules, entry),
+      )
+    }
+  } finally {
+    fs.rmSync(staging, { recursive: true, force: true })
+  }
+}
+
 function installMissingPackages(missing) {
   const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm'
   const unique = uniqueMissingPackages(missing)
   const specs = unique.map((entry) => `${entry.depName}@${entry.depVersion}`)
+
+  if (isDockerNpmInstall()) {
+    installMissingPackagesDocker(specs)
+    return
+  }
 
   console.log(`[npm] Доустановка пакетов (${specs.length}): ${specs.join(', ')}`)
 
