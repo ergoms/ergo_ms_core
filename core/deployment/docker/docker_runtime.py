@@ -12,8 +12,6 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 _DOCKER_DIR = Path(__file__).resolve().parent
 _DEPLOYMENT_DIR = _DOCKER_DIR.parent
 PROJECT_ROOT = _DEPLOYMENT_DIR.parent.parent
@@ -27,6 +25,13 @@ LOCAL_DB_HOSTS = frozenset({'localhost', '127.0.0.1', '::1', ''})
 CELERY_DB_SECTIONS = ('default', 'celery', 'celery_worker', 'celery_beat')
 DOCKER_DEPS_CACHE_VALUES = frozenset({'internal', 'project', 'off'})
 BUILD_CACHE_OUTPUT = _DOCKER_DIR / 'docker-compose.build.generated.yml'
+
+
+def _yaml():
+    """PyYAML нужен только для Docker-артефактов; setup-full на системном Python без него."""
+    import yaml  # noqa: WPS433
+
+    return yaml
 
 
 def _truthy(value: str | None, default: bool = False) -> bool:
@@ -48,7 +53,7 @@ def load_databases_config(project_root: Path | None = None) -> dict[str, Any]:
     if not path.is_file():
         return {}
     with open(path, encoding='utf-8') as handle:
-        data = yaml.safe_load(handle) or {}
+        data = _yaml().safe_load(handle) or {}
     return data.get('databases') or {}
 
 
@@ -78,7 +83,7 @@ def write_compose_databases(path: Path, databases: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {'databases': databases}
     path.write_text(
-        yaml.safe_dump(payload, allow_unicode=True, default_flow_style=False, sort_keys=False),
+        _yaml().safe_dump(payload, allow_unicode=True, default_flow_style=False, sort_keys=False),
         encoding='utf-8',
     )
 
