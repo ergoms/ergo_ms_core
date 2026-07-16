@@ -33,7 +33,8 @@ services:
       && mkdir -p /app/logs/docker
       && exec >>/app/logs/docker/client.log 2>&1
       && /usr/local/bin/ergo-ensure-npm-deps.sh
-      && npm run dev --prefix core/client -- --host 0.0.0.0 --port ${CLIENT_PORT:-8001}"
+      && cd core/client
+      && npm run dev -- --host 0.0.0.0 --port ${CLIENT_PORT:-8001}"
     restart: unless-stopped
 
 volumes:

@@ -99,7 +99,6 @@ const DOCKER_NPM_FLAGS = [
   '--ignore-scripts',
   '--no-audit',
   '--no-fund',
-  '--no-bin-links',
 ]
 
 function isDockerNpmInstall() {

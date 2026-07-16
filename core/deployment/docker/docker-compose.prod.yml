@@ -30,7 +30,8 @@ services:
       && mkdir -p /app/logs/docker
       && exec >>/app/logs/docker/client-build.log 2>&1
       && /usr/local/bin/ergo-ensure-npm-deps.sh
-      && npm run build --prefix core/client"
+      && cd core/client
+      && npm run build"
     restart: "no"
 
 volumes:

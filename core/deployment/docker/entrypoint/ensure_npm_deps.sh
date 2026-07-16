@@ -43,7 +43,7 @@ docker_npm_env() {
   export npm_config_fetch_retries=5
 }
 
-docker_npm_install_flags="--ignore-scripts --no-package-lock --no-audit --no-fund --no-bin-links"
+docker_npm_install_flags="--ignore-scripts --no-package-lock --no-audit --no-fund"
 
 # Копирует node_modules из staging (native FS) в именованный том.
 # Bind-mount /app на Docker Desktop (Windows) сильно замедляет npm reify.
@@ -52,8 +52,10 @@ copy_node_modules_tree() {
   dst="$2"
   mkdir -p "$dst"
   if [ -d "$src" ]; then
-    find "$dst" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
-    cp -a "$src/." "$dst/"
+    rm -rf "$dst"/*
+    rm -rf "$dst"/.[!.]* "$dst"/..?* 2>/dev/null || true
+    # tar надёжнее cp для скрытых каталогов (.bin) на томах Docker Desktop.
+    ( cd "$src" && tar cf - . ) | ( cd "$dst" && tar xf - )
   fi
 }
 
@@ -88,6 +90,20 @@ docker_install_root_deps() {
   trap - EXIT INT TERM
 }
 
+link_client_workspace_bins() {
+  # Отдельный том core/client/node_modules без пакетов ломает npm run --prefix:
+  # бинарники (vite и др.) лежат в /app/node_modules/.bin после docker-install.
+  mkdir -p /app/core/client/node_modules/.bin
+  if [ ! -d /app/node_modules/.bin ]; then
+    return 0
+  fi
+  for bin in /app/node_modules/.bin/*; do
+    [ -e "$bin" ] || continue
+    name="$(basename "$bin")"
+    ln -sf "../../../node_modules/.bin/$name" "/app/core/client/node_modules/.bin/$name"
+  done
+}
+
 docker_install_npm_deps() {
   docker_npm_env
   echo "[INFO] npm: установка зависимостей (режим Docker)…"
@@ -109,4 +125,8 @@ if needs_install; then
   touch "$MARKER"
 else
   echo "[INFO] npm: зависимости актуальны"
+fi
+
+if [ -n "${ERGO_DOCKER_SERVICE_NAME:-}" ]; then
+  link_client_workspace_bins
 fi
