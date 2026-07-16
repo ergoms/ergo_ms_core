@@ -199,10 +199,13 @@ sections:
       - name: safe-drop-app
         summary: "Безопасно удалить Django-приложение"
       - name: core-rules-check
-        summary: "Проверка ядра: изоляция модулей, console.error, native select, импорты modules.*, UTF-8 BOM в .ps1"
+        summary: "Проверка ядра: изоляция модулей, console.error, native select, импорты modules.*, BOM/LF в deployment-скриптах"
       - name: ps1-encoding-check
         invoke: "ergoms ps1-encoding-check [--fix]"
         summary: "Проверка UTF-8 BOM в .ps1 deployment с кириллицей (Windows PowerShell 5.1)"
+      - name: sh-encoding-check
+        invoke: "ergoms sh-encoding-check [--fix]"
+        summary: "Проверка LF без BOM в .sh deployment (Linux shebang и source)"
       - name: test-smtp
         summary: "Проверка SMTP и отправка тестового письма"
 

@@ -10,6 +10,7 @@
 - запрет нативного <select> / b-form-select в .vue ядра
 - запрет from modules. в core/api/src (дополнительный текстовый grep)
 - UTF-8 BOM в .ps1 deployment с не-ASCII (Windows PowerShell 5.1)
+- LF без BOM в .sh deployment (Linux shebang и source)
 """
 
 from __future__ import annotations
@@ -31,6 +32,7 @@ if hasattr(sys.stderr, 'reconfigure'):
 os.environ.setdefault('PYTHONIOENCODING', 'utf-8')
 
 from validate_ps1_encoding import find_ps1_encoding_violations  # noqa: E402
+from validate_sh_encoding import find_sh_encoding_violations  # noqa: E402
 
 _DEPLOYMENT_DIR = _SCRIPTS_DIR.parent
 PROJECT_ROOT = _DEPLOYMENT_DIR.parent.parent
@@ -197,6 +199,17 @@ def main() -> int:
             print(f'[ERROR] {msg}')
     else:
         print('[OK] все .ps1 deployment с не-ASCII имеют UTF-8 BOM')
+
+    print('\n=== Проверка deployment: LF без BOM в .sh ===')
+    sh_violations = find_sh_encoding_violations()
+    if sh_violations:
+        for path, issues in sh_violations:
+            rel = path.relative_to(PROJECT_ROOT)
+            msg = f'{rel}: {", ".join(issues)} (Linux shebang/source)'
+            all_errors.append(msg)
+            print(f'[ERROR] {msg}')
+    else:
+        print('[OK] все .sh deployment в UTF-8 LF без BOM')
 
     if all_errors:
         print(f'\n[ERROR] Проверка завершилась с ошибками: {len(all_errors)}')
