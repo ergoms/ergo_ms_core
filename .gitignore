@@ -8,6 +8,7 @@ celery_workers.yaml
 .env.*
 !.env.example
 !.env.docker.example
+!.env.nginx-redis.example
 
 maintenance.flag
 
