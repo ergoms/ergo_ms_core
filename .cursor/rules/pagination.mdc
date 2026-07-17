@@ -1,0 +1,98 @@
+---
+description: Пагинация списков в клиенте — Pagination.vue, не bootstrap pagination и не локальные ul.pagination
+globs: "**/*.{vue,js}"
+alwaysApply: false
+---
+
+# Pagination — пагинация списков
+
+Для **любой** постраничной навигации в клиенте (ядро и модули) используй **`Pagination`** из ядра.
+
+Компонент: `@/components/Pagination.vue`
+
+Bootstrap `pagination` / `page-item` / `page-link` в проекте **не подключены** — самодельные списки ломаются (маркеры, скачки layout).
+
+## Обязательно
+
+- Списки, таблицы, сетки карточек с `page` / `page_size` — **`Pagination`**
+- Импорт: `import Pagination from '@/components/Pagination.vue'`
+- Состояние страницы — `v-model` (число); после смены страницы подгружай данные в `@page-change` или `watch`
+- Для list-страниц храни `page` в **URL query** через `useRouteQueryState` — см. [`client_code.mdc`](client_code.mdc)
+
+## Запрещено
+
+```vue
+<!-- BAD — bootstrap-классы без стилей ядра -->
+<ul class="pagination pagination-modern">
+  <li class="page-item">...</li>
+</ul>
+
+<!-- BAD — свой Pagination в модуле без явной причины -->
+```
+
+**Исключения:** `DataTable` уже встраивает навигацию; для таблиц с колонками предпочитай `DataTable` с `:enable-pagination="true"`.
+
+## Базовый пример
+
+```vue
+<script setup>
+import { ref, computed } from 'vue'
+import Pagination from '@/components/Pagination.vue'
+
+const page = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
+const items = ref([])
+
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
+
+async function load() {
+  // запрос с page / page_size
+}
+
+function onPageChange() {
+  load()
+}
+</script>
+
+<template>
+  <Pagination
+    v-model="page"
+    :total-pages="totalPages"
+    :total-items="total"
+    :page-size="pageSize"
+    :visible-count="items.length"
+    variant="full"
+    layout="stacked"
+    show-page-position
+    @page-change="onPageChange"
+  />
+</template>
+```
+
+## Частые props
+
+| Prop | По умолчанию | Когда |
+|------|--------------|--------|
+| `modelValue` | — | текущая страница (`v-model`) |
+| `totalPages` | — | `Math.ceil(total / pageSize)` |
+| `totalItems` | `null` | подпись «Показано X–Y из Z» |
+| `pageSize` | `10` | размер страницы для подписи |
+| `visibleCount` | `null` | число записей на текущей странице (последняя страница) |
+| `variant` | `'full'` | `'full'` — номера страниц; `'simple'` — «N / M» |
+| `layout` | `'stacked'` | `'toolbar'` — info слева, nav справа; `'nav-only'` — только кнопки |
+| `showRangeInfo` | `true` | скрыть подпись диапазона |
+| `showPagePosition` | `false` | добавить «(страница N из M)» |
+| `showFirstLast` | авто | `false` — без «первая/последняя» |
+| `disabled` | `false` | блокировка при refresh |
+| `hasNextPage` / `hasPreviousPage` | `null` | серверная пагинация без точного total |
+
+**Emits:** `update:modelValue`, `page-change`
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Таблицы с пагинацией | [`components.mdc`](components.mdc) → DataTable |
+| Query-состояние списков | [`client_code.mdc`](client_code.mdc) |
+| Загрузка без мигания | [`loading-content-area.mdc`](loading-content-area.mdc) |

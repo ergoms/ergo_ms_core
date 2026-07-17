@@ -1,5 +1,5 @@
 ---
-description: Индекс UI-компонентов ядра — SelectBox, SearchInput, FilterMenu, DropDown, UserAvatar
+description: Индекс UI-компонентов ядра — SelectBox, SearchInput, FilterMenu, DropDown, Pagination, UserAvatar
 alwaysApply: false
 ---
 
@@ -17,6 +17,7 @@ alwaysApply: false
 | Меню действий (⋯, контекст) | `DropDown` | этот раздел |
 | Боковое меню приложения | `MenuList`, миграции `MenuItem` | [`menu.mdc`](menu.mdc) |
 | Загрузка списков без «мигания» | `LoadingContentArea` | [`loading-content-area.mdc`](loading-content-area.mdc) |
+| Постраничная навигация | `Pagination` | [`pagination.mdc`](pagination.mdc) |
 | Модальные окна | `ModalCenter`, `confirm.js` | [`modal-center.mdc`](modal-center.mdc) |
 | Multi-select выбор пользователей | `MemberPickerModal` | этот раздел |
 | Аватар пользователя | `UserAvatar` | этот раздел |
