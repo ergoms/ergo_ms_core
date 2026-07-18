@@ -69,6 +69,14 @@ def write_maintenance_json(root: Path, *, enabled: bool) -> list[Path]:
     return written
 
 
+def ensure_maintenance_json(root: Path) -> None:
+    """Если JSON ещё нет — записать OFF (иначе Vite/nginx отдают 404)."""
+    public_json = root / MAINTENANCE_JSON_REL_PATHS[0]
+    if public_json.is_file():
+        return
+    write_maintenance_json(root, enabled=False)
+
+
 def cmd_on(root: Path) -> int:
     flag = flag_path(root)
     page = html_path(root)
@@ -129,6 +137,7 @@ def main() -> int:
     parser.add_argument('--root', default=None, help='Корень проекта ERGO MS')
     args = parser.parse_args()
     root = resolve_root(args.root)
+    ensure_maintenance_json(root)
 
     if args.action == 'on':
         return cmd_on(root)

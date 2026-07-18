@@ -86,8 +86,6 @@ function applyNginxClientEnv(env = process.env) {
   return {
     ...env,
     CLIENT_USE_RELATIVE_API: 'true',
-    // Опрос /maintenance.json — иначе уже открытый SPA не увидит ergoms maintenance-on
-    CLIENT_MAINTENANCE_POLL_ENABLED: 'true',
     CLIENT_DEPLOY_TYPE: env.CLIENT_DEPLOY_TYPE || 'production',
     API_HOST: env.API_HOST || '127.0.0.1',
   }
