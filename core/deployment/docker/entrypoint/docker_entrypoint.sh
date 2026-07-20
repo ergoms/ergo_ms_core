@@ -3,6 +3,26 @@ set -eu
 
 WAIT_SCRIPT="/usr/local/lib/ergo-ms/wait_for_services.py"
 SETUP_SCRIPT="/usr/local/lib/ergo-ms/wait_for_docker_setup.py"
+ERGOMS_SRC_MOUNTED="/app/core/deployment/docker/entrypoint/ergoms.sh"
+ERGOMS_SRC_IMAGE="/usr/local/lib/ergo-ms/ergoms.sh"
+ERGOMS_BIN="/usr/local/bin/ergoms"
+
+# Обёртка ergoms для shell в контейнере (bind-mount в dev предпочтительнее образа).
+_install_ergoms_cli() {
+  src=""
+  if [ -f "$ERGOMS_SRC_MOUNTED" ]; then
+    src="$ERGOMS_SRC_MOUNTED"
+  elif [ -f "$ERGOMS_SRC_IMAGE" ]; then
+    src="$ERGOMS_SRC_IMAGE"
+  fi
+  if [ -n "$src" ]; then
+    # sed: убрать CRLF с Windows-хоста при bind-mount
+    sed 's/\r$//' "$src" >"$ERGOMS_BIN"
+    chmod +x "$ERGOMS_BIN"
+  fi
+}
+
+_install_ergoms_cli
 
 if [ -f "$WAIT_SCRIPT" ]; then
   python "$WAIT_SCRIPT" || exit 1

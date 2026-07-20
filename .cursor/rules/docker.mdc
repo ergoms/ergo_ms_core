@@ -79,7 +79,8 @@ alwaysApply: false
 - При `DOCKER_DATABASE=container` хост `localhost`/`127.0.0.1` в `databases.yaml` → имя сервиса **`postgres`** — логика в [`docker_runtime.py`](../../core/deployment/docker/docker_runtime.py)
 - Celery worker'ы в compose — из **`celery_workers.yaml`** через **`ergoms docker-gen-workers`**; файл `docker-compose.workers.generated.yml` не редактировать вручную
 - Образ Python: entrypoint [`docker_entrypoint.sh`](../../core/deployment/docker/entrypoint/docker_entrypoint.sh) + [`wait_for_services.py`](../../core/deployment/docker/entrypoint/wait_for_services.py) — не обходить ожидание Redis/PostgreSQL в новых Python-сервисах compose
-- Effective env для контейнеров: `REDIS_HOST=redis`, `API_HOST=0.0.0.0`, `DOCKER_ENABLED=true` — в `build_compose_env_overrides()`, не дублировать разрозненно в compose без причины
+- Effective env для контейнеров: `REDIS_HOST=redis`, `API_HOST=0.0.0.0` (bind), `CLIENT_API_HOST=localhost` (URL для браузера; не путать с bind), `DOCKER_ENABLED=true` — в `build_compose_env_overrides()`, не дублировать разрозненно в compose без причины
+- В контейнере Python: тонкая обёртка [`entrypoint/ergoms.sh`](../../core/deployment/docker/entrypoint/ergoms.sh) → `/usr/local/bin/ergoms` (`ergoms api …`, `ergoms media_api …`); полный CLI хоста не копировать в образ
 - nginx в Docker: upstream — **имена сервисов** compose (`api`, `media-api`), шаблон `nginx/ergo_ms.docker.conf.template`
 
 ## Запрещено

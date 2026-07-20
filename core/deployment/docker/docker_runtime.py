@@ -154,9 +154,18 @@ def build_compose_env_overrides(raw_env: dict[str, str]) -> dict[str, str]:
     service_api = _env(raw_env, 'DOCKER_SERVICE_API', 'api')
     service_media = _env(raw_env, 'DOCKER_SERVICE_MEDIA', 'media-api')
 
+    # Bind внутри контейнера (слушать все интерфейсы). Браузер на 0.0.0.0
+    # ходить не может — см. CLIENT_API_HOST ниже.
     overrides['API_HOST'] = '0.0.0.0'
     overrides['MEDIA_API_BIND_HOST'] = '0.0.0.0'
     overrides['CLIENT_HOST'] = '0.0.0.0'
+
+    # Публичный хост API для SPA (Vite define CLIENT_API_HOST). Берём из .env
+    # до override bind; 0.0.0.0/* заменяем на localhost.
+    browser_api_host = _env(raw_env, 'CLIENT_API_HOST', '') or _env(raw_env, 'API_HOST', 'localhost')
+    if browser_api_host in ('0.0.0.0', '*', '::', '[::]'):
+        browser_api_host = 'localhost'
+    overrides['CLIENT_API_HOST'] = browser_api_host
 
     if _truthy(raw_env.get('DOCKER_PROFILE_NGINX')):
         overrides['NGINX_ENABLED'] = 'true'

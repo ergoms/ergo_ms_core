@@ -114,9 +114,18 @@ ergoms docker-gen-workers
 - **`docker-clean --yes`** — остановить стек, удалить тома и локальные образы, очистить `.compose.env` и прочие артефакты в `core/deployment/docker/` (данные PostgreSQL в томе будут потеряны)
 - **`docker-migrate`** — `migrate`, `warmup_caches` внутри контейнера `api` (без `makemigrations`; новые миграции — `ergoms db-makemigrations` на хосте или `ergoms migrate-all`)
 - **`docker-gen-workers`** — пересоздать `docker-compose.workers.generated.yml` после правки `celery_workers.yaml`
-- **`docker-shell-api`** — интерактивная shell в контейнере API
+- **`docker-shell-api`** — интерактивная shell в контейнере API; внутри доступны `ergoms api …` и `ergoms media_api …` (тонкая обёртка, не полный CLI хоста)
 
-Миграции и Django-команды в контейнере — через `ergoms docker-migrate` или `ergoms docker-shell-api`, не `python manage.py` на хосте.
+Миграции и Django-команды в контейнере — через `ergoms docker-migrate` или `ergoms docker-shell-api` (например `ergoms api createsuperuser`), не `python manage.py` на хосте.
+
+Если интерактивный `createsuperuser` в Windows-терминале падает с ошибкой кодировки UTF-8, создайте пользователя без запросов:
+
+```bash
+export DJANGO_SUPERUSER_USERNAME=admin
+export DJANGO_SUPERUSER_PASSWORD='your-password'
+export DJANGO_SUPERUSER_EMAIL=admin@example.com
+ergoms api createsuperuser --noinput
+```
 
 ## Переменные Docker
 

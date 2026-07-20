@@ -53,9 +53,12 @@ COPY modules ./modules
 # Вне /app — bind-mount проекта на Windows не перезаписывает entrypoint (CRLF)
 COPY core/deployment/docker/entrypoint/wait_for_services.py /usr/local/lib/ergo-ms/wait_for_services.py
 COPY core/deployment/docker/entrypoint/wait_for_docker_setup.py /usr/local/lib/ergo-ms/wait_for_docker_setup.py
+COPY core/deployment/docker/entrypoint/ergoms.sh /usr/local/lib/ergo-ms/ergoms.sh
 COPY core/deployment/docker/entrypoint/docker_entrypoint.sh /usr/local/bin/ergo-docker-entrypoint.sh
 RUN sed -i 's/\r$//' /usr/local/bin/ergo-docker-entrypoint.sh \
-    && chmod +x /usr/local/bin/ergo-docker-entrypoint.sh
+    && sed -i 's/\r$//' /usr/local/lib/ergo-ms/ergoms.sh \
+    && cp /usr/local/lib/ergo-ms/ergoms.sh /usr/local/bin/ergoms \
+    && chmod +x /usr/local/bin/ergo-docker-entrypoint.sh /usr/local/bin/ergoms
 
 ENV PATH="/app/virtual_env/python/bin:${PATH}"
 
