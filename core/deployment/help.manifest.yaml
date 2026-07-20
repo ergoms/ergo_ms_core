@@ -81,6 +81,9 @@ sections:
         summary: "Ротировать nginx/redis/client-dev по размеру (ERGO_LOG_INFRA_* в .env)"
       - name: install-infra-log-rotate
         summary: "Планировщик ежедневной ротации infra-логов (cron / Task Scheduler)"
+      - name: resource-usage
+        invoke: "ergoms resource-usage [--json] [-w] [--interval N]"
+        summary: "Потребление RAM/CPU процессов ERGO MS на хосте"
 
   - id: docker
     title: "Docker Compose"
@@ -104,6 +107,9 @@ sections:
         summary: "Собрать образы api/client"
       - name: docker-ps
         summary: "Статус контейнеров"
+      - name: docker-stats
+        invoke: "ergoms docker-stats [--json] [-w]"
+        summary: "Потребление RAM/CPU контейнеров Docker Compose"
       - name: docker-logs
         invoke: "ergoms docker-logs [-f] [service]"
         summary: "Журнал контейнеров"

@@ -42,6 +42,7 @@ warn_conflicts = docker_ops.warn_conflicts
 remove_compose_artifacts = docker_ops.remove_compose_artifacts
 
 from docker_runtime import prepare_compose_artifacts  # noqa: E402
+from docker_stats import add_stats_arguments, run_stats  # noqa: E402
 
 
 def cmd_up(args: argparse.Namespace) -> int:
@@ -229,6 +230,10 @@ def main() -> int:
     logs_p.add_argument('service', nargs='?', default='')
     logs_p.add_argument('-f', '--follow', action='store_true')
     logs_p.set_defaults(handler=cmd_logs)
+
+    stats_p = sub.add_parser('stats')
+    add_stats_arguments(stats_p)
+    stats_p.set_defaults(handler=run_stats)
 
     args = parser.parse_args()
     return args.handler(args)
