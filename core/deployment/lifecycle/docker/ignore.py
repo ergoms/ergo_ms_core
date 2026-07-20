@@ -1,15 +1,32 @@
-"""Генерация секции .dockerignore для отключённых модулей (Docker build context)."""
+"""Ignore для отключённых модулей в Docker build context.
+
+Корневой `.dockerignore` — статический (в git). Эффективный ignore при
+`DISABLED_MODULES` пишется рядом с Dockerfile как `Dockerfile.*.dockerignore`
+(BuildKit подхватывает его вместо корневого).
+"""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from lifecycle.docker.ops import (
-    DOCKERIGNORE_BEGIN,
-    DOCKERIGNORE_END,
-    MODULES_DOCKERIGNORE_ARTIFACT,
-)
 from lifecycle.modules.catalog import ModuleCatalog
+
+DOCKER_DIR = Path(__file__).resolve().parent.parent.parent / 'docker'
+
+DOCKERIGNORE_BEGIN = '# BEGIN ERGO_DISABLED_MODULES'
+DOCKERIGNORE_END = '# END ERGO_DISABLED_MODULES'
+MODULES_DOCKERIGNORE_ARTIFACT = DOCKER_DIR / 'modules.dockerignore.generated'
+
+# BuildKit: при `-f …/Dockerfile.python` читается `Dockerfile.python.dockerignore`
+DOCKERFILE_DOCKERIGNORE_ARTIFACTS = (
+    DOCKER_DIR / 'Dockerfile.python.dockerignore',
+    DOCKER_DIR / 'Dockerfile.client.dockerignore',
+)
+
+DOCKERIGNORE_ARTIFACT_PATHS = (
+    MODULES_DOCKERIGNORE_ARTIFACT,
+    *DOCKERFILE_DOCKERIGNORE_ARTIFACTS,
+)
 
 
 def build_disabled_modules_ignore_lines(catalog: ModuleCatalog) -> list[str]:
@@ -20,6 +37,45 @@ def build_disabled_modules_ignore_lines(catalog: ModuleCatalog) -> list[str]:
     return lines
 
 
+def _strip_disabled_section(lines: list[str]) -> tuple[list[str], bool]:
+    out: list[str] = []
+    skip = False
+    changed = False
+    for line in lines:
+        if line.strip() == DOCKERIGNORE_BEGIN:
+            skip = True
+            changed = True
+            continue
+        if line.strip() == DOCKERIGNORE_END:
+            skip = False
+            continue
+        if skip:
+            continue
+        out.append(line)
+    return out, changed
+
+
+def cleanup_root_dockerignore_legacy_section(project_root: Path) -> None:
+    """Убирает устаревшую автосекцию из корневого .dockerignore (миграция)."""
+    dockerignore = project_root / '.dockerignore'
+    if not dockerignore.is_file():
+        return
+    lines = dockerignore.read_text(encoding='utf-8').splitlines()
+    cleaned, changed = _strip_disabled_section(lines)
+    if not changed:
+        return
+    dockerignore.write_text('\n'.join(cleaned).rstrip() + '\n', encoding='utf-8')
+
+
+def clear_dockerignore_artifacts(project_root: Path | None = None) -> None:
+    """Удаляет сгенерированные dockerignore-артефакты и чистит legacy-секцию в корне."""
+    for path in DOCKERIGNORE_ARTIFACT_PATHS:
+        if path.is_file():
+            path.unlink()
+    if project_root is not None:
+        cleanup_root_dockerignore_legacy_section(project_root)
+
+
 def write_modules_dockerignore_artifact(catalog: ModuleCatalog) -> Path:
     lines = build_disabled_modules_ignore_lines(catalog)
     MODULES_DOCKERIGNORE_ARTIFACT.parent.mkdir(parents=True, exist_ok=True)
@@ -27,48 +83,39 @@ def write_modules_dockerignore_artifact(catalog: ModuleCatalog) -> Path:
     return MODULES_DOCKERIGNORE_ARTIFACT
 
 
-def merge_dockerignore_section(project_root: Path, catalog: ModuleCatalog) -> None:
-    """Вставляет или обновляет секцию ERGO_DISABLED_MODULES в корневом .dockerignore."""
+def _read_root_dockerignore_base(project_root: Path) -> list[str]:
     dockerignore = project_root / '.dockerignore'
+    if not dockerignore.is_file():
+        return []
+    lines = dockerignore.read_text(encoding='utf-8').splitlines()
+    cleaned, _ = _strip_disabled_section(lines)
+    return cleaned
+
+
+def sync_dockerfile_dockerignore(project_root: Path, catalog: ModuleCatalog) -> None:
+    """Синхронизирует Dockerfile.*.dockerignore и фрагмент modules.dockerignore.generated.
+
+    Корневой `.dockerignore` не перезаписывается (кроме одноразовой очистки legacy-секции).
+    """
+    cleanup_root_dockerignore_legacy_section(project_root)
 
     if not catalog.disabled:
-        if MODULES_DOCKERIGNORE_ARTIFACT.is_file():
-            MODULES_DOCKERIGNORE_ARTIFACT.unlink()
-        if dockerignore.is_file():
-            from lifecycle.docker.ops import restore_dockerignore_section
-
-            restore_dockerignore_section(project_root)
+        clear_dockerignore_artifacts(project_root=None)
         return
 
     write_modules_dockerignore_artifact(catalog)
     section_lines = build_disabled_modules_ignore_lines(catalog)
+    base_lines = _read_root_dockerignore_base(project_root)
+    out = list(base_lines)
+    if out and out[-1].strip():
+        out.append('')
+    out.extend(section_lines)
+    content = '\n'.join(out).rstrip() + '\n'
 
-    if not dockerignore.is_file():
-        dockerignore.write_text('\n'.join(section_lines) + '\n', encoding='utf-8')
-        return
+    for path in DOCKERFILE_DOCKERIGNORE_ARTIFACTS:
+        path.write_text(content, encoding='utf-8')
 
-    existing = dockerignore.read_text(encoding='utf-8').splitlines()
-    out: list[str] = []
-    in_section = False
-    replaced = False
 
-    for line in existing:
-        if line.strip() == DOCKERIGNORE_BEGIN:
-            in_section = True
-            if not replaced:
-                out.extend(section_lines)
-                replaced = True
-            continue
-        if line.strip() == DOCKERIGNORE_END:
-            in_section = False
-            continue
-        if in_section:
-            continue
-        out.append(line)
-
-    if not replaced:
-        if out and out[-1].strip():
-            out.append('')
-        out.extend(section_lines)
-
-    dockerignore.write_text('\n'.join(out).rstrip() + '\n', encoding='utf-8')
+def merge_dockerignore_section(project_root: Path, catalog: ModuleCatalog) -> None:
+    """Совместимость: то же, что sync_dockerfile_dockerignore."""
+    sync_dockerfile_dockerignore(project_root, catalog)

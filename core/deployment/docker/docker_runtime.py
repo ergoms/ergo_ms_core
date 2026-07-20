@@ -327,10 +327,10 @@ def prepare_compose_artifacts(project_root: Path | None = None) -> dict[str, Pat
 
     if str(_DEPLOYMENT_DIR) not in sys.path:
         sys.path.insert(0, str(_DEPLOYMENT_DIR))
-    from lifecycle.docker.ignore import merge_dockerignore_section  # noqa: E402
+    from lifecycle.docker.ignore import sync_dockerfile_dockerignore  # noqa: E402
     from lifecycle.modules.catalog import ModuleCatalog  # noqa: E402
 
-    merge_dockerignore_section(root, ModuleCatalog.from_env(root, raw))
+    sync_dockerfile_dockerignore(root, ModuleCatalog.from_env(root, raw))
 
     return {
         'compose_env': compose_env_path,

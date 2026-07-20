@@ -32,7 +32,10 @@ ERGO MS можно запустить в контейнерах через **Doc
 
    Команда собирает образы, генерирует worker-сервисы из `celery_workers.yaml`, поднимает контейнеры, устанавливает Python-зависимости модулей и применяет миграции. Оркестрация — [`core/deployment/lifecycle/`](../core/deployment/lifecycle/) (`DeploymentOrchestrator`); `docker_cli.py` — тонкий CLI.
 
-   Модули из `DISABLED_MODULES` не попадают в Docker build context (секция в корневом `.dockerignore`), их зависимости не ставятся при `api install` / npm в bootstrap.
+   Модули из `DISABLED_MODULES` не попадают в Docker build context
+   (`Dockerfile.*.dockerignore` рядом с Dockerfile, генерируется при prepare;
+   корневой `.dockerignore` не меняется). Их зависимости не ставятся при
+   `api install` / npm в bootstrap.
 
 4. Откройте приложение:
 

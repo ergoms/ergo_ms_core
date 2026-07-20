@@ -104,7 +104,7 @@ python manage.py migrate
 proxy_pass http://127.0.0.1:8000;
 ```
 
-- Коммитить `.compose.env`, `.compose.databases.yaml`, `docker-compose.workers.generated.yml`, `docker-compose.build.generated.yml`, `nginx/ergo_ms.conf.rendered`, `init/postgres/02-celery-databases.sql`, `modules.dockerignore.generated`
+- Коммитить `.compose.env`, `.compose.databases.yaml`, `docker-compose.workers.generated.yml`, `docker-compose.build.generated.yml`, `nginx/ergo_ms.conf.rendered`, `init/postgres/02-celery-databases.sql`, `modules.dockerignore.generated`, `Dockerfile.python.dockerignore`, `Dockerfile.client.dockerignore`
 - Одновременно поднимать portable **redis/nginx на хосте** и те же порты в Docker без смены конфигурации
 - Создавать отдельный `.venv` в Dockerfile вместо `POETRY_VIRTUALENVS_PATH=/app/virtual_env/python` — см. [`virtual-env.mdc`](virtual-env.mdc)
 
@@ -120,6 +120,7 @@ proxy_pass http://127.0.0.1:8000;
 | `docker-compose.jupyter.yml` | profile `jupyter` |
 | `docker-compose.workers.generated.yml` | Celery workers (автоген) |
 | `modules.dockerignore.generated` | фрагмент ignore для disabled modules |
+| `Dockerfile.python.dockerignore` / `Dockerfile.client.dockerignore` | эффективный ignore (база + disabled); BuildKit, корневой `.dockerignore` не трогает |
 | `docker-compose.build.generated.yml` | local BuildKit cache (`DOCKER_DEPS_CACHE=project`) |
 
 Сборка списка `-f` файлов — `compose_file_list()` в [`docker_cli.py`](../../core/deployment/docker/docker_cli.py).

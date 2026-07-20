@@ -73,6 +73,8 @@ __pycache__/
 /core/deployment/docker/init/postgres/02-celery-databases.sql
 /core/deployment/docker/nginx/ergo_ms.conf.rendered
 /core/deployment/docker/modules.dockerignore.generated
+/core/deployment/docker/Dockerfile.python.dockerignore
+/core/deployment/docker/Dockerfile.client.dockerignore
 
 # Генерируется перед dev/build (scripts/generate-module-globs.js)
 core/client/src/modules/core/sharedGlobs.generated.js

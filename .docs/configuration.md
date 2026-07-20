@@ -112,7 +112,7 @@ databases:
 | `organizations` | `modules/organizations/.env.example` | `ORGANIZATIONS_USE_MEMBER_INVITATIONS` |
 | `video_analysis` | `modules/video_analysis/.env.example` | `VIDEO_ANALYSIS_USE_GPU` |
 
-Если модуль указан в `DISABLED_MODULES`, его `.env` не учитывается при сборке клиента, Python/npm-зависимости не устанавливаются (`ergoms python-install`, `npm run install:all`), пункты меню скрываются в API, `restore_menu` не наполняет меню модуля; в Docker build context каталог `modules/<имя>/` исключается.
+Если модуль указан в `DISABLED_MODULES`, его `.env` не учитывается при сборке клиента, Python/npm-зависимости не устанавливаются (`ergoms python-install`, `npm run install:all`), пункты меню скрываются в API, `restore_menu` не наполняет меню модуля; в Docker build context каталог `modules/<имя>/` исключается через `Dockerfile.*.dockerignore` (корневой `.dockerignore` не меняется).
 
 ## Realtime (WebSocket, SSE и polling)
 

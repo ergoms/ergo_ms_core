@@ -34,9 +34,7 @@ SETUP_MARKER_REL = Path('logs/.ergo-docker-setup-ok')
 DOCKER_PYTHON_INSTALL_LOG = 'logs/docker/python-install.log'
 DOCKER_NPM_INSTALL_LOG = 'logs/docker/npm-install.log'
 
-DOCKERIGNORE_BEGIN = '# BEGIN ERGO_DISABLED_MODULES'
-DOCKERIGNORE_END = '# END ERGO_DISABLED_MODULES'
-MODULES_DOCKERIGNORE_ARTIFACT = DOCKER_DIR / 'modules.dockerignore.generated'
+from lifecycle.docker.ignore import DOCKERIGNORE_ARTIFACT_PATHS  # noqa: E402
 
 COMPOSE_ARTIFACT_PATHS = (
     DOCKER_DIR / '.compose.env',
@@ -45,7 +43,7 @@ COMPOSE_ARTIFACT_PATHS = (
     DOCKER_DIR / 'docker-compose.build.generated.yml',
     DOCKER_DIR / 'init' / 'postgres' / '02-celery-databases.sql',
     DOCKER_DIR / 'nginx' / 'ergo_ms.conf.rendered',
-    MODULES_DOCKERIGNORE_ARTIFACT,
+    *DOCKERIGNORE_ARTIFACT_PATHS,
 )
 
 
@@ -351,30 +349,11 @@ def api_warmup_shell() -> str:
 
 
 def remove_compose_artifacts(project_root: Path | None = None) -> None:
+    from lifecycle.docker.ignore import cleanup_root_dockerignore_legacy_section
+
     root = project_root or PROJECT_ROOT
     for path in COMPOSE_ARTIFACT_PATHS:
         if path.is_file():
             path.unlink()
             print(format_console('ok', f'Удалён {path.relative_to(root)}'))
-    restore_dockerignore_section(root)
-
-
-def restore_dockerignore_section(project_root: Path) -> None:
-    """Удаляет сгенерированную секцию disabled modules из корневого .dockerignore."""
-    dockerignore = project_root / '.dockerignore'
-    if not dockerignore.is_file():
-        return
-    lines = dockerignore.read_text(encoding='utf-8').splitlines()
-    out: list[str] = []
-    skip = False
-    for line in lines:
-        if line.strip() == DOCKERIGNORE_BEGIN:
-            skip = True
-            continue
-        if line.strip() == DOCKERIGNORE_END:
-            skip = False
-            continue
-        if skip:
-            continue
-        out.append(line)
-    dockerignore.write_text('\n'.join(out).rstrip() + '\n', encoding='utf-8')
+    cleanup_root_dockerignore_legacy_section(root)
