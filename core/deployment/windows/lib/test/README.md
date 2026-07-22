@@ -27,7 +27,7 @@ ergoms test_system
 
 ### install_test
 
-Проверяет установку: полную настройку через задачу VS Code «Setup Full System» (внутри — `setup-full`), `ergoms setup`, `ergoms install-all-services` и поочерёдную установку служб API, клиента, worker, beat, media и ollama (если модуль подключён).
+Проверяет установку: полную настройку через задачу VS Code «Setup Full System» (внутри — `setup-full`), `ergoms setup`, `ergoms install-all-services` и поочерёдную установку служб API, клиента, worker, beat, media, а также модульных служб из `modules/*/host_lifecycle.yaml` (если модуль подключён).
 
 ### run_test
 

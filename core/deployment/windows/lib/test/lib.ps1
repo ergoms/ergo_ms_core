@@ -88,6 +88,77 @@ function Stop-StaleCeleryBeatProcessesForTests {
     }
 }
 
+function Get-ModuleHostLifecycle {
+    <#
+    .SYNOPSIS
+    Агрегат modules/*/host_lifecycle.yaml (stop/install команды модульных демонов).
+    #>
+    $pythonExe = Join-Path $RootDir "virtual_env\python\Scripts\python.exe"
+    $script = Join-Path $RootDir "core\deployment\scripts\host_lifecycle_loader.py"
+    if (-not (Test-Path -LiteralPath $pythonExe) -or -not (Test-Path -LiteralPath $script)) {
+        return [pscustomobject]@{
+            stop_commands = @()
+            install_service_commands = @()
+            service_units = @()
+            modules = @()
+        }
+    }
+    try {
+        $json = & $pythonExe $script --root $RootDir --json 2>$null
+        if (-not $json) {
+            return [pscustomobject]@{
+                stop_commands = @()
+                install_service_commands = @()
+                service_units = @()
+                modules = @()
+            }
+        }
+        $data = $json | ConvertFrom-Json
+        return [pscustomobject]@{
+            stop_commands = @($data.stop_commands)
+            install_service_commands = @($data.install_service_commands)
+            service_units = @($data.service_units)
+            modules = @($data.modules)
+        }
+    } catch {
+        Log "[WARNING] Не удалось загрузить host_lifecycle модулей: $_"
+        return [pscustomobject]@{
+            stop_commands = @()
+            install_service_commands = @()
+            service_units = @()
+            modules = @()
+        }
+    }
+}
+
+function Invoke-ModuleHostStopCommands {
+    if (-not (Get-Command ergoms -ErrorAction SilentlyContinue)) { return }
+    $lifecycle = Get-ModuleHostLifecycle
+    foreach ($cmd in @($lifecycle.stop_commands)) {
+        if (-not $cmd) { continue }
+        try {
+            ergoms $cmd
+        } catch {
+            Log "[WARNING] ergoms $cmd failed. Continuing."
+        }
+    }
+}
+
+function Invoke-ModuleHostInstallServiceCommands {
+    if (-not (Get-Command ergoms -ErrorAction SilentlyContinue)) { return }
+    $lifecycle = Get-ModuleHostLifecycle
+    foreach ($cmd in @($lifecycle.install_service_commands)) {
+        if (-not $cmd) { continue }
+        Log "Установка службы модуля через утилиту ergoms: ergoms $cmd"
+        try {
+            ergoms $cmd
+            Log "=== Проверка ergoms $cmd завершена. ==="
+        } catch {
+            Log "[WARNING] ergoms $cmd завершился с ошибкой. Continuing."
+        }
+    }
+}
+
 function Stop-AllErgoms {
     Log "Stopping all ergoms processes and services..."
     Set-Location $RootDir
@@ -101,7 +172,7 @@ function Stop-AllErgoms {
     }
     if (Get-Command ergoms -ErrorAction SilentlyContinue) {
         try { ergoms stop } catch { Log "[WARNING] ergoms stop failed (maybe no venv). Continuing." }
-        try { ergoms ollama_framework:stop-ollama } catch { Log "[WARNING] ergoms ollama_framework:stop-ollama failed. Continuing." }
+        Invoke-ModuleHostStopCommands
     }
     Start-Sleep -Seconds 3
 }

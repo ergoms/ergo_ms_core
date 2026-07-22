@@ -1,0 +1,72 @@
+---
+description: host_lifecycle.yaml — stop/install модульных демонов в тестах deployment без хардкода имён модулей
+alwaysApply: false
+---
+# Host lifecycle модулей (тесты deployment)
+
+Windows-тесты развёртывания (`core/deployment/windows/lib/test/`) останавливают и ставят **опциональные** службы/демоны модулей. Имена команд **не** зашивают в ядро — модуль объявляет их в hook.
+
+Работает **вне Django**: YAML + `ModuleCatalog`, как [`process-roles.mdc`](process-roles.mdc) и [`mcp.mdc`](mcp.mdc).
+
+## Кратко
+
+- Hook: `modules/<имя>/host_lifecycle.yaml`
+- Загрузка: [`host_lifecycle_loader.py`](../../core/deployment/scripts/host_lifecycle_loader.py)
+- Потребители: [`lib.ps1`](../../core/deployment/windows/lib/test/lib.ps1) (`Stop-AllErgoms`, `Invoke-ModuleHostInstallServiceCommands`)
+- `DISABLED_MODULES` — модуль не участвует
+
+## Обязательно
+
+Если у модуля есть долгоживущий процесс или OS-служба (`ergo-…`), которую тесты должны ставить/гасить:
+
+1. Добавь `host_lifecycle.yaml`
+2. Для учёта в `resource-usage` — отдельно [`process_roles.yaml`](process-roles.mdc)
+
+## Запрещено
+
+```powershell
+# BAD — имя модуля в ядре тестов
+ergoms ollama_framework:stop-ollama
+ergoms ollama_framework:install-ollama-service
+```
+
+```powershell
+# GOOD
+Invoke-ModuleHostStopCommands
+Invoke-ModuleHostInstallServiceCommands
+```
+
+## Схема
+
+```yaml
+module: my_module
+host:
+  stop_commands:
+    - my_module:stop-daemon          # ergoms <команда>
+  install_service_commands:
+    - my_module:install-daemon-service
+  service_units:
+    - ergo-my-daemon                 # для справки; Stop-AllErgoms уже гасит ergo-*
+```
+
+| Поле | Смысл |
+|------|--------|
+| `stop_commands` | после `ergoms stop` в `Stop-AllErgoms` (процесс без службы) |
+| `install_service_commands` | шаг «отдельные службы» в `install_test.ps1` |
+| `service_units` | имена OS-служб (документация / будущий catalog) |
+
+CLI: `virtual_env/python/Scripts/python.exe core/deployment/scripts/host_lifecycle_loader.py --root . --json`
+
+## Эталон
+
+[`modules/ollama_framework/host_lifecycle.yaml`](../../modules/ollama_framework/host_lifecycle.yaml)
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Роли процессов | [`process-roles.mdc`](process-roles.mdc) |
+| Модули | [`modules.mdc`](modules.mdc) |
+| Hook discovery | [`struct.mdc`](struct.mdc) |
+| Ollama | [`ollama-framework.mdc`](ollama-framework.mdc) |
+| UTF-8 BOM в .ps1 | [`ps1-encoding.mdc`](ps1-encoding.mdc) |

@@ -12,6 +12,8 @@ alwaysApply: true
 - LLM-запросы из модулей — через `modules.ollama_framework.api.transport.ollama_invoke` или `create_client` из `modules.ollama_framework.api.client.factory`
 - Транспорт — `OLLAMA_FRAMEWORK_TRANSPORT=local|http` в `.env` модуля
 - Управление процессом — `ergoms ollama_framework:start-ollama`, `stop-ollama`, `ollama-status`, служба `ergo-ollama`
+- Учёт в `ergoms resource-usage` — [`process_roles.yaml`](../../modules/ollama_framework/process_roles.yaml) модуля, не правки classifier ядра (см. [`process-roles.mdc`](process-roles.mdc))
+- Stop/install в Windows-тестах deployment — [`host_lifecycle.yaml`](../../modules/ollama_framework/host_lifecycle.yaml) (см. [`host-lifecycle.mdc`](host-lifecycle.mdc))
 - MCP Cursor — `modules/ollama_framework/mcp/`, имя сервера `ergo-module-ollama-framework` (см. [`mcp.mdc`](mcp.mdc))
 - Проверка health в API — `GET /api/ollama_framework/status/` (alias в `ai_assistant/ollama_status/` сохранён для совместимости)
 
@@ -52,4 +54,6 @@ client.chat(messages, stream=True, stream_callback=cb, return_stats=True)
 | Модули, мост | [`modules.mdc`](modules.mdc) |
 | ergoms | [`no-direct-manage-py.mdc`](no-direct-manage-py.mdc) |
 | MCP Cursor | [`mcp.mdc`](mcp.mdc) |
+| Роли процессов | [`process-roles.mdc`](process-roles.mdc) |
+| Host lifecycle (тесты) | [`host-lifecycle.mdc`](host-lifecycle.mdc) |
 | ai_assistant (re-export) | [`modules/ai_assistant/api/llm_utils.py`](../../modules/ai_assistant/api/llm_utils.py) |

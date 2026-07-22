@@ -144,5 +144,6 @@ CACHE_URL = "redis://127.0.0.1:6379/1"
 | Не писать в `.env` | [`no-auto-env-write.mdc`](no-auto-env-write.mdc) |
 | Устройство ergoms | [`core/deployment/logic.md`](../../core/deployment/logic.md) |
 | Docker Compose | [`docker.mdc`](docker.mdc) |
+| Роли процессов модулей | [`process-roles.mdc`](process-roles.mdc) |
 | Настройка для людей | [`.docs/configuration.md`](../../.docs/configuration.md) |
 | Команды | [`.docs/cli.md`](../../.docs/cli.md) |

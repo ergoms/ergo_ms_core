@@ -6,8 +6,8 @@ alwaysApply: false
 
 Единый журнал действий пользователей живёт в ядре (`core/api/src/core/audit/`).
 Модули **не** заводят свою модель аудита, свой UI и свой формат — только пишут
-события. Инициатор, IP, User-Agent, организация и request_id подставляет ядро
-автоматически из контекста запроса.
+события. Инициатор, IP, User-Agent, scope (измерения) и request_id подставляет
+ядро автоматически из контекста запроса.
 
 Смотреть журнал: админ-панель → «Журнал действий» (только глобальный админ).
 Файл: `logs/audit.log` — каждая успешная запись дублируется строкой (см. [`logging.mdc`](logging.mdc));
@@ -56,7 +56,7 @@ bridge.call(
 )
 ```
 
-- `actor`, `ip`, `organization_id`, `request_id` подставляются из запроса — **не передавай их**.
+- `actor`, `ip`, `scope`, `request_id` подставляются из запроса — **не передавай их**.
 - Передавай `actor=<user>` **только** если пишешь вне HTTP-запроса (Celery, команда).
 - Никогда не бросай наружу — вызов уже обёрнут и не ломает основной запрос.
 
@@ -82,6 +82,36 @@ from src.core.integrations import bridge
 from .audit_catalog import AUDIT_SECTION
 bridge.provide_many('audit.action_definitions', key='lms', obj=AUDIT_SECTION)
 ```
+
+### 4. Измерение аудита (scope) — расширяемый фильтр журнала
+
+Кроме организации/подразделения модуль может добавить **своё измерение** журнала
+(например «Проект», «Курс»): по нему появятся фильтр в UI и колонка в `scope`.
+Ядро не знает конкретных измерений — собирает их из группы моста.
+
+```python
+# modules/<m>/api/integrations.py
+from src.core.integrations import bridge
+from src.core.integrations.module_contracts import AUDIT_SCOPE_DIMENSIONS_GROUP
+
+bridge.provide_many(AUDIT_SCOPE_DIMENSIONS_GROUP, 'project', {
+    'key': 'project',
+    'label': 'Проект',
+    'resolve': lambda request: getattr(request, 'project_id', None),
+    'filter_param': 'project_id',   # имя query-параметра фильтра
+    'indexed': False,
+    # 'read_guard': True,           # ограничить чтение журнала не-админам этим измерением
+})
+```
+
+- Значения измерений складываются в `AuditEvent.scope` (JSONB) при записи события;
+  фильтрация — через `scope__contains` (GIN-индекс `audit_scope_gin`). Отдельных
+  колонок под конкретные измерения ядро **не** хранит.
+- `read_guard=True` (например у `organization` в модуле organizations) означает: не-админ
+  видит журнал только в пределах своего значения этого измерения (резолвится из запроса),
+  а право чтения проверяет провайдер события `audit.can_read` (scope передаётся ему как dict).
+- Платформенные `organization` / `department` регистрирует модуль organizations.
+- Список измерений для UI: `GET .../audit/dimensions/`.
 
 ## Правила именования действий
 
@@ -111,7 +141,8 @@ bridge.provide_many('audit.action_definitions', key='lms', obj=AUDIT_SECTION)
 | Операция моста `audit.record` | `core/api/src/core/audit/integrations.py` |
 | Автоаудит CRUD | `core/api/src/core/audit/mixin.py` → `AuditedModelMixin` |
 | Каталог действий | группа моста `audit.action_definitions` |
-| Контекст (actor/ip/org) | `core/api/src/core/audit/context.py` (middleware) |
+| Измерения (scope) | `core/api/src/core/audit/dimensions.py`, группа `audit.scope_dimensions` |
+| Контекст (actor/ip/scope) | `core/api/src/core/audit/context.py` (middleware) |
 | Файл `logs/audit.log` | `core/api/src/core/audit/service.py` → `log_audit_event` |
 | UI (только ядро) | `core/client/src/core/cms/adp/admin/AuditLog.vue` |
 

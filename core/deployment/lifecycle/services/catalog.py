@@ -51,7 +51,5 @@ def list_core_services() -> list[ServiceEntry]:
 
 def resolve_service_catalog(project_root: Path, disabled_modules: set[str]) -> list[ServiceEntry]:
     catalog = list_core_services()
-    if 'ollama_framework' in disabled_modules:
-        pass
     catalog.extend(_load_workers(project_root))
     return catalog

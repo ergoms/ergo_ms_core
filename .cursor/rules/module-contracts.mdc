@@ -1,0 +1,145 @@
+---
+description: Platform-контракты модулей — ModuleBridge groups/events, hook-файлы, JWT session context, каталог module_contracts
+alwaysApply: false
+---
+# Platform-контракты модулей
+
+Ядро публикует **имена контрактов** и runtime-хелперы; модули **реализуют** их в `integrations.py` / `client/js/integrations.js` без import из других модулей.
+
+## Кратко
+
+- Каталог имён: [`module_contracts.py`](../../core/api/src/core/integrations/module_contracts.py) (сервер), [`moduleContracts.js`](../../core/client/src/integrations/moduleContracts.js) (клиент)
+- Регистрация — `bridge.provide_many(group, key, obj)` / `bridge.subscribe_to(event)` / `bridge.provide_op(...)`
+- Hook discovery — фиксированные имена файлов; ядро сканирует, не импортирует домен
+- JWT session-claims (например `organization_id` / `department_id`) декларирует модуль через `session_context.claims`; session-scoped UI — `@/integrations/sessionScopedModuleContext.js`
+- Session-scope guard — `@/js/session/sessionScopeGuard.js`; welcome/home — группа `session.scope_entry_routes`
+- Активность scope на клиенте гейтит модуль через `session.scope_gating_claim` (`@/integrations/sessionScopeGating.js`)
+- Полный список контрактов — таблица ниже; эталон stub — [`module_template`](../../modules/module_template/)
+
+## Обязательно
+
+- Импортировать **константы групп/событий** из каталога ядра, не дублировать строки в модуле
+- Session-scoped маршруты — `SESSION_SCOPED_MODULE_CONTEXT_GROUP` + хелперы из `@/integrations/sessionScopedModuleContext.js`
+- Маршруты с `meta.requiresSessionScope` — guard через `@/js/session/sessionScopeGuard.js` или модульный `routeGuard.js`, который его вызывает
+- Серверный session-claim (claim + resolver) — дескриптор в `SESSION_CLAIMS_GROUP` в `api/integrations.py`
+- Клиентский gating-claim активного scope — строка claim в `SESSION_SCOPE_GATING_CLAIM_GROUP`
+
+## Запрещено
+
+- Прямой `import` из `modules/<другой>/` (API и клиент) — только ModuleBridge
+- Hardcoded строки групп моста, если константа уже есть в каталоге
+- Именование конкретного домена (organization и т.п.) в ядре — session-scope слой ядра generic
+
+## Каталог контрактов (сервер)
+
+| Имя | Тип | Назначение | Регистратор |
+|-----|-----|------------|-------------|
+| `session_context.claims` | group | Дескриптор session-claim: `{claim, request_attr?, entity_key?, resolve?, required_guard?}` | модуль-владелец scope |
+| `audit.action_definitions` | group | Секции журнала аудита | ядро + модули |
+| `audit.scope_dimensions` | group | Измерения журнала: `{key, label, resolve(request), filter_param?, indexed?, read_guard?}`; `read_guard=True` ограничивает чтение не-админам | модуль (organizations → `organization`, `department`) |
+| `audit.can_read` | event | Право читать аудит в scope-контексте (`scope=dict` из read_guard измерений) | модуль (organizations) |
+| `audit.record` | event | Запись события | ядро |
+| `notifications.event_definitions` | group | Каталог уведомлений | модули |
+| `notifications.email_context` | group | Контекст письма | модули |
+| `adp.permission_check` | event | Контекстная проверка прав | модуль |
+| `menu.prepare_visibility` | event | Фильтр меню | модуль |
+| `menu.can_see_item` | event | Видимость пункта | модуль |
+| `core.user_delete` | event | Очистка при удалении user | подписчик в модуле |
+| `core.bulk_user_create` | event | Массовое создание users | подписчик в модуле |
+| `core.auth.clear_legacy_storage` | event | Очистка legacy localStorage | модуль (organizations) |
+| `session.restore_claims` | op | Dict произвольных JWT session-claims при логине (или None/пусто). Ядро **не** знает ключи claims — только вкладывает dict в токен | модуль-владелец scope (эталон: organizations) |
+
+JWT session claims **не зашиты в ядре** — их декларируют модули через `session_context.claims`. Ядро выводит из дескрипторов список claims, resolver'ы и request-атрибуты ([`session_context.py`](../../core/api/src/core/integrations/session_context.py)).
+
+Whitelist bridge ops в ядре: `CORE_BRIDGE_PREFIXES` = `audit.`, `notifications.`, `core.`
+
+## Каталог контрактов (клиент)
+
+| Имя | Тип | Назначение | Эталон |
+|-----|-----|------------|--------|
+| `session_scope.module_context` | group | `{ pathPrefix, homeRoute, overviewRoute?, ... }` | [`organizations/integrations.js`](../../modules/organizations/client/js/integrations.js) |
+| `session.scope_entry_routes` | group | `welcome`, `defaultHome` route names, `onboardingPath` (путь онбординга scope) | organizations |
+| `session.scope_gating_claim` | group | Имя JWT claim, гейтящего активный scope (`hasActiveSessionScope`) | organizations (`organization_id`) |
+| `layout.plugin_registry` | group | LayoutPlugin / offcanvas | [`layoutPluginRegistry.js`](../../core/client/src/integrations/layoutPluginRegistry.js) |
+| `menu.removed_route_names` | group | Скрытые route names в меню | [`menuExtensions.js`](../../core/client/src/integrations/menuExtensions.js) |
+| `menu.scope_required_route_prefixes` | group | Префиксы route names, требующих активный scope | menuExtensions |
+| `header.userMenu.items` | group | Пункты UserMenu | [`headerUserMenu.js`](../../core/client/src/integrations/headerUserMenu.js) |
+| `core.auth.clear_legacy_storage` | event | Очистка legacy storage | organizations |
+
+Хелперы: [`sessionScopedModuleContext.js`](../../core/client/src/integrations/sessionScopedModuleContext.js), [`sessionScopeGuard.js`](../../core/client/src/js/session/sessionScopeGuard.js), [`sessionScopeEntryRoutes.js`](../../core/client/src/integrations/sessionScopeEntryRoutes.js), [`sessionScopeGating.js`](../../core/client/src/integrations/sessionScopeGating.js).
+
+## Hook-файлы (discovery)
+
+Ядро находит hook по **фиксированному имени файла** (сканирование каталога / glob), импортирует его и агрегирует объявления — не импортирует доменные классы модуля. Ниже — полная матрица «hook → как находит ядро → потребитель».
+
+### Сервер
+
+| Hook-файл | Как находит ядро | Потребитель | Обязательность |
+|-----------|------------------|-------------|----------------|
+| `api/apps.py` | `ModuleDiscoverer` ([`auto_config.py`](../../core/api/src/core/utils/auto_api/auto_config.py)) → [`discovered_apps_cache.py`](../../core/api/src/core/utils/auto_api/discovered_apps_cache.py) | `INSTALLED_APPS` ([`apps.py`](../../core/api/src/config/settings/apps.py)) | всегда (регистрация app) |
+| `api/urls.py` | `ModuleDiscoverer._find_modules_urls` | [`config/urls.py`](../../core/api/src/config/urls.py) | при API-маршрутах |
+| `api/integrations.py` | `apps.py` → `ready()` → `from . import integrations` | ModuleBridge | при мосте / контрактах |
+| `api/permission_catalog.py` | `importlib.import_module` по имени | ADP ([`permission_catalog.py`](../../core/api/src/core/cms/adp/services/permission_catalog.py)) | при module permissions |
+| `api/celery_config.py` | `CeleryModuleManager` ([`manager.py`](../../core/api/src/core/utils/celery/manager.py)) | [`config/celery.py`](../../core/api/src/config/celery.py) | при фоновых задачах |
+| `api/celery_beat_config.py` | celery-beat manager | beat | при периодических задачах |
+| `api/migrations/*_menu*.py` | `restore_menu` scan + `MenuMigrationHelper` | CMS-меню | при пункте sidebar |
+
+### Клиент
+
+Prebuild [`generate-module-globs.js`](../../core/client/scripts/generate-module-globs.js) → `sharedGlobs.generated.js`; runtime — [`ModuleLoader.js`](../../core/client/src/modules/core/ModuleLoader.js) и менеджеры.
+
+| Hook-файл | Как находит ядро | Потребитель | Обязательность |
+|-----------|------------------|-------------|----------------|
+| `client/js/routes.js` | glob ModuleLoader | `RouteManager` | при UI |
+| `client/js/endpoints.js` | glob | `EndpointManager` | при API-адресах |
+| `client/js/permission-rules.js` | glob | `PermissionRulesManager` | при guarded routes |
+| `client/js/permission-sections.js` | glob | `PermissionSectionsManager` | при секциях прав |
+| `client/js/routeGuard.js` | glob | `RouteGuardsManager` → `routers.js` | опционально |
+| `client/js/integrations.js` | glob (side-effect import) | ModuleBridge (`IntegrationsManager`) | при client-контрактах |
+| `client/js/theme-defaults.js` | glob | `ThemeDefaultsManager` | при отдельной палитре |
+| `client/LayoutPlugin.vue` | glob [`layoutPlugins.js`](../../core/client/src/js/layoutPlugins.js) | LayoutPlugin / offcanvas | при layout-плагине |
+
+## Базовый пример (session-scoped модуль)
+
+```javascript
+// modules/my_module/client/js/integrations.js
+import bridge from '@/integrations/ModuleBridge.js'
+import { SESSION_SCOPED_MODULE_CONTEXT_GROUP } from '@/integrations/moduleContracts.js'
+import { SESSION_SCOPE_GATING_CLAIM_GROUP } from '@/integrations/sessionScopeGating.js'
+
+bridge.provideMany(SESSION_SCOPED_MODULE_CONTEXT_GROUP, 'my_module', {
+  pathPrefix: '/my-module',
+  homeRoute: 'MyModuleHome',
+})
+
+// scope считается активным, если в JWT есть этот claim
+bridge.provideMany(SESSION_SCOPE_GATING_CLAIM_GROUP, 'my_scope', 'my_scope_id')
+```
+
+```python
+# modules/my_module/api/integrations.py — session-claim через единый дескриптор
+from src.core.integrations import bridge
+from src.core.integrations.module_contracts import SESSION_CLAIMS_GROUP
+
+def _resolve_org(*, organization_id, **kwargs):
+    ...
+
+bridge.provide_many(SESSION_CLAIMS_GROUP, 'organization', {
+    'claim': 'organization_id',      # ключ в payload JWT
+    'request_attr': 'organization_id',
+    'entity_key': 'organization',    # ленивое request.organization
+    'resolve': _resolve_org,
+    'required_guard': True,          # для SessionScopeRequiredMiddleware
+})
+```
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Изоляция ядра от домена модулей | [`core-module-isolation.mdc`](core-module-isolation.mdc) |
+| Модули, структура | [`modules.mdc`](modules.mdc) |
+| ModuleBridge | [`modules.mdc`](modules.mdc) → «Мост между модулями» |
+| Session middleware | [`struct.mdc`](struct.mdc) |
+| Аудит | [`audit.mdc`](audit.mdc) |
+| Безопасность JWT | [`security.mdc`](security.mdc) |

@@ -28,11 +28,16 @@ modules/<имя>/
 │   └── ui/                  # общий UI-kit (по образцу competence_core, lms)
 ├── ergoms.conf              # команды модуля (необязательно)
 ├── ergoms.help.yaml         # справка для ergoms help module (если есть ergoms.conf)
+├── process_roles.yaml       # роли процессов для ergoms resource-usage (если есть свой демон)
+├── host_lifecycle.yaml      # stop/install демона в тестах deployment (если есть служба/процесс)
 └── README.md
 ```
 
 Папка клиента: `client/js/`, **не** `client/src/js/`.
 
+Учёт модульного процесса в `ergoms resource-usage` — только через `process_roles.yaml` ([`process-roles.mdc`](process-roles.mdc)); не правь классификатор ядра ради одного модуля.
+
+Stop/install модульного демона в Windows-тестах deployment — только через `host_lifecycle.yaml` ([`host-lifecycle.mdc`](host-lifecycle.mdc)).
 Вложенные подприложения (`client/<раздел>/js/routes.js`) подхватываются для маршрутов и `integrations.js`. Файлы `endpoints.js`, `permission-rules.js` — только из `client/js/` (или re-export оттуда).
 
 ## Регистрация на сервере
@@ -58,7 +63,13 @@ class MyModuleConfig(AppConfig):
 
 Выпадающие списки — **только** `SelectBox` из ядра (`@/components/SelectBox.vue`). Не создавай в модуле свой `<select>` или выпадающий список для обычного выбора. Подробности: [`select-box.mdc`](select-box.mdc).
 
-**Настройки клиента модуля** — `CLIENT_<МОДУЛЬ>_*` в корневом `.env`, поле в [`clientEnv.js`](../../core/client/src/js/clientEnv.js), маппинг в [`vite.config.js`](../../core/client/vite.config.js). В модуле читай через `clientEnv`, не `import.meta.env` и не `VITE_*`.
+**Настройки клиента модуля** — `CLIENT_<МОДУЛЬ>_*` в корневом `.env` или `modules/<имя>/.env`, маппинг в [`vite.config.js`](../../core/client/vite.config.js) (`import.meta.env.CLIENT_*`). В модуле читай через **локальный** `client/js/clientEnv.js`, не через ядровой `clientEnv.js` и не `VITE_*`.
+
+**LayoutPlugin и offcanvas** — регистрация в `client/js/integrations.js` через группу `layout.plugin_registry` (см. [`layoutPluginRegistry.js`](../../core/client/src/integrations/layoutPluginRegistry.js)). Ядро не хранит маппинг `route_name → module`.
+
+**Session-scoped модули** — группа моста `session_scope.module_context`. Регистрация в `client/js/integrations.js`: `bridge.provideMany(SESSION_SCOPED_MODULE_CONTEXT_GROUP, moduleKey, { pathPrefix, homeRoute, ... })` — **без import из organizations**. Хелперы — [`sessionScopedModuleContext.js`](../../core/client/src/integrations/sessionScopedModuleContext.js), session-scope guard — [`sessionScopeGuard.js`](../../core/client/src/js/session/sessionScopeGuard.js), активность scope — [`sessionScopeGating.js`](../../core/client/src/integrations/sessionScopeGating.js). Каталог контрактов — [`module-contracts.mdc`](module-contracts.mdc). Домен organizations (welcome API, store) — [`organizationGuard.js`](../../modules/organizations/client/js/organizationGuard.js).
+
+**Модульные темы** — только hook `client/js/theme-defaults.js` + `POST settings/themes/sync-module-defaults/`; в ядре **нет** builtin-палитр модулей.
 
 Пункты бокового меню — **миграция API** (`MenuMigrationHelper`, эталон `module_template/api/migrations/0004_add_menu.py`); маршруты — `client/js/routes.js`. Порядок и видимость — в CMS. Подробности: [`menu.mdc`](menu.mdc).
 
@@ -146,6 +157,7 @@ def _handler(user):
 
 - Менять ядро ради одного модуля
 - Прямые импорты между модулями
+- Hardcoded имена модулей в ядре (см. [`struct.mdc`](struct.mdc))
 - Регистрировать модуль вручную в настройках
 - Отдельная палитра модуля без `theme-defaults.js` и редактора ядра (см. [`themes.mdc`](themes.mdc))
 
@@ -153,7 +165,9 @@ def _handler(user):
 
 | Тема | Файл |
 |------|------|
+| Platform-контракты | [`module-contracts.mdc`](module-contracts.mdc) |
 | Темы оформления, hook, ModuleThemeScope | [`themes.mdc`](themes.mdc) |
+| Изоляция ядра | [`core-module-isolation.mdc`](core-module-isolation.mdc) |
 | Архитектура | [`struct.mdc`](struct.mdc) |
 | API, ViewSet | [`api_code.mdc`](api_code.mdc) |
 | Миграции `api/migrations/` | [`django-migrations.mdc`](django-migrations.mdc) |
@@ -164,4 +178,6 @@ def _handler(user):
 | Человекочитаемо | [`.docs/architecture.md`](../../.docs/architecture.md) |
 | Боковое меню | [`menu.mdc`](menu.mdc) |
 | Справка ergoms модуля | [`ergoms-module-help.mdc`](ergoms-module-help.mdc) |
+| Роли процессов (resource-usage) | [`process-roles.mdc`](process-roles.mdc) |
+| Host lifecycle (тесты deployment) | [`host-lifecycle.mdc`](host-lifecycle.mdc) |
 | Redis, nginx (prod) | [`deployment-infra.mdc`](deployment-infra.mdc) |

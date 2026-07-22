@@ -1,0 +1,102 @@
+---
+description: process_roles.yaml — учёт модульных процессов в ergoms resource-usage через ModuleCatalog
+alwaysApply: false
+---
+# Роли процессов модулей (resource-usage)
+
+`ergoms resource-usage` показывает RAM/CPU процессов ERGO MS. Роли **инфраструктуры ядра** (api, client, redis, nginx, celery…) живут в классификаторе. Роли **модулей** модуль объявляет сам — ядро только сканирует hook.
+
+Работает **вне Django**: декларативный YAML, не ModuleBridge и не импорт `modules.*.api`.
+
+## Кратко
+
+- Hook: `modules/<имя>/process_roles.yaml`
+- Discovery: [`ModuleCatalog`](../../core/deployment/lifecycle/modules/catalog.py) (без `DISABLED_MODULES`)
+- Загрузка: [`process_roles_loader.py`](../../core/deployment/scripts/process_roles_loader.py)
+- Классификация: [`ergo_process_classifier.py`](../../core/deployment/scripts/ergo_process_classifier.py)
+- Сначала роли ядра, затем модульные; коллизия `id` — первое объявление, остальные с `[WARNING]`
+
+## Обязательно
+
+- Новый долгоживущий процесс модуля (бинарник, portable-пакет в `virtual_env/packages/…`) — добавь `process_roles.yaml`
+- Укажи `process_names`, если имя процесса не `python`/`node`/`redis-server`/`nginx` (иначе PID не попадёт в выборку)
+- Маркеры в `when` — пути/подстроки cmdline или cwd, привязанные к проекту или пакету модуля
+
+## Запрещено
+
+```python
+# BAD — знание модуля в ядре
+if 'virtual_env/packages/ollama' in text or 'ollama' in text:
+    return 'ollama'
+```
+
+```yaml
+# BAD — импорт api модуля или callable из deployment
+# process_roles.py с from modules....api import ...
+```
+
+Не переноси в YAML роли api/redis/nginx/client — это ядро.
+
+## Схема
+
+```yaml
+module: <имя_модуля>
+roles:
+  - id: <роль_в_таблице>          # строка в resource-usage
+    process_names:                 # доп. кандидаты (нижний регистр при загрузке)
+      - mydaemon
+      - mydaemon.exe
+    # OR между элементами when; AND внутри одного элемента
+    when:
+      - cmdline_contains_any:
+          - virtual_env/packages/mydaemon
+      - cmdline_contains_any:
+          - mydaemon
+        project_bound: true        # корень проекта в cmdline или cwd
+      # опционально:
+      # - cwd_contains_any:
+      #     - modules/my_module
+```
+
+| Поле | Смысл |
+|------|--------|
+| `id` | роль в выводе `resource-usage` |
+| `process_names` | имена процессов в кандидатах |
+| `when[].cmdline_contains_any` | хотя бы одна подстрока в нормализованном cmdline |
+| `when[].cwd_contains_any` | хотя бы одна подстрока в cwd |
+| `when[].project_bound` | нужен корень проекта в cmdline или cwd |
+
+Битый или пустой файл — `[WARNING]`, `resource-usage` не падает.
+
+## Эталон
+
+[`modules/ollama_framework/process_roles.yaml`](../../modules/ollama_framework/process_roles.yaml)
+
+```yaml
+module: ollama_framework
+roles:
+  - id: ollama
+    process_names:
+      - ollama
+      - ollama.exe
+    when:
+      - cmdline_contains_any:
+          - virtual_env/packages/ollama
+      - cmdline_contains_any:
+          - ollama
+        project_bound: true
+```
+
+Проверка: `ergoms resource-usage` при запущенном `ergoms ollama_framework:start-ollama`.
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Структура модулей | [`modules.mdc`](modules.mdc) |
+| Hook discovery в ядре | [`struct.mdc`](struct.mdc) |
+| Тот же класс discovery (MCP) | [`mcp.mdc`](mcp.mdc) |
+| Ollama | [`ollama-framework.mdc`](ollama-framework.mdc) |
+| Host lifecycle (stop/install в тестах) | [`host-lifecycle.mdc`](host-lifecycle.mdc) |
+| Redis, nginx | [`deployment-infra.mdc`](deployment-infra.mdc) |
+| Изоляция ядра | [`core-module-isolation.mdc`](core-module-isolation.mdc) |
