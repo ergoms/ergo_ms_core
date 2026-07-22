@@ -16,13 +16,13 @@ include ${ERGO_NGINX_SNIPPETS}/compression.conf;
 include ${ERGO_NGINX_SNIPPETS}/rate_limit.conf;
 
 upstream ergo_api {
+    # No upstream keepalive: on Windows, nginx->Daphne idle keepalive
+    # pools cause intermittent /api hangs (infinite SPA boot loader).
     server 127.0.0.1:8000;
-    keepalive 32;
 }
 
 upstream ergo_media {
     server 127.0.0.1:8003;
-    keepalive 8;
 }
 
 ${ERGO_JUPYTER_UPSTREAM}
@@ -30,7 +30,8 @@ ${ERGO_JUPYTER_UPSTREAM}
 ${ERGO_HOST_POLICY_BLOCKS}
 server {
     listen ${ERGO_LISTEN_HOST}:${ERGO_LISTEN_PORT};
-    server_name ${ERGO_SERVER_NAME};
+    # localhost/127.0.0.1 — чтобы открытие с той же машины не упиралось в чужой default server
+    server_name ${ERGO_SERVER_NAME} localhost 127.0.0.1;
 
     include ${ERGO_NGINX_SNIPPETS}/security_headers.conf;
 
@@ -58,11 +59,32 @@ ${ERGO_MAINTENANCE_SNIPPET}
         try_files /maintenance.json =404;
     }
 
+    # Ранний boot-скрипт — без долгого кэша (иначе после правок остаётся старый спиннер)
+    location = /js/bootstrap-early.js {
+        add_header Cache-Control "no-store" always;
+        try_files /js/bootstrap-early.js =404;
+    }
+
     # --- Vite hashed assets (ergoms client-build -> core/client/dist/assets) ---
     location /assets/ {
         expires 1y;
         add_header Cache-Control "public, immutable" always;
         try_files $uri =404;
+    }
+
+    # SPA shell не кэшировать: иначе после maintenance/client-build браузер
+    # держит старый index (304) и крутит boot-loader без новых /api запросов.
+    location = /index.html {
+        if ($maintenance = 1) { return 503; }
+        add_header Cache-Control "no-store" always;
+        include ${ERGO_NGINX_SNIPPETS}/security_headers.conf;
+    }
+
+    location = / {
+        if ($maintenance = 1) { return 503; }
+        add_header Cache-Control "no-store" always;
+        include ${ERGO_NGINX_SNIPPETS}/security_headers.conf;
+        try_files /index.html =404;
     }
 
     # --- Vue SPA (Vue Router, history mode) ---

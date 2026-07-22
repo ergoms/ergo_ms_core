@@ -163,10 +163,13 @@ def stop_nginx_for_dev(root: Path, *, quiet: bool = False) -> bool:
             print(format_console('warning', 'Nginx не ответил на quit, завершение процесса...'))
         _force_stop_nginx_process(nginx_dir, exe)
         _remove_stale_pidfile(nginx_dir)
+        wait_nginx_stopped(nginx_dir, exe, timeout_sec=5.0)
 
     still_running = is_nginx_running(nginx_dir, exe)
     if not still_running and not quiet:
         print(format_console('ok', 'Nginx остановлен'))
+    elif still_running and not quiet:
+        print(format_console('error', 'Не удалось полностью остановить nginx'))
     return not still_running
 
 
