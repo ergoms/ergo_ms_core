@@ -14,7 +14,8 @@ alwaysApply: true
 - В ядре **нет** `from modules.<имя>...` и static import из `modules/` в бизнес-коде
 - В ядре **нет** строк имён модулей (`'organizations'`, `'crm_remastered'`, `'lms'`, …) в runtime
 - В ядре **нет** зашитых доменных claim/моделей/маршрутов модуля (конкретные ключи JWT декларирует модуль)
-- Нужны данные/поведение модуля → **контракт** в `module_contracts` + `bridge.call` / `provide` / hook-файл
+- Нужны данные/поведение модуля **в сценарии ядра** → **platform**-контракт в `module_contracts` + `bridge.call` / `provide` / hook-файл
+- Связь **только между модулями** (ядро группу не читает) → **не** в `moduleContracts` / `module_contracts` и не в `core/…/integrations/`; константа у хоста, у провайдера — та же строка ([`module-contracts.mdc`](module-contracts.mdc) → «Что класть в каталог ядра»)
 - Имена контрактов со стороны ядра — **generic** (`session.*`, `audit.*`, `core.*`), не `<имя_модуля>.*`
 
 ## Запрещено в `core/`
@@ -39,6 +40,9 @@ router.push({ name: 'SomeModuleHome' })
 
 // BAD — доменный id в браузерном storage
 localStorage.setItem('last_scope_id', scopeId)
+
+// BAD — межмодульный контракт (CRM ↔ organizations) в каталоге ядра
+export const ORG_SETTINGS_ADDITIONAL_PANELS_GROUP = 'organization_settings.additional_panels'
 ```
 
 ## Обязательно
@@ -79,7 +83,7 @@ def _restore_session_claims(*, user=None, **_):
 
 - Инфраструктура discovery / ModuleLoader / RouteGuardsManager
 - Generic session-scope (`sessionScopeGuard`, `hasActiveSessionScope`, claim **по имени из контракта**)
-- Константы имён контрактов в `module_contracts.py` / `moduleContracts.js`
+- Константы **platform**-контрактов в `module_contracts.py` / `moduleContracts.js` — только если ядро их потребляет
 - В правилах/доках имена модулей **только как иллюстрация**, не как API ядра
 
 ## Чеклист перед merge правок в `core/`
@@ -87,8 +91,9 @@ def _restore_session_claims(*, user=None, **_):
 1. Нет `modules.` в import бизнес-кода ядра
 2. Нет литералов имён модулей в runtime (кроме allowlist `core-rules-check`)
 3. Нет доменных моделей/сервисов модулей и зашитых ключей их JWT claims
-4. Новая связь ядро↔модуль — сначала контракт в каталоге, потом `bridge` / hook
-5. `ergoms core-rules-check` без ошибок по isolation
+4. Новая связь **ядро↔модуль** — сначала platform-контракт в каталоге, потом `bridge` / hook
+5. Связь **только модуль↔модуль** — **не** добавлять в каталог ядра и не класть хелперы в `core/…/integrations/`
+6. `ergoms core-rules-check` без ошибок по isolation
 
 ## Связанные правила
 

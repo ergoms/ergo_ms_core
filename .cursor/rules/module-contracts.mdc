@@ -1,5 +1,5 @@
 ---
-description: Platform-контракты модулей — ModuleBridge groups/events, hook-файлы, JWT session context, каталог module_contracts
+description: Platform-контракты ModuleBridge — каталог ядра только для контрактов, которые ядро потребляет; межмодульные группы без ядра
 alwaysApply: false
 ---
 # Platform-контракты модулей
@@ -9,16 +9,43 @@ alwaysApply: false
 ## Кратко
 
 - Каталог имён: [`module_contracts.py`](../../core/api/src/core/integrations/module_contracts.py) (сервер), [`moduleContracts.js`](../../core/client/src/integrations/moduleContracts.js) (клиент)
+- В каталог ядра — **только** контракты, которые **ядро само** вызывает (`bridge.call` / `bridge.all` / `emit`) или чьи хелперы живут в `core/`
+- Связь **модуль ↔ модуль** без участия ядра — **не** в каталоге и **не** в файлах `core/…/integrations/`; строка группы у хоста и у провайдера (дублирование допустимо)
 - Регистрация — `bridge.provide_many(group, key, obj)` / `bridge.subscribe_to(event)` / `bridge.provide_op(...)`
 - Hook discovery — фиксированные имена файлов; ядро сканирует, не импортирует домен
 - JWT session-claims (например `organization_id` / `department_id`) декларирует модуль через `session_context.claims`; session-scoped UI — `@/integrations/sessionScopedModuleContext.js`
 - Session-scope guard — `@/js/session/sessionScopeGuard.js`; welcome/home — группа `session.scope_entry_routes`
 - Активность scope на клиенте гейтит модуль через `session.scope_gating_claim` (`@/integrations/sessionScopeGating.js`)
-- Полный список контрактов — таблица ниже; эталон stub — [`module_template`](../../modules/module_template/)
+- Полный список **platform**-контрактов — таблица ниже; эталон stub — [`module_template`](../../modules/module_template/)
+
+## Что класть в каталог ядра
+
+| Вопрос | В `moduleContracts` / `module_contracts` | Где жить коду |
+|--------|------------------------------------------|---------------|
+| Ядро читает группу/событие/op? | **Да** — константа + при необходимости generic-хелпер | `core/…/integrations/` |
+| Только модуль A собирает UI, модуль B регистрирует панель/виджет? | **Нет** | хост-модуль (константа + `bridge.all`); провайдер — та же строка локально |
+| Имя с доменом модуля (`organization_*`, `crm_*`)? | **Нет** в ядре | только в модулях |
+
+```javascript
+// BAD — межмодульный UI-контракт в ядре (ядро группу не читает)
+// core/client/src/integrations/moduleContracts.js
+export const ORG_SETTINGS_ADDITIONAL_PANELS_GROUP = 'organization_settings.additional_panels'
+
+// GOOD — хост (organizations) владеет группой и хелпером
+// modules/organizations/client/js/orgSettingsAdditionalPanels.js
+export const ORG_SETTINGS_ADDITIONAL_PANELS_GROUP = 'organization_settings.additional_panels'
+
+// GOOD — провайдер (crm) дублирует строку, без import из organizations и без ядра
+// modules/crm_remastered/client/js/integrations.js
+const ORG_SETTINGS_ADDITIONAL_PANELS_GROUP = 'organization_settings.additional_panels'
+bridge.provideMany(ORG_SETTINGS_ADDITIONAL_PANELS_GROUP, 'crm_vacancies', { … })
+```
+
+Эталон межмодульного расширения настроек org: [`orgSettingsAdditionalPanels.js`](../../modules/organizations/client/js/orgSettingsAdditionalPanels.js) ← [`crm_remastered/…/integrations.js`](../../modules/crm_remastered/client/js/integrations.js).
 
 ## Обязательно
 
-- Импортировать **константы групп/событий** из каталога ядра, не дублировать строки в модуле
+- Platform-константы, которые есть в каталоге ядра — импортировать из каталога, не дублировать строки
 - Session-scoped маршруты — `SESSION_SCOPED_MODULE_CONTEXT_GROUP` + хелперы из `@/integrations/sessionScopedModuleContext.js`
 - Маршруты с `meta.requiresSessionScope` — guard через `@/js/session/sessionScopeGuard.js` или модульный `routeGuard.js`, который его вызывает
 - Серверный session-claim (claim + resolver) — дескриптор в `SESSION_CLAIMS_GROUP` в `api/integrations.py`
@@ -27,8 +54,10 @@ alwaysApply: false
 ## Запрещено
 
 - Прямой `import` из `modules/<другой>/` (API и клиент) — только ModuleBridge
-- Hardcoded строки групп моста, если константа уже есть в каталоге
-- Именование конкретного домена (organization и т.п.) в ядре — session-scope слой ядра generic
+- Hardcoded строки **platform**-групп моста, если константа уже есть в каталоге ядра
+- Класть в каталог / `core/…/integrations/` группы и хелперы, которые ядро **не** потребляет (типичный антипаттерн: «удобный» re-export для связи двух модулей)
+- Именование конкретного домена (organization и т.п.) в ядре — session-scope и прочие слои ядра generic
+- Файлы вроде `orgSettings*.js` / `crm*.js` в `core/client/src/integrations/`
 
 ## Каталог контрактов (сервер)
 
