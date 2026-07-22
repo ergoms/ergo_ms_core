@@ -184,9 +184,3 @@
 	update = merge
 	ignore = all
 	
-[submodule "modules/graduate_employment"]
-	path = modules/graduate_employment
-	url = https://github.com/SKB-AI/ergo_ms_graduate_employment.git
-	branch = dev
-	update = merge
-    ignore = all
