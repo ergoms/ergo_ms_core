@@ -46,7 +46,9 @@ server:
 
 ### Ядерные MCP
 
-Только в `.cursor/`: `ergo-api`, `ergo-media-api`, `ergo-database-postgres`, `ergo-filesystem` — декларация в `mcp.registry.yaml`.
+Только в `.cursor/`: `ergo-api`, `ergo-media-api`, `ergo-filesystem` — декларация в `mcp.registry.yaml`.
+
+**БД:** тип `databases_yaml` в реестре разворачивается в строки `ergo-database-<секция>` по ключам корневого `databases.yaml` (engine → npx-пакет в [`mcp_database_wrapper.py`](../mcp_database_wrapper.py)). После правки `databases.yaml` снова `ergoms mcp-sync` и Reload MCP в Cursor.
 
 ## Запрещено
 

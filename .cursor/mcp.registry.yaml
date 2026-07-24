@@ -10,12 +10,10 @@ servers:
     args:
       - "."
 
-  - name: ergo-database-postgres
-    description: "PostgreSQL через databases.yaml"
-    type: python
+  - name: ergo-database
+    description: "БД из databases.yaml (по одной строке на секцию)"
+    type: databases_yaml
     script: .cursor/mcp_database_wrapper.py
-    extra_args:
-      - default
 
   - name: ergo-api
     description: "HTTP-запросы к Django API ErgoMS"

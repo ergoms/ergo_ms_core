@@ -7,7 +7,7 @@
                 ".cursor/mcp_api_server.py"
             ]
         },
-        "ergo-database-postgres": {
+        "ergo-database-default": {
             "command": "node",
             "args": [
                 ".cursor/mcp_launcher.js",
@@ -28,13 +28,6 @@
             "args": [
                 ".cursor/mcp_launcher.js",
                 ".cursor/mcp_media_api_server.py"
-            ]
-        },
-        "ergo-module-ollama-framework": {
-            "command": "node",
-            "args": [
-                ".cursor/mcp_launcher.js",
-                "modules/ollama_framework/mcp/server.py"
             ]
         }
     }
