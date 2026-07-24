@@ -197,8 +197,16 @@ clean_directory_contents() {
   fi
 
   local removed_count=${#items[@]}
-  if move_path_to_clean_trash "$dir_path" "$staging_root" >/dev/null; then
-    restore_clean_directory_skeleton "$dir_path" 1
+  local moved
+  moved="$(move_path_to_clean_trash "$dir_path" "$staging_root")" || moved=""
+  if [[ -n "$moved" ]]; then
+    # Каталог уехал целиком (включая .gitkeep) — возвращаем исходный .gitkeep
+    restore_clean_directory_skeleton "$dir_path" 0
+    if [[ -f "$moved/.gitkeep" ]]; then
+      mv "$moved/.gitkeep" "$dir_path/.gitkeep"
+    else
+      restore_clean_directory_skeleton "$dir_path" 1
+    fi
     echo "[OK] Удалено $removed_count элементов из $label (фон)"
     return 10
   fi

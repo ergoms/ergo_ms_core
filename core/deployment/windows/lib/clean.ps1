@@ -310,6 +310,15 @@ function Start-BackgroundTrashRemoval {
     [void][System.Diagnostics.Process]::Start($psi)
 }
 
+function New-EmptyGitkeepFile {
+    param(
+        [string]$Path
+    )
+
+    # Пустой файл без перевода строки (Set-Content пишет CRLF и ломает git status)
+    [System.IO.File]::WriteAllBytes($Path, [byte[]]@())
+}
+
 function Restore-CleanDirectorySkeleton {
     param(
         [string]$Path,
@@ -323,8 +332,24 @@ function Restore-CleanDirectorySkeleton {
     if ($WithGitkeep) {
         $gitkeep = Join-Path $Path '.gitkeep'
         if (-not (Test-Path -LiteralPath $gitkeep)) {
-            Set-Content -LiteralPath $gitkeep -Value '' -Encoding ASCII
+            New-EmptyGitkeepFile -Path $gitkeep
         }
+    }
+}
+
+function Restore-GitkeepFromTrash {
+    param(
+        [string]$TargetDir,
+        [string]$TrashDir
+    )
+
+    $dest = Join-Path $TargetDir '.gitkeep'
+    $saved = Join-Path $TrashDir '.gitkeep'
+    if (Test-Path -LiteralPath $saved) {
+        Move-Item -LiteralPath $saved -Destination $dest -Force -ErrorAction SilentlyContinue
+    }
+    if (-not (Test-Path -LiteralPath $dest)) {
+        New-EmptyGitkeepFile -Path $dest
     }
 }
 
@@ -352,7 +377,9 @@ function Remove-DirectoryContents {
     $removedCount = $items.Count
     $moved = Move-PathToCleanTrash -Path $Path -StagingRoot $StagingRoot
     if ($moved) {
-        Restore-CleanDirectorySkeleton -Path $Path -WithGitkeep $true
+        # Каталог уехал целиком (включая .gitkeep) — возвращаем исходный .gitkeep
+        Restore-CleanDirectorySkeleton -Path $Path -WithGitkeep $false
+        Restore-GitkeepFromTrash -TargetDir $Path -TrashDir $moved
         Write-ColorOutput "[OK] Удалено $removedCount элементов из $Label (фон)" Green
         return @{ Ok = $true; Async = $true; Count = $removedCount }
     }
