@@ -1,12 +1,12 @@
-# Конфигурация базовых сервисов ErgoMS для VS Code tasks
-# Используется расширением multi-terminal для генерации терминалов логов
-# Воркеры берутся автоматически из celery_workers.yaml
+# Шаблон базовых сервисов для справки.
+# Рабочий список для VS Code tasks — .vscode/logs-services.runtime.yaml
+# (генерирует ergoms sync-logs-services: при NGINX_ENABLED — nginx вместо ergo-client-dev).
+# Воркеры берутся из celery_workers.yaml.
 
 services:
   ergo-api-dev:
     description: "Django API server"
-  ergo-client-dev:
-    description: "Vue.js client dev server"
+  # ergo-client-dev или ergo_ms_nginx — только в runtime.yaml по NGINX_ENABLED
   ergo-media-api:
     description: "Media API (CDN / file server)"
   ergo-celery-beat:

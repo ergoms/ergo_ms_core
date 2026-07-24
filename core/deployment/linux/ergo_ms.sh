@@ -312,6 +312,14 @@ main() {
 
       set_service_project_root "$ERGO_ROOT"
 
+      # При NGINX_ENABLED Vite-служба не ставится — не открываем её логи с ошибкой
+      if [[ "$service_name" == "ergo-client-dev" || "$service_name" == "ergo-client-dev.service" ]]; then
+        if is_nginx_enabled "$ERGO_ROOT"; then
+          echo "$(format_ergo_console skip 'ergo-client-dev не используется (NGINX_ENABLED=true, клиент через nginx)')"
+          exit 0
+        fi
+      fi
+
       local valid=false
       case "$service_name" in
         ergo_ms_nginx|ergo_ms_nginx.service|ergo-redis|ergo-redis.service|ergo_ms_redis)
@@ -330,7 +338,7 @@ main() {
       fi
 
       if [[ "$valid" == false ]]; then
-        echo "[ERROR] Неизвестная служба: $service_name" >&2
+        write_ergoms_message 'unknown_service' red stderr "name=$service_name"
         echo "Доступные службы: $(units_list "$ERGO_ROOT" | tr '\n' ' ') ergo_ms_nginx ergo-redis celery-tasks celery-beat" >&2
         exit 1
       fi
