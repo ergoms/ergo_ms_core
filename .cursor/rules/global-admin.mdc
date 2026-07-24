@@ -44,7 +44,7 @@ if PermissionService.is_admin(user):
 |----------|-----------|
 | `createsuperuser` | `is_superuser=True`, `is_staff=True`; сигнал назначает роль «Администратор» |
 | Назначение роли «Администратор» (или любой admin-роли) | `is_superuser=True`, `is_staff=True` |
-| Назначение роли «Пользователь» | `is_superuser=False`, `is_staff=False` (нельзя снять с себя / у последнего админа) |
+| Назначение роли «Пользователь» | `is_superuser=False`, `is_staff=False` (нельзя снять у последнего админа; с себя — можно, если есть другой админ) |
 | Старые суперюзеры без роли | `ergoms api assign_superuser_admin_roles` |
 
 Флаги в `auth_user` и активная ADP-роль **не расходятся**; права в приложении определяются через `PermissionService.is_admin()`.
