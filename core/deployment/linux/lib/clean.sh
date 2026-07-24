@@ -4,6 +4,7 @@
 stop_blocking_processes_for_clean() {
   local root="$1"
   local venv_python="$root/virtual_env/python"
+  local stopped=0
 
   echo "  Останавливаю процессы, которые могут блокировать файлы проекта..."
 
@@ -13,6 +14,7 @@ stop_blocking_processes_for_clean() {
       if systemctl is-active --quiet "$unit" 2>/dev/null; then
         if systemctl stop "$unit" 2>/dev/null; then
           echo "  Остановлена служба: $unit"
+          stopped=1
         else
           echo "  [WARNING] Не удалось остановить службу $unit (может потребоваться root)" >&2
         fi
@@ -21,21 +23,32 @@ stop_blocking_processes_for_clean() {
   fi
 
   if command -v fuser >/dev/null 2>&1 && [[ -d "$venv_python" ]]; then
-    fuser -k "$venv_python" 2>/dev/null || true
+    if fuser -k "$venv_python" 2>/dev/null; then
+      stopped=1
+    fi
   fi
 
   if command -v pkill >/dev/null 2>&1; then
-    pkill -f "${venv_python}" 2>/dev/null || true
-    pkill -f "${root}/node_modules" 2>/dev/null || true
+    if pkill -f "${venv_python}" 2>/dev/null; then
+      stopped=1
+    fi
+    if pkill -f "${root}/node_modules" 2>/dev/null; then
+      stopped=1
+    fi
   fi
 
-  sleep 2
+  if [[ "$stopped" -eq 1 ]]; then
+    sleep 0.4
+  fi
 }
 
 clear_project_shell_environment() {
   local venv_path="$1"
   local venv_norm
-  venv_norm="$(cd "$venv_path" 2>/dev/null && pwd -P)" || return 0
+  venv_norm="$(cd "$venv_path" 2>/dev/null && pwd -P)" || {
+    unset VIRTUAL_ENV 2>/dev/null || true
+    return 0
+  }
 
   if [[ -n "${VIRTUAL_ENV:-}" ]]; then
     local active_norm
@@ -79,50 +92,126 @@ remove_path_robust() {
     if rm -rf "$path" 2>/dev/null; then
       return 0
     fi
-    sleep 1
+    sleep 0.4
   done
 
   [[ ! -e "$path" ]]
+}
+
+clean_target_has_work() {
+  local path="$1"
+  local full_remove="$2"
+
+  if [[ ! -e "$path" ]]; then
+    return 1
+  fi
+
+  if [[ "$full_remove" == "1" ]]; then
+    return 0
+  fi
+
+  local item
+  while IFS= read -r -d '' item; do
+    return 0
+  done < <(find "$path" -mindepth 1 -maxdepth 1 ! -name '.gitkeep' -print0 2>/dev/null)
+
+  return 1
+}
+
+new_clean_trash_staging() {
+  local root="$1"
+  local staging
+  # Каталог в корне проекта — тот же том, что и цели (мгновенный mv)
+  staging="$root/.ergo_clean_trash_$$_$RANDOM"
+  mkdir -p "$staging"
+  printf '%s' "$staging"
+}
+
+move_path_to_clean_trash() {
+  local path="$1"
+  local staging_root="$2"
+  local leaf dest
+
+  [[ -e "$path" ]] || return 1
+
+  leaf="$(basename "$path")"
+  dest="$staging_root/$leaf"
+  if [[ -e "$dest" ]]; then
+    dest="$staging_root/${leaf}_$$_$RANDOM"
+  fi
+
+  if mv "$path" "$dest" 2>/dev/null; then
+    printf '%s' "$dest"
+    return 0
+  fi
+  return 1
+}
+
+start_background_trash_removal() {
+  local staging_root="$1"
+  [[ -n "$staging_root" && -d "$staging_root" ]] || return 0
+  (rm -rf "$staging_root" >/dev/null 2>&1 &)
+}
+
+restore_clean_directory_skeleton() {
+  local path="$1"
+  local with_gitkeep="$2"
+
+  mkdir -p "$path"
+  if [[ "$with_gitkeep" == "1" ]]; then
+    : >"$path/.gitkeep"
+  fi
 }
 
 clean_directory_contents() {
   local dir_path="$1"
   local label="$2"
   local root="$3"
+  local staging_root="$4"
 
   if [[ ! -d "$dir_path" ]]; then
     echo "[SKIP] $label не найден"
-    return
+    return 0
   fi
 
-  local removed_count=0
-  local has_items=false
-  local failed_items=()
-  local item base
+  local -a items=()
+  local item
+  while IFS= read -r -d '' item; do
+    items+=("$item")
+  done < <(find "$dir_path" -mindepth 1 -maxdepth 1 ! -name '.gitkeep' -print0 2>/dev/null)
 
-  for item in "$dir_path"/*; do
-    [[ -e "$item" ]] || continue
-    base="$(basename "$item")"
-    [[ "$base" == ".gitkeep" ]] && continue
-    has_items=true
-    if remove_path_robust "$item"; then
-      removed_count=$((removed_count + 1))
-    else
-      failed_items+=("$base")
-    fi
-  done
+  if [[ ${#items[@]} -eq 0 ]]; then
+    echo "[SKIP] $label уже пуст"
+    return 0
+  fi
+
+  local removed_count=${#items[@]}
+  if move_path_to_clean_trash "$dir_path" "$staging_root" >/dev/null; then
+    restore_clean_directory_skeleton "$dir_path" 1
+    echo "[OK] Удалено $removed_count элементов из $label (фон)"
+    return 10
+  fi
+
+  local failed_items=()
+  if ! find "$dir_path" -mindepth 1 -maxdepth 1 ! -name '.gitkeep' -exec rm -rf {} + 2>/dev/null; then
+    true
+  fi
+
+  while IFS= read -r -d '' item; do
+    failed_items+=("$(basename "$item")")
+  done < <(find "$dir_path" -mindepth 1 -maxdepth 1 ! -name '.gitkeep' -print0 2>/dev/null)
 
   if [[ ${#failed_items[@]} -gt 0 ]]; then
     stop_blocking_processes_for_clean "$root"
     local retry_failed=()
+    local base full_item
     for base in "${failed_items[@]}"; do
-      local full_item="$dir_path/$base"
+      full_item="$dir_path/$base"
       [[ -e "$full_item" ]] || continue
       if remove_path_robust "$full_item" 5; then
-        removed_count=$((removed_count + 1))
-      else
-        retry_failed+=("$base")
+        continue
       fi
+      retry_failed+=("$base")
     done
     failed_items=("${retry_failed[@]}")
   fi
@@ -130,14 +219,43 @@ clean_directory_contents() {
   if [[ ${#failed_items[@]} -gt 0 ]]; then
     echo "[ERROR] Не удалось очистить $label: не удалось удалить: ${failed_items[*]}" >&2
     echo "  Закройте терминалы с активированным venv, остановите серверы разработки и снова выполните ergoms clean" >&2
-    return
+    return 1
   fi
 
-  if [[ "$has_items" == true ]]; then
-    echo "[OK] Удалено $removed_count элементов из $label"
-  else
-    echo "[SKIP] $label уже пуст"
+  echo "[OK] Удалено $removed_count элементов из $label"
+  return 0
+}
+
+remove_full_path_fast() {
+  local path="$1"
+  local label="$2"
+  local root="$3"
+  local staging_root="$4"
+
+  if [[ ! -e "$path" ]]; then
+    echo "[SKIP] $label не найден"
+    return 0
   fi
+
+  if move_path_to_clean_trash "$path" "$staging_root" >/dev/null; then
+    echo "[OK] $label удалён (фон)"
+    return 10
+  fi
+
+  if remove_path_robust "$path"; then
+    echo "[OK] $label удалён"
+    return 0
+  fi
+
+  stop_blocking_processes_for_clean "$root"
+  if remove_path_robust "$path" 5; then
+    echo "[OK] $label удалён"
+    return 0
+  fi
+
+  echo "[ERROR] Не удалось удалить $label" >&2
+  echo "  Закройте другие терминалы и серверы разработки, затем снова выполните ergoms clean" >&2
+  return 1
 }
 
 clear_project_dependencies() {
@@ -160,6 +278,7 @@ clear_project_dependencies() {
   echo "=== Очистка зависимостей проекта ==="
   echo ""
   echo "Будут удалены:"
+  local p
   for p in "${clean_paths[@]}"; do
     echo "  - $p"
   done
@@ -173,37 +292,74 @@ clear_project_dependencies() {
     return
   fi
 
+  local has_work=0
+  for p in "${clean_paths[@]}"; do
+    local full_path="$root/$p"
+    local full_remove=0
+    [[ "$p" == "node_modules" ]] && full_remove=1
+    if clean_target_has_work "$full_path" "$full_remove"; then
+      has_work=1
+      break
+    fi
+  done
+
+  if [[ "$has_work" -eq 0 ]]; then
+    echo ""
+    echo "[SKIP] Нечего очищать — все цели уже пусты"
+    echo ""
+    echo "=== Очистка завершена ==="
+    echo ""
+    return
+  fi
+
   stop_blocking_processes_for_clean "$root"
   clear_project_shell_environment "$root/virtual_env/python"
 
+  local staging
+  staging="$(new_clean_trash_staging "$root")"
+  local any_async=0
   local total=${#clean_paths[@]}
   local step=0
-  for rel_path in "${clean_paths[@]}"; do
-    step=$((step + 1))
-    local full_path="$root/$rel_path"
-    echo ""
-    echo "-> Шаг ${step}/${total}: очистка ${rel_path}..."
+  local rc
 
-    if [[ "$rel_path" == "node_modules" ]]; then
-      if [[ -d "$full_path" ]]; then
-        if remove_path_robust "$full_path"; then
-          echo "[OK] $rel_path удалён"
-        else
-          stop_blocking_processes_for_clean "$root"
-          if remove_path_robust "$full_path" 5; then
-            echo "[OK] $rel_path удалён"
-          else
-            echo "[ERROR] Не удалось удалить $rel_path" >&2
-            echo "  Закройте другие терминалы и серверы разработки, затем снова выполните ergoms clean" >&2
-          fi
-        fi
+  for p in "${clean_paths[@]}"; do
+    step=$((step + 1))
+    local full_path="$root/$p"
+    echo ""
+    echo "-> Шаг ${step}/${total}: очистка ${p}..."
+
+    local full_remove=0
+    [[ "$p" == "node_modules" ]] && full_remove=1
+
+    if ! clean_target_has_work "$full_path" "$full_remove"; then
+      if [[ ! -e "$full_path" ]]; then
+        echo "[SKIP] $p не найден"
       else
-        echo "[SKIP] $rel_path не найден"
+        echo "[SKIP] $p уже пуст"
       fi
+      continue
+    fi
+
+    if [[ "$full_remove" -eq 1 ]]; then
+      remove_full_path_fast "$full_path" "$p" "$root" "$staging"
+      rc=$?
     else
-      clean_directory_contents "$full_path" "$rel_path" "$root"
+      clean_directory_contents "$full_path" "$p" "$root" "$staging"
+      rc=$?
+    fi
+
+    if [[ "$rc" -eq 10 ]]; then
+      any_async=1
     fi
   done
+
+  if [[ "$any_async" -eq 1 ]]; then
+    start_background_trash_removal "$staging"
+    echo ""
+    echo "[INFO] Тяжёлое удаление продолжается в фоне"
+  else
+    rm -rf "$staging" >/dev/null 2>&1 || true
+  fi
 
   echo ""
   echo "=== Очистка завершена ==="
@@ -216,5 +372,11 @@ clear_project_dependencies() {
 export -f stop_blocking_processes_for_clean
 export -f clear_project_shell_environment
 export -f remove_path_robust
+export -f clean_target_has_work
+export -f new_clean_trash_staging
+export -f move_path_to_clean_trash
+export -f start_background_trash_removal
+export -f restore_clean_directory_skeleton
 export -f clean_directory_contents
+export -f remove_full_path_fast
 export -f clear_project_dependencies

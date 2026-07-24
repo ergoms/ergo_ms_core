@@ -65,10 +65,12 @@
     },
     "python.defaultInterpreterPath": "${env:ERGO_PYTHON_INTERPRETER}",
     "terminal.integrated.env.linux": {
-        "ERGO_PYTHON_INTERPRETER": "${workspaceFolder}/virtual_env/python/bin/python3.12"
+        "ERGO_PYTHON_INTERPRETER": "${workspaceFolder}/virtual_env/python/bin/python3.12",
+        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
     },
     "terminal.integrated.env.windows": {
-        "ERGO_PYTHON_INTERPRETER": "${workspaceFolder}\\virtual_env\\python\\Scripts\\python.exe"
+        "ERGO_PYTHON_INTERPRETER": "${workspaceFolder}\\virtual_env\\python\\Scripts\\python.exe",
+        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
     },
     "python.terminal.activateEnvironment": true,
     "git.detectSubmodules": true,

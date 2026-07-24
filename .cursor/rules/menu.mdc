@@ -14,7 +14,7 @@ alwaysApply: false
 - **Маршруты Vue** — `modules/<имя>/client/js/routes.js` (обязательно для навигации)
 - **Рантайм** — `UserMenuView` → `getUserMenu()` → `MenuList`
 - Порядок, видимость, разделители — в CMS (`MenuPanel.vue`), поверх данных в БД
-- Свёрнутость sidebar — UI-преференс в `localStorage` (`menu-sidebar-collapsed`), см. [`security.mdc`](security.mdc)
+- Свёрнутость sidebar — UI-преференс в `localStorage` (`menu-sidebar-collapsed`), см. [`security-details.mdc`](security-details.mdc)
 - Тип `offcanvas` — боковая панель через `openOffcanvasSidebar`, не отдельный маршрут
 
 ## Обязательно

@@ -1,6 +1,7 @@
 ---
 description: Ollama — единая оболочка ollama_framework, запрет прямых вызовов LLM в модулях
-alwaysApply: true
+globs: "modules/ollama_framework/**,modules/ai_assistant/**"
+alwaysApply: false
 ---
 
 # Ollama — только через ollama_framework

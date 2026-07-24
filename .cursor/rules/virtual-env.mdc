@@ -28,4 +28,5 @@ alwaysApply: true
 | Тема | Файл |
 |------|------|
 | Команды ergoms | [`no-direct-manage-py.mdc`](no-direct-manage-py.mdc) |
+| Артефакты только в корне | [`project-root-artifacts.mdc`](project-root-artifacts.mdc) |
 | Первичная настройка | [`.docs/cli.md`](../../.docs/cli.md) |

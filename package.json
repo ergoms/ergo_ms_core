@@ -16,7 +16,7 @@
     "lint": "cd core/client && npm run lint",
     "format": "cd core/client && npm run format",
     "postinstall": "node core/deployment/scripts/sync-module-npm-deps.js --install-missing",
-    "install:all": "npm install --workspaces --include-workspace-root --ignore-scripts --no-package-lock && node core/deployment/scripts/sync-module-npm-deps.js --install-missing",
+    "install:all": "npm install --ignore-scripts --no-package-lock && node core/deployment/scripts/sync-module-npm-deps.js --install-missing",
     "setup": "npm run install-extensions",
     "install-extensions": "node .vscode/scripts/install-extensions.js",
     "update-vsix": "node .vscode/scripts/update-vsix.js",

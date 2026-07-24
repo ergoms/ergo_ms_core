@@ -1,7 +1,7 @@
 ---
 description: Многоуровневая панель фильтров toolbar — FilterMenu из ядра
 globs: "{core/client,modules/**/client}/**/*.{vue,js}"
-alwaysApply: true
+alwaysApply: false
 ---
 
 # FilterMenu — составная панель фильтров

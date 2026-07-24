@@ -5,7 +5,7 @@ alwaysApply: false
 
 # Логирование ошибок на клиенте
 
-Файл: `core/client/src/js/utils/logError.js`. Общая схема логов — [`logging.mdc`](logging.mdc). Безопасность — [`security.mdc`](security.mdc) → «Логирование — клиент».
+Файл: `core/client/src/js/utils/logError.js`. Общая схема логов — [`logging.mdc`](logging.mdc). Безопасность — [`security.mdc`](security.mdc), детали логов — [`security-details.mdc`](security-details.mdc).
 
 `logError`, `logWarn`, `sanitizeError` подключаются **автоматически** (vite auto-import). **Не импортируй** их вручную.
 
@@ -51,5 +51,6 @@ logError('Ошибка сохранения', error)
 | Тема | Файл |
 |------|------|
 | Схема логов, env, Celery-файлы | [`logging.mdc`](logging.mdc) |
-| Полный чеклист безопасности | [`security.mdc`](security.mdc) |
+| Чеклист безопасности | [`security.mdc`](security.mdc) |
+| Детали безопасности | [`security-details.mdc`](security-details.mdc) |
 | Клиент Vue | [`client_code.mdc`](client_code.mdc) |

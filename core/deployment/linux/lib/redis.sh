@@ -225,7 +225,7 @@ redis_install_service() {
 
   local content
   content="$(_redis_unit_content "$root")"
-  install_unit "$REDIS_SERVICE_NAME" "$content"
+  install_unit "$REDIS_SERVICE_NAME" "$content" "$root"
   enable_and_start "$REDIS_SERVICE_NAME.service"
   echo "[OK] Служба systemd Redis установлена и запущена"
 }

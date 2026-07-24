@@ -213,21 +213,12 @@ http {
 EOF
 }
 
-_nginx_migrate_legacy_install() {
+_nginx_stop_system_nginx_if_running() {
   if command -v systemctl >/dev/null 2>&1; then
     if systemctl is-active --quiet nginx 2>/dev/null; then
       echo "-> Остановка системного nginx (конфликт порта с packages install)..."
       _nginx_sudo systemctl stop nginx 2>/dev/null || true
     fi
-  fi
-
-  local legacy_conf="$NGINX_LEGACY_SITES_AVAILABLE/${NGINX_CONF_NAME}.conf"
-  local legacy_link="$NGINX_LEGACY_SITES_ENABLED/${NGINX_CONF_NAME}.conf"
-
-  if [[ -f "$legacy_conf" || -L "$legacy_link" ]]; then
-    echo "-> Удаление устаревшего конфига Ergo MS из /etc/nginx..."
-    _nginx_sudo rm -f "$legacy_conf" "$legacy_link" 2>/dev/null || true
-    echo "[OK] Устаревший конфиг /etc/nginx удалён"
   fi
 }
 
@@ -331,7 +322,7 @@ nginx_install_service() {
 
   local content
   content="$(_nginx_unit_content "$root")"
-  install_unit "$NGINX_SERVICE_NAME" "$content"
+  install_unit "$NGINX_SERVICE_NAME" "$content" "$root"
   _nginx_sudo systemctl daemon-reload
   enable_and_start "${NGINX_SERVICE_NAME}.service"
   echo "[OK] Служба systemd nginx установлена и запущена"
@@ -365,7 +356,7 @@ nginx_install() {
   echo "=== Nginx: установка ==="
   echo ""
 
-  _nginx_migrate_legacy_install
+  _nginx_stop_system_nginx_if_running
 
   if ! _nginx_install_binary "$root"; then
     return 1
@@ -429,18 +420,22 @@ nginx_uninstall() {
   echo "=== Nginx: удаление ==="
   echo ""
 
-  _nginx_migrate_legacy_install
+  _nginx_stop_system_nginx_if_running
   nginx_stop_service "$root" quiet 2>/dev/null || true
 
-  if [[ -f "$NGINX_UNIT_PATH" ]]; then
+  if [[ -f "$(_nginx_unit_file "$root")" ]] || [[ -L "/etc/systemd/system/${NGINX_SERVICE_NAME}.service" ]]; then
     echo "-> Удаление unit systemd nginx..."
+    local unit_file link_path
+    unit_file="$(_nginx_unit_file "$root")"
+    link_path="/etc/systemd/system/${NGINX_SERVICE_NAME}.service"
     if [[ $(id -u) -eq 0 ]]; then
       systemctl disable --now "${NGINX_SERVICE_NAME}.service" 2>/dev/null || true
-      rm -f "$NGINX_UNIT_PATH"
+      rm -f "$link_path" "$unit_file"
       systemctl daemon-reload
     else
       sudo systemctl disable --now "${NGINX_SERVICE_NAME}.service" 2>/dev/null || true
-      sudo rm -f "$NGINX_UNIT_PATH"
+      sudo rm -f "$link_path"
+      rm -f "$unit_file" 2>/dev/null || true
       sudo systemctl daemon-reload
     fi
     echo "[OK] Unit systemd nginx удалён"
@@ -472,7 +467,7 @@ nginx_start_service() {
     return 1
   fi
 
-  if [[ -f "$NGINX_UNIT_PATH" ]]; then
+  if [[ -f "$(_nginx_unit_file "$root")" ]] || [[ -L "/etc/systemd/system/${NGINX_SERVICE_NAME}.service" ]]; then
     if systemctl is-active --quiet "${NGINX_SERVICE_NAME}.service" 2>/dev/null; then
       echo "[OK] Служба nginx уже запущена"
       return 0
@@ -555,7 +550,7 @@ _nginx_is_running() {
 
   _nginx_remove_stale_pid_file "$root"
 
-  if [[ -f "$NGINX_UNIT_PATH" ]] && systemctl is-active --quiet "${NGINX_SERVICE_NAME}.service" 2>/dev/null; then
+  if [[ -f "$(_nginx_unit_file "$root")" ]] || [[ -L "/etc/systemd/system/${NGINX_SERVICE_NAME}.service" ]] && systemctl is-active --quiet "${NGINX_SERVICE_NAME}.service" 2>/dev/null; then
     return 0
   fi
   if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet nginx 2>/dev/null; then
@@ -585,7 +580,7 @@ nginx_stop_service() {
     return 0
   fi
 
-  if [[ -f "$NGINX_UNIT_PATH" ]] && systemctl is-active --quiet "${NGINX_SERVICE_NAME}.service" 2>/dev/null; then
+  if [[ -f "$(_nginx_unit_file "$root")" ]] || [[ -L "/etc/systemd/system/${NGINX_SERVICE_NAME}.service" ]] && systemctl is-active --quiet "${NGINX_SERVICE_NAME}.service" 2>/dev/null; then
     echo "-> Остановка службы nginx..."
     _nginx_sudo systemctl stop "${NGINX_SERVICE_NAME}.service"
     if ! _nginx_wait_stopped "$root" 15; then
@@ -646,7 +641,7 @@ nginx_reload_service() {
     return 1
   fi
 
-  if [[ -f "$NGINX_UNIT_PATH" ]] && systemctl is-active --quiet "${NGINX_SERVICE_NAME}.service" 2>/dev/null; then
+  if [[ -f "$(_nginx_unit_file "$root")" ]] || [[ -L "/etc/systemd/system/${NGINX_SERVICE_NAME}.service" ]] && systemctl is-active --quiet "${NGINX_SERVICE_NAME}.service" 2>/dev/null; then
     echo "-> Перезагрузка службы nginx..."
     _nginx_sudo systemctl reload "${NGINX_SERVICE_NAME}.service"
     echo "[OK] Nginx перезагружен"
@@ -673,7 +668,7 @@ nginx_status_service() {
   echo ""
   echo "=== Статус Nginx ==="
 
-  if [[ -f "$NGINX_UNIT_PATH" ]]; then
+  if [[ -f "$(_nginx_unit_file "$root")" ]] || [[ -L "/etc/systemd/system/${NGINX_SERVICE_NAME}.service" ]]; then
     if systemctl is-active --quiet "${NGINX_SERVICE_NAME}.service" 2>/dev/null; then
       echo "  Service ($NGINX_SERVICE_NAME): Running"
     else

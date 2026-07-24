@@ -1,51 +1,41 @@
 #!/usr/bin/env bash
-# CLI wrapper management
-# Управление CLI wrapper
+# CLI wrapper management — core/deployment/bin (без системных каталогов)
+
+_ERGOMS_CLI_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+_ergoms_project_root_from_cli_lib() {
+  cd "$_ERGOMS_CLI_LIB_DIR/../../../.." && pwd
+}
+
+_ergoms_bin_dir() {
+  echo "$1/core/deployment/bin"
+}
 
 create_cli_wrapper() {
-  local target_script="$1"
-  local name
-  name="$(cli_name)"
-  local path
-  path="$(cli_path)"
-  local tmp_file
-  tmp_file="$(mktemp)"
-  cat >"$tmp_file" <<'EOF'
-#!/usr/bin/env bash
-exec bash "__TARGET_SCRIPT__" "$@"
-EOF
-  # Inject actual target script path into the wrapper
-  if command -v sed >/dev/null 2>&1; then
-    sed -i "s|__TARGET_SCRIPT__|${target_script}|g" "$tmp_file"
-  else
-    # Fallback without in-place sed
-    local tmp2
-    tmp2="$(mktemp)"
-    awk -v p="${target_script}" '{gsub("__TARGET_SCRIPT__", p); print}' "$tmp_file" > "$tmp2"
-    mv "$tmp2" "$tmp_file"
+  local project_root="${1:-}"
+  if [[ -z "$project_root" ]]; then
+    project_root="$(_ergoms_project_root_from_cli_lib)"
   fi
-  if [[ $(id -u) -eq 0 ]]; then
-    install -m 0755 "$tmp_file" "$path"
-  else
-    sudo install -m 0755 "$tmp_file" "$path"
+  local bin_dir local_bin
+  bin_dir="$(_ergoms_bin_dir "$project_root")"
+  local_bin="$bin_dir/ergoms"
+
+  if [[ ! -f "$local_bin" ]]; then
+    echo "[ERROR] Не найден локальный файл: $local_bin" >&2
+    echo "  Восстановите core/deployment/bin из репозитория." >&2
+    return 1
   fi
-  rm -f "$tmp_file"
-  echo "CLI-обёртка установлена: $path"
+
+  chmod +x "$local_bin" 2>/dev/null || true
+
+  echo "[OK] CLI ergoms — $bin_dir"
+  echo "  Запуск: ergoms … (Project-Shell / PATH с core/deployment/bin)"
+  echo "  Работает только из каталога проекта и подпапок (cwd)."
 }
 
 remove_cli_wrapper() {
-  local path
-  path="$(cli_path)"
-  if [[ -f "$path" ]]; then
-    if [[ $(id -u) -eq 0 ]]; then
-      rm -f "$path"
-    else
-      sudo rm -f "$path"
-    fi
-    echo "CLI-обёртка удалена: $path"
-  fi
+  echo "[INFO] Файлы в core/deployment/bin не удаляются (они в репозитории)"
 }
 
 export -f create_cli_wrapper
 export -f remove_cli_wrapper
-

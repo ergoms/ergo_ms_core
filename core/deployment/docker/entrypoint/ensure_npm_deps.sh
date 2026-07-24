@@ -70,7 +70,8 @@ prepare_docker_root_manifest() {
 }
 
 docker_install_root_deps() {
-  staging="$(mktemp -d /tmp/ergo-npm-root.XXXXXX)"
+  mkdir -p /app/virtual_env/cache/tmp
+  staging="$(mktemp -d /app/virtual_env/cache/tmp/ergo-npm-root.XXXXXX)"
   trap 'rm -rf "$staging"' EXIT INT TERM
 
   prepare_docker_root_manifest "$staging"

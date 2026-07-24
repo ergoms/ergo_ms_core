@@ -37,7 +37,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
         return 1
     domains = resolve_domains(values)
     print(f'[OK] Домены: {", ".join(domains)}')
-    print(f'[OK] Webroot: {webroot_path(values)}')
+    print(f'[OK] Webroot: {webroot_path(values, root=args.root)}')
     print(f'[OK] Email: {values.get("ERGO_TLS_EMAIL", "").strip()}')
     return 0
 
@@ -73,7 +73,7 @@ def cmd_status(args: argparse.Namespace) -> int:
         print('[WARNING] No domain configured (NGINX_PUBLIC_HOST / ERGO_TLS_DOMAINS)')
         return 1
 
-    payload = [cert_status(domain) for domain in domains]
+    payload = [cert_status(domain, root=args.root) for domain in domains]
     if args.json:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0

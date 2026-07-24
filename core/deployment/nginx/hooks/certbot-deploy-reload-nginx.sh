@@ -4,8 +4,8 @@ set -euo pipefail
 
 ERGO_ROOT="${ERGO_ROOT:-__ERGO_ROOT__}"
 
-if [[ -x /usr/local/bin/ergoms ]]; then
-  if ergoms reload-nginx --root "$ERGO_ROOT" >/dev/null 2>&1; then
+if [[ -x "$ERGO_ROOT/core/deployment/bin/ergoms" ]]; then
+  if (cd "$ERGO_ROOT" && "$ERGO_ROOT/core/deployment/bin/ergoms" reload-nginx --root "$ERGO_ROOT" >/dev/null 2>&1); then
     exit 0
   fi
 fi

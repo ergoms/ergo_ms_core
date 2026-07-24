@@ -50,7 +50,7 @@ ${ERGO_MAINTENANCE_SNIPPET}
     }
 
     location /.well-known/acme-challenge/ {
-        root /var/www/certbot;
+        root ${ERGO_TLS_WEBROOT};
     }
 
     # Статус режима works для клиента без API (ergoms maintenance-on/off обновляет dist/maintenance.json)

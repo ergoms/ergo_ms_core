@@ -20,8 +20,6 @@ $script:BaseServices = @(
 
 
 
-$script:CliName = 'ergoms'
-$script:CliPath = "$env:SystemRoot\System32\$script:CliName.bat"
 
 # Метки консольного вывода (см. core/deployment/console_tags.py)
 $script:ErgoTagOk = '[OK]'
@@ -613,24 +611,6 @@ function Reset-ServiceNamesCache {
     $script:CachedNginxEnabled = $null
 
 }
-
-
-
-function Get-CliName {
-
-    return $script:CliName
-
-}
-
-
-
-function Get-CliPath {
-
-    return $script:CliPath
-
-}
-
-
 
 # Export-ModuleMember -Function *  # Удалено, так как это не модуль
 

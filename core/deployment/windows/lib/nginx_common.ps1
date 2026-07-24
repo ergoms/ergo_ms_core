@@ -3,7 +3,6 @@
 
 $script:NginxVersion = '1.27.4'
 $script:NginxZipUrl = "https://nginx.org/download/nginx-$script:NginxVersion.zip"
-$script:NginxLegacyBaseDir = "$env:ProgramData\ergo_ms\nginx"
 $script:NginxServiceName = 'ergo_ms_nginx'
 $script:NginxConfName = 'ergo_ms'
 
@@ -118,41 +117,6 @@ function Get-NginxErrorLogPath {
     return Join-Path (Get-NginxCentralLogsDir -Root $Root) 'nginx-error.log'
 }
 
-function Stop-NginxLegacyInstall {
-    $legacyExe = Join-Path $script:NginxLegacyBaseDir "nginx.exe"
-    if (-not (Test-Path $legacyExe)) { return }
-
-    Write-ColorOutput "-> Остановка устаревшего nginx из $script:NginxLegacyBaseDir..." Yellow
-
-    $service = Get-Service -Name $script:NginxServiceName -ErrorAction SilentlyContinue
-    if ($service -and $service.Status -eq 'Running') {
-        Stop-Service -Name $script:NginxServiceName -Force -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 1
-    }
-
-    $mainConf = (Join-Path $script:NginxLegacyBaseDir "conf\nginx.conf") -replace '\\', '/'
-    if (Test-Path $mainConf) {
-        Push-Location $script:NginxLegacyBaseDir
-        try {
-            Invoke-NginxCli -NginxExe $legacyExe -Arguments @('-s', 'stop', '-c', $mainConf) | Out-Null
-        }
-        finally {
-            Pop-Location
-        }
-    }
-
-    Get-Process -Name "nginx" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-}
-
-function Remove-NginxLegacyInstall {
-    Stop-NginxLegacyInstall
-
-    if (-not (Test-Path $script:NginxLegacyBaseDir)) { return }
-
-    Remove-Item $script:NginxLegacyBaseDir -Recurse -Force -ErrorAction SilentlyContinue
-    Write-ColorOutput "[OK] Удалена устаревшая установка nginx: $script:NginxLegacyBaseDir" Green
-}
-
 function Install-NginxBinary {
     param([string]$Root)
 
@@ -166,8 +130,10 @@ function Install-NginxBinary {
 
     Write-ColorOutput "-> Загрузка nginx $script:NginxVersion..." Yellow
 
-    $tempZip = Join-Path $env:TEMP "nginx.zip"
-    $tempExtract = Join-Path $env:TEMP "nginx_extract"
+    $cacheTmp = Join-Path $Root "virtual_env\cache\tmp"
+    New-Item -ItemType Directory -Path $cacheTmp -Force | Out-Null
+    $tempZip = Join-Path $cacheTmp "nginx.zip"
+    $tempExtract = Join-Path $cacheTmp "nginx_extract"
 
     try {
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12

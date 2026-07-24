@@ -103,8 +103,8 @@ switch ($Category) {
     'cli' {
         . (Join-Path $LibPath 'cli.ps1')
         switch ($Operation) {
-            'install' { Install-CliWrapper }
-            'uninstall' { Uninstall-CliWrapper }
+            'install' { Install-CliWrapper -ProjectRoot $Root }
+            'uninstall' { Uninstall-CliWrapper -ProjectRoot $Root }
             default { throw "Неизвестная операция cli: $Operation" }
         }
     }

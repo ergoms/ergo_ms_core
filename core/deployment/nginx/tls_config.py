@@ -17,8 +17,20 @@ if str(_DEPLOYMENT_DIR) not in sys.path:
 
 PROJECT_ROOT = _DEPLOYMENT_DIR.parent.parent
 
-LE_LIVE_DIR = Path('/etc/letsencrypt/live')
-DEFAULT_WEBROOT = '/var/www/certbot'
+DEFAULT_WEBROOT_REL = Path('virtual_env/packages/certbot/webroot')
+LE_CONFIG_REL = Path('virtual_env/packages/letsencrypt')
+
+
+def le_config_dir(root: Path) -> Path:
+    return root / LE_CONFIG_REL
+
+
+def le_live_dir(root: Path) -> Path:
+    return le_config_dir(root) / 'live'
+
+
+def default_webroot(root: Path) -> str:
+    return str(root / DEFAULT_WEBROOT_REL)
 
 
 def resolve_domains(values: dict[str, str]) -> list[str]:
@@ -43,13 +55,14 @@ def primary_domain(values: dict[str, str]) -> str:
     return domains[0] if domains else ''
 
 
-def cert_paths(domain: str) -> tuple[str, str]:
-    base = LE_LIVE_DIR / domain
+def cert_paths(domain: str, *, root: Path | None = None) -> tuple[str, str]:
+    base_root = root or PROJECT_ROOT
+    base = le_live_dir(base_root) / domain
     return str(base / 'fullchain.pem'), str(base / 'privkey.pem')
 
 
-def cert_exists(domain: str) -> bool:
-    fullchain, privkey = cert_paths(domain)
+def cert_exists(domain: str, *, root: Path | None = None) -> bool:
+    fullchain, privkey = cert_paths(domain, root=root)
     return Path(fullchain).is_file() and Path(privkey).is_file()
 
 
@@ -90,7 +103,7 @@ def suggest_tls_env_vars(
         if is_valid_hostname(item) and item not in domains:
             domains.append(item)
 
-    fullchain, privkey = cert_paths(domain)
+    fullchain, privkey = cert_paths(domain, root=PROJECT_ROOT)
     if not Path(fullchain).is_file() or not Path(privkey).is_file():
         raise FileNotFoundError(
             f'Certificate не найден for {domain}. Run ergoms install-tls first.',
@@ -164,8 +177,8 @@ def read_cert_expiry(cert_path: str) -> datetime | None:
         return None
 
 
-def cert_status(domain: str) -> dict[str, str | int | bool]:
-    fullchain, privkey = cert_paths(domain)
+def cert_status(domain: str, *, root: Path | None = None) -> dict[str, str | int | bool]:
+    fullchain, privkey = cert_paths(domain, root=root)
     exists = Path(fullchain).is_file() and Path(privkey).is_file()
     result: dict[str, str | int | bool] = {
         'domain': domain,
@@ -201,5 +214,8 @@ def validate_tls_prerequisites(values: dict[str, str]) -> list[str]:
     return errors
 
 
-def webroot_path(values: dict[str, str]) -> str:
-    return values.get('ERGO_TLS_WEBROOT', '').strip() or DEFAULT_WEBROOT
+def webroot_path(values: dict[str, str], *, root: Path | None = None) -> str:
+    explicit = values.get('ERGO_TLS_WEBROOT', '').strip()
+    if explicit:
+        return explicit
+    return default_webroot(root or PROJECT_ROOT)

@@ -219,7 +219,7 @@
 
 | Симптом | Что проверить |
 |---------|----------------|
-| `ergoms` не найден | Первичная настройка: `setup-full` из [README.md](../../README.md) или `install-cli` |
+| `ergoms` не найден | Работайте из корня проекта; `core/deployment/bin` в PATH (Project-Shell). Снять устаревшие обёртки: `uninstall-cli` |
 | Команда есть только на одной ОС | Префикс `win:` / `linux:` в `commands.conf` |
 | Окружение повреждено после ручного venv | Не создавай `.venv` — только `virtual_env/python/` ([`virtual-env.mdc`](../../.cursor/rules/virtual-env.mdc)) |
 | ParserError в `.ps1`, кракозябры вместо кириллицы | UTF-8 без BOM — `ergoms ps1-encoding-check --fix` |

@@ -13,21 +13,54 @@
             "nameTemplate": "Celery Worker: ${key}",
             "group": "celery-workers",
             "delay": 500,
-            "hideControlTerminal": true
+            "hideControlTerminal": true,
+            "windows": {
+                "options": {
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
+                }
+            },
+            "linux": {
+                "options": {
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
+                }
+            }
         },
         {
             "label": "Setup Full System",
             "type": "shell",
             "command": "ergoms setup && npm run install-extensions",
-            "options": { "cwd": "${workspaceFolder}" },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "windows": {
                 "options": {
-                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
                 }
             },
             "linux": {
                 "options": {
-                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": [
+                            "-lc"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
                 },
                 "command": "ergoms setup && npm run install-extensions"
             },
@@ -37,17 +70,31 @@
                 "focus": true,
                 "panel": "shared"
             },
-            "group": { "kind": "build", "isDefault": false },
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
             "problemMatcher": []
         },
         {
             "label": "Update Submodules",
             "type": "shell",
             "command": "ergoms update-submodules",
-            "options": { "cwd": "${workspaceFolder}" },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "windows": {
                 "options": {
-                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
                 }
             },
             "presentation": {
@@ -56,22 +103,50 @@
                 "focus": true,
                 "panel": "new"
             },
-            "group": { "kind": "build" },
-            "problemMatcher": []
+            "group": {
+                "kind": "build"
+            },
+            "problemMatcher": [],
+            "linux": {
+                "options": {
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
+                }
+            }
         },
         {
             "label": "Update Module Submodules",
             "type": "shell",
             "command": "ergoms update-module-submodules",
-            "options": { "cwd": "${workspaceFolder}" },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "windows": {
                 "options": {
-                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
                 }
             },
             "linux": {
                 "options": {
-                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": [
+                            "-lc"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
                 }
             },
             "presentation": {
@@ -80,7 +155,9 @@
                 "focus": true,
                 "panel": "new"
             },
-            "group": { "kind": "build" },
+            "group": {
+                "kind": "build"
+            },
             "problemMatcher": []
         },
         {
@@ -88,15 +165,34 @@
             "hide": true,
             "type": "shell",
             "command": "ergoms warmup-caches-if-needed && ergoms sync-logs-services",
-            "options": { "cwd": "${workspaceFolder}" },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "windows": {
                 "options": {
-                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
                 }
             },
             "linux": {
                 "options": {
-                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": [
+                            "-lc"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
                 }
             },
             "presentation": {
@@ -121,6 +217,20 @@
             "presentation": {
                 "reveal": "silent",
                 "panel": "shared"
+            },
+            "windows": {
+                "options": {
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
+                }
+            },
+            "linux": {
+                "options": {
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
+                }
             }
         },
         {
@@ -130,12 +240,29 @@
                 "Cache Warmup",
                 "Services"
             ],
-            "group": { "kind": "build", "isDefault": true },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
             "presentation": {
                 "reveal": "silent",
                 "panel": "shared",
                 "showReuseMessage": false,
                 "close": true
+            },
+            "windows": {
+                "options": {
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
+                }
+            },
+            "linux": {
+                "options": {
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
+                }
             }
         },
         {
@@ -149,22 +276,55 @@
             "commandTemplate": "ergoms start-${key}-dev",
             "nameTemplate": "${key}",
             "group": "optional-services",
-            "hideControlTerminal": true
+            "hideControlTerminal": true,
+            "windows": {
+                "options": {
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
+                }
+            },
+            "linux": {
+                "options": {
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
+                }
+            }
         },
         {
             "label": "Nginx / Client",
             "hide": true,
             "type": "shell",
             "command": "ergoms start-client",
-            "options": { "cwd": "${workspaceFolder}" },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "windows": {
                 "options": {
-                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
                 }
             },
             "linux": {
                 "options": {
-                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": [
+                            "-lc"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
                 }
             },
             "presentation": {
@@ -179,15 +339,34 @@
             "hide": true,
             "type": "shell",
             "command": "ergoms dev",
-            "options": { "cwd": "${workspaceFolder}" },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "windows": {
                 "options": {
-                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
                 }
             },
             "linux": {
                 "options": {
-                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": [
+                            "-lc"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
                 }
             },
             "presentation": {
@@ -202,15 +381,34 @@
             "hide": true,
             "type": "shell",
             "command": "ergoms start-media",
-            "options": { "cwd": "${workspaceFolder}" },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "windows": {
                 "options": {
-                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
                 }
             },
             "linux": {
                 "options": {
-                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": [
+                            "-lc"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
                 }
             },
             "presentation": {
@@ -225,15 +423,34 @@
             "hide": true,
             "type": "shell",
             "command": "ergoms start-beat",
-            "options": { "cwd": "${workspaceFolder}" },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "windows": {
                 "options": {
-                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
                 }
             },
             "linux": {
                 "options": {
-                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": [
+                            "-lc"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
                 }
             },
             "presentation": {
@@ -247,15 +464,34 @@
             "label": "Jupyter: Start",
             "type": "shell",
             "command": "ergoms start-jupyter",
-            "options": { "cwd": "${workspaceFolder}" },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "windows": {
                 "options": {
-                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
                 }
             },
             "linux": {
                 "options": {
-                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": [
+                            "-lc"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
                 }
             },
             "presentation": {
@@ -264,22 +500,44 @@
                 "focus": true,
                 "panel": "new"
             },
-            "group": { "kind": "build", "isDefault": false },
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
             "problemMatcher": []
         },
         {
             "label": "Nginx: Install & Start",
             "type": "shell",
             "command": "ergoms install-nginx",
-            "options": { "cwd": "${workspaceFolder}" },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "windows": {
                 "options": {
-                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
                 }
             },
             "linux": {
                 "options": {
-                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": [
+                            "-lc"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
                 }
             },
             "presentation": {
@@ -288,22 +546,44 @@
                 "focus": true,
                 "panel": "new"
             },
-            "group": { "kind": "build", "isDefault": false },
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
             "problemMatcher": []
         },
         {
             "label": "Nginx: Stop",
             "type": "shell",
             "command": "ergoms stop-nginx",
-            "options": { "cwd": "${workspaceFolder}" },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "windows": {
                 "options": {
-                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
                 }
             },
             "linux": {
                 "options": {
-                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": [
+                            "-lc"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
                 }
             },
             "presentation": {
@@ -317,15 +597,34 @@
             "label": "Nginx: Reload",
             "type": "shell",
             "command": "ergoms reload-nginx",
-            "options": { "cwd": "${workspaceFolder}" },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "windows": {
                 "options": {
-                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
                 }
             },
             "linux": {
                 "options": {
-                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": [
+                            "-lc"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
                 }
             },
             "presentation": {
@@ -339,15 +638,34 @@
             "label": "Nginx: Uninstall",
             "type": "shell",
             "command": "ergoms uninstall-nginx -Purge",
-            "options": { "cwd": "${workspaceFolder}" },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "windows": {
                 "options": {
-                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
                 }
             },
             "linux": {
                 "options": {
-                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": [
+                            "-lc"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
                 }
             },
             "presentation": {
@@ -362,15 +680,34 @@
             "label": "Redis: Install & Start",
             "type": "shell",
             "command": "ergoms install-redis",
-            "options": { "cwd": "${workspaceFolder}" },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "windows": {
                 "options": {
-                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
                 }
             },
             "linux": {
                 "options": {
-                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": [
+                            "-lc"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
                 }
             },
             "presentation": {
@@ -379,22 +716,44 @@
                 "focus": true,
                 "panel": "new"
             },
-            "group": { "kind": "build", "isDefault": false },
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
             "problemMatcher": []
         },
         {
             "label": "Redis: Stop",
             "type": "shell",
             "command": "ergoms stop-redis",
-            "options": { "cwd": "${workspaceFolder}" },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "windows": {
                 "options": {
-                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
                 }
             },
             "linux": {
                 "options": {
-                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": [
+                            "-lc"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
                 }
             },
             "presentation": {
@@ -408,15 +767,34 @@
             "label": "Redis: Uninstall",
             "type": "shell",
             "command": "ergoms uninstall-redis -Purge",
-            "options": { "cwd": "${workspaceFolder}" },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "windows": {
                 "options": {
-                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
                 }
             },
             "linux": {
                 "options": {
-                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": [
+                            "-lc"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
                 }
             },
             "presentation": {
@@ -431,15 +809,34 @@
             "label": "Redis: Restart",
             "type": "shell",
             "command": "ergoms restart-redis",
-            "options": { "cwd": "${workspaceFolder}" },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "windows": {
                 "options": {
-                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
                 }
             },
             "linux": {
                 "options": {
-                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": [
+                            "-lc"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
                 }
             },
             "presentation": {
@@ -454,15 +851,34 @@
             "hide": true,
             "type": "shell",
             "command": "ergoms sync-logs-services",
-            "options": { "cwd": "${workspaceFolder}" },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "windows": {
                 "options": {
-                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
                 }
             },
             "linux": {
                 "options": {
-                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": [
+                            "-lc"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
                 }
             },
             "presentation": {
@@ -494,7 +910,21 @@
             "group": "logs",
             "delay": 300,
             "hideControlTerminal": true,
-            "problemMatcher": []
+            "problemMatcher": [],
+            "windows": {
+                "options": {
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
+                }
+            },
+            "linux": {
+                "options": {
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
+                }
+            }
         },
         {
             "label": "Logs: All Services",
@@ -509,21 +939,54 @@
                 "showReuseMessage": false,
                 "close": true
             },
-            "problemMatcher": []
+            "problemMatcher": [],
+            "windows": {
+                "options": {
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
+                }
+            },
+            "linux": {
+                "options": {
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
+                }
+            }
         },
         {
             "label": "Docker: Init",
             "type": "shell",
             "command": "ergoms docker-init",
-            "options": { "cwd": "${workspaceFolder}" },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "windows": {
                 "options": {
-                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
                 }
             },
             "linux": {
                 "options": {
-                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": [
+                            "-lc"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
                 }
             },
             "presentation": {
@@ -532,22 +995,44 @@
                 "focus": true,
                 "panel": "shared"
             },
-            "group": { "kind": "build", "isDefault": false },
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
             "problemMatcher": []
         },
         {
             "label": "Docker: Up",
             "type": "shell",
             "command": "ergoms docker-up",
-            "options": { "cwd": "${workspaceFolder}" },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "windows": {
                 "options": {
-                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
                 }
             },
             "linux": {
                 "options": {
-                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": [
+                            "-lc"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
                 }
             },
             "presentation": {
@@ -561,15 +1046,34 @@
             "label": "Docker: Down",
             "type": "shell",
             "command": "ergoms docker-down",
-            "options": { "cwd": "${workspaceFolder}" },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "windows": {
                 "options": {
-                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
                 }
             },
             "linux": {
                 "options": {
-                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": [
+                            "-lc"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
                 }
             },
             "presentation": {
@@ -583,15 +1087,34 @@
             "label": "Docker: Restart",
             "type": "shell",
             "command": "ergoms docker-restart",
-            "options": { "cwd": "${workspaceFolder}" },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "windows": {
                 "options": {
-                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
                 }
             },
             "linux": {
                 "options": {
-                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": [
+                            "-lc"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
                 }
             },
             "presentation": {
@@ -605,15 +1128,34 @@
             "label": "Docker: Build",
             "type": "shell",
             "command": "ergoms docker-build",
-            "options": { "cwd": "${workspaceFolder}" },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "windows": {
                 "options": {
-                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
                 }
             },
             "linux": {
                 "options": {
-                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": [
+                            "-lc"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
                 }
             },
             "presentation": {
@@ -628,15 +1170,34 @@
             "label": "Docker: Logs",
             "type": "shell",
             "command": "ergoms docker-logs -f",
-            "options": { "cwd": "${workspaceFolder}" },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "windows": {
                 "options": {
-                    "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] }
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
                 }
             },
             "linux": {
                 "options": {
-                    "shell": { "executable": "/bin/bash", "args": ["-lc"] }
+                    "shell": {
+                        "executable": "/bin/bash",
+                        "args": [
+                            "-lc"
+                        ]
+                    },
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
                 }
             },
             "presentation": {

@@ -1,6 +1,7 @@
 ---
 description: Запрет автозаписи в .env — значения по умолчанию в src.config.env и *_runtime; .env только вручную
-alwaysApply: true
+globs: "**/env.py,**/*_runtime.py,core/deployment/**/*env*,**/.env.example"
+alwaysApply: false
 ---
 
 # Не записывать .env автоматически

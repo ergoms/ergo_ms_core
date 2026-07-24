@@ -76,15 +76,24 @@ if (Test-Path $venvActivate) {
 
 
 
-# Local ergoms (same folder as this script); pass -Root so ergo_ms.ps1 does not get null
+# core/deployment/bin в PATH — ergoms.cmd из подпапок (задачи cmd, дочерние процессы)
+$env:Path = "$(Join-Path $global:ProjectRoot 'core\deployment\bin');$env:Path"
 
+# Local ergoms; только из каталога проекта и подпапок
 function ergoms {
-
+    $root = $global:ProjectRoot.TrimEnd('\', '/')
+    $cwd = (Get-Location).Path.TrimEnd('\', '/')
+    $ok = $cwd.Equals($root, [StringComparison]::OrdinalIgnoreCase)
+    if (-not $ok) {
+        $prefix = $root + [IO.Path]::DirectorySeparatorChar
+        $ok = $cwd.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)
+    }
+    if (-not $ok) {
+        Write-Host "[ERROR] Запускайте ergoms из каталога проекта или его подпапок: $root" -ForegroundColor Red
+        return 1
+    }
     & (Join-Path $PSScriptRoot "ergo_ms.ps1") -Root $global:ProjectRoot @args
-
 }
-
-
 
 # Wrappers: pass through when ergoms sets ERGOMS_INTERNAL=1; show hint for direct user calls.
 

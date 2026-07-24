@@ -6,6 +6,13 @@ function Clear-ProjectShellEnvironment {
         [string]$VenvPath
     )
 
+    if (-not (Test-Path -LiteralPath $VenvPath)) {
+        if ($env:VIRTUAL_ENV) {
+            Remove-Item Env:VIRTUAL_ENV -ErrorAction SilentlyContinue
+        }
+        return
+    }
+
     $venvNorm = [System.IO.Path]::GetFullPath($VenvPath).TrimEnd('\')
 
     if ($env:VIRTUAL_ENV) {
@@ -79,13 +86,90 @@ function Stop-BlockingProcessesForClean {
     }
 
     if ($stopped -gt 0) {
-        Start-Sleep -Seconds 2
+        Start-Sleep -Milliseconds 400
     }
 }
 
 function Test-RobocopySuccess {
     param([int]$ExitCode)
     return ($ExitCode -ge 0 -and $ExitCode -le 7)
+}
+
+function Invoke-RobocopyMirrorEmpty {
+    param(
+        [string]$TargetPath,
+        [string[]]$ExcludeFiles = @(),
+        [string]$ProjectRoot = ''
+    )
+
+    if (-not (Test-Path -LiteralPath $TargetPath -PathType Container)) {
+        return $false
+    }
+
+    if (-not $ProjectRoot) {
+        $cursor = (Resolve-Path -LiteralPath $TargetPath).Path
+        while ($cursor) {
+            if (Test-Path -LiteralPath (Join-Path $cursor 'core\deployment')) {
+                $ProjectRoot = $cursor
+                break
+            }
+            $parent = Split-Path -Parent $cursor
+            if (-not $parent -or $parent -eq $cursor) { break }
+            $cursor = $parent
+        }
+    }
+
+    if (-not $ProjectRoot) {
+        return $false
+    }
+
+    $cacheTmp = Join-Path $ProjectRoot "virtual_env\cache\tmp"
+    New-Item -ItemType Directory -Path $cacheTmp -Force | Out-Null
+    $emptyDir = Join-Path $cacheTmp ("ergo_clean_empty_" + [Guid]::NewGuid().ToString("N"))
+    try {
+        New-Item -ItemType Directory -Path $emptyDir -Force | Out-Null
+        $argumentList = @(
+            "`"$emptyDir`"",
+            "`"$TargetPath`"",
+            "/mir", "/mt:16", "/r:1", "/w:1",
+            "/nfl", "/ndl", "/njh", "/njs", "/nc", "/ns", "/np"
+        )
+        foreach ($name in $ExcludeFiles) {
+            $argumentList += @("/xf", "`"$name`"")
+        }
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = "robocopy.exe"
+        $psi.Arguments = ($argumentList -join ' ')
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+        $proc = [System.Diagnostics.Process]::Start($psi)
+        $null = $proc.StandardOutput.ReadToEnd()
+        $null = $proc.StandardError.ReadToEnd()
+        $proc.WaitForExit()
+        return (Test-RobocopySuccess $proc.ExitCode)
+    }
+    finally {
+        Remove-Item -LiteralPath $emptyDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Remove-PathWithCmdRmdir {
+    param([string]$Path)
+
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = "cmd.exe"
+    $psi.Arguments = "/c rd /s /q `"$Path`""
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $proc = [System.Diagnostics.Process]::Start($psi)
+    $null = $proc.StandardOutput.ReadToEnd()
+    $null = $proc.StandardError.ReadToEnd()
+    $proc.WaitForExit()
+    return -not (Test-Path -LiteralPath $Path)
 }
 
 function Remove-PathRobust {
@@ -97,6 +181,20 @@ function Remove-PathRobust {
 
     if (-not (Test-Path -LiteralPath $Path)) {
         return $true
+    }
+
+    $isDirectory = Test-Path -LiteralPath $Path -PathType Container
+
+    if ($isDirectory) {
+        if ((Invoke-RobocopyMirrorEmpty -TargetPath $Path) -and (Remove-PathWithCmdRmdir -Path $Path)) {
+            return $true
+        }
+        if (-not (Test-Path -LiteralPath $Path)) {
+            return $true
+        }
+        if (Remove-PathWithCmdRmdir -Path $Path) {
+            return $true
+        }
     }
 
     for ($attempt = 1; $attempt -le $MaxRetries; $attempt++) {
@@ -115,80 +213,200 @@ function Remove-PathRobust {
         return $true
     }
 
-    $emptyDir = Join-Path $env:TEMP ("ergo_clean_empty_" + [Guid]::NewGuid().ToString("N"))
-    try {
-        New-Item -ItemType Directory -Path $emptyDir -Force | Out-Null
-        $rc = Start-Process -FilePath "robocopy.exe" -ArgumentList @(
-            $emptyDir, $Path, "/mir", "/r:2", "/w:1",
-            "/nfl", "/ndl", "/njh", "/njs", "/nc", "/ns", "/np"
-        ) -Wait -PassThru -NoNewWindow
-        if (Test-RobocopySuccess $rc.ExitCode) {
-            Remove-Item -LiteralPath $Path -Recurse -Force -ErrorAction SilentlyContinue
+    if ($isDirectory -and (Invoke-RobocopyMirrorEmpty -TargetPath $Path)) {
+        Remove-Item -LiteralPath $Path -Recurse -Force -ErrorAction SilentlyContinue
+        if (-not (Test-Path -LiteralPath $Path)) {
+            return $true
         }
-    }
-    finally {
-        Remove-Item -LiteralPath $emptyDir -Recurse -Force -ErrorAction SilentlyContinue
+        return (Remove-PathWithCmdRmdir -Path $Path)
     }
 
     return -not (Test-Path -LiteralPath $Path)
+}
+
+function Test-CleanTargetHasWork {
+    param(
+        [string]$Path,
+        [bool]$FullRemove
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return $false
+    }
+
+    if ($FullRemove) {
+        return $true
+    }
+
+    $items = @(Get-ChildItem -LiteralPath $Path -Force -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -ne '.gitkeep' })
+    return ($items.Count -gt 0)
+}
+
+function New-CleanTrashStaging {
+    param(
+        [string]$Root
+    )
+
+    # Каталог в корне проекта — тот же том, что и цели (мгновенный Move-Item)
+    $staging = Join-Path $Root (".ergo_clean_trash_" + [Guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Path $staging -Force | Out-Null
+    return $staging
+}
+
+function Move-PathToCleanTrash {
+    param(
+        [string]$Path,
+        [string]$StagingRoot
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return $null
+    }
+
+    $leaf = Split-Path -Leaf $Path
+    $dest = Join-Path $StagingRoot $leaf
+    if (Test-Path -LiteralPath $dest) {
+        $dest = Join-Path $StagingRoot ($leaf + "_" + [Guid]::NewGuid().ToString("N").Substring(0, 8))
+    }
+
+    try {
+        Move-Item -LiteralPath $Path -Destination $dest -Force -ErrorAction Stop
+        return $dest
+    }
+    catch {
+        return $null
+    }
+}
+
+function Start-BackgroundTrashRemoval {
+    param(
+        [string]$StagingRoot
+    )
+
+    if (-not $StagingRoot -or -not (Test-Path -LiteralPath $StagingRoot)) {
+        return
+    }
+
+    # Фоновый процесс: не блокируем ergoms clean
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = "cmd.exe"
+    $psi.Arguments = "/c rd /s /q `"$StagingRoot`""
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+    [void][System.Diagnostics.Process]::Start($psi)
+}
+
+function Restore-CleanDirectorySkeleton {
+    param(
+        [string]$Path,
+        [bool]$WithGitkeep
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        New-Item -ItemType Directory -Path $Path -Force | Out-Null
+    }
+
+    if ($WithGitkeep) {
+        $gitkeep = Join-Path $Path '.gitkeep'
+        if (-not (Test-Path -LiteralPath $gitkeep)) {
+            Set-Content -LiteralPath $gitkeep -Value '' -Encoding ASCII
+        }
+    }
 }
 
 function Remove-DirectoryContents {
     param(
         [string]$Path,
         [string]$Label,
-        [string]$Root
+        [string]$Root,
+        [string]$StagingRoot
     )
 
     if (-not (Test-Path -LiteralPath $Path)) {
         Write-ColorOutput "[SKIP] $Label не найден" Gray
-        return
+        return @{ Ok = $true; Async = $false; Count = 0 }
     }
 
-    $items = Get-ChildItem -LiteralPath $Path -Force -ErrorAction SilentlyContinue |
-        Where-Object { $_.Name -ne '.gitkeep' }
+    $items = @(Get-ChildItem -LiteralPath $Path -Force -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -ne '.gitkeep' })
 
-    if (-not $items -or $items.Count -eq 0) {
+    if ($items.Count -eq 0) {
         Write-ColorOutput "[SKIP] $Label уже пуст" Gray
-        return
+        return @{ Ok = $true; Async = $false; Count = 0 }
     }
 
-    $removedCount = 0
-    $failedItems = @()
-
-    foreach ($item in $items) {
-        if (Remove-PathRobust -Path $item.FullName) {
-            $removedCount++
-        }
-        else {
-            $failedItems += $item.Name
-        }
+    $removedCount = $items.Count
+    $moved = Move-PathToCleanTrash -Path $Path -StagingRoot $StagingRoot
+    if ($moved) {
+        Restore-CleanDirectorySkeleton -Path $Path -WithGitkeep $true
+        Write-ColorOutput "[OK] Удалено $removedCount элементов из $Label (фон)" Green
+        return @{ Ok = $true; Async = $true; Count = $removedCount }
     }
 
-    if ($failedItems.Count -gt 0) {
+    # Запасной путь: синхронная очистка на месте
+    $cleared = Invoke-RobocopyMirrorEmpty -TargetPath $Path -ExcludeFiles @('.gitkeep')
+    $failedItems = @(Get-ChildItem -LiteralPath $Path -Force -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -ne '.gitkeep' } |
+        ForEach-Object { $_.Name })
+
+    if (-not $cleared -or $failedItems.Count -gt 0) {
         Stop-BlockingProcessesForClean -Root $Root
-        foreach ($name in @($failedItems)) {
+        $retryFailed = @()
+        foreach ($name in $failedItems) {
             $fullName = Join-Path $Path $name
             if (-not (Test-Path -LiteralPath $fullName)) { continue }
-            if (Remove-PathRobust -Path $fullName -MaxRetries 5 -RetryDelayMs 1000) {
-                $removedCount++
-                $failedItems = $failedItems | Where-Object { $_ -ne $name }
+            if (-not (Remove-PathRobust -Path $fullName -MaxRetries 5 -RetryDelayMs 400)) {
+                $retryFailed += $name
             }
         }
+        $failedItems = $retryFailed
     }
 
     if ($failedItems.Count -gt 0) {
         Write-ColorOutput "[ERROR] Не удалось очистить ${Label}: не удалось удалить: $($failedItems -join ', ')" Red
         Write-ColorOutput "  Закройте терминалы с активированным venv, остановите серверы разработки и снова выполните ergoms clean" Yellow
-        return
+        return @{ Ok = $false; Async = $false; Count = 0 }
     }
 
-    if ($removedCount -gt 0) {
-        Write-ColorOutput "[OK] Удалено $removedCount элементов из $Label" Green
+    Write-ColorOutput "[OK] Удалено $removedCount элементов из $Label" Green
+    return @{ Ok = $true; Async = $false; Count = $removedCount }
+}
+
+function Remove-FullPathFast {
+    param(
+        [string]$Path,
+        [string]$Label,
+        [string]$Root,
+        [string]$StagingRoot
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        Write-ColorOutput "[SKIP] $Label не найден" Gray
+        return @{ Ok = $true; Async = $false }
     }
-    else {
-        Write-ColorOutput "[SKIP] $Label уже пуст" Gray
+
+    $moved = Move-PathToCleanTrash -Path $Path -StagingRoot $StagingRoot
+    if ($moved) {
+        Write-ColorOutput "[OK] $Label удалён (фон)" Green
+        return @{ Ok = $true; Async = $true }
     }
+
+    if (Remove-PathRobust -Path $Path) {
+        Write-ColorOutput "[OK] $Label удалён" Green
+        return @{ Ok = $true; Async = $false }
+    }
+
+    Stop-BlockingProcessesForClean -Root $Root
+    if (Remove-PathRobust -Path $Path -MaxRetries 5 -RetryDelayMs 400) {
+        Write-ColorOutput "[OK] $Label удалён" Green
+        return @{ Ok = $true; Async = $false }
+    }
+
+    Write-ColorOutput "[ERROR] Не удалось удалить $Label" Red
+    Write-ColorOutput "  Закройте другие терминалы и серверы разработки, затем снова выполните ergoms clean" Yellow
+    return @{ Ok = $false; Async = $false }
 }
 
 function Clear-ProjectDependencies {
@@ -225,39 +443,70 @@ function Clear-ProjectDependencies {
         return
     }
 
+    $workTargets = @()
+    foreach ($target in $cleanTargets) {
+        $fullPath = Join-Path $Root $target.Path
+        if (Test-CleanTargetHasWork -Path $fullPath -FullRemove:$target.FullRemove) {
+            $workTargets += $target
+        }
+    }
+
+    if ($workTargets.Count -eq 0) {
+        Write-ColorOutput "`n[SKIP] Нечего очищать — все цели уже пусты" Gray
+        Write-ColorOutput "`n=== Очистка завершена ===" Green
+        Write-ColorOutput ""
+        return
+    }
+
     Stop-BlockingProcessesForClean -Root $Root
     Clear-ProjectShellEnvironment -VenvPath (Join-Path $Root "virtual_env\python")
 
+    $staging = New-CleanTrashStaging -Root $Root
+    $anyAsync = $false
     $total = $cleanTargets.Count
+
     for ($i = 0; $i -lt $total; $i++) {
         $target = $cleanTargets[$i]
         $step = $i + 1
         $fullPath = Join-Path $Root $target.Path
         Write-ColorOutput "`n-> Шаг ${step}/${total}: очистка $($target.Label)..." Yellow
 
-        if ($target.FullRemove) {
-            if (Test-Path -LiteralPath $fullPath) {
-                if (Remove-PathRobust -Path $fullPath) {
-                    Write-ColorOutput "[OK] $($target.Label) удалён" Green
+        if (-not (Test-CleanTargetHasWork -Path $fullPath -FullRemove:$target.FullRemove)) {
+            if ($target.FullRemove -and -not (Test-Path -LiteralPath $fullPath)) {
+                Write-ColorOutput "[SKIP] $($target.Label) не найден" Gray
+            }
+            elseif (-not $target.FullRemove) {
+                if (-not (Test-Path -LiteralPath $fullPath)) {
+                    Write-ColorOutput "[SKIP] $($target.Label) не найден" Gray
                 }
                 else {
-                    Stop-BlockingProcessesForClean -Root $Root
-                    if (Remove-PathRobust -Path $fullPath -MaxRetries 5 -RetryDelayMs 1000) {
-                        Write-ColorOutput "[OK] $($target.Label) удалён" Green
-                    }
-                    else {
-                        Write-ColorOutput "[ERROR] Не удалось удалить $($target.Label)" Red
-                        Write-ColorOutput "  Закройте другие терминалы и серверы разработки, затем снова выполните ergoms clean" Yellow
-                    }
+                    Write-ColorOutput "[SKIP] $($target.Label) уже пуст" Gray
                 }
             }
             else {
-                Write-ColorOutput "[SKIP] $($target.Label) не найден" Gray
+                Write-ColorOutput "[SKIP] $($target.Label) уже пуст" Gray
             }
+            continue
+        }
+
+        if ($target.FullRemove) {
+            $result = Remove-FullPathFast -Path $fullPath -Label $target.Label -Root $Root -StagingRoot $staging
         }
         else {
-            Remove-DirectoryContents -Path $fullPath -Label $target.Label -Root $Root
+            $result = Remove-DirectoryContents -Path $fullPath -Label $target.Label -Root $Root -StagingRoot $staging
         }
+
+        if ($result.Async) {
+            $anyAsync = $true
+        }
+    }
+
+    if ($anyAsync) {
+        Start-BackgroundTrashRemoval -StagingRoot $staging
+        Write-ColorOutput "`n[INFO] Тяжёлое удаление продолжается в фоне" Gray
+    }
+    else {
+        Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue
     }
 
     Write-ColorOutput "`n=== Очистка завершена ===" Green

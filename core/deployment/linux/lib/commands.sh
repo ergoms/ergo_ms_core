@@ -2,6 +2,18 @@
 # Custom commands management
 # Управление пользовательскими командами
 
+_ergoms_export_tool_caches() {
+  local root="$1"
+  local pip_cache="$root/virtual_env/cache/pip"
+  local poetry_cache="$root/virtual_env/cache/poetry"
+  local npm_cache="$root/virtual_env/cache/npm"
+  mkdir -p "$pip_cache" "$poetry_cache" "$npm_cache"
+  export PIP_CACHE_DIR="$pip_cache"
+  export POETRY_CACHE_DIR="$poetry_cache"
+  export npm_config_cache="$npm_cache"
+  export NPM_CONFIG_CACHE="$npm_cache"
+}
+
 load_custom_commands() {
   local root="$1"
   
@@ -98,6 +110,7 @@ execute_command_string() {
         export PYTHONPATH="$root"
         export PYTHONIOENCODING="utf-8"
         export PYTHONUNBUFFERED="1"
+        _ergoms_export_tool_caches "$root"
         cd "$root/core/api" || exit 1
         # shellcheck disable=SC2086
         exec "$venv_python" -m commands $cmd_args "${user_args[@]}"
@@ -110,11 +123,13 @@ execute_command_string() {
         fi
         cd "$root" || exit 1
         export PYTHONPATH="$root/core/media_api/src:$root"
+        _ergoms_export_tool_caches "$root"
         # shellcheck disable=SC2086
         exec "$venv_python" -m media_server.manage $cmd_args "${user_args[@]}"
         ;;
       npm)
         cd "$root" || exit 1
+        _ergoms_export_tool_caches "$root"
         # shellcheck disable=SC2086
         exec npm $cmd_args "${user_args[@]}"
         ;;
@@ -305,6 +320,7 @@ invoke_api_command() {
   export PYTHONPATH="$root"
   export PYTHONIOENCODING="utf-8"
   export PYTHONUNBUFFERED="1"
+  _ergoms_export_tool_caches "$root"
   cd "$root/core/api" || exit 1
   exec "$venv_python" -m commands "$@"
 }
@@ -323,6 +339,7 @@ invoke_media_api_command() {
   export ERGOMS_INTERNAL=1
   cd "$root" || exit 1
   export PYTHONPATH="$root/core/media_api/src:$root"
+  _ergoms_export_tool_caches "$root"
   exec "$venv_python" -m media_server.manage "$@"
 }
 
@@ -331,9 +348,11 @@ invoke_npm_command() {
   shift
   export ERGOMS_INTERNAL=1
   cd "$root" || exit 1
+  _ergoms_export_tool_caches "$root"
   exec npm "$@"
 }
 
+export -f _ergoms_export_tool_caches
 export -f load_custom_commands
 export -f execute_command_string
 export -f invoke_custom_command

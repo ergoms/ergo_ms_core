@@ -220,9 +220,6 @@ cli_name() {
   echo "$CLI_NAME"
 }
 
-cli_path() {
-  echo "/usr/local/bin/$(cli_name)"
-}
 
 systemctl_do() {
   if [[ $(id -u) -eq 0 ]]; then
@@ -251,6 +248,5 @@ export -f get_worker_service_names
 export -f units_list
 export -f reset_units_cache
 export -f cli_name
-export -f cli_path
 export -f systemctl_do
 export -f daemon_reload

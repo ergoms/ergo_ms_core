@@ -76,7 +76,7 @@ import OrgList from '../../../../modules/organizations/client/pages/OrgList.vue'
 | Изоляция ядра от домена модулей | [`core-module-isolation.mdc`](core-module-isolation.mdc) |
 | Модули (детали) | [`modules.mdc`](modules.mdc) |
 | Django, DRF | [`django.mdc`](django.mdc) |
-| Безопасность | [`security.mdc`](security.mdc) |
+| Безопасность | [`security.mdc`](security.mdc), [`security-details.mdc`](security-details.mdc) |
 | ergoms | [`no-direct-manage-py.mdc`](no-direct-manage-py.mdc) |
 | Структура каталогов | [`.docs/structure.md`](../../.docs/structure.md) |
 | Боковое меню | [`menu.mdc`](menu.mdc) |

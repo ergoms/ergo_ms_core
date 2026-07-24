@@ -1,2 +1,4 @@
 # Shell-скрипты развёртывания — только LF (CRLF и BOM ломают shebang на Linux)
 core/deployment/**/*.sh text eol=lf
+# Локальная Unix-обёртка ergoms
+core/deployment/bin/ergoms text eol=lf

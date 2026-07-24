@@ -260,7 +260,9 @@ def _install_windows(root: Path, force: bool) -> None:
         if bin_dir.is_dir():
             shutil.rmtree(bin_dir, ignore_errors=True)
 
-    with tempfile.TemporaryDirectory() as tmp:
+    cache_tmp = root / 'virtual_env' / 'cache' / 'tmp'
+    cache_tmp.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=str(cache_tmp)) as tmp:
         tmp_path = Path(tmp)
         zip_path = tmp_path / REDIS_WINDOWS_ZIP
         _download(REDIS_WINDOWS_URL, zip_path)
@@ -314,7 +316,9 @@ def _install_linux(root: Path, force: bool) -> None:
         if bin_dir.is_dir():
             shutil.rmtree(bin_dir, ignore_errors=True)
 
-    with tempfile.TemporaryDirectory() as tmp:
+    cache_tmp = root / 'virtual_env' / 'cache' / 'tmp'
+    cache_tmp.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=str(cache_tmp)) as tmp:
         tmp_path = Path(tmp)
         tar_path = tmp_path / REDIS_LINUX_TARBALL
         _download(REDIS_LINUX_URL, tar_path, fallback_urls=(REDIS_LINUX_FALLBACK_URL,))

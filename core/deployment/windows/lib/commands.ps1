@@ -146,6 +146,16 @@ function Execute-CommandString {
                     $env:PYTHONPATH = $ProjectRoot
                     $env:PYTHONIOENCODING = "utf-8"
                     $env:PYTHONUNBUFFERED = "1"
+                    $pipCache = Join-Path $ProjectRoot "virtual_env\cache\pip"
+                    $poetryCache = Join-Path $ProjectRoot "virtual_env\cache\poetry"
+                    $npmCache = Join-Path $ProjectRoot "virtual_env\cache\npm"
+                    New-Item -ItemType Directory -Path $pipCache -Force | Out-Null
+                    New-Item -ItemType Directory -Path $poetryCache -Force | Out-Null
+                    New-Item -ItemType Directory -Path $npmCache -Force | Out-Null
+                    $env:PIP_CACHE_DIR = $pipCache
+                    $env:POETRY_CACHE_DIR = $poetryCache
+                    $env:npm_config_cache = $npmCache
+                    $env:NPM_CONFIG_CACHE = $npmCache
                     & $pythonExe -m commands @allArgs
                 }
                 finally {
@@ -178,6 +188,10 @@ function Execute-CommandString {
                         Write-ColorOutput "  Текущий каталог: $(Get-Location)" Gray
                         exit 1
                     }
+                    $npmCache = Join-Path $ProjectRoot "virtual_env\cache\npm"
+                    New-Item -ItemType Directory -Path $npmCache -Force | Out-Null
+                    $env:npm_config_cache = $npmCache
+                    $env:NPM_CONFIG_CACHE = $npmCache
                     # Use cmd /c to avoid PowerShell argument passing issues with npm.cmd on Windows
                     # (direct invocation can cause "run" to become "pm" -> "Unknown command: 'pm'")
                     $npmCmdLine = "npm " + ($allArgs -join ' ')

@@ -137,10 +137,9 @@ case "$category" in
     esac
     ;;
   cli)
-    SELF_SCRIPT="$(cd "$SCRIPT_DIR/../../linux" && pwd)/ergo_ms.sh"
     case "$operation" in
-      install) create_cli_wrapper "$SELF_SCRIPT" ;;
-      uninstall) remove_cli_wrapper ;;
+      install) create_cli_wrapper "$root" ;;
+      uninstall) remove_cli_wrapper "$root" ;;
       *) echo "[ERROR] Неизвестная операция cli: $operation" >&2; exit 1 ;;
     esac
     ;;

@@ -14,6 +14,7 @@ if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 
 from console_tags import format_console  # noqa: E402
+from project_layout import tool_cache_environ  # noqa: E402
 
 from lifecycle.context import DeploymentContext, HostPlatform  # noqa: E402
 
@@ -61,6 +62,7 @@ def api_env(ctx: DeploymentContext) -> dict[str, str]:
     env['PYTHONIOENCODING'] = 'utf-8'
     env['PYTHONUNBUFFERED'] = '1'
     env['POETRY_VIRTUALENVS_CREATE'] = 'false'
+    env.update(tool_cache_environ(root))
     if venv_exists(root, ctx.platform):
         env['VIRTUAL_ENV'] = str(venv)
         if ctx.platform == HostPlatform.WIN32:
@@ -105,7 +107,9 @@ def run_npm(ctx: DeploymentContext, script: str, extra_args: Sequence[str] = ())
         print(format_console('error', 'package.json не найден в корне проекта'), file=sys.stderr)
         return 1
     cmd = [npm, 'run', script, *extra_args]
-    return subprocess.call(cmd, cwd=str(ctx.project_root), env=os.environ.copy())
+    env = os.environ.copy()
+    env.update(tool_cache_environ(ctx.project_root))
+    return subprocess.call(cmd, cwd=str(ctx.project_root), env=env)
 
 
 def run_python_script(

@@ -18,6 +18,7 @@ from jupyter_nginx import (  # noqa: E402
     render_jupyter_location_block,
     render_jupyter_upstream_block,
 )
+from tls_config import webroot_path  # noqa: E402
 
 
 def _read_env(path: Path) -> dict[str, str]:
@@ -81,6 +82,7 @@ def render_template(
         )
     jupyter_upstream = render_jupyter_upstream_block(values)
     jupyter_location = render_jupyter_location_block(values)
+    tls_webroot = webroot_path(values, root=root).replace('\\', '/')
     replacements = {
         '${ERGO_ROOT}': root_forward,
         '${ERGO_SERVER_NAME}': server_name,
@@ -89,6 +91,7 @@ def render_template(
         '${ERGO_NGINX_SNIPPETS}': snippets_forward,
         '${ERGO_SSL_CERT}': ssl_cert.replace('\\', '/'),
         '${ERGO_SSL_KEY}': ssl_key.replace('\\', '/'),
+        '${ERGO_TLS_WEBROOT}': tls_webroot,
         '${ERGO_HOST_POLICY_BLOCKS}': extra['ERGO_HOST_POLICY_BLOCKS'],
         '${ERGO_HTTP_CANONICAL_REDIRECT}': extra['ERGO_HTTP_CANONICAL_REDIRECT'],
         '${ERGO_MAINTENANCE_SNIPPET}': maintenance_snippet,

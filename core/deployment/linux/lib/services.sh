@@ -296,14 +296,14 @@ install_services() {
   get_base_unit_definitions "$root"
   
   # Устанавливаем базовые службы
-  install_unit "ergo-api-dev"        "$API_UNIT"
+  install_unit "ergo-api-dev"        "$API_UNIT" "$root"
   if (( skip_client == 0 )); then
-    install_unit "ergo-client-dev"     "$CLIENT_UNIT"
+    install_unit "ergo-client-dev"     "$CLIENT_UNIT" "$root"
   else
     disable_client_service_if_nginx "$root"
   fi
-  install_unit "ergo-media-api"      "$MEDIA_API_UNIT"
-  install_unit "ergo-celery-beat"    "$CELERY_BEAT_UNIT"
+  install_unit "ergo-media-api"      "$MEDIA_API_UNIT" "$root"
+  install_unit "ergo-celery-beat"    "$CELERY_BEAT_UNIT" "$root"
   
   # Устанавливаем воркеры из конфигурации
   install_worker_units "$root"
@@ -352,7 +352,7 @@ install_single_service() {
   case "$service_name" in
     "api")
       unit_name="ergo-api-dev"
-      install_unit "$unit_name" "$API_UNIT"
+      install_unit "$unit_name" "$API_UNIT" "$root"
       ;;
     "client")
       if is_nginx_enabled "$root"; then
@@ -360,7 +360,7 @@ install_single_service() {
         return 0
       fi
       unit_name="ergo-client-dev"
-      install_unit "$unit_name" "$CLIENT_UNIT"
+      install_unit "$unit_name" "$CLIENT_UNIT" "$root"
       ;;
     "worker")
       # Устанавливаем все воркеры из конфигурации
@@ -377,11 +377,11 @@ install_single_service() {
       ;;
     "beat")
       unit_name="ergo-celery-beat"
-      install_unit "$unit_name" "$CELERY_BEAT_UNIT"
+      install_unit "$unit_name" "$CELERY_BEAT_UNIT" "$root"
       ;;
     "media")
       unit_name="ergo-media-api"
-      install_unit "$unit_name" "$MEDIA_API_UNIT"
+      install_unit "$unit_name" "$MEDIA_API_UNIT" "$root"
       ;;
     *)
       echo "Неизвестная служба: $service_name" >&2

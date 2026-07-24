@@ -1,7 +1,7 @@
 ---
 description: Поля текстового поиска на клиенте — только SearchInput из ядра
 globs: "{core/client,modules/**/client}/**/*.{vue,js}"
-alwaysApply: true
+alwaysApply: false
 ---
 
 # SearchInput — поле текстового поиска

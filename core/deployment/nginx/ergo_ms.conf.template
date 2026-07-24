@@ -39,7 +39,7 @@ server {
     server_name ${ERGO_SERVER_NAME} localhost 127.0.0.1;
 
     location /.well-known/acme-challenge/ {
-        root /var/www/certbot;
+        root ${ERGO_TLS_WEBROOT};
     }
 
     location / {

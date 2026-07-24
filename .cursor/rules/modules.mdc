@@ -1,6 +1,7 @@
 ---
 description: Модули modules/ — структура, регистрация, ModuleBridge, theme-defaults.js, Celery, git-submodule
-alwaysApply: true
+globs: "modules/**"
+alwaysApply: false
 ---
 # Модули
 

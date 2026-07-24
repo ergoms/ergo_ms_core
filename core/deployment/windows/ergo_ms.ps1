@@ -392,7 +392,7 @@ function Main {
 
             if (-not $NoCli) {
 
-                Install-CliWrapper
+                Install-CliWrapper -ProjectRoot $projectRoot
 
             }
 
@@ -552,13 +552,17 @@ function Main {
 
         'install-cli' {
 
-            Install-CliWrapper
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+
+            Install-CliWrapper -ProjectRoot $projectRoot
 
         }
 
         'uninstall-cli' {
 
-            Uninstall-CliWrapper
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+
+            Uninstall-CliWrapper -ProjectRoot $projectRoot
 
         }
 

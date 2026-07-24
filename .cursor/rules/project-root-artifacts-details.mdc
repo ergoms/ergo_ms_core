@@ -1,0 +1,71 @@
+---
+description: Детали хранения артефактов в ERGO_ROOT — virtual_env, certbot, кэши, temp, Docker
+globs: "core/deployment/**/*"
+alwaysApply: false
+---
+
+# Артефакты в корне — детали
+
+Краткое правило: [`project-root-artifacts.mdc`](project-root-artifacts.mdc). Пути: [`project_layout.py`](../../core/deployment/project_layout.py).
+
+## Каталоги
+
+| Назначение | Путь |
+|---|---|
+| Python venv | `virtual_env/python/` |
+| nginx / Redis / NSSM | `virtual_env/packages/{nginx,redis,nssm}/` |
+| Let's Encrypt + ACME webroot | `virtual_env/packages/letsencrypt/`, `…/certbot/webroot/` |
+| pip / Poetry / npm cache | `virtual_env/cache/{pip,poetry,npm}/` |
+| Временные download/extract | `virtual_env/cache/tmp/` |
+| Jupyter | `virtual_env/jupyter/` |
+| Env + systemd units | `core/deployment/wrappers/`, `…/systemd/` |
+| clean trash | `.ergo_clean_trash_*` в корне (в `.gitignore`) |
+
+## Обязательно
+
+- `PIP_CACHE_DIR`, `POETRY_CACHE_DIR`, `npm_config_cache` → `virtual_env/cache/…` ([`ops.py`](../../core/deployment/lifecycle/host/ops.py), `commands.ps1` / `commands.sh`)
+- Certbot: только `virtual_env/python/bin/certbot` (pip в venv), не пакеты ОС
+- TLS: `--config-dir` / webroot под `virtual_env/packages/…`
+- Jupyter: `JUPYTER_DATA_DIR` / kernels в `virtual_env/jupyter/`
+- Temp install/geoip/zip: `virtual_env/cache/tmp/`
+
+## Запрещено
+
+```python
+# BAD — кэш pip вне проекта
+subprocess.run([sys.executable, '-m', 'pip', 'install', 'pkg'])  # без PIP_CACHE_DIR
+
+# BAD — certbot из пакетов ОС
+subprocess.run(['apt-get', 'install', '-y', 'certbot'])
+
+# BAD — temp в системе
+tempfile.mkdtemp(prefix='ergo_')  # без dir= virtual_env/cache/tmp
+```
+
+```powershell
+# BAD
+$zip = Join-Path $env:TEMP 'nginx.zip'
+$nssm = "$env:ProgramData\ergo_ms\nssm"
+```
+
+```bash
+# BAD
+mktemp -d /tmp/ergo-npm.XXXXXX
+certbot certonly ...   # системный PATH
+```
+
+## Базовый пример
+
+```python
+from project_layout import cache_tmp_dir, ensure_dir, tool_cache_environ
+
+tmp = ensure_dir(cache_tmp_dir(root))
+env = {**os.environ, **tool_cache_environ(root)}
+```
+
+```bash
+certbot_bin="$root/virtual_env/python/bin/certbot"
+"$certbot_bin" certonly --config-dir "$root/virtual_env/packages/letsencrypt" ...
+```
+
+Тесты deployment могут использовать `%TEMP%` для изоляции прогона — не копируй это в install-скрипты.

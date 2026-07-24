@@ -1,7 +1,7 @@
 ---
 description: Выпадающие списки на клиенте — только SelectBox из ядра
 globs: "{core/client,modules/**/client}/**/*.{vue,js}"
-alwaysApply: true
+alwaysApply: false
 ---
 
 # SelectBox — единственный выпадающий список

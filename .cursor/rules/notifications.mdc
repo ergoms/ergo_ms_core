@@ -41,7 +41,7 @@ bridge.call(
 
 ## Маршрут в уведомлении
 
-В `route.params` — **не числовые id из БД**, а `public_id` / непрозрачные ссылки (см. [`security.mdc`](security.mdc)).
+В `route.params` — **не числовые id из БД**, а `public_id` / непрозрачные ссылки (см. [`security.mdc`](security.mdc), [`security-details.mdc`](security-details.mdc)).
 
 ## Иконки на клиенте
 

@@ -201,7 +201,7 @@ function Install-RedisService {
     $redisDir = Get-RedisDir -Root $Root
     $serverExe = Get-RedisServerExe -Root $Root
     $confPath = Get-RedisConfPath -Root $Root
-    $nssmExe = Install-NSSM
+    $nssmExe = Install-NSSM -Root $Root
 
     $existingService = Get-Service -Name $script:RedisServiceName -ErrorAction SilentlyContinue
     if ($existingService) {
@@ -420,7 +420,7 @@ function Uninstall-Redis {
 
     $service = Get-Service -Name $script:RedisServiceName -ErrorAction SilentlyContinue
     if ($service) {
-        $nssmExe = Install-NSSM
+        $nssmExe = Install-NSSM -Root $Root
         & $nssmExe stop $script:RedisServiceName 2>$null
         & $nssmExe remove $script:RedisServiceName confirm 2>$null
         Write-ColorOutput '[OK] Служба Redis удалена' Green

@@ -91,7 +91,7 @@ import { MoreHorizontal, Edit, Trash2 } from 'lucide-vue-next'
 
 ### Запрещено
 
-- Передача `:user-id` / `:userId` в `UserAvatar` — числовой pk не используется для lookup аватара (см. [`security.mdc`](security.mdc) → «Публичные идентификаторы»).
+- Передача `:user-id` / `:userId` в `UserAvatar` — числовой pk не используется для lookup аватара (см. [`security-details.mdc`](security-details.mdc) → «Публичные идентификаторы»).
 
 ### Базовый пример
 
@@ -112,7 +112,7 @@ import { MoreHorizontal, Edit, Trash2 } from 'lucide-vue-next'
 
 Пропсы: `size` (по умолчанию 40), `clickable`, `title`, `customAvatarUrl`, `userRef`, `firstName`, `lastName`, `showOnlineStatus`, `showPresenceTooltip`.
 
-Если сериализатор API ещё не отдаёт `public_id` — добавь поле тем же паттерном, что в [`security.mdc`](security.mdc), а не обходи через pk в prop аватара.
+Если сериализатор API ещё не отдаёт `public_id` — добавь поле тем же паттерном, что в [`security-details.mdc`](security-details.mdc), а не обходи через pk в prop аватара.
 
 Типичные размеры: 32 (списки), 40 (меню), 120 (профиль).
 
@@ -121,6 +121,6 @@ import { MoreHorizontal, Edit, Trash2 } from 'lucide-vue-next'
 | Тема | Файл |
 |------|------|
 | Клиент Vue | [`client_code.mdc`](client_code.mdc) |
-| public_id | [`security.mdc`](security.mdc) |
+| public_id | [`security.mdc`](security.mdc), [`security-details.mdc`](security-details.mdc) |
 | Темы (иконки в списках) | [`themes.mdc`](themes.mdc) |
 | Боковое меню | [`menu.mdc`](menu.mdc) |

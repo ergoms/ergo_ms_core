@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Локальная обёртка ergoms (core/deployment/bin): только из каталога проекта и подпапок.
+set -euo pipefail
+
+BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_P="$(cd "$BIN_DIR/../../.." && pwd)"
+CWD="$(pwd -P)"
+
+if [[ "$CWD" != "$ROOT_P" && "$CWD" != "$ROOT_P"/* ]]; then
+  echo "[ERROR] Запускайте ergoms из каталога проекта или его подпапок: $ROOT_P" >&2
+  exit 1
+fi
+
+exec bash "$ROOT_P/core/deployment/linux/ergo_ms.sh" "$@"

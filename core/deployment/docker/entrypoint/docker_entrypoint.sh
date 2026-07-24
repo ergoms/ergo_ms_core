@@ -5,10 +5,20 @@ WAIT_SCRIPT="/usr/local/lib/ergo-ms/wait_for_services.py"
 SETUP_SCRIPT="/usr/local/lib/ergo-ms/wait_for_docker_setup.py"
 ERGOMS_SRC_MOUNTED="/app/core/deployment/docker/entrypoint/ergoms.sh"
 ERGOMS_SRC_IMAGE="/usr/local/lib/ergo-ms/ergoms.sh"
-ERGOMS_BIN="/usr/local/bin/ergoms"
+# Предпочтение: CLI из дерева проекта; запасной — только слой образа (вне bind-mount /app)
+ERGOMS_PROJECT_BIN="/app/core/deployment/bin"
+ERGOMS_FALLBACK_BIN="/usr/local/bin/ergoms"
 
-# Обёртка ergoms для shell в контейнере (bind-mount в dev предпочтительнее образа).
+# Обёртка ergoms для shell в контейнере.
+# Entrypoint и wait-скрипты лежат вне /app специально: bind-mount проекта на Windows
+# не должен затирать их CRLF. Сам ergoms — из /app/.../bin при наличии.
 _install_ergoms_cli() {
+  export PATH="${ERGOMS_PROJECT_BIN}:/app/virtual_env/python/bin:${PATH:-}"
+
+  if [ -x "${ERGOMS_PROJECT_BIN}/ergoms" ]; then
+    return 0
+  fi
+
   src=""
   if [ -f "$ERGOMS_SRC_MOUNTED" ]; then
     src="$ERGOMS_SRC_MOUNTED"
@@ -17,8 +27,8 @@ _install_ergoms_cli() {
   fi
   if [ -n "$src" ]; then
     # sed: убрать CRLF с Windows-хоста при bind-mount
-    sed 's/\r$//' "$src" >"$ERGOMS_BIN"
-    chmod +x "$ERGOMS_BIN"
+    sed 's/\r$//' "$src" >"$ERGOMS_FALLBACK_BIN"
+    chmod +x "$ERGOMS_FALLBACK_BIN"
   fi
 }
 

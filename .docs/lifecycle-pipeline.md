@@ -81,7 +81,7 @@ py -3.12 core\deployment\lifecycle\runner.py --list
 ergoms setup
 ```
 
-После установки обёртки `ergoms` доступна из любого терминала в каталоге проекта.
+После первичной настройки команда `ergoms` доступна из корня проекта и подпапок (`core/deployment/bin`; в IDE — профиль Project-Shell).
 
 ## Docker
 

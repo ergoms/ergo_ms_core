@@ -4,41 +4,62 @@
 
 write_env_file() {
   local root="$1"
-  local env_file="/etc/default/ergo_ms"
-  local tmp_file
-  tmp_file="$(mktemp)"
+  local env_file="$root/core/deployment/wrappers/ergo_ms.env"
+  local legacy="/etc/default/ergo_ms"
 
-  cat >"$tmp_file" <<EOF
-# Environment for ergo_ms services
+  mkdir -p "$(dirname "$env_file")"
+  cat >"$env_file" <<EOF
+# Environment for ergo_ms services (внутри корня проекта)
 ERGO_ROOT="$root"
 PYTHONUNBUFFERED=1
 NODE_ENV=development
 ERGO_LOG_CONSOLE=false
 EOF
-
-  if [[ $(id -u) -eq 0 ]]; then
-    install -m 0644 "$tmp_file" "$env_file"
-  else
-    sudo install -m 0644 "$tmp_file" "$env_file"
-  fi
-  rm -f "$tmp_file"
+  chmod 0644 "$env_file" 2>/dev/null || true
   echo "Записан $env_file с ERGO_ROOT=$root"
+
+  if [[ -f "$legacy" ]]; then
+    if [[ $(id -u) -eq 0 ]]; then
+      rm -f "$legacy"
+    else
+      sudo rm -f "$legacy" 2>/dev/null || true
+    fi
+    echo "[OK] Удалён устаревший $legacy"
+  fi
 }
 
 install_unit() {
   local name="$1"
   local content="$2"
-  local unit_path="/etc/systemd/system/${name}.service"
-  local tmp_file
-  tmp_file="$(mktemp)"
-  printf "%s" "$content" > "$tmp_file"
-  if [[ $(id -u) -eq 0 ]]; then
-    install -m 0644 "$tmp_file" "$unit_path"
-  else
-    sudo install -m 0644 "$tmp_file" "$unit_path"
+  local root="$3"
+  local units_dir="$root/core/deployment/wrappers/systemd"
+  local unit_path="$units_dir/${name}.service"
+  local legacy_path="/etc/systemd/system/${name}.service"
+  local env_file="$root/core/deployment/wrappers/ergo_ms.env"
+
+  content="${content//EnvironmentFile=-\/etc\/default\/ergo_ms/EnvironmentFile=-$env_file}"
+  content="${content//EnvironmentFile=\/etc\/default\/ergo_ms/EnvironmentFile=$env_file}"
+
+  mkdir -p "$units_dir"
+  printf "%s" "$content" > "$unit_path"
+  chmod 0644 "$unit_path" 2>/dev/null || true
+
+  if [[ -f "$legacy_path" && ! -L "$legacy_path" ]]; then
+    if [[ $(id -u) -eq 0 ]]; then
+      rm -f "$legacy_path"
+    else
+      sudo rm -f "$legacy_path"
+    fi
   fi
-  rm -f "$tmp_file"
-  echo "Установлен $unit_path"
+
+  if [[ $(id -u) -eq 0 ]]; then
+    systemctl link "$unit_path" >/dev/null
+    systemctl daemon-reload
+  else
+    sudo systemctl link "$unit_path" >/dev/null
+    sudo systemctl daemon-reload
+  fi
+  echo "Установлен $unit_path (systemctl link)"
 }
 
 enable_and_start() {
@@ -238,13 +259,13 @@ install_worker_units() {
     for worker in $workers; do
       local unit_content
       unit_content="$(generate_worker_unit "$worker")"
-      install_unit "ergo-celery-worker-${worker}" "$unit_content"
+      install_unit "ergo-celery-worker-${worker}" "$unit_content" "$root"
     done
   else
     echo "Конфиг celery_workers.yaml не найден, устанавливаем один общий воркер"
     local unit_content
     unit_content="$(generate_default_worker_unit)"
-    install_unit "ergo-celery-worker" "$unit_content"
+    install_unit "ergo-celery-worker" "$unit_content" "$root"
   fi
 }
 

@@ -416,8 +416,8 @@ main() {
       invoke_lifecycle_runner "$ERGO_ROOT" uninstall-services "${extra[@]}"
       exit 0
       ;;
-    install-cli) create_cli_wrapper "$SELF_SCRIPT"; exit 0 ;;
-    uninstall-cli) remove_cli_wrapper; exit 0 ;;
+    install-cli) create_cli_wrapper "$ERGO_ROOT"; exit 0 ;;
+    uninstall-cli) remove_cli_wrapper "$ERGO_ROOT"; exit 0 ;;
     setup-full)
       extra=()
       [[ "${recreate_venv:-false}" == true ]] && extra+=(--recreate-venv)
@@ -501,10 +501,10 @@ main() {
       echo "Просмотр логов: journalctl -u ergo-api-dev -n 500 -f"
 
       if [[ "$no_cli" == false ]]; then
-        create_cli_wrapper "$SELF_SCRIPT"
-        echo "Доступны команды: $(cli_name) start|stop|restart|status|uninstall-services [--purge]"
+        create_cli_wrapper "$ERGO_ROOT"
+        echo "Доступны команды: ergoms start|stop|restart|status|uninstall-services [--purge] (из каталога проекта; bin в PATH)"
       else
-        echo "Установка CLI-обёртки пропущена (--no-cli)."
+        echo "Проверка/очистка CLI-обёртки пропущена (--no-cli)."
       fi
       ;;
   esac

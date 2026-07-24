@@ -5,9 +5,18 @@
 NGINX_VERSION='1.27.4'
 NGINX_CONF_NAME='ergo_ms'
 NGINX_SERVICE_NAME='ergo_ms_nginx'
-NGINX_UNIT_PATH="/etc/systemd/system/${NGINX_SERVICE_NAME}.service"
-NGINX_LEGACY_SITES_AVAILABLE='/etc/nginx/sites-available'
-NGINX_LEGACY_SITES_ENABLED='/etc/nginx/sites-enabled'
+
+_nginx_unit_file() {
+  local root="$1"
+  echo "$root/core/deployment/wrappers/systemd/${NGINX_SERVICE_NAME}.service"
+}
+
+_nginx_unit_linked() {
+  local root="$1"
+  local unit_file
+  unit_file="$(_nginx_unit_file "$root")"
+  [[ -f "$unit_file" ]] || [[ -L "/etc/systemd/system/${NGINX_SERVICE_NAME}.service" ]]
+}
 
 _nginx_packages_dir() {
   local root="$1"

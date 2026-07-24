@@ -1,0 +1,34 @@
+---
+description: Артефакты runtime только в ERGO_ROOT; вне корня — только регистрация служб ОС
+alwaysApply: true
+---
+
+# Артефакты только в корне проекта
+
+Данные ERGO MS — **внутри** корня репозитория. Вне корня — только регистрация служб ОС (Windows SCM / `systemctl link|enable`).
+
+Пути: [`project_layout.py`](../../core/deployment/project_layout.py). Детали и примеры — [`project-root-artifacts-details.mdc`](project-root-artifacts-details.mdc).
+
+## Кратко
+
+- Кэши, пакеты, TLS, Jupyter, temp — `virtual_env/`
+- Env и unit-файлы — `core/deployment/wrappers/`
+- Логи — `logs/`; CLI — `core/deployment/bin/`
+- Новый путь — сначала в `project_layout.py`, потом запись
+- **Запрещено:** `%TEMP%` / `/tmp`, `%ProgramData%`, `/etc` (кроме symlink служб), apt/dnf-certbot для данных приложения
+
+## Исключения (не данные)
+
+| Что | Зачем |
+|---|---|
+| NSSM `install` / SCM `ergo-*` | автозапуск; бинарь NSSM в `virtual_env/packages/nssm` |
+| `systemctl link` | unit остаётся в `wrappers/systemd/` |
+| Docker entrypoint в `/usr/local/lib/ergo-ms` | вне bind-mount `/app` (CRLF); CLI — из `/app/core/deployment/bin` |
+
+## Связанные правила
+
+| Тема | Файл |
+|---|---|
+| Детали, BAD/GOOD | [`project-root-artifacts-details.mdc`](project-root-artifacts-details.mdc) |
+| virtual_env | [`virtual-env.mdc`](virtual-env.mdc) |
+| Redis / nginx / TLS | [`deployment-infra.mdc`](deployment-infra.mdc) |

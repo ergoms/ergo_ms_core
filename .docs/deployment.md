@@ -21,14 +21,15 @@ sudo bash core/deployment/linux/ergo_ms.sh uninstall-services [--purge]
 
 Команда **`install`** создаёт unit-файлы systemd и подготавливает окружение. **`uninstall-services`** снимает службы; с **`--purge`** удаляются и связанные данные конфигурации — используйте её только если уверены, что конфигурацию можно удалить.
 
-Чтобы вызывать **`ergoms`** из любого каталога под sudo:
+Чтобы вызывать **`ergoms`** из каталога проекта (локальные файлы в `core/deployment/bin/`, без `/usr/local/bin`):
 
 ```bash
-sudo bash core/deployment/linux/ergo_ms.sh install-cli
-sudo ergoms start
-sudo ergoms status
+cd /path/to/ergo_ms
+./core/deployment/bin/ergoms start
+./core/deployment/bin/ergoms status
 ```
 
+Устаревшие обёртки при необходимости снимите: `bash core/deployment/linux/ergo_ms.sh uninstall-cli`.
 ## Имена служб
 
 | Служба systemd | Компонент |

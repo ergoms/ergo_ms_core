@@ -2,7 +2,16 @@
 # TLS (Let's Encrypt) for ERGO MS on Linux
 
 TLS_HOOK_NAME='99-ergo-ms-reload-nginx.sh'
-TLS_HOOK_DIR='/etc/letsencrypt/renewal-hooks/deploy'
+
+_tls_config_dir() {
+  local root="$1"
+  echo "$root/virtual_env/packages/letsencrypt"
+}
+
+_tls_hook_dir() {
+  local root="$1"
+  echo "$(_tls_config_dir "$root")/renewal-hooks/deploy"
+}
 
 _tls_python() {
   local root="$1"
@@ -40,64 +49,67 @@ _tls_read_env_value() {
   grep -E "^${key}=" "$env_file" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'"
 }
 
+_tls_certbot_bin() {
+  local root="$1"
+  echo "$root/virtual_env/python/bin/certbot"
+}
+
 _tls_install_certbot() {
-  if command -v certbot >/dev/null 2>&1; then
-    echo "[OK] certbot: $(certbot --version 2>&1 | head -1)"
+  local root="$1"
+  local py certbot_bin pip_cache
+  py="$(_tls_python "$root")"
+  certbot_bin="$(_tls_certbot_bin "$root")"
+
+  if [[ -x "$certbot_bin" ]]; then
+    echo "[OK] certbot (venv): $($certbot_bin --version 2>&1 | head -1)"
     return 0
   fi
 
-  echo "-> Установка certbot..."
-  if command -v apt-get >/dev/null 2>&1; then
-    _nginx_wait_for_apt_locks || return 1
-    _nginx_sudo apt-get update -qq
-    _nginx_sudo apt-get install -y -qq certbot
-  elif command -v dnf >/dev/null 2>&1; then
-    _nginx_sudo dnf install -y -q certbot
-  elif command -v yum >/dev/null 2>&1; then
-    _nginx_sudo yum install -y -q certbot
-  elif command -v pacman >/dev/null 2>&1; then
-    _nginx_sudo pacman -Sy --noconfirm certbot
-  else
-    echo "[ERROR] Не удалось определить менеджер пакетов. Установите certbot вручную." >&2
+  if [[ ! -x "$py" ]]; then
+    echo "[ERROR] Нет virtual_env/python. Выполните: ergoms setup" >&2
     return 1
   fi
 
-  command -v certbot >/dev/null 2>&1
+  pip_cache="$root/virtual_env/cache/pip"
+  mkdir -p "$pip_cache"
+  echo "-> Установка certbot в virtual_env/python (pip, без пакетов ОС)..."
+  if ! PIP_CACHE_DIR="$pip_cache" "$py" -m pip install --upgrade 'certbot>=3.0,<5'; then
+    echo "[ERROR] Не удалось установить certbot в venv" >&2
+    return 1
+  fi
+
+  if [[ -x "$certbot_bin" ]]; then
+    echo "[OK] certbot установлен: $($certbot_bin --version 2>&1 | head -1)"
+    return 0
+  fi
+  echo "[ERROR] certbot не появился в $certbot_bin после pip install" >&2
+  return 1
 }
 
 _tls_install_renewal_hook() {
   local root="$1"
   local template="$root/core/deployment/nginx/hooks/certbot-deploy-reload-nginx.sh"
-  local target="$TLS_HOOK_DIR/$TLS_HOOK_NAME"
+  local hook_dir
+  hook_dir="$(_tls_hook_dir "$root")"
+  local target="$hook_dir/$TLS_HOOK_NAME"
 
   if [[ ! -f "$template" ]]; then
     echo "[WARNING] Hook template не найден: $template" >&2
     return 1
   fi
 
-  _nginx_sudo mkdir -p "$TLS_HOOK_DIR"
+  mkdir -p "$hook_dir"
   local content
   content="$(cat "$template")"
   content="${content//__ERGO_ROOT__/$root}"
 
-  local tmp_file
-  tmp_file="$(mktemp)"
-  printf '%s\n' "$content" > "$tmp_file"
-  _nginx_sudo install -m 0755 "$tmp_file" "$target"
-  rm -f "$tmp_file"
+  printf '%s\n' "$content" > "$target"
+  chmod 0755 "$target" 2>/dev/null || true
   echo "[OK] deploy-hook обновления certbot: $target"
 }
 
 _tls_enable_timer() {
-  if command -v systemctl >/dev/null 2>&1; then
-    _nginx_sudo systemctl enable certbot.timer 2>/dev/null || true
-    _nginx_sudo systemctl start certbot.timer 2>/dev/null || true
-    if systemctl is-active certbot.timer >/dev/null 2>&1; then
-      echo "[OK] certbot.timer активен (автообновление запланировано)"
-      return 0
-    fi
-    echo "[WARNING] certbot.timer недоступен. Используйте: ergoms renew-tls" >&2
-  fi
+  echo "[INFO] Автообновление: ergoms renew-tls (или планировщик ОС). Системный certbot.timer не используется — config-dir в проекте."
 }
 
 tls_install() {
@@ -132,20 +144,26 @@ tls_install() {
 
   local webroot
   webroot="$(_tls_read_env_value "$root" ERGO_TLS_WEBROOT)"
-  [[ -n "$webroot" ]] || webroot='/var/www/certbot'
+  [[ -n "$webroot" ]] || webroot="$root/virtual_env/packages/certbot/webroot"
+
+  local config_dir work_dir logs_dir
+  config_dir="$(_tls_config_dir "$root")"
+  work_dir="$config_dir/work"
+  logs_dir="$config_dir/logs"
 
   echo ""
   echo "=== TLS: установка Let's Encrypt ==="
   echo "    Домены: ${domains[*]}"
   echo "    Email:  $email"
   echo "    Webroot: $webroot"
+  echo "    Config:  $config_dir"
   echo ""
 
-  if ! _tls_install_certbot; then
+  if ! _tls_install_certbot "$root"; then
     return 1
   fi
 
-  _nginx_sudo mkdir -p "$webroot"
+  mkdir -p "$webroot" "$config_dir" "$work_dir" "$logs_dir"
 
   if [[ ! -f "$root/core/client/dist/index.html" ]]; then
     echo "[ERROR] $root/core/client/dist/index.html не найден. Выполните: ergoms client-build" >&2
@@ -163,6 +181,9 @@ tls_install() {
 
   local -a certbot_args=(
     certonly
+    --config-dir "$config_dir"
+    --work-dir "$work_dir"
+    --logs-dir "$logs_dir"
     --webroot
     -w "$webroot"
     --email "$email"
@@ -182,7 +203,9 @@ tls_install() {
   done
 
   echo "-> Запрос сертификата..."
-  if ! _nginx_sudo certbot "${certbot_args[@]}"; then
+  local certbot_bin
+  certbot_bin="$(_tls_certbot_bin "$root")"
+  if ! "$certbot_bin" "${certbot_args[@]}"; then
     echo "[ERROR] certbot завершился с ошибкой. Проверьте DNS, порт 80, and http://$primary/.well-known/" >&2
     return 1
   fi
@@ -217,14 +240,26 @@ tls_renew() {
   echo "=== TLS: обновление сертификатов ==="
   echo ""
 
-  if ! command -v certbot >/dev/null 2>&1; then
-    echo "[ERROR] certbot не установлен. Выполните: ergoms install-tls" >&2
+  if ! _tls_install_certbot "$root"; then
+    echo "[ERROR] certbot (venv) недоступен. Выполните: ergoms setup && ergoms install-tls" >&2
     return 1
   fi
 
   _tls_install_renewal_hook "$root" 2>/dev/null || true
 
-  local -a args=(renew)
+  local config_dir work_dir logs_dir
+  config_dir="$(_tls_config_dir "$root")"
+  work_dir="$config_dir/work"
+  logs_dir="$config_dir/logs"
+  local certbot_bin
+  certbot_bin="$(_tls_certbot_bin "$root")"
+
+  local -a args=(
+    renew
+    --config-dir "$config_dir"
+    --work-dir "$work_dir"
+    --logs-dir "$logs_dir"
+  )
   if [[ "$dry_run" == "true" ]]; then
     args+=(--dry-run)
     echo "-> Пробный запуск (без изменений)..."
@@ -232,7 +267,7 @@ tls_renew() {
     echo "-> Обновление при необходимости..."
   fi
 
-  if _nginx_sudo certbot "${args[@]}"; then
+  if "$certbot_bin" "${args[@]}"; then
     echo "[OK] certbot renew завершён"
     if [[ "$dry_run" != "true" ]]; then
       nginx_reload_service "$root" || true

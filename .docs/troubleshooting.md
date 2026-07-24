@@ -22,21 +22,35 @@ ergoms python-install
 
 ## Команда ergoms не найдена
 
-Утилита ergoms устанавливается на шаге **полной первичной настройки** (`setup-full`) — см. [README.md](../README.md). Если терминал её не находит, установите ergoms отдельно.
+Утилита **ergoms** лежит в **`core/deployment/bin/`**: `ergoms.cmd` (Windows) и `ergoms` (Linux/macOS). Она не ставится в System32 или `/usr/local/bin`. Запускайте её из корня проекта или подпапки (проверка по текущему каталогу).
 
-**Windows** — из корня проекта в PowerShell:
+**В Cursor / VS Code** откройте профиль терминала **Project-Shell** (каталог `bin` уже в PATH) или выполняйте задачи с `cwd` = корень workspace.
+
+Если команда не находится во внешнем терминале:
 
 ```cmd
-.\core\deployment\windows\ergo_ms.ps1 install-cli
+cd путь\к\ergo_ms
+core\deployment\bin\ergoms help
 ```
 
-**Linux** — из корня проекта с правами администратора:
+На Linux:
 
 ```bash
-sudo bash core/deployment/linux/ergo_ms.sh install-cli
+cd /path/to/ergo_ms
+./core/deployment/bin/ergoms help
 ```
 
-Либо повторите полную настройку из README: команда `setup-full` создаст окружение, зависимости и обёртку ergoms.
+Устаревшую глобальную обёртку или файлы в корне репозитория (если остались) можно убрать:
+
+```cmd
+.\core\deployment\windows\ergo_ms.ps1 uninstall-cli
+```
+
+```bash
+bash core/deployment/linux/ergo_ms.sh uninstall-cli
+```
+
+Либо повторите полную настройку из README: `setup-full` проверит локальный CLI и снимет устаревшие обёртки при возможности.
 
 ## База данных
 

@@ -216,8 +216,6 @@ function Install-Nginx {
         [switch]$AsService
     )
 
-    Remove-NginxLegacyInstall
-
     $ensureScript = Join-Path $Root "core\deployment\scripts\ensure_nginx_env.py"
     $pythonExe = Join-Path $Root "virtual_env\python\Scripts\python.exe"
     if ((Test-Path $ensureScript) -and (Test-Path $pythonExe)) {
@@ -274,7 +272,7 @@ function Install-NginxService {
     }
 
     $nginxDir = Get-NginxDir -Root $Root
-    $nssmExe = Install-NSSM
+    $nssmExe = Install-NSSM -Root $Root
     $nginxExe = Get-NginxExe -Root $Root
     $mainConf = Join-Path $nginxDir "conf\nginx.conf"
 
@@ -402,16 +400,6 @@ function Stop-NginxProcess {
             Write-ColorOutput '[SKIP] Nginx не был запущен' Gray
         }
         return
-    }
-
-    if (Test-Path (Join-Path $script:NginxLegacyBaseDir 'nginx.exe')) {
-        Stop-NginxLegacyInstall
-        if (Wait-NginxProcessStopped -Root $Root -TimeoutSec 8) {
-            if (-not $Quiet) {
-                Write-ColorOutput '[OK] Nginx остановлен' Green
-            }
-            return
-        }
     }
 
     $service = Get-Service -Name $script:NginxServiceName -ErrorAction SilentlyContinue
@@ -552,9 +540,8 @@ function Show-NginxStatus {
 
     $nginxDir = Get-NginxDir -Root $Root
     $installed = Test-NginxInstalled -Root $Root
-    $legacyExists = Test-Path (Join-Path $script:NginxLegacyBaseDir "nginx.exe")
 
-    if (-not $installed -and -not $legacyExists) {
+    if (-not $installed) {
         Write-ColorOutput "Nginx: не установлен" DarkGray
         Write-ColorOutput "  Ожидаемый путь: $nginxDir" DarkGray
         return
@@ -562,10 +549,6 @@ function Show-NginxStatus {
 
     Write-ColorOutput "" White
     Write-ColorOutput "=== Статус Nginx ===" Cyan
-
-    if ($legacyExists) {
-        Write-ColorOutput "  Устаревшая установка: $script:NginxLegacyBaseDir (выполните ergoms install-nginx для миграции)" Yellow
-    }
 
     $service = Get-Service -Name $script:NginxServiceName -ErrorAction SilentlyContinue
     if ($service) {
@@ -629,8 +612,6 @@ function Uninstall-Nginx {
     Write-ColorOutput "=== Nginx: удаление ===" Cyan
     Write-ColorOutput "" White
 
-    Remove-NginxLegacyInstall
-
     $service = Get-Service -Name $script:NginxServiceName -ErrorAction SilentlyContinue
     if ($service) {
         Write-ColorOutput "-> Удаление службы nginx..." Yellow
@@ -639,7 +620,7 @@ function Uninstall-Nginx {
             Start-Sleep -Seconds 2
         }
 
-        $nssmDir = Get-NssmDir
+        $nssmDir = Get-NssmDir -Root $Root
         $nssmExe = Join-Path $nssmDir "nssm.exe"
         if (Test-Path $nssmExe) {
             & $nssmExe remove $script:NginxServiceName confirm 2>&1 | Out-Null

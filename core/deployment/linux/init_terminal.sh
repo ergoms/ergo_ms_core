@@ -10,8 +10,18 @@ if [[ -f "$PROJECT_ROOT/virtual_env/python/bin/activate" ]]; then
   source "$PROJECT_ROOT/virtual_env/python/bin/activate"
 fi
 
-# Local ergoms (same folder as this script)
+# core/deployment/bin в PATH — ergoms из подпапок
+export PATH="$PROJECT_ROOT/core/deployment/bin:$PATH"
+
+# Local ergoms; только из каталога проекта и подпапок
 ergoms() {
+  local cwd root
+  cwd="$(pwd -P)"
+  root="$(cd "$PROJECT_ROOT" && pwd -P)"
+  if [[ "$cwd" != "$root" && "$cwd" != "$root"/* ]]; then
+    echo "[ERROR] Запускайте ergoms из каталога проекта или его подпапок: $root" >&2
+    return 1
+  fi
   bash "$SCRIPT_DIR/ergo_ms.sh" "$@"
 }
 
@@ -75,6 +85,7 @@ python3() {
   command python3 "$@"
 }
 
+export -f ergoms
 export -f pip
 export -f pip3
 export -f poetry

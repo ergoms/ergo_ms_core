@@ -47,9 +47,9 @@ sections:
       - name: setup-full
         summary: "Полная первичная настройка без установки служб"
       - name: install-cli
-        summary: "Установить CLI-обёртку ergoms"
+        summary: "Проверить локальный ergoms и убрать устаревшую системную обёртку"
       - name: uninstall-cli
-        summary: "Удалить CLI-обёртку ergoms"
+        summary: "Удалить устаревшую системную обёртку ergoms (локальные файлы остаются)"
 
   - id: development
     title: "Локальная разработка"

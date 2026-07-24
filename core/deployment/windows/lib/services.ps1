@@ -230,7 +230,7 @@ function Install-AllServices {
 
     # Install NSSM
 
-    $nssmExe = Install-NSSM
+    $nssmExe = Install-NSSM -Root $Root
 
 
 
@@ -304,7 +304,7 @@ function Install-SingleService {
 
     # Install NSSM
 
-    $nssmExe = Install-NSSM
+    $nssmExe = Install-NSSM -Root $Root
 
 
 
@@ -344,7 +344,7 @@ function Install-WorkerServices {
 
     # Install NSSM
 
-    $nssmExe = Install-NSSM
+    $nssmExe = Install-NSSM -Root $Root
 
 
 
@@ -768,7 +768,7 @@ function Uninstall-AllServices {
 
     
 
-    $nssmDir = Get-NssmDir
+    $nssmDir = Get-NssmDir -Root $ProjectRoot
 
     $nssmExe = Join-Path $nssmDir "nssm.exe"
 
