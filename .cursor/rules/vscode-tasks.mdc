@@ -1,0 +1,112 @@
+---
+description: VS Code tasks.json — ergoms, PATH, detail по-русски, hide для внутренних задач
+globs: "**/.vscode/tasks.json"
+alwaysApply: false
+---
+
+# Задачи VS Code / Cursor (`.vscode/tasks.json`)
+
+Задачи запускают **только** команды `ergoms`. Эталон — существующие задачи в [`.vscode/tasks.json`](../../.vscode/tasks.json).
+
+Расширения VS Code — тоже команда ergoms: `ergoms install-extensions`, а не `node .vscode/scripts/install-extensions.js` и не `npm run install-extensions` ([`npm-workspace.mdc`](npm-workspace.mdc)). В существующих задачах ещё встречается прямой вызов `node` — при следующей правке файла приводи такие строки к команде ergoms.
+
+## Кратко
+
+- Команда — `ergoms …`, не `python manage.py`, не прямой `pip` / `poetry`.
+- В `PATH` всегда есть `core/deployment/bin` (Windows и Linux).
+- У каждой задачи есть `detail` на русском: что делает и зачем.
+- `label` — короткий стабильный идентификатор (как у соседей: `Docker: Up`, `Nginx: Stop`).
+- Внутренние шаги композиции — `"hide": true`; в Run Task видна только точка входа.
+- `cwd`: `${workspaceFolder}`; `problemMatcher`: `[]`.
+
+## Обязательные поля shell-задачи
+
+| Поле | Правило |
+|------|---------|
+| `label` | Уникальное имя; стиль как у существующих (`Nginx: Reload`, `Logs: All Services`) |
+| `detail` | 1 предложение по-русски; видно в Run Task под названием |
+| `command` | `ergoms <команда> [аргументы]` |
+| `options.cwd` | `${workspaceFolder}` |
+| `windows` / `linux` | `PATH` с `core/deployment/bin`; shell: `cmd.exe` `/d /c` и `/bin/bash` `-lc` |
+| `presentation` | Обычно `reveal: always`, `panel: shared` или `new` |
+| `problemMatcher` | `[]` |
+
+## `detail`
+
+Пиши так, чтобы по подписи было ясно действие без открытия JSON:
+
+- хорошо: «Установить portable Redis и запустить службу»
+- хорошо: «Установить portable PostgreSQL (или пропустить, если есть системная служба)»
+- хорошо: «Прогрев кэшей, затем параллельный запуск всех сервисов разработки (по умолчанию)»
+- плохо: пусто, копия `label`, или только имя команды без смысла
+
+## Композиции и скрытые задачи
+
+- Точка входа (`Start All Services`, `Logs: All Services`) — **без** `hide`, с понятным `detail`.
+- Зависимости (`Cache Warmup`, `Services`, `API`, …) — `"hide": true`.
+- Порядок: `dependsOrder` + `dependsOn`; параллель — `"parallel"`, цепочка — `"sequence"`.
+- Несколько однотипных процессов — `type: multi-terminal` и yaml-источник (`celery_workers.yaml`, runtime yaml), не дублируй N одинаковых shell-задач.
+
+## Запрещено
+
+```json
+// BAD — нет detail, нет PATH к ergoms, прямой manage.py
+{
+  "label": "Migrate",
+  "type": "shell",
+  "command": "python manage.py migrate"
+}
+```
+
+```json
+// BAD — внутренняя зависимость видна в Run Task
+{
+  "label": "API",
+  "command": "ergoms dev"
+}
+```
+
+```json
+// GOOD — фрагмент эталона
+{
+  "label": "Redis: Restart",
+  "detail": "Перезапустить службу Redis",
+  "type": "shell",
+  "command": "ergoms restart-redis",
+  "options": { "cwd": "${workspaceFolder}" },
+  "windows": {
+    "options": {
+      "shell": { "executable": "cmd.exe", "args": ["/d", "/c"] },
+      "env": {
+        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+      }
+    }
+  },
+  "linux": {
+    "options": {
+      "shell": { "executable": "/bin/bash", "args": ["-lc"] },
+      "env": {
+        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+      }
+    }
+  },
+  "presentation": { "echo": true, "reveal": "always", "panel": "shared" },
+  "problemMatcher": []
+}
+```
+
+## Чеклист перед сохранением
+
+1. Команда через `ergoms`; `detail` на русском заполнен.
+2. `PATH` к `core/deployment/bin` на Windows и Linux.
+3. Внутренние шаги с `hide: true`; пользовательская задача — без hide.
+4. Не ломай `Start All Services` / multi-terminal без нужды — сверяйся с соседями в файле.
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Только ergoms | [`no-direct-manage-py.mdc`](no-direct-manage-py.mdc) |
+| Справочник команд | [`.docs/cli.md`](../../.docs/cli.md) |
+| Docker-задачи | [`docker.mdc`](docker.mdc) |
+| Redis / nginx | [`deployment-infra.mdc`](deployment-infra.mdc) |

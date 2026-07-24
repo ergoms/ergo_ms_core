@@ -1,0 +1,526 @@
+"""
+Общие пути, детект службы и операции с кластером portable PostgreSQL.
+"""
+
+from __future__ import annotations
+
+import os
+import platform
+import re
+import subprocess
+import sys
+import time
+import urllib.request
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+DEPLOYMENT_DIR = PROJECT_ROOT / 'core' / 'deployment'
+SCRIPTS_DIR = DEPLOYMENT_DIR / 'scripts'
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+if str(DEPLOYMENT_DIR) not in sys.path:
+    sys.path.insert(0, str(DEPLOYMENT_DIR))
+
+from console_tags import format_console  # noqa: E402
+
+DOWNLOAD_USER_AGENT = 'ergoms/1.0 (PostgreSQL installer)'
+DOWNLOAD_TIMEOUT_SEC = 600
+DEFAULT_PORT = 5432
+DEFAULT_BIND = '127.0.0.1'
+DEFAULT_DB_NAME = 'ergo_ms'
+DEFAULT_DB_USER = 'postgres'
+DEFAULT_DB_PASSWORD = 'admin'
+OUR_SERVICE_WINDOWS = 'ergo_ms_postgres'
+OUR_SERVICE_LINUX = 'ergo-postgres'
+PG_FTP_SOURCE = 'https://ftp.postgresql.org/pub/source/'
+EDB_WINDOWS_URL = (
+    'https://get.enterprisedb.com/postgresql/'
+    'postgresql-{version}-1-windows-x64-binaries.zip'
+)
+
+
+def postgres_packages_dir(root: Path) -> Path:
+    return root / 'virtual_env' / 'packages' / 'postgres'
+
+
+def postgres_bin_dir(root: Path) -> Path:
+    base = postgres_packages_dir(root)
+    # EDB zip → pgsql/bin; после установки копируем в packages/postgres/bin
+    direct = base / 'bin'
+    if direct.is_dir():
+        return direct
+    nested = base / 'pgsql' / 'bin'
+    if nested.is_dir():
+        return nested
+    return direct
+
+
+def _exe(name: str) -> str:
+    return f'{name}.exe' if platform.system().lower() == 'windows' else name
+
+
+def postgres_bin(root: Path, name: str) -> Path:
+    return postgres_bin_dir(root) / _exe(name)
+
+
+def postgres_data_dir(root: Path) -> Path:
+    return postgres_packages_dir(root) / 'data'
+
+
+def postgres_version_file(root: Path) -> Path:
+    return postgres_packages_dir(root) / 'VERSION'
+
+
+def is_installed(root: Path) -> bool:
+    return postgres_bin(root, 'postgres').is_file() and postgres_bin(root, 'pg_ctl').is_file()
+
+
+def read_installed_version(root: Path) -> str | None:
+    marker = postgres_version_file(root)
+    if marker.is_file():
+        text = marker.read_text(encoding='utf-8').strip()
+        if text:
+            return text
+    postgres = postgres_bin(root, 'postgres')
+    if not postgres.is_file():
+        return None
+    try:
+        result = subprocess.run(
+            [str(postgres), '--version'],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return None
+    match = re.search(r'(\d+\.\d+)', (result.stdout or '') + (result.stderr or ''))
+    return match.group(1) if match else None
+
+
+def _download_once(url: str, destination: Path) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    request = urllib.request.Request(url, headers={'User-Agent': DOWNLOAD_USER_AGENT})
+    with urllib.request.urlopen(request, timeout=DOWNLOAD_TIMEOUT_SEC) as response:
+        destination.write_bytes(response.read())
+    if destination.stat().st_size < 1024:
+        destination.unlink(missing_ok=True)
+        raise RuntimeError(f'Downloaded file is too small: {url}')
+
+
+def _download_with_curl(url: str, destination: Path) -> bool:
+    curl_exe = shutil.which('curl')
+    if not curl_exe:
+        return False
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        result = subprocess.run(
+            [
+                curl_exe, '-L', '--fail', '--retry', '3', '--retry-delay', '2',
+                '-A', DOWNLOAD_USER_AGENT, '-o', str(destination), url,
+            ],
+            capture_output=True,
+            check=False,
+        )
+    except OSError:
+        return False
+    return (
+        result.returncode == 0
+        and destination.is_file()
+        and destination.stat().st_size >= 1024
+    )
+
+
+def _download(url: str, destination: Path, *, fallback_urls: tuple[str, ...] = ()) -> None:
+    last_error: Exception | None = None
+    for candidate in (url, *fallback_urls):
+        print(f'-> Downloading {candidate}')
+        try:
+            _download_once(candidate, destination)
+            return
+        except Exception as exc:
+            last_error = exc
+            print(format_console('warning', f'Загрузка не удалась ({exc}); следующий источник…'))
+            destination.unlink(missing_ok=True)
+        if _download_with_curl(candidate, destination):
+            return
+    raise RuntimeError(
+        f'Не удалось скачать архив PostgreSQL. Последняя ошибка: {last_error}'
+    ) from last_error
+
+
+def resolve_latest_version() -> str:
+    request = urllib.request.Request(
+        PG_FTP_SOURCE,
+        headers={'User-Agent': DOWNLOAD_USER_AGENT},
+    )
+    with urllib.request.urlopen(request, timeout=60) as response:
+        html = response.read().decode('utf-8', errors='replace')
+    versions: list[tuple[int, int]] = []
+    for match in re.finditer(r'v(\d+)\.(\d+)/', html):
+        versions.append((int(match.group(1)), int(match.group(2))))
+    if not versions:
+        raise RuntimeError('Не удалось определить последнюю версию PostgreSQL на ftp.postgresql.org')
+    major, minor = max(versions)
+    return f'{major}.{minor}'
+
+
+def _ensure_layout(root: Path) -> dict[str, Path]:
+    base = postgres_packages_dir(root)
+    paths = {
+        'base': base,
+        'bin': base / 'bin',
+        'data': base / 'data',
+        'logs': base / 'logs',
+        'run': base / 'run',
+    }
+    for path in paths.values():
+        path.mkdir(parents=True, exist_ok=True)
+    return paths
+
+
+def has_system_postgresql_service() -> bool:
+    system = platform.system().lower()
+    if system == 'windows':
+        try:
+            result = subprocess.run(
+                [
+                    'powershell.exe', '-NoProfile', '-Command',
+                    "Get-Service -ErrorAction SilentlyContinue | "
+                    "Where-Object { $_.Name -like 'postgresql*' "
+                    f"-and $_.Name -ne '{OUR_SERVICE_WINDOWS}' }} | "
+                    "Select-Object -ExpandProperty Name",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+        except (subprocess.TimeoutExpired, OSError):
+            return False
+        names = [line.strip() for line in (result.stdout or '').splitlines() if line.strip()]
+        return bool(names)
+
+    try:
+        result = subprocess.run(
+            ['systemctl', 'list-units', '--type=service', '--all', '--no-legend', '--plain', 'postgresql*'],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (subprocess.TimeoutExpired, OSError, FileNotFoundError):
+        return False
+    for line in (result.stdout or '').splitlines():
+        unit = line.split()[0] if line.strip() else ''
+        if not unit.endswith('.service'):
+            continue
+        short = unit[:-8]
+        if short == OUR_SERVICE_LINUX or short.startswith(f'{OUR_SERVICE_LINUX}.'):
+            continue
+        if short.startswith('postgresql'):
+            return True
+    return False
+
+
+def _parse_simple_yaml_section(text: str, section: str) -> dict[str, str]:
+    """Минимальный разбор секции databases.yaml без PyYAML."""
+    lines = text.splitlines()
+    in_databases = False
+    in_section = False
+    section_indent = -1
+    result: dict[str, str] = {}
+    for raw in lines:
+        if not raw.strip() or raw.lstrip().startswith('#'):
+            continue
+        indent = len(raw) - len(raw.lstrip(' '))
+        stripped = raw.strip()
+        if stripped == 'databases:':
+            in_databases = True
+            in_section = False
+            continue
+        if not in_databases:
+            continue
+        if indent == 2 and stripped.endswith(':'):
+            name = stripped[:-1].strip()
+            in_section = name == section
+            section_indent = indent
+            continue
+        if in_section and indent > section_indent and ':' in stripped:
+            key, _, value = stripped.partition(':')
+            value = value.strip().strip('"').strip("'")
+            result[key.strip()] = value
+        elif in_section and indent <= section_indent and stripped.endswith(':'):
+            break
+    return result
+
+
+def load_db_defaults(root: Path) -> dict[str, str]:
+    path = root / 'databases.yaml'
+    defaults = {
+        'name': DEFAULT_DB_NAME,
+        'user': DEFAULT_DB_USER,
+        'password': DEFAULT_DB_PASSWORD,
+        'host': 'localhost',
+        'port': str(DEFAULT_PORT),
+    }
+    if not path.is_file():
+        return defaults
+    text = path.read_text(encoding='utf-8')
+    section = _parse_simple_yaml_section(text, 'default')
+    for key in ('name', 'user', 'password', 'host', 'port'):
+        if section.get(key):
+            defaults[key] = section[key]
+    return defaults
+
+
+def load_extra_db_sections(root: Path) -> list[dict[str, str]]:
+    path = root / 'databases.yaml'
+    if not path.is_file():
+        return []
+    text = path.read_text(encoding='utf-8')
+    extras: list[dict[str, str]] = []
+    for section_name in ('celery', 'celery_worker', 'celery_beat'):
+        section = _parse_simple_yaml_section(text, section_name)
+        if section.get('name') and section.get('user') and section.get('password'):
+            extras.append({
+                'name': section['name'],
+                'user': section['user'],
+                'password': section['password'],
+            })
+    return extras
+
+
+def _patch_conf_file(path: Path, replacements: dict[str, str]) -> None:
+    if not path.is_file():
+        return
+    lines = path.read_text(encoding='utf-8').splitlines()
+    out: list[str] = []
+    seen: set[str] = set()
+    for line in lines:
+        stripped = line.lstrip()
+        replaced = False
+        for key, value in replacements.items():
+            if stripped.startswith(f'{key}') and (stripped.startswith(f'{key} ') or stripped.startswith(f'{key}=') or stripped.startswith(f'#{key}')):
+                out.append(f"{key} = {value}")
+                seen.add(key)
+                replaced = True
+                break
+        if not replaced:
+            out.append(line)
+    for key, value in replacements.items():
+        if key not in seen:
+            out.append(f'{key} = {value}')
+    path.write_text('\n'.join(out) + '\n', encoding='utf-8')
+
+
+def _configure_cluster(root: Path, port: int, bind: str) -> None:
+    data = postgres_data_dir(root)
+    _patch_conf_file(
+        data / 'postgresql.conf',
+        {
+            'listen_addresses': f"'{bind}'",
+            'port': str(port),
+            'logging_collector': 'on',
+            'log_directory': f"'{(postgres_packages_dir(root) / 'logs').as_posix()}'",
+            'log_filename': "'postgresql.log'",
+        },
+    )
+    hba = data / 'pg_hba.conf'
+    if hba.is_file():
+        content = hba.read_text(encoding='utf-8')
+        if '127.0.0.1/32' not in content:
+            content += '\nhost all all 127.0.0.1/32 scram-sha-256\n'
+            content += 'host all all ::1/128 scram-sha-256\n'
+            hba.write_text(content, encoding='utf-8')
+
+
+def _run_pg(
+    root: Path,
+    tool: str,
+    args: list[str],
+    *,
+    env: dict[str, str] | None = None,
+    check: bool = True,
+) -> subprocess.CompletedProcess[str]:
+    binary = postgres_bin(root, tool)
+    if not binary.is_file():
+        raise RuntimeError(f'Не найден {tool}: {binary}')
+    full_env = {**os.environ, **(env or {})}
+    return subprocess.run(
+        [str(binary), *args],
+        capture_output=True,
+        text=True,
+        check=check,
+        env=full_env,
+        timeout=120,
+    )
+
+
+def _initdb_if_needed(root: Path, user: str, password: str, port: int, bind: str) -> None:
+    data = postgres_data_dir(root)
+    marker = data / 'PG_VERSION'
+    if marker.is_file():
+        _configure_cluster(root, port, bind)
+        return
+
+    paths = _ensure_layout(root)
+    pwfile = paths['run'] / 'pwfile'
+    pwfile.write_text(password + '\n', encoding='utf-8')
+    try:
+        print('-> initdb…')
+        _run_pg(
+            root,
+            'initdb',
+            [
+                '-D', str(data),
+                '-U', user,
+                '-A', 'scram-sha-256',
+                '--pwfile', str(pwfile),
+                '-E', 'UTF8',
+                '--locale=C',
+            ],
+        )
+    finally:
+        pwfile.unlink(missing_ok=True)
+    _configure_cluster(root, port, bind)
+    print(format_console('ok', f'Кластер инициализирован: {data}'))
+
+
+def is_server_running(root: Path) -> bool:
+    data = postgres_data_dir(root)
+    if not (data / 'PG_VERSION').is_file():
+        return False
+    try:
+        result = _run_pg(root, 'pg_ctl', ['status', '-D', str(data)], check=False)
+    except (RuntimeError, subprocess.TimeoutExpired, OSError):
+        return False
+    return result.returncode == 0
+
+
+def start_server(root: Path) -> None:
+    if is_server_running(root):
+        return
+    data = postgres_data_dir(root)
+    log_file = postgres_packages_dir(root) / 'logs' / 'pg_ctl.log'
+    print('-> Запуск PostgreSQL (pg_ctl)…')
+    _run_pg(
+        root,
+        'pg_ctl',
+        ['start', '-D', str(data), '-l', str(log_file), '-w', '-t', '60'],
+    )
+
+
+def stop_server(root: Path) -> None:
+    if not is_server_running(root):
+        return
+    data = postgres_data_dir(root)
+    _run_pg(root, 'pg_ctl', ['stop', '-D', str(data), '-m', 'fast', '-w'], check=False)
+
+
+def _psql_env(user: str, password: str) -> dict[str, str]:
+    return {
+        'PGUSER': user,
+        'PGPASSWORD': password,
+        'PGHOST': '127.0.0.1',
+    }
+
+
+def ensure_databases(root: Path, port: int | None = None) -> None:
+    defaults = load_db_defaults(root)
+    port_i = port or int(defaults.get('port') or DEFAULT_PORT)
+    user = defaults['user']
+    password = defaults['password']
+    dbname = defaults['name']
+    env = _psql_env(user, password)
+
+    def _exec_sql(sql: str, database: str = 'postgres') -> None:
+        _run_pg(
+            root,
+            'psql',
+            ['-v', 'ON_ERROR_STOP=1', '-p', str(port_i), '-d', database, '-c', sql],
+            env=env,
+        )
+
+    # wait for accept
+    for _ in range(30):
+        try:
+            _run_pg(
+                root,
+                'psql',
+                ['-p', str(port_i), '-d', 'postgres', '-c', 'SELECT 1'],
+                env=env,
+            )
+            break
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError):
+            time.sleep(1)
+    else:
+        raise RuntimeError('PostgreSQL не принял подключения после старта')
+
+    check = _run_pg(
+        root,
+        'psql',
+        [
+            '-p', str(port_i), '-d', 'postgres', '-tAc',
+            f"SELECT 1 FROM pg_database WHERE datname = '{dbname}'",
+        ],
+        env=env,
+        check=False,
+    )
+    if '1' not in (check.stdout or ''):
+        print(f'-> CREATE DATABASE {dbname}')
+        _exec_sql(f'CREATE DATABASE "{dbname}" OWNER "{user}"')
+        print(format_console('ok', f'База данных создана: {dbname}'))
+    else:
+        print(format_console('skip', f'База данных уже есть: {dbname}'))
+
+    for extra in load_extra_db_sections(root):
+        ename = extra['name']
+        euser = extra['user']
+        epass = extra['password']
+        role_check = _run_pg(
+            root,
+            'psql',
+            ['-p', str(port_i), '-d', 'postgres', '-tAc', f"SELECT 1 FROM pg_roles WHERE rolname = '{euser}'"],
+            env=env,
+            check=False,
+        )
+        if '1' not in (role_check.stdout or ''):
+            safe_pass = epass.replace("'", "''")
+            _exec_sql(f"CREATE ROLE \"{euser}\" LOGIN PASSWORD '{safe_pass}'")
+        db_check = _run_pg(
+            root,
+            'psql',
+            ['-p', str(port_i), '-d', 'postgres', '-tAc', f"SELECT 1 FROM pg_database WHERE datname = '{ename}'"],
+            env=env,
+            check=False,
+        )
+        if '1' not in (db_check.stdout or ''):
+            _exec_sql(f'CREATE DATABASE "{ename}" OWNER "{euser}"')
+            print(format_console('ok', f'База данных создана: {ename}'))
+
+
+def ping_postgres(root: Path, port: int | None = None, timeout_sec: float = 5.0) -> bool:
+    if not is_installed(root):
+        return False
+    defaults = load_db_defaults(root)
+    port_i = port or int(defaults.get('port') or DEFAULT_PORT)
+    env = _psql_env(defaults['user'], defaults['password'])
+    try:
+        result = subprocess.run(
+            [
+                str(postgres_bin(root, 'psql')),
+                '-p', str(port_i),
+                '-d', 'postgres',
+                '-tAc', 'SELECT 1',
+            ],
+            capture_output=True,
+            text=True,
+            timeout=timeout_sec,
+            check=False,
+            env={**os.environ, **env},
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return False
+    return result.returncode == 0 and '1' in (result.stdout or '')
+

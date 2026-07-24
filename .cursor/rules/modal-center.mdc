@@ -37,6 +37,10 @@ alwaysApply: false
 
 `ModalCenter` (standalone) автоматически управляет z-index через `@/js/utils/modalStack.js`: каждая открытая модалка получает уровень выше предыдущей. Подтверждения (`confirm.js`) и вложенные модалки работают без ручного `zIndex`.
 
+### Модуль с собственной палитрой
+
+В режиме `standalone` компонент телепортирует разметку в `body`, поэтому модалка оказывается **вне** `ModuleThemeScope` и теряет атрибут `data-ergo-module-theme` — цвета модуля к ней не применяются. В модуле с зарегистрированной темой рендери `ModalCenter` внутри области темы без `standalone` либо оборачивай содержимое модалки в `ModuleThemeScope`. Подробности — [`themes.mdc`](themes.mdc).
+
 Эталон multi-select picker (UI в ядре, домен в модуле): [`MemberPickerModal.vue`](../../core/client/src/components/MemberPickerModal.vue) + [`ProjectMemberPickerModal.vue`](../../modules/project_ed/client/components/ProjectMemberPickerModal.vue) — см. [`components.mdc`](components.mdc).
 
 ---

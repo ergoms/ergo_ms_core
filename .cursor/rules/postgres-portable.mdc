@@ -1,0 +1,116 @@
+---
+description: Portable PostgreSQL — virtual_env/packages/postgres, setup-full EnsurePostgresStep, POSTGRES_FORCE_INSTALL, службы ergo_ms_postgres / ergo-postgres
+globs: "**/install_postgres.py,**/postgres_common.py,**/postgres_steps.py,**/postgres.ps1,**/postgres.sh,core/deployment/**/core.ps1,core/deployment/**/core.sh"
+alwaysApply: false
+---
+
+# Portable PostgreSQL
+
+СУБД для локальной разработки и запуска на хосте без системного PostgreSQL. Бинарники и data — в `virtual_env/packages/postgres/`. В отличие от Redis/nginx, portable Postgres **входит в `setup-full`**: если нет системной службы `postgresql*`, установка идёт **без вопроса Y/n**.
+
+Краткий обзор с Redis/nginx/TLS — [`deployment-infra.mdc`](deployment-infra.mdc).
+
+## Кратко
+
+- Каталог: `virtual_env/packages/postgres/` (`bin/`, `data/`, маркер `VERSION`)
+- Детект «уже есть Postgres» — **по системной службе** `postgresql*`, не по подключению из `databases.yaml`
+- Наши службы **не** считаются системными: Windows `ergo_ms_postgres`, Linux `ergo-postgres`
+- Нет системной службы → latest stable → initdb → БД `ergo_ms` → OS-служба → дальше `MigrateStep`
+- Есть системная служба → `[SKIP]` portable (если не force)
+- Force: `POSTGRES_FORCE_INSTALL=true` в `.env` или `ergoms setup-full --with-postgres` (предупреждение про порт **5432**); `--no-skip-system` — внутренний ключ `install_postgres.py`, не флаг `setup-full`
+- Установленный portable входит в `ergoms start` / `start-all-services` (`Get-ServiceNames` / `generate_units_list`)
+- Скрипты **не пишут** в `.env` — только читают `POSTGRES_FORCE_INSTALL` ([`no-auto-env-write.mdc`](no-auto-env-write.mdc))
+
+## Пути и эталоны
+
+| Что | Где |
+|-----|-----|
+| Общие пути, детект службы, кластер | [`postgres_common.py`](../../core/deployment/scripts/postgres_common.py) |
+| Установка (EDB Windows / сборка Linux) | [`install_postgres.py`](../../core/deployment/scripts/install_postgres.py) |
+| Чтение force из `.env` | [`deployment_env.is_postgres_force_install`](../../core/deployment/scripts/deployment_env.py) |
+| Shell Windows / Linux | [`postgres.ps1`](../../core/deployment/windows/lib/postgres.ps1), [`postgres.sh`](../../core/deployment/linux/lib/postgres.sh) |
+| Шаг setup-full (до migrate) | [`EnsurePostgresStep`](../../core/deployment/lifecycle/steps/postgres_steps.py) |
+| Рецепты `postgres-*` | [`recipes.py`](../../core/deployment/lifecycle/recipes.py) |
+| Старт в `start-all` | `Test-PostgresPortableEnabled` / `_postgres_portable_enabled` в `core.ps1` / `core.sh` |
+
+Константы по умолчанию (локальная разработка): порт `5432`, bind `127.0.0.1`, БД `ergo_ms`, пользователь `postgres`. Согласуй с `databases.yaml` после scaffold — пароль и хост правит человек.
+
+## Когда ставить / пропускать
+
+| Условие | Поведение |
+|---------|-----------|
+| Служба `postgresql*` есть, force выкл. | `[SKIP]` — использовать системный Postgres |
+| Службы нет | авто-install portable + служба + БД |
+| `POSTGRES_FORCE_INSTALL=true` или `--with-postgres` | ставить portable даже при системной службе; `[WARNING]` про конфликт порта |
+| Portable уже в `packages/postgres`, force выкл. | проверка службы и БД, без повторной полной загрузки |
+
+**Запрещено** считать «Postgres есть» по успешному `psycopg`/`databases.yaml` без проверки службы — иначе portable не поставится на чистой машине с пустым YAML.
+
+## Команды
+
+```cmd
+ergoms install-postgres
+ergoms start-postgres
+ergoms stop-postgres
+ergoms status-postgres
+ergoms test-postgres
+ergoms uninstall-postgres
+```
+
+- `uninstall-postgres --purge` / `-Purge` — удалить и каталог packages
+- `setup-full --with-postgres` — то же, что force для одного прогона
+- Алиасы рецептов: `postgres-install`, … → builtin / `internal_dispatch` category `postgres`
+
+Службы: Windows NSSM **`ergo_ms_postgres`**, Linux systemd **`ergo-postgres`**.
+
+## Обязательно
+
+1. Новый код детекта системного Postgres — исключай `OUR_SERVICE_WINDOWS` / `OUR_SERVICE_LINUX` из `postgres_common.py`.
+2. `EnsurePostgresStep` остаётся **до** `MigrateStep` в `setup-full`.
+3. При установленном portable — юнит в списке служб для `ergoms start` (как redis/nginx при наличии).
+4. Ключ `POSTGRES_FORCE_INSTALL` — во **всех** корневых `.env*.example` ([`env-examples.mdc`](env-examples.mdc)).
+5. `ergoms clean` останавливает `ergo_ms_postgres` / `ergo-postgres` и процессы из `packages/postgres` ([`ergoms-clean.mdc`](ergoms-clean.mdc)).
+6. Сообщения консоли — русский текст, метки `[OK]` / `[SKIP]` / `[WARNING]` / `[ERROR]` ([`console-output.mdc`](console-output.mdc)).
+
+## Запрещено
+
+```python
+# BAD — писать POSTGRES_* в .env из install_postgres
+env_path.write_text(env_path.read_text() + 'POSTGRES_FORCE_INSTALL=false\n')
+
+# BAD — считать нашу службу «системной» и SKIP'ать install
+# (имя ergo_ms_postgres / ergo-postgres в списке postgresql*)
+
+# BAD — детект только по databases.yaml / TCP :5432 без службы
+if can_connect(databases_yaml):
+    skip_install()
+```
+
+```text
+# BAD — одновременно portable на хосте и Docker profile postgres на :5432
+# без смены порта / остановки одной из сторон
+```
+
+```text
+# GOOD — force только флагом/env, install читает и предупреждает
+POSTGRES_FORCE_INSTALL=true
+ergoms install-postgres
+# или
+ergoms setup-full --with-postgres
+```
+
+## Docker
+
+Portable на хосте и `DOCKER_PROFILE_POSTGRES` / `docker-compose.postgres.yml` на одном `5432` **несовместимы** без смены порта. Чеклист — [`docker.mdc`](docker.mdc).
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Redis, nginx, TLS (обзор) | [`deployment-infra.mdc`](deployment-infra.mdc) |
+| Не писать в `.env` | [`no-auto-env-write.mdc`](no-auto-env-write.mdc) |
+| Lifecycle / рецепты | [`lifecycle-pipeline.mdc`](lifecycle-pipeline.mdc) |
+| packages в корне | [`project-root-artifacts-details.mdc`](project-root-artifacts-details.mdc) |
+| clean | [`ergoms-clean.mdc`](ergoms-clean.mdc) |
+| Команды для людей | [`.docs/cli.md`](../../.docs/cli.md) |
+| Конфигурация БД | [`.docs/configuration.md`](../../.docs/configuration.md) |

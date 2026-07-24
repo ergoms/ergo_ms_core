@@ -98,7 +98,7 @@ import { useApexTheme, buildApexOptions } from '@/composables/useApexTheme.js'
 3. Цвета, которые админ может менять в редакторе — через CSS-переменные (`--color-*`, `--<module>-*`), **не** через хардкод hex в компонентах.
 4. **`useModuleThemeMode('module_key')`** (или без аргумента внутри `ModuleThemeScope`) для light/dark **внутри** модуля.
 5. Активация — **вся пара** целиком в `/settings/themes` → область модуля; отображаемый вариант следует глобальной теме сайта (`theme-manager.js`, `ergo:theme-change`). Синхронизация системных пар — `POST settings/themes/sync-module-defaults/`.
-6. Модалки и overlay модуля — рендер **внутри** scope (`ModalCenter` без teleport в `body`).
+6. Модалки и overlay модуля — рендер **внутри** scope: `ModalCenter` без `standalone` (в режиме `standalone` он телепортирует разметку в `body`) либо содержимое, обёрнутое в `ModuleThemeScope` — см. [`modal-center.mdc`](modal-center.mdc).
 
 ### Hook `theme-defaults.js`
 

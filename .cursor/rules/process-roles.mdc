@@ -11,7 +11,7 @@ alwaysApply: false
 ## Кратко
 
 - Hook: `modules/<имя>/process_roles.yaml`
-- Discovery: [`ModuleCatalog`](../../core/deployment/lifecycle/modules/catalog.py) (без `DISABLED_MODULES`)
+- Discovery: [`ModuleCatalog`](../../core/deployment/lifecycle/modules/catalog.py) — сканируются только включённые модули, перечисленные в `DISABLED_MODULES` пропускаются
 - Загрузка: [`process_roles_loader.py`](../../core/deployment/scripts/process_roles_loader.py)
 - Классификация: [`ergo_process_classifier.py`](../../core/deployment/scripts/ergo_process_classifier.py)
 - Сначала роли ядра, затем модульные; коллизия `id` — первое объявление, остальные с `[WARNING]`

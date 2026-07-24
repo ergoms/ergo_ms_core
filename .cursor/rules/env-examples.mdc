@@ -1,0 +1,61 @@
+---
+description: Корневые env.example — одинаковый набор директив, разные значения по сценариям
+globs: "**/.env*.example,core/deployment/nginx/env.example"
+alwaysApply: false
+---
+
+# Шаблоны `.env.example`
+
+Корневые сценарии окружения — **полные** копии одного набора директив. Различаются **значения** (и при необходимости раскомментирование опциональных ключей сценария), не состав ключей.
+
+## Кратко
+
+| Файл | Сценарий |
+|------|----------|
+| [`.env.example`](../../.env.example) | локальная разработка (`ergoms dev`) — **эталон структуры** |
+| [`.env.docker.example`](../../.env.docker.example) | Docker Compose + nginx + Redis |
+| [`.env.nginx-redis.example`](../../.env.nginx-redis.example) | nginx + Redis на хосте, доступ по IP |
+| [`core/deployment/nginx/env.example`](../../core/deployment/nginx/env.example) | nginx + Redis на хосте, домен и TLS |
+
+- **Одинаковый набор имён ключей** во всех четырёх файлах (активные `KEY=` и закомментированные `# KEY=`).
+- Эталон порядка секций и комментариев — `.env.example`.
+- Новый ключ — сразу во **все** шаблоны; в профилях — осмысленное значение под сценарий.
+- Модульные `modules/*/.env.example` — **отдельный** набор (только ключи модуля), не смешивать с корневыми.
+
+## Обязательно
+
+1. После добавления/удаления переменной окружения обнови **все** корневые шаблоны из таблицы.
+2. Меняй в профиле только **значения** (и раскомментирование опциональных ключей, нужных сценарию: TLS, `MEDIA_API_URL`, …).
+3. Не заводи фрагменты «только nginx-ключи» — полный файл, как у остальных.
+4. Проверка: множества имён ключей (active ∪ `# KEY=`) у четырёх файлов совпадают.
+
+## Запрещено
+
+```dotenv
+# BAD — в .env.docker.example нет ключа, который есть в .env.example
+# (пропущен PORTABLE_PYTHON_ENABLED или POSTGRES_FORCE_INSTALL)
+
+# BAD — отдельный урезанный env.example только с NGINX_*
+NGINX_ENABLED=true
+API_HOST=127.0.0.1
+```
+
+```dotenv
+# GOOD — тот же ключ во всех шаблонах, разное значение
+# .env.example
+REDIS_ENABLED=false
+REDIS_HOST=127.0.0.1
+
+# .env.docker.example
+REDIS_ENABLED=true
+REDIS_HOST=redis
+```
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Не писать в `.env` из кода | [`no-auto-env-write.mdc`](no-auto-env-write.mdc) |
+| Redis / nginx / TLS | [`deployment-infra.mdc`](deployment-infra.mdc) |
+| Docker | [`docker.mdc`](docker.mdc) |
+| Секреты в `.env` | [`security.mdc`](security.mdc) |
