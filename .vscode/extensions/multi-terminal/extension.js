@@ -80,9 +80,107 @@ function getValueByPath(obj, pathStr) {
 }
 
 /**
+ * Читает булев флаг из корневого .env (NGINX_ENABLED / REDIS_ENABLED).
+ */
+function readEnvFlag(workspaceRoot, name) {
+    const envPath = path.join(workspaceRoot, '.env');
+    if (!fs.existsSync(envPath)) {
+        return false;
+    }
+    const lines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
+    for (const raw of lines) {
+        const line = raw.trim();
+        if (!line || line.startsWith('#') || !line.includes('=')) {
+            continue;
+        }
+        const eq = line.indexOf('=');
+        const key = line.substring(0, eq).trim();
+        if (key !== name) {
+            continue;
+        }
+        const value = line.substring(eq + 1).trim().replace(/^["']|["']$/g, '').toLowerCase();
+        return value === '1' || value === 'true' || value === 'yes';
+    }
+    return false;
+}
+
+/**
+ * Обновляет runtime YAML (nginx/client/redis) перед чтением источников.
+ */
+function ensureLogsServicesRuntime(workspaceRoot) {
+    const { spawnSync } = require('child_process');
+    const isWin = process.platform === 'win32';
+    const python = isWin
+        ? path.join(workspaceRoot, 'virtual_env', 'python', 'Scripts', 'python.exe')
+        : path.join(workspaceRoot, 'virtual_env', 'python', 'bin', 'python');
+    const script = path.join(
+        workspaceRoot,
+        'core',
+        'deployment',
+        'scripts',
+        'sync_vscode_logs_services.py'
+    );
+    if (!fs.existsSync(python) || !fs.existsSync(script)) {
+        return;
+    }
+    try {
+        spawnSync(python, [script], {
+            cwd: workspaceRoot,
+            encoding: 'utf8',
+            windowsHide: true
+        });
+    } catch (_) {
+        // runtime YAML мог остаться от прошлого sync — дальше сработает фильтр по .env
+    }
+}
+
+/**
+ * Исключает службы, несовместимые с NGINX_ENABLED / REDIS_ENABLED.
+ * При nginx не открываем терминал логов ergo-client-dev (Vite не ставится).
+ */
+function filterServiceKeys(workspaceRoot, items, sourceFile) {
+    const file = String(sourceFile || '').replace(/\\/g, '/');
+    const nginx = readEnvFlag(workspaceRoot, 'NGINX_ENABLED');
+    const redis = readEnvFlag(workspaceRoot, 'REDIS_ENABLED');
+
+    return items.filter((key) => {
+        if (file.includes('logs-services')) {
+            if (key === 'ergo-client-dev' && nginx) {
+                return false;
+            }
+            if (key === 'ergo_ms_nginx' && !nginx) {
+                return false;
+            }
+            if (key === 'ergo-redis' && !redis) {
+                return false;
+            }
+            return true;
+        }
+        if (file.includes('optional-services')) {
+            if (key === 'client' && nginx) {
+                return false;
+            }
+            if (key === 'nginx' && !nginx) {
+                return false;
+            }
+            if (key === 'redis' && !redis) {
+                return false;
+            }
+            return true;
+        }
+        return true;
+    });
+}
+
+/**
  * Читает список из YAML/JSON файла
  */
 function readSourceFile(workspaceRoot, sourceConfig, silent = false) {
+    const relFile = String(sourceConfig.file || '').replace(/\\/g, '/');
+    if (relFile.includes('logs-services.runtime.yaml') || relFile.includes('optional-services.runtime.yaml')) {
+        ensureLogsServicesRuntime(workspaceRoot);
+    }
+
     const filePath = path.join(workspaceRoot, sourceConfig.file);
     
     if (!fs.existsSync(filePath)) {
@@ -112,11 +210,14 @@ function readSourceFile(workspaceRoot, sourceConfig, silent = false) {
         return [];
     }
     
+    let keys;
     if (typeof items === 'object' && !Array.isArray(items)) {
-        return Object.keys(items);
+        keys = Object.keys(items);
+    } else {
+        keys = Array.isArray(items) ? items : [];
     }
-    
-    return Array.isArray(items) ? items : [];
+
+    return filterServiceKeys(workspaceRoot, keys, sourceConfig.file);
 }
 
 /**

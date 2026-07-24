@@ -30,6 +30,15 @@ function Get-KeysFromYamlMap {
 }
 
 function Get-ServicesFromLogsYaml {
+    $runtimePath = Join-Path $RootDir ".vscode\logs-services.runtime.yaml"
+    $syncScript = Join-Path $RootDir "core\deployment\scripts\sync_vscode_logs_services.py"
+    $python = Join-Path $RootDir "virtual_env\python\Scripts\python.exe"
+    if ((Test-Path $python) -and (Test-Path $syncScript)) {
+        & $python $syncScript | Out-Null
+    }
+    if (Test-Path $runtimePath) {
+        return Get-KeysFromYamlMap -YamlPath $runtimePath -RootKey "services" -Indent 2
+    }
     $yamlPath = Join-Path $RootDir ".vscode\logs-services.yaml"
     return Get-KeysFromYamlMap -YamlPath $yamlPath -RootKey "services" -Indent 2
 }
@@ -44,9 +53,9 @@ function Test-VsCodeTaskLogsAllServices {
     $workers = Get-WorkersFromWorkersYaml
 
     if (-not $services -or $services.Count -eq 0) {
-        Log "[WARNING] В .vscode/logs-services.yaml не найдено services: ключей"
+        Log "[WARNING] В .vscode/logs-services.runtime.yaml не найдено services: ключей"
     } else {
-        Log ("Services из .vscode/logs-services.yaml: " + ($services -join ", "))
+        Log ("Services из logs-services.runtime.yaml: " + ($services -join ", "))
     }
 
     if (-not $workers -or $workers.Count -eq 0) {

@@ -608,6 +608,11 @@ function Main {
 
             }
 
+            if ($serviceName -eq 'ergo-client-dev' -and (Test-NginxEnabled -ProjectRoot $projectRoot)) {
+                Write-ColorOutput (Format-ErgoConsole -Level skip -Message 'ergo-client-dev не используется (NGINX_ENABLED=true, клиент через nginx)') Gray
+                exit 0
+            }
+
             if ($serviceNames -notcontains $serviceName) {
 
                 Write-ErgomsMessage -Key 'unknown_service' -Color Red -Stderr -Param @{ name = $serviceName }
