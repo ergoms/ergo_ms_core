@@ -322,6 +322,25 @@ sections:
       - name: test-redis
         summary: "Проверка redis-cli ping"
 
+
+  - id: postgres
+    title: "PostgreSQL (portable)"
+    note: "Авто в setup-full при отсутствии системной службы. Каталог virtual_env/packages/postgres."
+    commands:
+      - name: install-postgres
+        summary: "Установить portable PostgreSQL, службу и БД ergo_ms"
+      - name: uninstall-postgres
+        summary: "Остановить PostgreSQL (--purge / -Purge удаляет packages/postgres)"
+      - name: start-postgres
+        summary: "Запустить portable PostgreSQL"
+      - name: stop-postgres
+        summary: "Остановить portable PostgreSQL"
+      - name: restart-postgres
+        summary: "Перезапустить portable PostgreSQL"
+      - name: status-postgres
+        summary: "Статус portable PostgreSQL"
+      - name: test-postgres
+        summary: "Проверка подключения (ping)"
   - id: extensions
     title: "Расширения VS Code"
     commands:

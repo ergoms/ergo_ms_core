@@ -1,4 +1,4 @@
-﻿# Внутренний dispatch для lifecycle (services, nginx, redis, tls, cli).
+﻿# Внутренний dispatch для lifecycle (services, nginx, redis, postgres, tls, cli).
 param(
     [Parameter(Mandatory = $true)][string]$Category,
     [Parameter(Mandatory = $true)][string]$Operation,
@@ -92,6 +92,42 @@ switch ($Category) {
             default { throw "Неизвестная операция redis: $Operation" }
         }
     }
+
+    'postgres' {
+        . (Join-Path $LibPath 'postgres.ps1')
+        $port = ''
+        $noSkip = $false
+        foreach ($arg in $Extra) {
+            if ($arg -eq '--no-skip-system') { $noSkip = $true }
+            elseif ($arg -match '^\d+$') { $port = $arg }
+        }
+        switch ($Operation) {
+            'install' {
+                if ($noSkip) {
+                    Install-Postgres -Root $Root -ListenPort $port -NoSkipSystem
+                }
+                else {
+                    Install-Postgres -Root $Root -ListenPort $port
+                }
+            }
+            'uninstall' {
+                $purge = $Extra -contains '--purge'
+                Uninstall-Postgres -Root $Root -PurgeData:$purge
+            }
+            'start' { Start-PostgresProcess -Root $Root }
+            'stop' { Stop-PostgresProcess -Root $Root }
+            'restart' { Restart-PostgresProcess -Root $Root }
+            'status' { Show-PostgresStatus -Root $Root }
+            'test' {
+                if (-not (Test-PostgresPing -Root $Root)) {
+                    Write-ColorOutput '[ERROR] PostgreSQL ping не удался' Red
+                    exit 1
+                }
+                Write-ColorOutput '[OK] PONG' Green
+            }
+            default { throw "Неизвестная операция postgres: $Operation" }
+        }
+    }
     'tls' {
         if ($Operation -eq 'status') {
             Write-ColorOutput '[WARNING] TLS на Windows не поддерживается; используйте Linux или nginx вручную' Yellow
@@ -106,6 +142,16 @@ switch ($Category) {
             'install' { Install-CliWrapper -ProjectRoot $Root }
             'uninstall' { Uninstall-CliWrapper -ProjectRoot $Root }
             default { throw "Неизвестная операция cli: $Operation" }
+        }
+    }
+    'runtime' {
+        . (Join-Path $LibPath 'portable_python.ps1')
+        . (Join-Path $LibPath 'portable_nodejs.ps1')
+        $force = $Extra -contains '--force'
+        switch ($Operation) {
+            'install-python' { Install-PortablePython -Root $Root -Force:$force | Out-Null }
+            'install-nodejs' { Install-PortableNodejs -Root $Root -Force:$force | Out-Null }
+            default { throw "Неизвестная операция runtime: $Operation" }
         }
     }
     default { throw "Неизвестная категория: $Category" }

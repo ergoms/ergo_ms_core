@@ -4,10 +4,12 @@
 stop_blocking_processes_for_clean() {
   local root="$1"
   local venv_python="$root/virtual_env/python"
+  local packages_dir="$root/virtual_env/packages"
   local stopped=0
 
   echo "  Останавливаю процессы, которые могут блокировать файлы проекта..."
 
+  # ergo-* — приложение; ergo_ms_* — portable nginx (и аналоги)
   if command -v systemctl >/dev/null 2>&1; then
     while IFS= read -r unit; do
       [[ -z "$unit" ]] && continue
@@ -19,11 +21,14 @@ stop_blocking_processes_for_clean() {
           echo "  [WARNING] Не удалось остановить службу $unit (может потребоваться root)" >&2
         fi
       fi
-    done < <(systemctl list-units --type=service --all --no-legend 2>/dev/null | awk '/ergo-/ {print $1}')
+    done < <(systemctl list-units --type=service --all --no-legend 2>/dev/null | awk '/ergo-|ergo_ms_/ {print $1}')
   fi
 
-  if command -v fuser >/dev/null 2>&1 && [[ -d "$venv_python" ]]; then
-    if fuser -k "$venv_python" 2>/dev/null; then
+  if command -v fuser >/dev/null 2>&1; then
+    if [[ -d "$venv_python" ]] && fuser -k "$venv_python" 2>/dev/null; then
+      stopped=1
+    fi
+    if [[ -d "$packages_dir" ]] && fuser -k "$packages_dir" 2>/dev/null; then
       stopped=1
     fi
   fi
@@ -32,13 +37,16 @@ stop_blocking_processes_for_clean() {
     if pkill -f "${venv_python}" 2>/dev/null; then
       stopped=1
     fi
+    if pkill -f "${packages_dir}" 2>/dev/null; then
+      stopped=1
+    fi
     if pkill -f "${root}/node_modules" 2>/dev/null; then
       stopped=1
     fi
   fi
 
   if [[ "$stopped" -eq 1 ]]; then
-    sleep 0.4
+    sleep 0.8
   fi
 }
 

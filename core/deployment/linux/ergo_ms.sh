@@ -25,6 +25,8 @@ source "$LIB_DIR/commands.sh"
 source "$LIB_DIR/nginx.sh"
 # shellcheck source=lib/redis.sh
 source "$LIB_DIR/redis.sh"
+# shellcheck source=lib/postgres.sh
+source "$LIB_DIR/postgres.sh"
 # shellcheck source=lib/tls.sh
 source "$LIB_DIR/tls.sh"
 # shellcheck source=lib/lifecycle.sh
@@ -38,6 +40,8 @@ main() {
   local arg_root=""
   local purge=false
   local no_cli=false
+  local recreate_venv=false
+  local with_postgres=false
   local SELF_SCRIPT
   if command -v readlink >/dev/null 2>&1; then
     SELF_SCRIPT="$(readlink -f "$0")"
@@ -65,7 +69,7 @@ main() {
       command="$normalized_cmd"
     fi
     case "$command" in
-      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|update-submodules|update-module-submodules|clean|help|poetry|api|media_api|npm|install-nginx|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx|install-tls|renew-tls|status-tls|install-redis|install-redis-service|uninstall-redis|start-redis|stop-redis|restart-redis|status-redis|test-redis)
+      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|update-submodules|update-module-submodules|clean|help|poetry|api|media_api|npm|install-nginx|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx|install-tls|renew-tls|status-tls|install-redis|install-redis-service|uninstall-redis|start-redis|stop-redis|restart-redis|status-redis|test-redis|install-postgres|install-postgres-service|uninstall-postgres|start-postgres|stop-postgres|restart-postgres|status-postgres|test-postgres|install-python|install-python-runtime|install-nodejs|install-node)
         shift ;;
       *:poetry)
         shift ;;  # module:poetry command, handled below
@@ -119,7 +123,7 @@ main() {
   
   # Check if it's a custom command (doesn't require root)
   # Exclude built-in commands to avoid recursion (e.g. install-cli would re-invoke self via commands.conf)
-  local builtin_override="install-cli|uninstall-cli|install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|start|stop|restart|status|uninstall-services|setup-full|install-nginx|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx|install-tls|renew-tls|status-tls|install-redis|install-redis-service|uninstall-redis|start-redis|stop-redis|restart-redis|status-redis|test-redis"
+  local builtin_override="install-cli|uninstall-cli|install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|start|stop|restart|status|uninstall-services|setup-full|install-nginx|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx|install-tls|renew-tls|status-tls|install-redis|install-redis-service|uninstall-redis|start-redis|stop-redis|restart-redis|status-redis|test-redis|install-postgres|install-postgres-service|uninstall-postgres|start-postgres|stop-postgres|restart-postgres|status-postgres|test-postgres|install-python|install-python-runtime|install-nodejs|install-node"
   local is_custom_command=false
   if [[ -v "available_custom_cmds[$command]" ]] && [[ ! "$command" =~ ^($builtin_override)$ ]]; then
     is_custom_command=true
@@ -163,8 +167,21 @@ main() {
       is_redis_command=true ;;
   esac
 
-  # Parse flags/positional root for proxy, custom, logs, deploy, clean, update-submodules, nginx, and redis commands
-  if [[ "$is_proxy_command" == true ]] || [[ "$is_module_poetry_command" == true ]] || [[ "$is_custom_command" == true ]] || [[ "$is_logs_command" == true ]] || [[ "$is_deploy_command" == true ]] || [[ "$is_clean_command" == true ]] || [[ "$is_update_submodules_command" == true ]] || [[ "$is_update_module_submodules_command" == true ]] || [[ "$is_nginx_command" == true ]] || [[ "$is_redis_command" == true ]]; then
+  # Check if it's a postgres command
+  local is_postgres_command=false
+  case "$command" in
+    install-postgres|install-postgres-service|uninstall-postgres|start-postgres|stop-postgres|restart-postgres|status-postgres|test-postgres)
+      is_postgres_command=true ;;
+  esac
+
+  local is_runtime_command=false
+  case "$command" in
+    install-python|install-python-runtime|install-nodejs|install-node)
+      is_runtime_command=true ;;
+  esac
+
+  # Parse flags/positional root for proxy, custom, logs, deploy, clean, update-submodules, nginx, redis, and runtime commands
+  if [[ "$is_proxy_command" == true ]] || [[ "$is_module_poetry_command" == true ]] || [[ "$is_custom_command" == true ]] || [[ "$is_logs_command" == true ]] || [[ "$is_deploy_command" == true ]] || [[ "$is_clean_command" == true ]] || [[ "$is_update_submodules_command" == true ]] || [[ "$is_update_module_submodules_command" == true ]] || [[ "$is_nginx_command" == true ]] || [[ "$is_redis_command" == true ]] || [[ "$is_postgres_command" == true ]] || [[ "$is_runtime_command" == true ]]; then
     while (( "$#" )); do
       case "$1" in
         --root)
@@ -201,6 +218,11 @@ main() {
     fi
     if [[ "$is_update_module_submodules_command" == true ]]; then
       invoke_lifecycle_runner "$ERGO_ROOT" update-module-submodules
+      exit 0
+    fi
+
+    if [[ "$is_runtime_command" == true ]]; then
+      invoke_lifecycle_runner "$ERGO_ROOT" "$command"
       exit 0
     fi
 
@@ -251,6 +273,38 @@ main() {
       case "$command" in
         install-redis|install-redis-service)
           invoke_lifecycle_runner "$ERGO_ROOT" install-redis "${extra[@]}"
+          ;;
+        *)
+          invoke_lifecycle_runner "$ERGO_ROOT" "$command" "${extra[@]}"
+          ;;
+      esac
+      exit 0
+    fi
+
+    # Execute postgres via lifecycle runner
+    if [[ "$is_postgres_command" == true ]]; then
+      local pg_port="" pg_purge=false pg_force=false
+      local extra=()
+      while (( "$#" )); do
+        case "$1" in
+          --purge) pg_purge=true; shift ;;
+          --no-skip-system|--with-postgres) pg_force=true; shift ;;
+          *)
+            if [[ -z "$pg_port" ]] && [[ "$1" =~ ^[0-9]+$ ]]; then
+              pg_port="$1"
+              shift
+            else
+              break
+            fi
+            ;;
+        esac
+      done
+      [[ "$pg_purge" == true ]] && extra+=(--purge)
+      [[ -n "$pg_port" ]] && extra+=(--listen-port "$pg_port")
+      [[ "$pg_force" == true ]] && extra+=(--with-postgres)
+      case "$command" in
+        install-postgres|install-postgres-service)
+          invoke_lifecycle_runner "$ERGO_ROOT" install-postgres "${extra[@]}"
           ;;
         *)
           invoke_lifecycle_runner "$ERGO_ROOT" "$command" "${extra[@]}"
@@ -322,7 +376,7 @@ main() {
 
       local valid=false
       case "$service_name" in
-        ergo_ms_nginx|ergo_ms_nginx.service|ergo-redis|ergo-redis.service|ergo_ms_redis)
+        ergo_ms_nginx|ergo_ms_nginx.service|ergo-redis|ergo-redis.service|ergo_ms_redis|ergo-postgres|ergo-postgres.service)
           valid=true
           ;;
       esac
@@ -339,7 +393,7 @@ main() {
 
       if [[ "$valid" == false ]]; then
         write_ergoms_message 'unknown_service' red stderr "name=$service_name"
-        echo "Доступные службы: $(units_list "$ERGO_ROOT" | tr '\n' ' ') ergo_ms_nginx ergo-redis celery-tasks celery-beat" >&2
+        echo "Доступные службы: $(units_list "$ERGO_ROOT" | tr '\n' ' ') ergo_ms_nginx ergo-redis ergo-postgres celery-tasks celery-beat" >&2
         exit 1
       fi
 
@@ -377,6 +431,10 @@ main() {
         purge=true; shift ;;
       --no-cli)
         no_cli=true; shift ;;
+      --recreate-venv)
+        recreate_venv=true; shift ;;
+      --with-postgres)
+        with_postgres=true; shift ;;
       -h|--help)
         print_usage "$detected_root"; exit 0 ;;
       *)
@@ -421,6 +479,7 @@ main() {
     setup-full)
       extra=()
       [[ "${recreate_venv:-false}" == true ]] && extra+=(--recreate-venv)
+      [[ "${with_postgres:-false}" == true ]] && extra+=(--with-postgres)
       invoke_lifecycle_runner "$ERGO_ROOT" setup-full "${extra[@]}"
       exit 0
       ;;

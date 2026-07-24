@@ -39,7 +39,12 @@ function Stop-BlockingProcessesForClean {
 
     Write-ColorOutput "  Останавливаю процессы, которые могут блокировать файлы проекта..." Gray
 
-    $services = Get-Service -Name "ergo-*" -ErrorAction SilentlyContinue | Where-Object { $_.Status -ne 'Stopped' }
+    # ergo-* — службы приложения; ergo_ms_* — portable nginx/redis/postgres (NSSM)
+    $services = @(
+        Get-Service -Name 'ergo-*' -ErrorAction SilentlyContinue
+        Get-Service -Name 'ergo_ms_*' -ErrorAction SilentlyContinue
+    ) | Where-Object { $_ -and $_.Status -ne 'Stopped' } | Sort-Object -Property Name -Unique
+
     foreach ($svc in $services) {
         try {
             Stop-Service -Name $svc.Name -Force -ErrorAction Stop
@@ -52,15 +57,22 @@ function Stop-BlockingProcessesForClean {
 
     $rootLower = $Root.ToLowerInvariant()
     $venvLower = (Join-Path $Root "virtual_env\python").ToLowerInvariant()
+    $packagesLower = (Join-Path $Root "virtual_env\packages").ToLowerInvariant()
+    $packagesLowerFwd = $packagesLower.Replace('\', '/')
     $pythonExe = (Join-Path $Root "virtual_env\python\Scripts\python.exe").ToLowerInvariant()
 
     $procs = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
         $exe = $_.ExecutablePath
         $cmd = $_.CommandLine
-        if (-not $exe) { return $false }
-        $exeLower = $exe.ToLowerInvariant()
+        if (-not $exe -and -not $cmd) { return $false }
+        $exeLower = if ($exe) { $exe.ToLowerInvariant() } else { "" }
         $cmdLower = if ($cmd) { $cmd.ToLowerInvariant() } else { "" }
+        $cmdNorm = $cmdLower.Replace('/', '\')
 
+        # portable nginx / redis / postgres / nssm — иначе clean не удалит virtual_env/packages
+        if ($exeLower.StartsWith($packagesLower) -or $cmdNorm.Contains($packagesLower) -or $cmdLower.Contains($packagesLowerFwd)) {
+            return $true
+        }
         if ($exeLower.StartsWith($venvLower) -or $cmdLower.Contains($venvLower)) { return $true }
         if ($exeLower -eq $pythonExe) { return $true }
         if ($exeLower.EndsWith("\python.exe") -and $cmdLower.Contains($rootLower)) { return $true }
@@ -85,8 +97,8 @@ function Stop-BlockingProcessesForClean {
         }
     }
 
-    if ($stopped -gt 0) {
-        Start-Sleep -Milliseconds 400
+    if ($stopped -gt 0 -or $services.Count -gt 0) {
+        Start-Sleep -Milliseconds 800
     }
 }
 

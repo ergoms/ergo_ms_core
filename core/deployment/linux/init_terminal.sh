@@ -10,8 +10,11 @@ if [[ -f "$PROJECT_ROOT/virtual_env/python/bin/activate" ]]; then
   source "$PROJECT_ROOT/virtual_env/python/bin/activate"
 fi
 
-# core/deployment/bin в PATH — ergoms из подпапок
+# core/deployment/bin + portable Node.js в PATH
 export PATH="$PROJECT_ROOT/core/deployment/bin:$PATH"
+if [[ -d "$PROJECT_ROOT/virtual_env/packages/nodejs/bin" ]]; then
+  export PATH="$PROJECT_ROOT/virtual_env/packages/nodejs/bin:$PATH"
+fi
 
 # Local ergoms; только из каталога проекта и подпапок
 ergoms() {

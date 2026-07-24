@@ -35,6 +35,8 @@ from lifecycle.steps.docker_steps import (
 from lifecycle.steps.host_steps import (
     ConfigScaffoldStep,
     CreateVenvStep,
+    EnsurePortableNodejsStep,
+    EnsurePortablePythonStep,
     GitSubmoduleUpdateStep,
     HostCliInstallStep,
     HostExecutionPolicyStep,
@@ -42,6 +44,7 @@ from lifecycle.steps.host_steps import (
     UpdateModuleSubmodulesStep,
 )
 from lifecycle.steps.infra_steps import InfraOperationStep
+from lifecycle.steps.postgres_steps import EnsurePostgresStep
 from lifecycle.steps.service_steps import ServiceOperationStep
 
 
@@ -75,17 +78,30 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
                 HostExecutionPolicyStep(),
                 GitSubmoduleUpdateStep(),
                 ConfigScaffoldStep(),
+                EnsurePortablePythonStep(),
+                EnsurePortableNodejsStep(),
                 CreateVenvStep(),
                 PoetryInstallStep(),
                 HostCliInstallStep(),
                 PythonInstallStep(),
                 NpmInstallStep(),
                 ClientBuildStep(),
+                EnsurePostgresStep(),
                 MigrateStep(),
                 WarmupCachesStep(),
                 CollectStaticStep(),
             ),
             description='Полная первичная настройка',
+        ),
+        RecipeSpec(
+            'install-python-runtime',
+            (EnsurePortablePythonStep(respect_env=False),),
+            description='Скачать portable Python 3.12 в virtual_env/packages/python',
+        ),
+        RecipeSpec(
+            'install-nodejs',
+            (EnsurePortableNodejsStep(respect_env=False),),
+            description='Скачать portable Node.js LTS в virtual_env/packages/nodejs',
         ),
         RecipeSpec(
             'install-deps',
@@ -345,6 +361,13 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
         ('redis', 'restart'),
         ('redis', 'status'),
         ('redis', 'test'),
+        ('postgres', 'install'),
+        ('postgres', 'uninstall'),
+        ('postgres', 'start'),
+        ('postgres', 'stop'),
+        ('postgres', 'restart'),
+        ('postgres', 'status'),
+        ('postgres', 'test'),
         ('tls', 'install'),
         ('tls', 'renew'),
         ('tls', 'status'),
@@ -355,7 +378,7 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
                 name,
                 (InfraOperationStep(component, op),),
                 target='infra',
-                needs_sudo=component in ('nginx', 'redis', 'tls') and op != 'status' and op != 'test',
+                needs_sudo=component in ('nginx', 'redis', 'postgres', 'tls') and op != 'status' and op != 'test',
                 description=f'Инфра {component}: {op}',
             )
         )
@@ -394,10 +417,19 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
         'restart-redis': 'redis-restart',
         'status-redis': 'redis-status',
         'test-redis': 'redis-test',
+        'install-postgres': 'postgres-install',
+        'uninstall-postgres': 'postgres-uninstall',
+        'start-postgres': 'postgres-start',
+        'stop-postgres': 'postgres-stop',
+        'restart-postgres': 'postgres-restart',
+        'status-postgres': 'postgres-status',
+        'test-postgres': 'postgres-test',
         'install-tls': 'tls-install',
         'renew-tls': 'tls-renew',
         'status-tls': 'tls-status',
         'update-submodules': 'update-submodules',
+        'install-python': 'install-python-runtime',
+        'install-node': 'install-nodejs',
     }
     for alias, target in aliases.items():
         if target in registry and alias not in registry:

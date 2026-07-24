@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 
@@ -35,6 +36,46 @@ def cache_tmp_dir(root: Path) -> Path:
 
 def nssm_dir(root: Path) -> Path:
     return packages_dir(root) / 'nssm'
+
+
+def portable_python_dir(root: Path) -> Path:
+    """Portable CPython (python-build-standalone) — база для project venv."""
+    return packages_dir(root) / 'python'
+
+
+def portable_python_exe(root: Path) -> Path:
+    base = portable_python_dir(root)
+    if sys.platform == 'win32':
+        return base / 'python.exe'
+    return base / 'bin' / 'python3'
+
+
+def nodejs_dir(root: Path) -> Path:
+    return packages_dir(root) / 'nodejs'
+
+
+def nodejs_exe(root: Path) -> Path:
+    base = nodejs_dir(root)
+    if sys.platform == 'win32':
+        return base / 'node.exe'
+    return base / 'bin' / 'node'
+
+
+def npm_exe(root: Path) -> Path:
+    base = nodejs_dir(root)
+    if sys.platform == 'win32':
+        cmd = base / 'npm.cmd'
+        if cmd.is_file():
+            return cmd
+        return base / 'npm'
+    return base / 'bin' / 'npm'
+
+
+def nodejs_bin_dir(root: Path) -> Path:
+    base = nodejs_dir(root)
+    if sys.platform == 'win32':
+        return base
+    return base / 'bin'
 
 
 def jupyter_dir(root: Path) -> Path:

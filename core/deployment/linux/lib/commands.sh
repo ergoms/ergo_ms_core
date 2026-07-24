@@ -14,6 +14,24 @@ _ergoms_export_tool_caches() {
   export NPM_CONFIG_CACHE="$npm_cache"
 }
 
+_ergoms_prepend_nodejs_path() {
+  local root="$1"
+  local node_bin="$root/virtual_env/packages/nodejs/bin"
+  if [[ -d "$node_bin" ]]; then
+    export PATH="$node_bin:$PATH"
+  fi
+}
+
+_ergoms_npm_bin() {
+  local root="$1"
+  local npm_bin="$root/virtual_env/packages/nodejs/bin/npm"
+  if [[ -x "$npm_bin" ]]; then
+    echo "$npm_bin"
+  else
+    echo "npm"
+  fi
+}
+
 load_custom_commands() {
   local root="$1"
   
@@ -130,8 +148,9 @@ execute_command_string() {
       npm)
         cd "$root" || exit 1
         _ergoms_export_tool_caches "$root"
+        _ergoms_prepend_nodejs_path "$root"
         # shellcheck disable=SC2086
-        exec npm $cmd_args "${user_args[@]}"
+        exec "$(_ergoms_npm_bin "$root")" $cmd_args "${user_args[@]}"
         ;;
       shell|linux)
         cd "$root" || exit 1

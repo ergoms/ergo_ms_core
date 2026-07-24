@@ -78,7 +78,9 @@ param(
 
     [switch]$NoCli,
 
-    [switch]$RecreateVenv
+    [switch]$RecreateVenv,
+
+    [switch]$WithPostgres
 
 )
 
@@ -128,6 +130,8 @@ function Load-HeavyModules {
 
     . (Join-Path $LibPath "redis.ps1")
 
+    . (Join-Path $LibPath "postgres.ps1")
+
     $script:HeavyModulesLoaded = $true
 
 }
@@ -164,7 +168,11 @@ function Main {
 
         'install-redis', 'install-redis-service', 'uninstall-redis',
 
-        'start-redis', 'stop-redis', 'restart-redis'
+        'start-redis', 'stop-redis', 'restart-redis',
+
+        'install-postgres', 'install-postgres-service', 'uninstall-postgres',
+
+        'start-postgres', 'stop-postgres', 'restart-postgres'
 
     )
 
@@ -174,7 +182,7 @@ function Main {
 
     # Commands that don't require admin
 
-    $noAdminCommands = @('logs', 'help', 'clean', 'update-submodules', 'update-module-submodules', 'status-nginx', 'test-nginx', 'status-redis', 'test-redis')
+    $noAdminCommands = @('logs', 'help', 'clean', 'update-submodules', 'update-module-submodules', 'status-nginx', 'test-nginx', 'status-redis', 'test-redis', 'status-postgres', 'test-postgres', 'install-python', 'install-python-runtime', 'install-nodejs', 'install-node')
 
     
 
@@ -252,11 +260,21 @@ function Main {
 
     }
 
+    if ($Command -in @('install-python', 'install-python-runtime', 'install-nodejs', 'install-node')) {
+
+        $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+
+        Invoke-LifecycleRunner -Root $projectRoot -Recipe $Command.ToLower()
+
+        return
+
+    }
+
 
 
     # Handle nginx/redis noAdmin commands before custom commands
 
-    if ($Command -in @('status-nginx', 'test-nginx', 'status-redis', 'test-redis')) {
+    if ($Command -in @('status-nginx', 'test-nginx', 'status-redis', 'test-redis', 'status-postgres', 'test-postgres')) {
 
         . Load-HeavyModules
 
@@ -281,6 +299,26 @@ function Main {
                 else {
 
                     Write-ColorOutput '[ERROR] Redis ping не удался' Red
+
+                    exit 1
+
+                }
+
+            }
+
+            'status-postgres' { Show-PostgresStatus -Root $projectRoot }
+
+            'test-postgres' {
+
+                if (Test-PostgresPing -Root $projectRoot) {
+
+                    Write-ColorOutput '[OK] PONG' Green
+
+                }
+
+                else {
+
+                    Write-ColorOutput '[ERROR] PostgreSQL ping не удался' Red
 
                     exit 1
 
@@ -641,6 +679,8 @@ function Main {
 
             if ($RecreateVenv) { $extra += '--recreate-venv' }
 
+            if ($WithPostgres) { $extra += '--with-postgres' }
+
             Invoke-LifecycleRunner -Root $projectRoot -Recipe 'setup-full' -ExtraArgs $extra
 
         }
@@ -808,6 +848,74 @@ function Main {
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
             Invoke-LifecycleRunner -Root $projectRoot -Recipe 'restart-redis'
+
+        }
+
+        'install-postgres' {
+
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+
+            $portArgs = @($RemainingArgs | Where-Object { $_ -notin @('--configure', '--no-skip-system') })
+
+            $listenPort = if ($portArgs.Count -ge 1) { $portArgs[0] } else { '' }
+
+            $extra = @()
+
+            if ($listenPort) { $extra += @('--listen-port', $listenPort) }
+
+            if ($RemainingArgs -contains '--no-skip-system' -or $WithPostgres) {
+
+                $extra += '--with-postgres'
+
+            }
+
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'install-postgres' -ExtraArgs $extra
+
+        }
+
+        'install-postgres-service' {
+
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+
+            Load-HeavyModules
+
+            Install-PostgresService -Root $projectRoot
+
+        }
+
+        'uninstall-postgres' {
+
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+
+            $extra = @()
+
+            if ($Purge) { $extra += '--purge' }
+
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'uninstall-postgres' -ExtraArgs $extra
+
+        }
+
+        'start-postgres' {
+
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'start-postgres'
+
+        }
+
+        'stop-postgres' {
+
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'stop-postgres'
+
+        }
+
+        'restart-postgres' {
+
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'restart-postgres'
 
         }
 

@@ -76,7 +76,7 @@ class ConfigScaffoldStep(DeploymentStep):
         if not script.is_file():
             print(format_console('skip', 'Скрипт scaffold не найден'))
             return StepResult()
-        argv = [*host_ops.system_python_argv(ctx.platform), str(script), '--root', str(ctx.project_root)]
+        argv = [*host_ops.base_python_argv(ctx.project_root, ctx.platform), str(script), '--root', str(ctx.project_root)]
         code = subprocess.call(argv, cwd=str(ctx.project_root))
         return StepResult(exit_code=code)
 
@@ -88,6 +88,46 @@ class CreateVenvStep(DeploymentStep):
 
     def run(self, ctx: DeploymentContext) -> StepResult:
         code = host_ops.create_or_validate_venv(ctx, recreate=ctx.option_bool('recreate_venv'))
+        return StepResult(exit_code=code)
+
+
+class EnsurePortablePythonStep(DeploymentStep):
+    def __init__(self, *, respect_env: bool = True) -> None:
+        self._respect_env = respect_env
+
+    @property
+    def name(self) -> str:
+        return 'ensure_portable_python'
+
+    def should_run(self, ctx: DeploymentContext) -> bool:
+        return ctx.runtime == 'host'
+
+    def run(self, ctx: DeploymentContext) -> StepResult:
+        if self._respect_env and not host_ops.portable_python_enabled(ctx):
+            print(format_console('skip', 'PORTABLE_PYTHON_ENABLED=false — portable Python не устанавливается'))
+            return StepResult()
+        print(format_console('info', 'Проверка portable Python 3.12…'))
+        code = host_ops.ensure_portable_python(ctx, force=ctx.option_bool('force_runtime'))
+        return StepResult(exit_code=code)
+
+
+class EnsurePortableNodejsStep(DeploymentStep):
+    def __init__(self, *, respect_env: bool = True) -> None:
+        self._respect_env = respect_env
+
+    @property
+    def name(self) -> str:
+        return 'ensure_portable_nodejs'
+
+    def should_run(self, ctx: DeploymentContext) -> bool:
+        return ctx.runtime == 'host'
+
+    def run(self, ctx: DeploymentContext) -> StepResult:
+        if self._respect_env and not host_ops.portable_nodejs_enabled(ctx):
+            print(format_console('skip', 'PORTABLE_NODEJS_ENABLED=false — portable Node.js не устанавливается'))
+            return StepResult()
+        print(format_console('info', 'Проверка portable Node.js LTS…'))
+        code = host_ops.ensure_portable_nodejs(ctx, force=ctx.option_bool('force_runtime'))
         return StepResult(exit_code=code)
 
 

@@ -1,25 +1,40 @@
 ---
-description: Виртуальное окружение Python — только virtual_env/python
+description: Виртуальное окружение Python — portable runtime + virtual_env/python
 alwaysApply: true
 ---
+
 # Python-окружение
 
-Одно окружение на проект: `virtual_env/python/`.
+Одно окружение на проект:
+
+- **Portable CPython 3.12** — `virtual_env/packages/python/` (ставит `setup-full` / `ergoms install-python`)
+- **Project venv** — `virtual_env/python/` (создаётся из portable)
+
+Пути:
 
 - Windows: `virtual_env\python\Scripts\python.exe`
 - Linux: `virtual_env/python/bin/python`
+
+**Node.js LTS** — `virtual_env/packages/nodejs/` (`ergoms install-nodejs` / setup-full).
+
+Автоустановка при `setup-full` управляется в `.env`:
+
+- `PORTABLE_PYTHON_ENABLED=true|false` (по умолчанию `true`)
+- `PORTABLE_NODEJS_ENABLED=true|false` (по умолчанию `true`)
+
+Явные `ergoms install-python` / `install-nodejs` работают независимо от флагов.
 
 В `virtual_env/` также лежат celery, cache, resources и др. — не удаляй папку целиком.
 
 ## Запрещено
 
-- Создавать `.venv`, `venv`, новый `python -m venv`
+- Создавать `.venv`, `venv`, новый `python -m venv` мимо ergoms
 - Пересоздавать `virtual_env/python/` вручную
 - `pip install` / `poetry install` мимо ergoms
 
 ## Если Python не найден
 
-`ergoms setup` или `ergoms python-install` — не предлагай создать venv вручную.
+`ergoms setup` или `ergoms install-python`, затем `ergoms python-install` — не предлагай создать venv вручную и не требуй системный Python/Node для host setup.
 
 Зависимости: `ergoms python-install`, `ergoms poetry install`, полная настройка — `ergoms setup`.
 

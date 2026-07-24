@@ -192,9 +192,19 @@ function Execute-CommandString {
                     New-Item -ItemType Directory -Path $npmCache -Force | Out-Null
                     $env:npm_config_cache = $npmCache
                     $env:NPM_CONFIG_CACHE = $npmCache
-                    # Use cmd /c to avoid PowerShell argument passing issues with npm.cmd on Windows
-                    # (direct invocation can cause "run" to become "pm" -> "Unknown command: 'pm'")
-                    $npmCmdLine = "npm " + ($allArgs -join ' ')
+                    $nodeDir = Join-Path $ProjectRoot "virtual_env\packages\nodejs"
+                    if (Test-Path -LiteralPath $nodeDir) {
+                        $env:PATH = "$nodeDir;$env:PATH"
+                    }
+                    $npmBin = Join-Path $nodeDir "npm.cmd"
+                    if (-not (Test-Path -LiteralPath $npmBin)) {
+                        $npmBin = "npm"
+                    }
+                    if ($npmBin -eq "npm") {
+                        $npmCmdLine = "npm " + ($allArgs -join ' ')
+                    } else {
+                        $npmCmdLine = "`"$npmBin`" " + ($allArgs -join ' ')
+                    }
                     & cmd /c $npmCmdLine
                 }
                 finally {

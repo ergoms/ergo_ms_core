@@ -31,13 +31,10 @@ def detect_project_root() -> Path:
 
 
 def runner_python_argv(project_root: Path, recipe: str) -> list[str]:
-    spec = RECIPE_REGISTRY.get(recipe)
-    if spec and recipe == 'setup-full' and not host_ops.venv_exists(project_root, HostPlatform.current()):
-        return [*host_ops.system_python_argv(HostPlatform.current()), str(_LIFECYCLE_DIR / 'runner.py')]
     if host_ops.venv_exists(project_root, HostPlatform.current()):
         py = host_ops.venv_python_exe(project_root, HostPlatform.current())
         return [str(py), str(_LIFECYCLE_DIR / 'runner.py')]
-    return [*host_ops.system_python_argv(HostPlatform.current()), str(_LIFECYCLE_DIR / 'runner.py')]
+    return [*host_ops.base_python_argv(project_root, HostPlatform.current()), str(_LIFECYCLE_DIR / 'runner.py')]
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -53,6 +50,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--domain', default='')
     parser.add_argument('--email', default='')
     parser.add_argument('--dry-run', action='store_true')
+    parser.add_argument('--with-postgres', action='store_true',
+                        help='Принудительно поставить portable PostgreSQL')
     parser.add_argument('--mode', choices=('dev', 'prod'), default=None, help='alias для --docker-mode')
     return parser
 
@@ -100,6 +99,8 @@ def main(argv: list[str] | None = None) -> int:
         options['email'] = args.email
     if args.dry_run:
         options['dry_run'] = True
+    if args.with_postgres:
+        options['with_postgres'] = True
     if extra:
         options['compose_extra_args'] = extra
 

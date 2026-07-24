@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Внутренний dispatch для lifecycle (services, nginx, redis, tls, cli).
+# Внутренний dispatch для lifecycle (services, nginx, redis, postgres, tls, cli).
 set -euo pipefail
 
 category="${1:?category}"
@@ -22,8 +22,14 @@ source "$LIB_DIR/cli.sh"
 source "$LIB_DIR/nginx.sh"
 # shellcheck source=../../linux/lib/redis.sh
 source "$LIB_DIR/redis.sh"
+# shellcheck source=../../linux/lib/postgres.sh
+source "$LIB_DIR/postgres.sh"
 # shellcheck source=../../linux/lib/tls.sh
 source "$LIB_DIR/tls.sh"
+# shellcheck source=../../linux/lib/portable_python.sh
+source "$LIB_DIR/portable_python.sh"
+# shellcheck source=../../linux/lib/portable_nodejs.sh
+source "$LIB_DIR/portable_nodejs.sh"
 
 set_service_project_root "$root"
 
@@ -124,6 +130,35 @@ case "$category" in
       *) echo "[ERROR] Неизвестная операция redis: $operation" >&2; exit 1 ;;
     esac
     ;;
+
+  postgres)
+    port=""
+    no_skip=false
+    purge=false
+    for arg in "$@"; do
+      case "$arg" in
+        --purge) purge=true ;;
+        --no-skip-system) no_skip=true ;;
+        [0-9]*) port="$arg" ;;
+      esac
+    done
+    case "$operation" in
+      install)
+        if [[ "$no_skip" == true ]]; then
+          postgres_install "$root" "$port" "true"
+        else
+          postgres_install "$root" "$port" "false"
+        fi
+        ;;
+      uninstall) postgres_uninstall "$root" "$purge" ;;
+      start) postgres_start "$root" ;;
+      stop) postgres_stop "$root" ;;
+      restart) postgres_restart "$root" ;;
+      status) postgres_status "$root" ;;
+      test) postgres_test "$root" ;;
+      *) echo "[ERROR] Неизвестная операция postgres: $operation" >&2; exit 1 ;;
+    esac
+    ;;
   tls)
     case "$operation" in
       install) tls_install "$root" "${1:-}" "${2:-}" "${3:-false}" ;;
@@ -141,6 +176,15 @@ case "$category" in
       install) create_cli_wrapper "$root" ;;
       uninstall) remove_cli_wrapper "$root" ;;
       *) echo "[ERROR] Неизвестная операция cli: $operation" >&2; exit 1 ;;
+    esac
+    ;;
+  runtime)
+    force=false
+    [[ "${1:-}" == "--force" ]] && force=true
+    case "$operation" in
+      install-python) install_portable_python "$root" "$force" ;;
+      install-nodejs) install_portable_nodejs "$root" "$force" ;;
+      *) echo "[ERROR] Неизвестная операция runtime: $operation" >&2; exit 1 ;;
     esac
     ;;
   *)

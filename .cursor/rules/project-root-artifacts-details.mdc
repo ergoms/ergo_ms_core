@@ -12,7 +12,9 @@ alwaysApply: false
 
 | Назначение | Путь |
 |---|---|
+| Portable CPython 3.12 | `virtual_env/packages/python/` |
 | Python venv | `virtual_env/python/` |
+| Portable Node.js LTS | `virtual_env/packages/nodejs/` |
 | nginx / Redis / NSSM | `virtual_env/packages/{nginx,redis,nssm}/` |
 | Let's Encrypt + ACME webroot | `virtual_env/packages/letsencrypt/`, `…/certbot/webroot/` |
 | pip / Poetry / npm cache | `virtual_env/cache/{pip,poetry,npm}/` |

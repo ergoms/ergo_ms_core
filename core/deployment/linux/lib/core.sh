@@ -152,6 +152,14 @@ get_celery_workers() {
   parse_workers_from_yaml "$workers_config"
 }
 
+_postgres_portable_enabled() {
+  local project_root="${1:-}"
+  [[ -x "$project_root/virtual_env/packages/postgres/bin/postgres" ]] && return 0
+  [[ -x "$project_root/virtual_env/packages/postgres/pgsql/bin/postgres" ]] && return 0
+  [[ -f /etc/systemd/system/ergo-postgres.service ]] && return 0
+  return 1
+}
+
 # Генерация списка служб на основе конфигурации воркеров
 generate_units_list() {
   local project_root="${1:-}"
@@ -161,6 +169,10 @@ generate_units_list() {
     units="$units ergo_ms_nginx.service"
   else
     units="ergo-api-dev.service ergo-client-dev.service ergo-media-api.service ergo-celery-beat.service"
+  fi
+
+  if _postgres_portable_enabled "$project_root"; then
+    units="ergo-postgres.service $units"
   fi
   
   local workers

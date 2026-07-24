@@ -488,17 +488,37 @@ function Get-CeleryWorkers {
 
 # Генерация списка служб на основе конфигурации воркеров
 
+function Test-PostgresPortableEnabled {
+
+    param([string]$ProjectRoot)
+
+    $direct = Join-Path $ProjectRoot 'virtual_env\packages\postgres\bin\postgres.exe'
+
+    $nested = Join-Path $ProjectRoot 'virtual_env\packages\postgres\pgsql\bin\postgres.exe'
+
+    if ((Test-Path $direct) -or (Test-Path $nested)) { return $true }
+
+    $svc = Get-Service -Name 'ergo_ms_postgres' -ErrorAction SilentlyContinue
+
+    return $null -ne $svc
+
+}
+
+
+
 function Get-ServiceNames {
 
     param([string]$ProjectRoot)
 
     
 
-    # Используем кэш если проект и nginx-сценарий не изменились
+    # Используем кэш если проект / nginx / postgres не изменились
 
     $nginxEnabled = Test-NginxEnabled -ProjectRoot $ProjectRoot
 
-    if ($script:CachedServiceNames -and $script:CachedProjectRoot -eq $ProjectRoot -and $script:CachedNginxEnabled -eq $nginxEnabled) {
+    $postgresEnabled = Test-PostgresPortableEnabled -ProjectRoot $ProjectRoot
+
+    if ($script:CachedServiceNames -and $script:CachedProjectRoot -eq $ProjectRoot -and $script:CachedNginxEnabled -eq $nginxEnabled -and $script:CachedPostgresEnabled -eq $postgresEnabled) {
 
         return $script:CachedServiceNames
 
@@ -507,6 +527,14 @@ function Get-ServiceNames {
     
 
     $services = @() + $script:BaseServices
+
+
+
+    if ($postgresEnabled) {
+
+        $services = @('ergo_ms_postgres') + $services
+
+    }
 
 
 
@@ -551,6 +579,8 @@ function Get-ServiceNames {
     $script:CachedProjectRoot = $ProjectRoot
 
     $script:CachedNginxEnabled = $nginxEnabled
+
+    $script:CachedPostgresEnabled = $postgresEnabled
 
     
 

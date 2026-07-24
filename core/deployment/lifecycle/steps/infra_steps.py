@@ -41,11 +41,17 @@ class InfraOperationStep(DeploymentStep):
             port = ctx.option_str('listen_port')
             if port:
                 extra.append(port)
+        if self._component == 'postgres' and self._operation == 'install':
+            port = ctx.option_str('listen_port')
+            if port:
+                extra.append(port)
+            if ctx.option_bool('with_postgres') or ctx.option_bool('no_skip_system'):
+                extra.append('--no-skip-system')
         if self._component == 'tls' and self._operation == 'install':
             extra.extend([
                 ctx.option_str('domain'),
                 ctx.option_str('email'),
             ])
-        ctx.options.setdefault('needs_sudo', self._component in ('nginx', 'redis', 'tls'))
+        ctx.options.setdefault('needs_sudo', self._component in ('nginx', 'redis', 'postgres', 'tls'))
         code = invoke_dispatch(ctx, self._component, self._operation, *extra)
         return StepResult(exit_code=code)

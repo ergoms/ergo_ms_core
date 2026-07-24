@@ -36,6 +36,8 @@ _CORE_CANDIDATE_PROCESS_NAMES = frozenset(
         'node',
         'redis-server.exe',
         'redis-server',
+        'postgres.exe',
+        'postgres',
         'nginx.exe',
         'nginx',
     )
@@ -152,6 +154,10 @@ def _classify_by_cmdline(
         'virtual_env/packages/redis' in text or _in_project(text, root_text)
     ):
         return 'redis'
+    if ('postgres' in text or 'pgsql' in text) and (
+        'virtual_env/packages/postgres' in text or _in_project(text, root_text)
+    ):
+        return 'postgres'
     if 'nginx' in text and 'core/deployment/nginx' in text:
         return 'nginx'
     if ('runserver' in text or 'daphne' in text) and 'core/api' in text:

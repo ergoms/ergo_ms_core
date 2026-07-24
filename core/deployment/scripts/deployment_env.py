@@ -64,6 +64,20 @@ def is_redis_enabled() -> bool:
     return read_env('REDIS_ENABLED', 'false').lower() in ('1', 'true', 'yes')
 
 
+def _env_truthy(name: str, default: str = 'false') -> bool:
+    return read_env(name, default).lower() in ('1', 'true', 'yes', 'on')
+
+
+def is_portable_python_enabled() -> bool:
+    """Ставить portable Python в virtual_env при setup-full (по умолчанию да)."""
+    return _env_truthy('PORTABLE_PYTHON_ENABLED', 'true')
+
+
+def is_portable_nodejs_enabled() -> bool:
+    """Ставить portable Node.js в virtual_env при setup-full (по умолчанию да)."""
+    return _env_truthy('PORTABLE_NODEJS_ENABLED', 'true')
+
+
 def resolve_public_host() -> str:
     explicit = read_env('NGINX_PUBLIC_HOST')
     if explicit:
@@ -86,3 +100,8 @@ def resolve_public_host() -> str:
             sys.path.remove(str(DEPLOYMENT_NGINX))
 
     return 'localhost'
+
+
+def is_postgres_force_install() -> bool:
+    """POSTGRES_FORCE_INSTALL=true — portable даже при системной службе."""
+    return read_env('POSTGRES_FORCE_INSTALL', 'false').lower() in ('1', 'true', 'yes')

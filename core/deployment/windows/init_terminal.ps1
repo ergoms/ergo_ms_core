@@ -56,11 +56,14 @@ if (-not $global:RealPoetryExe) {
 
 }
 
-$npmCmd = Get-Command npm.cmd -ErrorAction SilentlyContinue
-
-if (-not $npmCmd) { $npmCmd = Get-Command npm -ErrorAction SilentlyContinue }
-
-$global:RealNpmCmd = if ($npmCmd) { $npmCmd.Source } else { $null }
+$npmPortable = Join-Path $global:ProjectRoot "virtual_env\packages\nodejs\npm.cmd"
+if (Test-Path -LiteralPath $npmPortable) {
+    $global:RealNpmCmd = $npmPortable
+} else {
+    $npmCmd = Get-Command npm.cmd -ErrorAction SilentlyContinue
+    if (-not $npmCmd) { $npmCmd = Get-Command npm -ErrorAction SilentlyContinue }
+    $global:RealNpmCmd = if ($npmCmd) { $npmCmd.Source } else { $null }
+}
 
 
 
@@ -76,8 +79,12 @@ if (Test-Path $venvActivate) {
 
 
 
-# core/deployment/bin в PATH — ergoms.cmd из подпапок (задачи cmd, дочерние процессы)
+# core/deployment/bin + portable Node.js в PATH
 $env:Path = "$(Join-Path $global:ProjectRoot 'core\deployment\bin');$env:Path"
+$nodeDir = Join-Path $global:ProjectRoot 'virtual_env\packages\nodejs'
+if (Test-Path -LiteralPath $nodeDir) {
+    $env:Path = "$nodeDir;$env:Path"
+}
 
 # Local ergoms; только из каталога проекта и подпапок
 function ergoms {
