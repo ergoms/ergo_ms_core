@@ -1,10 +1,11 @@
-"""Параллельный запуск сервисов разработки (аналог ergoms start-all / Start All Services)."""
+"""Запуск сервисов разработки: Redis → API/backend → клиент (аналог Start All Services)."""
 
 from __future__ import annotations
 
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -13,54 +14,66 @@ SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
+# Пауза между группами, чтобы Redis успел ответить до API.
+_GROUP_DELAY_SEC = 0.8
+
 
 def _run_warmup() -> int:
     warmup = PROJECT_ROOT / 'core' / 'api' / 'scripts' / 'warmup_caches_if_needed.py'
     return subprocess.call([PYTHON, str(warmup)], cwd=str(PROJECT_ROOT))
 
 
-def _optional_dev_commands() -> list[tuple[str, str]]:
+def _ordered_dev_commands() -> list[tuple[str, str]]:
+    """Порядок: Redis → API / media / celery → client|nginx."""
     from deployment_env import is_nginx_enabled, is_redis_enabled
 
     commands: list[tuple[str, str]] = []
-    if is_nginx_enabled():
-        commands.append(('Nginx', 'ergoms start-nginx-dev'))
-    else:
-        commands.append(('Client', 'ergoms start-client-dev'))
     if is_redis_enabled():
         commands.append(('Redis', 'ergoms start-redis-dev'))
-    return commands
-
-
-def _spawn_windows() -> int:
-    services = [(title, command) for title, command in _optional_dev_commands()]
-    services.extend([
+    commands.extend([
         ('API', 'ergoms dev'),
         ('Media API', 'ergoms start-media'),
         ('Worker', 'ergoms start-worker'),
         ('Beat', 'ergoms start-beat'),
     ])
-    for title, command in services:
+    if is_nginx_enabled():
+        commands.append(('Nginx', 'ergoms start-nginx-dev'))
+    else:
+        commands.append(('Client', 'ergoms start-client-dev'))
+    return commands
+
+
+def _spawn_windows() -> int:
+    redis_started = False
+    for title, command in _ordered_dev_commands():
+        if title == 'API' and redis_started:
+            time.sleep(_GROUP_DELAY_SEC)
+        if title in ('Client', 'Nginx'):
+            time.sleep(_GROUP_DELAY_SEC)
         subprocess.Popen(
             f'start "{title}" cmd /c "{command}"',
             shell=True,
             cwd=str(PROJECT_ROOT),
         )
+        if title == 'Redis':
+            redis_started = True
+            time.sleep(_GROUP_DELAY_SEC)
     return 0
 
 
 def _spawn_linux() -> int:
-    commands = [command for _, command in _optional_dev_commands()]
-    commands.extend([
-        'ergoms dev',
-        'ergoms start-media',
-        'ergoms start-worker',
-        'ergoms start-beat',
-    ])
-    processes = [
-        subprocess.Popen(command, shell=True, cwd=str(PROJECT_ROOT))
-        for command in commands
-    ]
+    commands = _ordered_dev_commands()
+    processes = []
+    redis_started = False
+    for title, command in commands:
+        if title == 'API' and redis_started:
+            time.sleep(_GROUP_DELAY_SEC)
+        if title in ('Client', 'Nginx'):
+            time.sleep(_GROUP_DELAY_SEC)
+        processes.append(subprocess.Popen(command, shell=True, cwd=str(PROJECT_ROOT)))
+        if title == 'Redis':
+            redis_started = True
+            time.sleep(_GROUP_DELAY_SEC)
     exit_code = 0
     for process in processes:
         code = process.wait()

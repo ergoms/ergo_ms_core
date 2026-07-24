@@ -2,7 +2,7 @@
 Запуск Redis для разработки без tail логов.
 
 Используется перед прогревом кэшей и API, когда REDIS_ENABLED=true.
-Терминал с логами — ergoms start-redis-dev (VS Code Optional Services).
+Терминал с логами — ergoms start-redis-dev (VS Code Redis Dev / Start All Services).
 """
 
 from __future__ import annotations

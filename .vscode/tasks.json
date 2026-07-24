@@ -3,6 +3,7 @@
     "tasks": [
         {
             "label": "Celery Worker",
+            "detail": "Запустить Celery worker'ы по celery_workers.yaml",
             "hide": true,
             "type": "multi-terminal",
             "source": {
@@ -31,6 +32,7 @@
         },
         {
             "label": "Setup Full System",
+            "detail": "Полная первичная настройка проекта и установка расширений VS Code",
             "type": "shell",
             "command": "ergoms setup && ergoms install-extensions",
             "options": {
@@ -78,6 +80,7 @@
         },
         {
             "label": "Update Submodules",
+            "detail": "Обновить git-submodules ядра и модулей",
             "type": "shell",
             "command": "ergoms update-submodules",
             "options": {
@@ -117,6 +120,7 @@
         },
         {
             "label": "Update Module Submodules",
+            "detail": "Обновить только git-submodules модулей",
             "type": "shell",
             "command": "ergoms update-module-submodules",
             "options": {
@@ -162,6 +166,7 @@
         },
         {
             "label": "Cache Warmup",
+            "detail": "Прогреть кэши при необходимости и синхронизировать конфиг логов",
             "hide": true,
             "type": "shell",
             "command": "ergoms warmup-caches-if-needed && ergoms sync-logs-services",
@@ -205,14 +210,13 @@
         },
         {
             "label": "Services",
+            "detail": "Внутренняя композиция: Redis Dev → backend → клиент",
             "hide": true,
-            "dependsOrder": "parallel",
+            "dependsOrder": "sequence",
             "dependsOn": [
-                "Optional Services",
-                "API",
-                "Media API",
-                "Celery Worker",
-                "Celery Beat"
+                "Redis Dev",
+                "Backend Services",
+                "Client Dev"
             ],
             "presentation": {
                 "reveal": "silent",
@@ -234,7 +238,111 @@
             }
         },
         {
+            "label": "Redis Dev",
+            "detail": "Запустить Redis в режиме разработки (если включён)",
+            "hide": true,
+            "type": "multi-terminal",
+            "source": {
+                "file": ".vscode/redis-dev.runtime.yaml",
+                "path": "services"
+            },
+            "commandTemplate": "ergoms start-${key}-dev",
+            "nameTemplate": "${key}",
+            "group": "redis-dev",
+            "delay": 500,
+            "hideControlTerminal": true,
+            "windows": {
+                "options": {
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
+                }
+            },
+            "linux": {
+                "options": {
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
+                }
+            }
+        },
+        {
+            "label": "Backend Services",
+            "detail": "Запустить API, Media API, Celery Beat и worker'ы",
+            "hide": true,
+            "type": "multi-terminal",
+            "terminals": [
+                {
+                    "name": "API",
+                    "command": "ergoms dev"
+                },
+                {
+                    "name": "Media API",
+                    "command": "ergoms start-media"
+                },
+                {
+                    "name": "Celery Beat",
+                    "command": "ergoms start-beat"
+                }
+            ],
+            "sources": [
+                {
+                    "file": "celery_workers.yaml",
+                    "path": "workers",
+                    "commandTemplate": "ergoms start-worker --worker=${key}",
+                    "nameTemplate": "Celery Worker: ${key}"
+                }
+            ],
+            "group": "backend-services",
+            "delay": 500,
+            "hideControlTerminal": true,
+            "windows": {
+                "options": {
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
+                }
+            },
+            "linux": {
+                "options": {
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
+                }
+            }
+        },
+        {
+            "label": "Client Dev",
+            "detail": "Запустить клиентские сервисы разработки",
+            "hide": true,
+            "type": "multi-terminal",
+            "source": {
+                "file": ".vscode/client-dev.runtime.yaml",
+                "path": "services"
+            },
+            "commandTemplate": "ergoms start-${key}-dev",
+            "nameTemplate": "${key}",
+            "group": "client-dev",
+            "delay": 300,
+            "hideControlTerminal": true,
+            "windows": {
+                "options": {
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
+                }
+            },
+            "linux": {
+                "options": {
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
+                }
+            }
+        },
+        {
             "label": "Start All Services",
+            "detail": "Прогрев кэшей, затем Redis → API/backend → клиент (по умолчанию)",
             "dependsOrder": "sequence",
             "dependsOn": [
                 "Cache Warmup",
@@ -267,6 +375,7 @@
         },
         {
             "label": "Optional Services",
+            "detail": "Запустить опциональные сервисы разработки",
             "hide": true,
             "type": "multi-terminal",
             "source": {
@@ -294,6 +403,7 @@
         },
         {
             "label": "Nginx / Client",
+            "detail": "Запустить клиент (nginx или Vite через ergoms start-client)",
             "hide": true,
             "type": "shell",
             "command": "ergoms start-client",
@@ -336,6 +446,7 @@
         },
         {
             "label": "API",
+            "detail": "Запустить Django API в режиме разработки",
             "hide": true,
             "type": "shell",
             "command": "ergoms dev",
@@ -378,6 +489,7 @@
         },
         {
             "label": "Media API",
+            "detail": "Запустить media_api для раздачи файлов",
             "hide": true,
             "type": "shell",
             "command": "ergoms start-media",
@@ -420,6 +532,7 @@
         },
         {
             "label": "Celery Beat",
+            "detail": "Запустить планировщик Celery Beat",
             "hide": true,
             "type": "shell",
             "command": "ergoms start-beat",
@@ -462,6 +575,7 @@
         },
         {
             "label": "Jupyter: Start",
+            "detail": "Запустить Jupyter Notebook в окружении проекта",
             "type": "shell",
             "command": "ergoms start-jupyter",
             "options": {
@@ -508,6 +622,7 @@
         },
         {
             "label": "Nginx: Install & Start",
+            "detail": "Установить portable nginx и запустить службу",
             "type": "shell",
             "command": "ergoms install-nginx",
             "options": {
@@ -554,6 +669,7 @@
         },
         {
             "label": "Nginx: Stop",
+            "detail": "Остановить службу nginx",
             "type": "shell",
             "command": "ergoms stop-nginx",
             "options": {
@@ -595,6 +711,7 @@
         },
         {
             "label": "Nginx: Reload",
+            "detail": "Перезагрузить конфигурацию nginx без простоя",
             "type": "shell",
             "command": "ergoms reload-nginx",
             "options": {
@@ -636,6 +753,7 @@
         },
         {
             "label": "Nginx: Uninstall",
+            "detail": "Удалить nginx с очисткой данных (-Purge)",
             "type": "shell",
             "command": "ergoms uninstall-nginx -Purge",
             "options": {
@@ -678,6 +796,7 @@
         },
         {
             "label": "Redis: Install & Start",
+            "detail": "Установить portable Redis и запустить службу",
             "type": "shell",
             "command": "ergoms install-redis",
             "options": {
@@ -724,6 +843,7 @@
         },
         {
             "label": "Redis: Stop",
+            "detail": "Остановить службу Redis",
             "type": "shell",
             "command": "ergoms stop-redis",
             "options": {
@@ -765,6 +885,7 @@
         },
         {
             "label": "Redis: Uninstall",
+            "detail": "Удалить Redis с очисткой данных (-Purge)",
             "type": "shell",
             "command": "ergoms uninstall-redis -Purge",
             "options": {
@@ -807,6 +928,7 @@
         },
         {
             "label": "Redis: Restart",
+            "detail": "Перезапустить службу Redis",
             "type": "shell",
             "command": "ergoms restart-redis",
             "options": {
@@ -848,6 +970,7 @@
         },
         {
             "label": "Sync Logs Services Config",
+            "detail": "Синхронизировать runtime-конфиг сервисов для просмотра логов",
             "hide": true,
             "type": "shell",
             "command": "ergoms sync-logs-services",
@@ -891,6 +1014,7 @@
         },
         {
             "label": "Logs: All Services Terminals",
+            "detail": "Открыть терминалы логов всех сервисов и Celery worker'ов",
             "hide": true,
             "type": "multi-terminal",
             "sources": [
@@ -928,6 +1052,7 @@
         },
         {
             "label": "Logs: All Services",
+            "detail": "Синхронизировать конфиг и открыть логи всех сервисов",
             "dependsOrder": "sequence",
             "dependsOn": [
                 "Sync Logs Services Config",
@@ -957,6 +1082,7 @@
         },
         {
             "label": "Docker: Init",
+            "detail": "Первичная инициализация Docker-стека ERGO MS",
             "type": "shell",
             "command": "ergoms docker-init",
             "options": {
@@ -1003,6 +1129,7 @@
         },
         {
             "label": "Docker: Up",
+            "detail": "Поднять Docker Compose стек",
             "type": "shell",
             "command": "ergoms docker-up",
             "options": {
@@ -1044,6 +1171,7 @@
         },
         {
             "label": "Docker: Down",
+            "detail": "Остановить Docker Compose стек",
             "type": "shell",
             "command": "ergoms docker-down",
             "options": {
@@ -1085,6 +1213,7 @@
         },
         {
             "label": "Docker: Restart",
+            "detail": "Перезапустить Docker Compose стек",
             "type": "shell",
             "command": "ergoms docker-restart",
             "options": {
@@ -1126,6 +1255,7 @@
         },
         {
             "label": "Docker: Build",
+            "detail": "Собрать Docker-образы проекта",
             "type": "shell",
             "command": "ergoms docker-build",
             "options": {
@@ -1168,6 +1298,7 @@
         },
         {
             "label": "Docker: Logs",
+            "detail": "Показать логи Docker Compose с follow (-f)",
             "type": "shell",
             "command": "ergoms docker-logs -f",
             "options": {

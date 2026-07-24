@@ -21,6 +21,8 @@ __pycache__/
 # Cursor IDE debug logs
 .vscode/logs-services.runtime.yaml
 .vscode/optional-services.runtime.yaml
+.vscode/redis-dev.runtime.yaml
+.vscode/client-dev.runtime.yaml
 
 /virtual_env/celery/*
 !/virtual_env/celery/.gitkeep

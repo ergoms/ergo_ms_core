@@ -156,7 +156,11 @@ function filterServiceKeys(workspaceRoot, items, sourceFile) {
             }
             return true;
         }
-        if (file.includes('optional-services')) {
+        if (
+            file.includes('optional-services')
+            || file.includes('redis-dev.runtime')
+            || file.includes('client-dev.runtime')
+        ) {
             if (key === 'client' && nginx) {
                 return false;
             }
@@ -177,7 +181,12 @@ function filterServiceKeys(workspaceRoot, items, sourceFile) {
  */
 function readSourceFile(workspaceRoot, sourceConfig, silent = false) {
     const relFile = String(sourceConfig.file || '').replace(/\\/g, '/');
-    if (relFile.includes('logs-services.runtime.yaml') || relFile.includes('optional-services.runtime.yaml')) {
+    if (
+        relFile.includes('logs-services.runtime.yaml')
+        || relFile.includes('optional-services.runtime.yaml')
+        || relFile.includes('redis-dev.runtime.yaml')
+        || relFile.includes('client-dev.runtime.yaml')
+    ) {
         ensureLogsServicesRuntime(workspaceRoot);
     }
 

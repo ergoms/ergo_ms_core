@@ -14,17 +14,24 @@ alwaysApply: false
 
 - Команда — `ergoms …`, не `python manage.py`, не прямой `pip` / `poetry`.
 - В `PATH` всегда есть `core/deployment/bin` (Windows и Linux).
-- У каждой задачи есть `detail` на русском: что делает и зачем.
+- У **каждой** задачи (shell, multi-terminal, композиция с `dependsOn`) есть `detail` на русском.
 - `label` — короткий стабильный идентификатор (как у соседей: `Docker: Up`, `Nginx: Stop`).
 - Внутренние шаги композиции — `"hide": true`; в Run Task видна только точка входа.
 - `cwd`: `${workspaceFolder}`; `problemMatcher`: `[]`.
+
+## Обязательные поля любой задачи
+
+| Поле | Правило |
+|------|---------|
+| `label` | Уникальное имя; стиль как у существующих (`Nginx: Reload`, `Logs: All Services`) |
+| `detail` | **Обязателен.** 1 предложение по-русски сразу после `label`; видно в Run Task под названием |
+
+Без `detail` задачу не добавляй и не оставляй после правки.
 
 ## Обязательные поля shell-задачи
 
 | Поле | Правило |
 |------|---------|
-| `label` | Уникальное имя; стиль как у существующих (`Nginx: Reload`, `Logs: All Services`) |
-| `detail` | 1 предложение по-русски; видно в Run Task под названием |
 | `command` | `ergoms <команда> [аргументы]` |
 | `options.cwd` | `${workspaceFolder}` |
 | `windows` / `linux` | `PATH` с `core/deployment/bin`; shell: `cmd.exe` `/d /c` и `/bin/bash` `-lc` |
@@ -33,12 +40,12 @@ alwaysApply: false
 
 ## `detail`
 
-Пиши так, чтобы по подписи было ясно действие без открытия JSON:
+Пиши так, чтобы по подписи было ясно действие без открытия JSON. Поле нужно и у скрытых (`hide: true`) задач — эталон для агента и человека.
 
 - хорошо: «Установить portable Redis и запустить службу»
 - хорошо: «Установить portable PostgreSQL (или пропустить, если есть системная служба)»
-- хорошо: «Прогрев кэшей, затем параллельный запуск всех сервисов разработки (по умолчанию)»
-- плохо: пусто, копия `label`, или только имя команды без смысла
+- хорошо: «Прогрев кэшей, затем Redis → API/backend → клиент (по умолчанию)»
+- плохо: пусто, копия `label`, или только имя команды без смысла (`ergoms restart-redis`)
 
 ## Композиции и скрытые задачи
 
@@ -48,6 +55,15 @@ alwaysApply: false
 - Несколько однотипных процессов — `type: multi-terminal` и yaml-источник (`celery_workers.yaml`, runtime yaml), не дублируй N одинаковых shell-задач.
 
 ## Запрещено
+
+```json
+// BAD — нет detail (любой тип задачи)
+{
+  "label": "Redis: Restart",
+  "type": "shell",
+  "command": "ergoms restart-redis"
+}
+```
 
 ```json
 // BAD — нет detail, нет PATH к ergoms, прямой manage.py
@@ -97,10 +113,11 @@ alwaysApply: false
 
 ## Чеклист перед сохранением
 
-1. Команда через `ergoms`; `detail` на русском заполнен.
-2. `PATH` к `core/deployment/bin` на Windows и Linux.
-3. Внутренние шаги с `hide: true`; пользовательская задача — без hide.
-4. Не ломай `Start All Services` / multi-terminal без нужды — сверяйся с соседями в файле.
+1. У **всех** задач в файле есть `detail` на русском (не только у новых).
+2. Команда через `ergoms`.
+3. `PATH` к `core/deployment/bin` на Windows и Linux.
+4. Внутренние шаги с `hide: true`; пользовательская задача — без hide.
+5. Не ломай `Start All Services` / multi-terminal без нужды — сверяйся с соседями в файле.
 
 ## Связанные правила
 
