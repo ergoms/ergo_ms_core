@@ -56,6 +56,7 @@ switch ($Category) {
         }
     }
     'nginx' {
+        . (Join-Path $LibPath 'nssm.ps1')
         . (Join-Path $LibPath 'nginx_env.ps1')
         . (Join-Path $LibPath 'nginx.ps1')
         $serverName = if ($Extra.Count -ge 1) { $Extra[0] } else { '' }
@@ -76,6 +77,7 @@ switch ($Category) {
         }
     }
     'redis' {
+        . (Join-Path $LibPath 'nssm.ps1')
         . (Join-Path $LibPath 'redis.ps1')
         $port = if ($Extra.Count -ge 1 -and $Extra[0] -match '^\d+$') { $Extra[0] } else { '' }
         switch ($Operation) {
@@ -94,6 +96,7 @@ switch ($Category) {
     }
 
     'postgres' {
+        . (Join-Path $LibPath 'nssm.ps1')
         . (Join-Path $LibPath 'postgres.ps1')
         $port = ''
         $noSkip = $false

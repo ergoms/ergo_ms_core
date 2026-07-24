@@ -2,6 +2,9 @@
 # Установка и управление portable PostgreSQL в virtual_env/packages/postgres
 
 $script:PostgresServiceName = 'ergo_ms_postgres'
+# LocalSystem = admin → postgres отказывается стартовать; NetworkService — без elevated token.
+$script:PostgresServiceAccount = 'NT AUTHORITY\NetworkService'
+$script:PostgresServiceAccountSid = 'S-1-5-20'
 
 function Get-PostgresPackagesRelativePath {
     return Join-Path 'virtual_env' (Join-Path 'packages' 'postgres')
@@ -40,6 +43,70 @@ function Get-ProjectPythonExeForPostgres {
 function Test-PostgresInstalled {
     param([string]$Root)
     return (Test-Path (Get-PostgresExe -Root $Root -Name 'postgres')) -and (Test-Path (Get-PostgresExe -Root $Root -Name 'pg_ctl'))
+}
+
+function Invoke-PostgresCtl {
+    param(
+        [string]$PgCtl,
+        [string[]]$Arguments
+    )
+
+    # Native stderr (например «PID file does not exist») при Stop становится terminating.
+    $prevEa = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & $PgCtl @Arguments 2>&1 | Out-Null
+        return $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $prevEa
+    }
+}
+
+function Stop-PostgresClusterIfRunning {
+    param(
+        [string]$Root,
+        [string]$DataDir = ''
+    )
+
+    $pgCtl = Get-PostgresExe -Root $Root -Name 'pg_ctl'
+    if (-not (Test-Path $pgCtl)) { return }
+    if (-not $DataDir) { $DataDir = Get-PostgresDataDir -Root $Root }
+    $pidFile = Join-Path $DataDir 'postmaster.pid'
+    if (-not (Test-Path $pidFile)) { return }
+    Invoke-PostgresCtl -PgCtl $pgCtl -Arguments @('stop', '-D', $DataDir, '-m', 'fast', '-w') | Out-Null
+}
+
+function Grant-PostgresServiceDirectoryAccess {
+    param([string]$PgDir)
+
+    if (-not (Test-Path $PgDir)) { return }
+
+    # SID NETWORK SERVICE — стабильнее локализованного имени для icacls.
+    $grant = "*$($script:PostgresServiceAccountSid):(OI)(CI)M"
+    $prevEa = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & icacls $PgDir /grant $grant /T /C /Q | Out-Null
+    }
+    finally {
+        $ErrorActionPreference = $prevEa
+    }
+}
+
+function Wait-PostgresServiceRemoved {
+    param(
+        [string]$ServiceName = $script:PostgresServiceName,
+        [int]$TimeoutSeconds = 30
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+        if (-not $svc) { return $true }
+        Start-Sleep -Milliseconds 500
+    }
+    return -not (Get-Service -Name $ServiceName -ErrorAction SilentlyContinue)
 }
 
 function Test-PostgresPortablePresent {
@@ -156,39 +223,80 @@ function Install-PostgresService {
     $dataDir = Get-PostgresDataDir -Root $Root
     $nssmExe = Install-NSSM -Root $Root
 
-    $pgCtl = Get-PostgresExe -Root $Root -Name 'pg_ctl'
-    if (Test-Path $pgCtl) {
-        & $pgCtl stop -D $dataDir -m fast -w 2>$null | Out-Null
-    }
+    Stop-PostgresClusterIfRunning -Root $Root -DataDir $dataDir
 
     $existingService = Get-Service -Name $script:PostgresServiceName -ErrorAction SilentlyContinue
     if ($existingService) {
         Write-ColorOutput "-> Служба $($script:PostgresServiceName) уже существует, переустановка..." Yellow
-        if ($existingService.Status -eq 'Running') {
-            & $nssmExe stop $script:PostgresServiceName 2>$null
+        if ($existingService.Status -eq 'Running' -or $existingService.Status -eq 'Paused') {
+            $prevEa = $ErrorActionPreference
+            $ErrorActionPreference = 'Continue'
+            try {
+                & $nssmExe stop $script:PostgresServiceName 2>&1 | Out-Null
+                Stop-Service -Name $script:PostgresServiceName -Force -ErrorAction SilentlyContinue
+            }
+            finally {
+                $ErrorActionPreference = $prevEa
+            }
             Start-Sleep -Seconds 2
         }
         & $nssmExe remove $script:PostgresServiceName confirm 2>$null
-        Start-Sleep -Seconds 1
+        if (-not (Wait-PostgresServiceRemoved)) {
+            Write-ColorOutput '[ERROR] Служба PostgreSQL помечена на удаление, но ещё не снята. Повторите команду через несколько секунд' Red
+            exit 1
+        }
     }
 
     Write-ColorOutput '-> Установка PostgreSQL как службы Windows...' Cyan
     & $nssmExe install $script:PostgresServiceName $postgresExe
+    if ($LASTEXITCODE -ne 0) {
+        Write-ColorOutput '[ERROR] Не удалось зарегистрировать службу PostgreSQL в NSSM' Red
+        exit 1
+    }
     & $nssmExe set $script:PostgresServiceName AppParameters "-D `"$dataDir`""
     & $nssmExe set $script:PostgresServiceName AppDirectory $pgDir
     & $nssmExe set $script:PostgresServiceName DisplayName 'Ergo MS - PostgreSQL'
     & $nssmExe set $script:PostgresServiceName Description 'Ergo MS portable PostgreSQL'
+    # LocalSystem запрещён для postmaster; пустой пароль — для встроенной учётки.
+    & $nssmExe set $script:PostgresServiceName ObjectName $script:PostgresServiceAccount ''
 
     $logsDir = Join-Path $pgDir 'logs'
     if (-not (Test-Path $logsDir)) { New-Item -ItemType Directory -Path $logsDir -Force | Out-Null }
-    & $nssmExe set $script:PostgresServiceName AppStdout (Join-Path $logsDir 'service_stdout.log')
-    & $nssmExe set $script:PostgresServiceName AppStderr (Join-Path $logsDir 'service_stderr.log')
+    $stderrLog = Join-Path $logsDir 'service_stderr.log'
+    $stdoutLog = Join-Path $logsDir 'service_stdout.log'
+    if (Test-Path $stderrLog) { Clear-Content $stderrLog -ErrorAction SilentlyContinue }
+    if (Test-Path $stdoutLog) { Clear-Content $stdoutLog -ErrorAction SilentlyContinue }
+    & $nssmExe set $script:PostgresServiceName AppStdout $stdoutLog
+    & $nssmExe set $script:PostgresServiceName AppStderr $stderrLog
     & $nssmExe set $script:PostgresServiceName Start SERVICE_AUTO_START
     & $nssmExe set $script:PostgresServiceName AppExit Default Restart
     & $nssmExe set $script:PostgresServiceName AppRestartDelay 5000
 
-    Start-Service -Name $script:PostgresServiceName
+    Grant-PostgresServiceDirectoryAccess -PgDir $pgDir
+
+    try {
+        Start-Service -Name $script:PostgresServiceName -ErrorAction Stop
+    }
+    catch {
+        Write-ColorOutput '[ERROR] Не удалось запустить службу PostgreSQL' Red
+        if (Test-Path $stderrLog) {
+            Get-Content $stderrLog -Tail 15 -ErrorAction SilentlyContinue | ForEach-Object {
+                Write-ColorOutput "    $_" Red
+            }
+        }
+        throw
+    }
     Start-Sleep -Seconds 2
+    $running = Get-Service -Name $script:PostgresServiceName -ErrorAction SilentlyContinue
+    if (-not $running -or $running.Status -ne 'Running') {
+        Write-ColorOutput '[ERROR] Служба PostgreSQL не перешла в Running' Red
+        if (Test-Path $stderrLog) {
+            Get-Content $stderrLog -Tail 15 -ErrorAction SilentlyContinue | ForEach-Object {
+                Write-ColorOutput "    $_" Red
+            }
+        }
+        exit 1
+    }
     Write-ColorOutput '[OK] Служба PostgreSQL установлена и запущена' Green
 }
 
@@ -211,13 +319,13 @@ function Stop-PostgresProcess {
     }
 
     if ($Root -and (Test-PostgresInstalled -Root $Root)) {
-        $pgCtl = Get-PostgresExe -Root $Root -Name 'pg_ctl'
         $dataDir = Get-PostgresDataDir -Root $Root
-        if (Test-Path $pgCtl) {
+        $pidFile = Join-Path $dataDir 'postmaster.pid'
+        if (Test-Path $pidFile) {
             if (-not $Quiet) {
                 Write-ColorOutput '-> Остановка PostgreSQL (pg_ctl)...' Cyan
             }
-            & $pgCtl stop -D $dataDir -m fast -w 2>$null | Out-Null
+            Stop-PostgresClusterIfRunning -Root $Root -DataDir $dataDir
         }
     }
 
