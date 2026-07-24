@@ -204,10 +204,14 @@ function Install-Postgres {
     }
 
     $pgDir = Get-PostgresDir -Root $Root
+    $listenPort = Get-PostgresListenPort -Root $Root
+    $listenBind = Get-PostgresListenBind -Root $Root
     Write-ColorOutput '' White
     Write-ColorOutput '[OK] PostgreSQL установлен' Green
     Write-ColorOutput "    Путь: $pgDir" Cyan
     Write-ColorOutput "    Служба: $($script:PostgresServiceName)" Cyan
+    Write-ColorOutput "    Прослушивание: ${listenBind}:${listenPort}" Cyan
+    Write-PostgresYamlPortHint -Root $Root -ListenPort $listenPort
 }
 
 function Install-PostgresService {
@@ -393,6 +397,66 @@ function Test-PostgresPing {
     )
 }
 
+function Get-PostgresYamlDefaultField {
+    param(
+        [string]$Root,
+        [string]$FieldName
+    )
+
+    $yamlPath = Join-Path $Root 'databases.yaml'
+    if (-not (Test-Path $yamlPath)) { return $null }
+    $inDefault = $false
+    foreach ($line in Get-Content $yamlPath -ErrorAction SilentlyContinue) {
+        if ($line -match '^\s*default:\s*$') { $inDefault = $true; continue }
+        if ($inDefault -and $line -match '^\s{2}\w+:\s*$') { break }
+        if ($inDefault -and $line -match ("^\s+" + [regex]::Escape($FieldName) + ":\s*(.+)$")) {
+            return $Matches[1].Trim().Trim('"').Trim("'")
+        }
+    }
+    return $null
+}
+
+function Get-PostgresListenPort {
+    param([string]$Root)
+
+    $portFile = Join-Path (Get-PostgresDir -Root $Root) 'PORT'
+    if (Test-Path $portFile) {
+        $raw = (Get-Content $portFile -TotalCount 1 -ErrorAction SilentlyContinue)
+        if ($raw -match '^\d+$') { return $raw.Trim() }
+    }
+    $yamlPort = Get-PostgresYamlDefaultField -Root $Root -FieldName 'port'
+    if ($yamlPort -match '^\d+$') { return $yamlPort }
+    return '5433'
+}
+
+function Get-PostgresListenBind {
+    param([string]$Root)
+
+    $yamlHost = Get-PostgresYamlDefaultField -Root $Root -FieldName 'host'
+    if ($yamlHost) {
+        if ($yamlHost -in @('localhost', '::1')) { return '127.0.0.1' }
+        return $yamlHost
+    }
+    return '127.0.0.1'
+}
+
+function Write-PostgresYamlPortHint {
+    param(
+        [string]$Root,
+        [string]$ListenPort
+    )
+
+    $yamlPort = Get-PostgresYamlDefaultField -Root $Root -FieldName 'port'
+    if (-not $yamlPort) {
+        Write-ColorOutput "[INFO] Задайте default.port в databases.yaml (сейчас portable: $ListenPort)" Cyan
+        return
+    }
+    if ($yamlPort -ne $ListenPort) {
+        Write-ColorOutput "[WARNING] databases.yaml default.port=$yamlPort, portable слушает $ListenPort" Yellow
+        Write-ColorOutput '[INFO] Переустановите portable (ergoms install-postgres) или выровняйте port в databases.yaml' Cyan
+    }
+}
+
 function Show-PostgresStatus {
     param([string]$Root)
 
@@ -422,7 +486,11 @@ function Show-PostgresStatus {
         Write-ColorOutput '  Служба: не зарегистрирована' Yellow
     }
 
+    $listenPort = Get-PostgresListenPort -Root $Root
+    $listenBind = Get-PostgresListenBind -Root $Root
     Write-ColorOutput "  Путь: $pgDir" Cyan
+    Write-ColorOutput "  Прослушивание: ${listenBind}:${listenPort}" Cyan
+    Write-PostgresYamlPortHint -Root $Root -ListenPort $listenPort
 
     if (Test-PostgresPing -Root $Root) {
         Write-ColorOutput '  Ping: OK' Green

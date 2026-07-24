@@ -42,7 +42,8 @@ class EnsurePostgresStep(DeploymentStep):
         if force and has_system_postgresql_service():
             print(format_console(
                 'warning',
-                'POSTGRES_FORCE_INSTALL / --with-postgres: portable при системной службе',
+                'POSTGRES_FORCE_INSTALL / --with-postgres: portable при системной службе '
+                '(portable всегда на порту 5433)',
             ))
 
         if is_installed(ctx.project_root) and not force:

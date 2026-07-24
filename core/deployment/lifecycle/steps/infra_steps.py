@@ -6,8 +6,13 @@ import sys
 from pathlib import Path
 
 _DEPLOYMENT_DIR = Path(__file__).resolve().parents[2]
+_SCRIPTS_DIR = _DEPLOYMENT_DIR / 'scripts'
 if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
+
+from console_tags import format_console  # noqa: E402
 
 from lifecycle.context import DeploymentContext  # noqa: E402
 from lifecycle.host.shell_bridge import invoke_dispatch  # noqa: E402
@@ -55,3 +60,55 @@ class InfraOperationStep(DeploymentStep):
         ctx.options.setdefault('needs_sudo', self._component in ('nginx', 'redis', 'postgres', 'tls'))
         code = invoke_dispatch(ctx, self._component, self._operation, *extra)
         return StepResult(exit_code=code)
+
+
+class EnsureRedisStep(DeploymentStep):
+    """При REDIS_ENABLED=true в .env — установить portable Redis (setup-full)."""
+
+    @property
+    def name(self) -> str:
+        return 'ensure_redis'
+
+    def should_run(self, ctx: DeploymentContext) -> bool:
+        return ctx.runtime == 'host'
+
+    def run(self, ctx: DeploymentContext) -> StepResult:
+        from deployment_env import is_redis_enabled  # noqa: WPS433
+
+        if not is_redis_enabled():
+            print(format_console('skip', 'REDIS_ENABLED=false — Redis не устанавливается'))
+            return StepResult()
+
+        print(format_console('info', 'Установка / проверка Redis (REDIS_ENABLED=true)…'))
+        ctx.options.setdefault('needs_sudo', True)
+        code = invoke_dispatch(ctx, 'redis', 'install')
+        if code != 0:
+            return StepResult(exit_code=code, message='Не удалось установить Redis')
+        print(format_console('ok', 'Redis готов'))
+        return StepResult()
+
+
+class EnsureNginxStep(DeploymentStep):
+    """При NGINX_ENABLED=true в .env — установить portable nginx (setup-full)."""
+
+    @property
+    def name(self) -> str:
+        return 'ensure_nginx'
+
+    def should_run(self, ctx: DeploymentContext) -> bool:
+        return ctx.runtime == 'host'
+
+    def run(self, ctx: DeploymentContext) -> StepResult:
+        from deployment_env import is_nginx_enabled  # noqa: WPS433
+
+        if not is_nginx_enabled():
+            print(format_console('skip', 'NGINX_ENABLED=false — nginx не устанавливается'))
+            return StepResult()
+
+        print(format_console('info', 'Установка / проверка nginx (NGINX_ENABLED=true)…'))
+        ctx.options.setdefault('needs_sudo', True)
+        code = invoke_dispatch(ctx, 'nginx', 'install')
+        if code != 0:
+            return StepResult(exit_code=code, message='Не удалось установить nginx')
+        print(format_console('ok', 'nginx готов'))
+        return StepResult()

@@ -161,7 +161,7 @@ ergoms env-normalize --dry-run
 
 ## Nginx (опционально) {#nginx-опционально}
 
-Команды реализованы в `ergo_ms.ps1` / `ergo_ms.sh` (не в `commands.conf`). Установка может потребовать прав администратора; `status-nginx` и `test-nginx` — без них.
+Команды реализованы в `ergo_ms.ps1` / `ergo_ms.sh` (не в `commands.conf`). При `NGINX_ENABLED=true` ставит `setup-full`. Установка может потребовать прав администратора; `status-nginx` и `test-nginx` — без них.
 
 ```cmd
 ergoms install-nginx
@@ -176,7 +176,7 @@ ergoms stop-nginx
 
 ## Redis (опционально) {#redis-опционально}
 
-Portable-сборка в `virtual_env/packages/redis/`. Не входит в `setup-full`.
+Portable-сборка в `virtual_env/packages/redis/`. При `REDIS_ENABLED=true` ставит `setup-full`.
 
 ```cmd
 ergoms install-redis
@@ -186,7 +186,7 @@ ergoms start-redis
 ergoms stop-redis
 ```
 
-После установки вручную в `.env`: `REDIS_ENABLED=true`, перезапустите API. Служба: `ergoms install-redis-service`.
+В `.env`: `REDIS_ENABLED=true`, перезапустите API. Служба: `ergoms install-redis-service`.
 
 ## Docker Compose {#docker-compose}
 

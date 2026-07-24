@@ -91,7 +91,7 @@
 
 ## Redis (optional, portable packages)
 
-Опциональный локальный Redis для общего кэша Django и channel layer (не входит в `setup-full`).
+Опциональный локальный Redis для общего кэша Django и channel layer. В `setup-full` ставится при `REDIS_ENABLED=true` в `.env`.
 
 | Что | Где |
 |-----|-----|
@@ -110,7 +110,7 @@
 
 ### Первичная настройка Redis
 
-1. `ergoms install-redis`, затем `REDIS_ENABLED=true` в `.env`
+1. В `.env`: `REDIS_ENABLED=true`, затем `ergoms install-redis` (или `setup-full` — шаг `EnsureRedisStep`)
 2. Перезапустить API
 3. Проверка: `ergoms test-redis` → `PONG`
 
@@ -118,7 +118,7 @@
 
 ## Nginx (optional, portable packages)
 
-Обратный прокси для запуска как на сервере: один origin для клиента, API, WebSocket и media_api. **Не входит** в `setup-full`.
+Обратный прокси для запуска как на сервере: один origin для клиента, API, WebSocket и media_api. В `setup-full` ставится при `NGINX_ENABLED=true` в `.env`.
 
 | Что | Где |
 |-----|-----|
@@ -143,7 +143,7 @@
 ### Первичная настройка nginx
 
 1. Скопируйте нужные переменные из `core/deployment/nginx/env.example` в корневой `.env` (`NGINX_ENABLED=true`, `CLIENT_USE_RELATIVE_API=true`, …).
-2. `ergoms install-nginx` (на Linux runner при необходимости запросит `sudo`).
+2. `ergoms install-nginx` (или `setup-full` при уже `NGINX_ENABLED=true`; на Linux runner при необходимости запросит `sudo`).
 3. Проверка: `ergoms test-nginx`, `ergoms status-nginx`.
 4. После смены клиента: `ergoms client-build && ergoms reload-nginx`.
 

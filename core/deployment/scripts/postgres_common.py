@@ -26,6 +26,8 @@ from console_tags import format_console  # noqa: E402
 DOWNLOAD_USER_AGENT = 'ergoms/1.0 (PostgreSQL installer)'
 DOWNLOAD_TIMEOUT_SEC = 600
 DEFAULT_PORT = 5432
+# Portable всегда на отдельном порту (не пересекается с типичным системным 5432).
+PORTABLE_DEFAULT_PORT = 5433
 DEFAULT_BIND = '127.0.0.1'
 DEFAULT_DB_NAME = 'ergo_ms'
 DEFAULT_DB_USER = 'postgres'
@@ -69,6 +71,57 @@ def postgres_data_dir(root: Path) -> Path:
 
 def postgres_version_file(root: Path) -> Path:
     return postgres_packages_dir(root) / 'VERSION'
+
+
+def postgres_listen_port_file(root: Path) -> Path:
+    return postgres_packages_dir(root) / 'PORT'
+
+
+def write_portable_listen_port(root: Path, port: int) -> None:
+    base = postgres_packages_dir(root)
+    base.mkdir(parents=True, exist_ok=True)
+    postgres_listen_port_file(root).write_text(f'{int(port)}\n', encoding='utf-8')
+
+
+def read_portable_listen_port(root: Path) -> int | None:
+    marker = postgres_listen_port_file(root)
+    if not marker.is_file():
+        return None
+    text = marker.read_text(encoding='utf-8').strip()
+    if not text:
+        return None
+    try:
+        return int(text)
+    except ValueError:
+        return None
+
+
+def resolve_portable_listen_port(
+    root: Path,
+    *,
+    cli_port: int | None = None,
+    alongside_system: bool = False,
+) -> int:
+    """Порт прослушивания portable: CLI → databases.yaml default.port → 5433."""
+    _ = alongside_system
+    if cli_port is not None:
+        return int(cli_port)
+    defaults = load_db_defaults(root)
+    try:
+        return int(defaults.get('port') or PORTABLE_DEFAULT_PORT)
+    except ValueError:
+        return PORTABLE_DEFAULT_PORT
+
+
+def resolve_portable_bind(root: Path | None = None) -> str:
+    """Адрес прослушивания portable: databases.yaml default.host → 127.0.0.1."""
+    if root is None:
+        root = PROJECT_ROOT
+    defaults = load_db_defaults(root)
+    host = (defaults.get('host') or DEFAULT_BIND).strip() or DEFAULT_BIND
+    if host.lower() in {'localhost', '::1'}:
+        return DEFAULT_BIND
+    return host
 
 
 def is_installed(root: Path) -> bool:
@@ -262,7 +315,7 @@ def load_db_defaults(root: Path) -> dict[str, str]:
         'user': DEFAULT_DB_USER,
         'password': DEFAULT_DB_PASSWORD,
         'host': 'localhost',
-        'port': str(DEFAULT_PORT),
+        'port': str(PORTABLE_DEFAULT_PORT),
     }
     if not path.is_file():
         return defaults
@@ -326,6 +379,7 @@ def _configure_cluster(root: Path, port: int, bind: str) -> None:
             'log_filename': "'postgresql.log'",
         },
     )
+    write_portable_listen_port(root, port)
     hba = data / 'pg_hba.conf'
     if hba.is_file():
         content = hba.read_text(encoding='utf-8')
@@ -333,6 +387,15 @@ def _configure_cluster(root: Path, port: int, bind: str) -> None:
             content += '\nhost all all 127.0.0.1/32 scram-sha-256\n'
             content += 'host all all ::1/128 scram-sha-256\n'
             hba.write_text(content, encoding='utf-8')
+
+
+def effective_portable_port(root: Path, port: int | None = None) -> int:
+    if port is not None:
+        return int(port)
+    stored = read_portable_listen_port(root)
+    if stored is not None:
+        return stored
+    return resolve_portable_listen_port(root)
 
 
 def _run_pg(
@@ -428,7 +491,7 @@ def _psql_env(user: str, password: str) -> dict[str, str]:
 
 def ensure_databases(root: Path, port: int | None = None) -> None:
     defaults = load_db_defaults(root)
-    port_i = port or int(defaults.get('port') or DEFAULT_PORT)
+    port_i = effective_portable_port(root, port)
     user = defaults['user']
     password = defaults['password']
     dbname = defaults['name']
@@ -504,7 +567,7 @@ def ping_postgres(root: Path, port: int | None = None, timeout_sec: float = 5.0)
     if not is_installed(root):
         return False
     defaults = load_db_defaults(root)
-    port_i = port or int(defaults.get('port') or DEFAULT_PORT)
+    port_i = effective_portable_port(root, port)
     env = _psql_env(defaults['user'], defaults['password'])
     try:
         result = subprocess.run(

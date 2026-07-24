@@ -45,7 +45,7 @@ sections:
         invoke: "ergoms logs <имя_службы> [строки]"
         summary: "Журнал службы"
       - name: setup-full
-        summary: "Полная первичная настройка без установки служб"
+        summary: "Полная первичная настройка; Redis/nginx — при REDIS_ENABLED/NGINX_ENABLED=true"
       - name: install-cli
         summary: "Проверить локальный ergoms и убрать устаревшую системную обёртку"
       - name: uninstall-cli
@@ -284,7 +284,7 @@ sections:
 
   - id: nginx
     title: "Nginx (опционально)"
-    note: "Установка требует прав администратора; status-nginx и test-nginx — без них."
+    note: "Авто в setup-full при NGINX_ENABLED=true. Установка требует прав администратора; status-nginx и test-nginx — без них."
     commands:
       - name: install-nginx
         summary: "Установить и запустить nginx"
@@ -305,7 +305,7 @@ sections:
 
   - id: redis
     title: "Redis (опционально)"
-    note: "Портable-сборка в virtual_env/packages/redis."
+    note: "Portable в virtual_env/packages/redis. Авто в setup-full при REDIS_ENABLED=true."
     commands:
       - name: install-redis
         summary: "Установить и запустить Redis"

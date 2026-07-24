@@ -5,7 +5,7 @@ alwaysApply: false
 
 # Инфраструктура развёртывания (Redis, nginx, TLS, Docker)
 
-Опциональные компоненты для запуска как на сервере: обратный прокси, общий кэш, channel layer и брокер Celery. **Не входят** в `setup-full` — устанавливаются по необходимости.
+Опциональные компоненты для запуска как на сервере: обратный прокси, общий кэш, channel layer и брокер Celery. В `setup-full` ставятся **только если** в `.env` уже `REDIS_ENABLED=true` / `NGINX_ENABLED=true`; иначе — вручную `ergoms install-redis` / `install-nginx`.
 
 **Docker Compose** — отдельный сценарий (`ergoms docker-*`): Redis, PostgreSQL, nginx и сервисы приложения в контейнерах. Подробности — [`.cursor/rules/docker.mdc`](docker.mdc), [`.docs/docker.md`](../../.docs/docker.md). Не смешивайте portable redis/nginx на хосте и Docker-стек на одних портах.
 
@@ -37,7 +37,7 @@ ergoms install-redis
 ergoms test-redis
 ```
 
-В `.env` вручную: `REDIS_ENABLED=true`. Перезапустите API. Проверка: `ergoms test-redis` → `PONG`.
+В `.env`: `REDIS_ENABLED=true`. При уже включённом флаге `setup-full` сам вызывает `install-redis`. Перезапустите API. Проверка: `ergoms test-redis` → `PONG`.
 
 Служба: `ergoms install-redis-service` (Windows: `ergo_ms_redis`, Linux: `ergo-redis`). Логи — `logs/redis.log`, `ergoms logs ergo-redis` (Linux) или `ergoms logs ergo_ms_redis` (Windows).
 

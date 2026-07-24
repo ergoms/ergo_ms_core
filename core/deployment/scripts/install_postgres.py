@@ -26,7 +26,6 @@ if str(DEPLOYMENT_DIR) not in sys.path:
 
 from console_tags import configure_stdio_utf8, format_console  # noqa: E402
 from postgres_common import (  # noqa: E402
-    DEFAULT_BIND,
     DEFAULT_PORT,
     EDB_WINDOWS_URL,
     PG_FTP_SOURCE,
@@ -41,7 +40,10 @@ from postgres_common import (  # noqa: E402
     ping_postgres,
     postgres_version_file,
     read_installed_version,
+    read_portable_listen_port,
     resolve_latest_version,
+    resolve_portable_bind,
+    resolve_portable_listen_port,
     start_server,
     stop_server,
 )
@@ -189,7 +191,7 @@ def _install_linux(root: Path, version: str, force: bool) -> None:
 def install_postgres(
     root: Path,
     *,
-    port: int = DEFAULT_PORT,
+    port: int | None = None,
     force: bool = False,
     platform_name: str = 'auto',
     skip_if_system: bool = True,
@@ -205,16 +207,42 @@ def install_postgres(
     if _force_install_from_env():
         skip_if_system = False
 
-    if skip_if_system and has_system_postgresql_service():
+    system_present = has_system_postgresql_service()
+    if skip_if_system and system_present:
         print(format_console('skip', 'Найдена системная служба PostgreSQL — portable не устанавливается'))
         print(format_console('info', 'Принудительно: POSTGRES_FORCE_INSTALL=true в .env или --no-skip-system'))
         return 2
 
-    if not skip_if_system and has_system_postgresql_service():
+    alongside_system = (not skip_if_system) and system_present
+    listen_port = resolve_portable_listen_port(
+        root,
+        cli_port=port,
+        alongside_system=alongside_system,
+    )
+    listen_bind = resolve_portable_bind(root)
+
+    if alongside_system:
         print(format_console(
             'warning',
-            'POSTGRES_FORCE_INSTALL / --no-skip-system: установка portable при системной службе '
-            '(проверьте порт 5432)',
+            'POSTGRES_FORCE_INSTALL / --no-skip-system: portable при системной службе',
+        ))
+
+    print(format_console(
+        'info',
+        f'Portable слушает {listen_bind}:{listen_port} '
+        f'(host/port из databases.yaml; системный обычно на {DEFAULT_PORT})',
+    ))
+    yaml_port = None
+    try:
+        yaml_port = int(load_db_defaults(root).get('port') or 0) or None
+    except ValueError:
+        yaml_port = None
+    # Порт уже из yaml — подсказка только если CLI переопределил
+    if port is not None and yaml_port is not None and yaml_port != listen_port:
+        print(format_console(
+            'info',
+            f'CLI --port={listen_port} отличается от databases.yaml port={yaml_port}; '
+            f'для Django укажите port: {listen_port} в databases.yaml',
         ))
 
     system = platform_name.lower()
@@ -223,12 +251,9 @@ def install_postgres(
 
     version = resolve_latest_version()
     print(format_console('info', f'Целевая версия PostgreSQL: {version}'))
+    print(format_console('info', f'Порт прослушивания portable: {listen_port}'))
 
     defaults = load_db_defaults(root)
-    try:
-        port = int(defaults.get('port') or port)
-    except ValueError:
-        port = DEFAULT_PORT
     user = defaults['user']
     password = defaults['password']
 
@@ -240,11 +265,11 @@ def install_postgres(
         else:
             raise RuntimeError(f'Неподдерживаемая платформа для portable PostgreSQL: {system}')
 
-        _initdb_if_needed(root, user, password, port, DEFAULT_BIND)
+        _initdb_if_needed(root, user, password, listen_port, listen_bind)
         if start:
             start_server(root)
         if create_db and start:
-            ensure_databases(root, port=port)
+            ensure_databases(root, port=listen_port)
     except Exception as exc:
         print(format_console('error', str(exc)), file=sys.stderr)
         return 1
@@ -257,7 +282,7 @@ def main() -> int:
         description='Install portable PostgreSQL into virtual_env/packages/postgres'
     )
     parser.add_argument('--root', type=Path, default=PROJECT_ROOT)
-    parser.add_argument('--port', type=int, default=DEFAULT_PORT)
+    parser.add_argument('--port', type=int, default=None)
     parser.add_argument('--force', action='store_true')
     parser.add_argument('--platform', default='auto', choices=('auto', 'windows', 'linux'))
     parser.add_argument('--ping-only', action='store_true')
@@ -268,6 +293,8 @@ def main() -> int:
         help='Exit 0 if POSTGRES_FORCE_INSTALL is set, else 1',
     )
     parser.add_argument('--ensure-db-only', action='store_true')
+    parser.add_argument('--print-port', action='store_true')
+    parser.add_argument('--print-bind', action='store_true')
     parser.add_argument('--no-skip-system', action='store_true')
     parser.add_argument('--no-start', action='store_true')
     args = parser.parse_args()
@@ -277,6 +304,15 @@ def main() -> int:
 
     if args.check_force_only:
         return 0 if _force_install_from_env() else 1
+
+    if args.print_port:
+        stored = read_portable_listen_port(args.root)
+        print(stored if stored is not None else resolve_portable_listen_port(args.root))
+        return 0
+
+    if args.print_bind:
+        print(resolve_portable_bind(args.root))
+        return 0
 
     if args.ping_only:
         return 0 if ping_postgres(args.root, port=args.port) else 1

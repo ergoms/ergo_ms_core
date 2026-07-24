@@ -155,14 +155,14 @@ Nginx: отдельный location для `/api/realtime/stream/` — `core/depl
 
 ## Redis и несколько процессов {#redis-и-несколько-процессов}
 
-Portable Redis **не входит** в `setup-full`. Установка:
+Portable Redis при `REDIS_ENABLED=true` ставит `setup-full` (шаг `EnsureRedisStep`). Вручную:
 
 ```cmd
 ergoms install-redis
 ergoms test-redis
 ```
 
-В `.env` вручную: **`REDIS_ENABLED=true`**, перезапустите API.
+В `.env`: **`REDIS_ENABLED=true`**, перезапустите API.
 
 При `REDIS_ENABLED=true` модуль [`redis_runtime.py`](../core/api/src/config/redis_runtime.py) по умолчанию включает `redis` для channel layer, кэша и Celery broker — если не заданы явно `CHANNEL_LAYER_BACKEND`, `API_CACHE_BACKEND`, `CELERY_BROKER_BACKEND`.
 
@@ -191,7 +191,7 @@ CELERY_BROKER_BACKEND=redis
 
 | Переменная | Назначение |
 |------------|------------|
-| `NGINX_ENABLED` | включить сценарий nginx |
+| `NGINX_ENABLED` | включить сценарий nginx; при `true` `setup-full` ставит portable nginx |
 | `NGINX_SERVER_NAME`, `NGINX_PUBLIC_HOST` | домен |
 | `CLIENT_USE_RELATIVE_API` | API и WebSocket с того же origin, что SPA |
 | `API_DEPLOY_TYPE`, `CLIENT_DEPLOY_TYPE` | `production` |

@@ -5,7 +5,9 @@ databases:
     user: "postgres"
     password: "admin"
     host: "localhost"
-    port: 5432
+    # 5433 — portable (ergoms install-postgres / setup-full); host/port — источник для listen portable
+    # 5432 — системный Postgres, если используете его вместо portable
+    port: 5433
 
   celery:
     engine: "postgresql"
@@ -13,7 +15,7 @@ databases:
     user: "celery_user"
     password: "celery_password"
     host: "localhost"
-    port: 5432
+    port: 5433
   
   celery_worker:
     engine: "postgresql"
@@ -21,7 +23,7 @@ databases:
     user: "celery_worker_user"
     password: "worker_password"
     host: "localhost"
-    port: 5432
+    port: 5433
   
   celery_beat:
     engine: "postgresql"
@@ -29,7 +31,7 @@ databases:
     user: "celery_beat_user"
     password: "beat_password"
     host: "localhost"
-    port: 5432
+    port: 5433
 
   analytics:
     engine: "mysql"

@@ -43,7 +43,7 @@ from lifecycle.steps.host_steps import (
     PoetryInstallStep,
     UpdateModuleSubmodulesStep,
 )
-from lifecycle.steps.infra_steps import InfraOperationStep
+from lifecycle.steps.infra_steps import EnsureNginxStep, EnsureRedisStep, InfraOperationStep
 from lifecycle.steps.postgres_steps import EnsurePostgresStep
 from lifecycle.steps.service_steps import ServiceOperationStep
 
@@ -87,6 +87,8 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
                 NpmInstallStep(),
                 ClientBuildStep(),
                 EnsurePostgresStep(),
+                EnsureRedisStep(),
+                EnsureNginxStep(),
                 MigrateStep(),
                 WarmupCachesStep(),
                 CollectStaticStep(),

@@ -51,6 +51,74 @@ _postgres_is_installed() {
   [[ -x "$(_postgres_bin "$root" postgres)" ]] && [[ -x "$(_postgres_bin "$root" pg_ctl)" ]]
 }
 
+_postgres_yaml_default_field() {
+  local root="$1"
+  local field="$2"
+  local yaml_path="$root/databases.yaml"
+  [[ -f "$yaml_path" ]] || return 0
+  local in_default=0
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ "$line" =~ ^[[:space:]]*default:[[:space:]]*$ ]]; then
+      in_default=1
+      continue
+    fi
+    if [[ "$in_default" -eq 1 && "$line" =~ ^[[:space:]]{2}[A-Za-z_]+:[[:space:]]*$ ]]; then
+      break
+    fi
+    if [[ "$in_default" -eq 1 && "$line" =~ ^[[:space:]]+${field}:[[:space:]]*(.+)$ ]]; then
+      printf '%s' "${BASH_REMATCH[1]}" | tr -d '[:space:]"'"'"
+      return 0
+    fi
+  done <"$yaml_path"
+}
+
+_postgres_listen_port() {
+  local root="$1"
+  local port_file
+  port_file="$(_postgres_dir "$root")/PORT"
+  if [[ -f "$port_file" ]]; then
+    local raw
+    raw="$(tr -d '[:space:]' <"$port_file" || true)"
+    if [[ "$raw" =~ ^[0-9]+$ ]]; then
+      echo "$raw"
+      return 0
+    fi
+  fi
+  local yaml_port
+  yaml_port="$(_postgres_yaml_default_field "$root" port || true)"
+  if [[ "$yaml_port" =~ ^[0-9]+$ ]]; then
+    echo "$yaml_port"
+    return 0
+  fi
+  echo "5433"
+}
+
+_postgres_listen_bind() {
+  local root="$1"
+  local yaml_host
+  yaml_host="$(_postgres_yaml_default_field "$root" host || true)"
+  case "$(printf '%s' "$yaml_host" | tr '[:upper:]' '[:lower:]')" in
+    '' ) echo "127.0.0.1" ;;
+    localhost|::1) echo "127.0.0.1" ;;
+    *) echo "$yaml_host" ;;
+  esac
+}
+
+_postgres_yaml_port_hint() {
+  local root="$1"
+  local listen_port="$2"
+  local yaml_port
+  yaml_port="$(_postgres_yaml_default_field "$root" port || true)"
+  if [[ -z "$yaml_port" ]]; then
+    echo "[INFO] Задайте default.port в databases.yaml (сейчас portable: $listen_port)"
+    return 0
+  fi
+  if [[ "$yaml_port" != "$listen_port" ]]; then
+    echo "[WARNING] databases.yaml default.port=$yaml_port, portable слушает $listen_port"
+    echo "[INFO] Переустановите portable (ergoms install-postgres) или выровняйте port в databases.yaml"
+  fi
+}
+
 _postgres_portable_present() {
   local root="$1"
   if _postgres_is_installed "$root"; then
@@ -159,10 +227,15 @@ postgres_install() {
     return 1
   fi
 
+  local listen_port listen_bind
+  listen_port="$(_postgres_listen_port "$root")"
+  listen_bind="$(_postgres_listen_bind "$root")"
   echo ""
   echo "[OK] PostgreSQL установлен"
   echo "    Путь: $(_postgres_dir "$root")"
   echo "    Служба: $POSTGRES_SERVICE_NAME"
+  echo "    Прослушивание: ${listen_bind}:${listen_port}"
+  _postgres_yaml_port_hint "$root" "$listen_port"
 }
 
 postgres_install_service() {
@@ -279,7 +352,12 @@ postgres_status() {
   else
     echo "  Служба: не зарегистрирована"
   fi
+  local listen_port listen_bind
+  listen_port="$(_postgres_listen_port "$root")"
+  listen_bind="$(_postgres_listen_bind "$root")"
   echo "  Путь: $dir"
+  echo "  Прослушивание: ${listen_bind}:${listen_port}"
+  _postgres_yaml_port_hint "$root" "$listen_port"
   if _postgres_run_script "$root" --ping-only; then
     echo "  Ping: OK"
   else
