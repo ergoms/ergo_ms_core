@@ -1,7 +1,10 @@
 ﻿# Portable Node.js LTS -> virtual_env/packages/nodejs
 # Версия зафиксирована: при обновлении править PortableNodeLtsVersion.
+# Архив кэшируется в virtual_env/cache/downloads; extract — в virtual_env/cache/tmp.
 
 $script:PortableNodeLtsVersion = '24.18.0'
+
+. (Join-Path $PSScriptRoot 'portable_archive.ps1')
 
 function Get-PortableNodejsDir {
     param([Parameter(Mandatory = $true)][string]$Root)
@@ -68,49 +71,64 @@ function Install-PortableNodejs {
     $zipName = "node-v$version-$arch.zip"
     $url = "https://nodejs.org/dist/v$version/$zipName"
 
-    Write-ColorOutput (Format-ErgoConsole -Level info -Message "Загрузка Node.js LTS v$version ($arch)…") Cyan
-
+    $downloads = Join-Path $Root 'virtual_env\cache\downloads'
     $cacheTmp = Join-Path $Root 'virtual_env\cache\tmp'
+    New-Item -ItemType Directory -Path $downloads -Force | Out-Null
     New-Item -ItemType Directory -Path $cacheTmp -Force | Out-Null
-    $zipPath = Join-Path $cacheTmp $zipName
+    $zipPath = Join-Path $downloads $zipName
     $extract = Join-Path $cacheTmp 'nodejs_extract'
+    $partial = "$zipPath.partial"
 
     try {
-        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        $curlDl = Get-Command curl.exe -ErrorAction SilentlyContinue
-        if ($curlDl) {
-            & curl.exe -fL --retry 3 --connect-timeout 15 --max-time 600 -A 'ergoms/1.0' -o $zipPath $url
-            if ($LASTEXITCODE -ne 0) { throw "curl: не удалось скачать архив Node.js (код $LASTEXITCODE)" }
-        }
-        else {
-            Invoke-WebRequest -Uri $url -OutFile $zipPath -UseBasicParsing -TimeoutSec 600
-        }
+        $attempt = 0
+        while ($true) {
+            $attempt++
+            if (-not (Test-CachedRuntimeArchive -Path $zipPath)) {
+                Write-ColorOutput (Format-ErgoConsole -Level info -Message "Загрузка Node.js LTS v$version ($arch)…") Cyan
+                Save-RuntimeArchiveDownload -Url $url -DestPath $zipPath
+            }
+            else {
+                Write-ColorOutput (Format-ErgoConsole -Level info -Message "Кэш архива Node.js: $zipName") Cyan
+            }
 
-        if (Test-Path -LiteralPath $extract) {
-            Remove-Item -LiteralPath $extract -Recurse -Force
-        }
-        Expand-Archive -Path $zipPath -DestinationPath $extract -Force
+            if (Test-Path -LiteralPath $extract) {
+                Remove-Item -LiteralPath $extract -Recurse -Force
+            }
+            New-Item -ItemType Directory -Path $extract -Force | Out-Null
 
-        $inner = Get-ChildItem -Path $extract -Directory | Select-Object -First 1
-        if (-not $inner -or -not (Test-Path -LiteralPath (Join-Path $inner.FullName 'node.exe'))) {
-            throw 'В архиве Node.js не найден node.exe'
-        }
+            & tar -xf $zipPath -C $extract 2>$null
+            if ($LASTEXITCODE -ne 0) {
+                if ($attempt -ge 2) { throw 'Не удалось распаковать архив Node.js (tar)' }
+                Write-ColorOutput (Format-ErgoConsole -Level warning -Message 'Архив Node.js повреждён — повторная загрузка') Yellow
+                Remove-Item -LiteralPath $zipPath -Force -ErrorAction SilentlyContinue
+                continue
+            }
 
-        if (Test-Path -LiteralPath $dest) {
-            Remove-Item -LiteralPath $dest -Recurse -Force
-        }
-        New-Item -ItemType Directory -Path (Split-Path -Parent $dest) -Force | Out-Null
-        Move-Item -LiteralPath $inner.FullName -Destination $dest
+            $inner = Get-ChildItem -Path $extract -Directory | Select-Object -First 1
+            if (-not $inner -or -not (Test-Path -LiteralPath (Join-Path $inner.FullName 'node.exe'))) {
+                if ($attempt -ge 2) { throw 'В архиве Node.js не найден node.exe' }
+                Write-ColorOutput (Format-ErgoConsole -Level warning -Message 'Архив Node.js некорректен — повторная загрузка') Yellow
+                Remove-Item -LiteralPath $zipPath -Force -ErrorAction SilentlyContinue
+                continue
+            }
 
-        if (-not (Test-Path -LiteralPath $exe)) {
-            throw "После установки не найден: $exe"
-        }
+            if (Test-Path -LiteralPath $dest) {
+                Remove-Item -LiteralPath $dest -Recurse -Force
+            }
+            New-Item -ItemType Directory -Path (Split-Path -Parent $dest) -Force | Out-Null
+            Move-Item -LiteralPath $inner.FullName -Destination $dest
 
-        $ver = & $exe --version 2>&1
-        Write-ColorOutput (Format-ErgoConsole -Level ok -Message "Portable Node.js установлен: $ver") Green
+            if (-not (Test-Path -LiteralPath $exe)) {
+                throw "После установки не найден: $exe"
+            }
+
+            $ver = & $exe --version 2>&1
+            Write-ColorOutput (Format-ErgoConsole -Level ok -Message "Portable Node.js установлен: $ver") Green
+            break
+        }
     }
     finally {
-        if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force -ErrorAction SilentlyContinue }
+        if (Test-Path -LiteralPath $partial) { Remove-Item -LiteralPath $partial -Force -ErrorAction SilentlyContinue }
         if (Test-Path -LiteralPath $extract) { Remove-Item -LiteralPath $extract -Recurse -Force -ErrorAction SilentlyContinue }
     }
 

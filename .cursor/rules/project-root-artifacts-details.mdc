@@ -18,8 +18,9 @@ alwaysApply: false
 | nginx / Redis / NSSM | `virtual_env/packages/{nginx,redis,nssm}/` |
 | Let's Encrypt + ACME webroot | `virtual_env/packages/letsencrypt/`, `…/certbot/webroot/` |
 | pip / Poetry / npm cache | `virtual_env/cache/{pip,poetry,npm}/` |
+| Архивы portable Python / Node.js | `virtual_env/cache/downloads/` |
 | npm workspace (package.json, lock, node_modules) | `virtual_env/npm/` |
-| Временные download/extract | `virtual_env/cache/tmp/` |
+| Временные extract | `virtual_env/cache/tmp/` |
 | Jupyter | `virtual_env/jupyter/` |
 | Env + systemd units | `core/deployment/wrappers/`, `…/systemd/` |
 | clean trash | `.ergo_clean_trash_*` в корне (в `.gitignore`) |
@@ -30,7 +31,7 @@ alwaysApply: false
 - Certbot: только `virtual_env/python/bin/certbot` (pip в venv), не пакеты ОС
 - TLS: `--config-dir` / webroot под `virtual_env/packages/…`
 - Jupyter: `JUPYTER_DATA_DIR` / kernels в `virtual_env/jupyter/`
-- Temp install/geoip/zip: `virtual_env/cache/tmp/`
+- Temp install/geoip/extract: `virtual_env/cache/tmp/`; архивы portable runtime — `virtual_env/cache/downloads/`
 
 ## Запрещено
 

@@ -30,6 +30,11 @@ def cache_npm_dir(root: Path) -> Path:
     return cache_dir(root) / 'npm'
 
 
+def cache_downloads_dir(root: Path) -> Path:
+    """Кэш архивов portable Python / Node.js (и подобных runtime)."""
+    return cache_dir(root) / 'downloads'
+
+
 def npm_root_dir(root: Path) -> Path:
     """Каталог npm workspace (package.json, lock, node_modules)."""
     return virtual_env_dir(root) / 'npm'

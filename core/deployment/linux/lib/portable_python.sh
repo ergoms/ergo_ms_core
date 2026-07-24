@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # Portable CPython 3.12.x (python-build-standalone) -> virtual_env/packages/python
 # Версия зафиксирована: при обновлении править PORTABLE_PYTHON_PBS_TAG / PORTABLE_PYTHON_VERSION.
+# Архив кэшируется в virtual_env/cache/downloads; extract — в virtual_env/cache/tmp.
 
 PORTABLE_PYTHON_PBS_TAG='20260718'
 PORTABLE_PYTHON_VERSION='3.12.13'
+
+# shellcheck source=portable_archive.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/portable_archive.sh"
 
 portable_python_dir() {
   local root="$1"
@@ -35,19 +39,6 @@ portable_python_arch_triple() {
   esac
 }
 
-_download_file_pbs() {
-  local url="$1"
-  local dest="$2"
-  if command -v curl >/dev/null 2>&1; then
-    curl -fL --retry 3 --connect-timeout 15 --max-time 600 -o "$dest" "$url"
-  elif command -v wget >/dev/null 2>&1; then
-    wget -O "$dest" "$url"
-  else
-    echo "[ERROR] Нужны curl или wget для загрузки Python" >&2
-    return 1
-  fi
-}
-
 pinned_portable_python_asset() {
   local arch_triple="$1"
   local name="cpython-${PORTABLE_PYTHON_VERSION}+${PORTABLE_PYTHON_PBS_TAG}-${arch_triple}-install_only.tar.gz"
@@ -68,10 +59,11 @@ install_portable_python() {
     return 0
   fi
 
-  local arch_triple cache_tmp
+  local arch_triple downloads cache_tmp
   arch_triple="$(portable_python_arch_triple)" || return 1
+  downloads="$root/virtual_env/cache/downloads"
   cache_tmp="$root/virtual_env/cache/tmp"
-  mkdir -p "$cache_tmp"
+  mkdir -p "$downloads" "$cache_tmp"
 
   local name url
   {
@@ -79,49 +71,69 @@ install_portable_python() {
     read -r url
   } < <(pinned_portable_python_asset "$arch_triple")
 
-  echo "$(format_ergo_console info "Загрузка $name…")"
-
-  local archive extract
-  archive="$cache_tmp/$name"
+  local archive extract partial
+  archive="$downloads/$name"
   extract="$cache_tmp/python_pbs_extract"
-  rm -rf "$extract"
-  mkdir -p "$extract"
+  partial="${archive}.partial"
 
-  _download_file_pbs "$url" "$archive" || return 1
-  tar -xzf "$archive" -C "$extract" || {
-    echo "[ERROR] Не удалось распаковать архив Python" >&2
-    rm -f "$archive"
-    rm -rf "$extract"
-    return 1
-  }
-
-  local python_src="$extract/python"
-  if [[ ! -x "$python_src/bin/python3" ]]; then
-    local found
-    found="$(find "$extract" -maxdepth 3 -type f -name python3 2>/dev/null | head -n1)"
-    if [[ -n "$found" ]]; then
-      python_src="$(cd "$(dirname "$found")/.." && pwd)"
+  local attempt=0
+  while true; do
+    attempt=$((attempt + 1))
+    if ! cached_runtime_archive_ok "$archive"; then
+      echo "$(format_ergo_console info "Загрузка $name…")"
+      download_runtime_archive "$url" "$archive" || return 1
+    else
+      echo "$(format_ergo_console info "Кэш архива Python: ${name}")"
     fi
-  fi
-  if [[ ! -x "$python_src/bin/python3" ]]; then
-    echo "[ERROR] В архиве не найден bin/python3" >&2
-    rm -f "$archive"
+
     rm -rf "$extract"
-    return 1
-  fi
+    mkdir -p "$extract"
+    if ! tar -xzf "$archive" -C "$extract"; then
+      if [[ "$attempt" -ge 2 ]]; then
+        echo "[ERROR] Не удалось распаковать архив Python" >&2
+        rm -f "$partial"
+        rm -rf "$extract"
+        return 1
+      fi
+      echo "$(format_ergo_console warning 'Архив Python повреждён — повторная загрузка')"
+      rm -f "$archive"
+      continue
+    fi
 
-  rm -rf "$dest"
-  mkdir -p "$(dirname "$dest")"
-  mv "$python_src" "$dest"
-  rm -f "$archive"
-  rm -rf "$extract"
+    local python_src="$extract/python"
+    if [[ ! -x "$python_src/bin/python3" ]]; then
+      local found
+      found="$(find "$extract" -maxdepth 3 -type f -name python3 2>/dev/null | head -n1)"
+      if [[ -n "$found" ]]; then
+        python_src="$(cd "$(dirname "$found")/.." && pwd)"
+      fi
+    fi
+    if [[ ! -x "$python_src/bin/python3" ]]; then
+      if [[ "$attempt" -ge 2 ]]; then
+        echo "[ERROR] В архиве не найден bin/python3" >&2
+        rm -f "$partial"
+        rm -rf "$extract"
+        return 1
+      fi
+      echo "$(format_ergo_console warning 'Архив Python некорректен — повторная загрузка')"
+      rm -f "$archive"
+      continue
+    fi
 
-  if [[ ! -x "$exe" ]]; then
-    echo "[ERROR] После установки не найден: $exe" >&2
-    return 1
-  fi
+    rm -rf "$dest"
+    mkdir -p "$(dirname "$dest")"
+    mv "$python_src" "$dest"
+    rm -f "$partial"
+    rm -rf "$extract"
 
-  echo "$(format_ergo_console ok "Portable Python установлен: $($exe --version 2>&1)")"
+    if [[ ! -x "$exe" ]]; then
+      echo "[ERROR] После установки не найден: $exe" >&2
+      return 1
+    fi
+
+    echo "$(format_ergo_console ok "Portable Python установлен: $($exe --version 2>&1)")"
+    return 0
+  done
 }
 
 export -f portable_python_dir portable_python_exe portable_python_installed

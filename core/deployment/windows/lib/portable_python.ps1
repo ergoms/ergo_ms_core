@@ -1,8 +1,11 @@
 ﻿# Portable CPython 3.12.x (python-build-standalone) -> virtual_env/packages/python
 # Версия зафиксирована: при обновлении править PortablePythonPbsTag / PortablePythonVersion.
+# Архив кэшируется в virtual_env/cache/downloads; extract — в virtual_env/cache/tmp.
 
 $script:PortablePythonPbsTag = '20260718'
 $script:PortablePythonVersion = '3.12.13'
+
+. (Join-Path $PSScriptRoot 'portable_archive.ps1')
 
 function Get-PortablePythonDir {
     param([Parameter(Mandatory = $true)][string]$Root)
@@ -56,55 +59,67 @@ function Install-PortablePython {
     }
 
     $asset = Get-PinnedPortablePythonAsset
-    Write-ColorOutput (Format-ErgoConsole -Level info -Message "Загрузка $($asset.Name)…") Cyan
-
+    $downloads = Join-Path $Root 'virtual_env\cache\downloads'
     $cacheTmp = Join-Path $Root 'virtual_env\cache\tmp'
+    New-Item -ItemType Directory -Path $downloads -Force | Out-Null
     New-Item -ItemType Directory -Path $cacheTmp -Force | Out-Null
-    $archive = Join-Path $cacheTmp $asset.Name
+    $archive = Join-Path $downloads $asset.Name
     $extract = Join-Path $cacheTmp 'python_pbs_extract'
+    $partial = "$archive.partial"
 
     try {
-        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        $curlDl = Get-Command curl.exe -ErrorAction SilentlyContinue
-        if ($curlDl) {
-            & curl.exe -fL --retry 3 --connect-timeout 15 --max-time 600 -A 'ergoms/1.0' -o $archive $asset.Url
-            if ($LASTEXITCODE -ne 0) { throw "curl: не удалось скачать архив Python (код $LASTEXITCODE)" }
-        }
-        else {
-            Invoke-WebRequest -Uri $asset.Url -OutFile $archive -UseBasicParsing -TimeoutSec 600
-        }
-
-        if (Test-Path -LiteralPath $extract) {
-            Remove-Item -LiteralPath $extract -Recurse -Force
-        }
-        New-Item -ItemType Directory -Path $extract -Force | Out-Null
-        & tar -xf $archive -C $extract
-        if ($LASTEXITCODE -ne 0) { throw 'Не удалось распаковать архив Python (tar)' }
-
-        $pythonSrc = Join-Path $extract 'python'
-        if (-not (Test-Path -LiteralPath (Join-Path $pythonSrc 'python.exe'))) {
-            $found = Get-ChildItem -Path $extract -Directory | Select-Object -First 1
-            if (-not $found -or -not (Test-Path -LiteralPath (Join-Path $found.FullName 'python.exe'))) {
-                throw 'В архиве не найден python.exe'
+        $attempt = 0
+        while ($true) {
+            $attempt++
+            if (-not (Test-CachedRuntimeArchive -Path $archive)) {
+                Write-ColorOutput (Format-ErgoConsole -Level info -Message "Загрузка $($asset.Name)…") Cyan
+                Save-RuntimeArchiveDownload -Url $asset.Url -DestPath $archive
             }
-            $pythonSrc = $found.FullName
-        }
+            else {
+                Write-ColorOutput (Format-ErgoConsole -Level info -Message "Кэш архива Python: $($asset.Name)") Cyan
+            }
 
-        if (Test-Path -LiteralPath $dest) {
-            Remove-Item -LiteralPath $dest -Recurse -Force
-        }
-        New-Item -ItemType Directory -Path (Split-Path -Parent $dest) -Force | Out-Null
-        Move-Item -LiteralPath $pythonSrc -Destination $dest
+            if (Test-Path -LiteralPath $extract) {
+                Remove-Item -LiteralPath $extract -Recurse -Force
+            }
+            New-Item -ItemType Directory -Path $extract -Force | Out-Null
+            & tar -xf $archive -C $extract
+            if ($LASTEXITCODE -ne 0) {
+                if ($attempt -ge 2) { throw 'Не удалось распаковать архив Python (tar)' }
+                Write-ColorOutput (Format-ErgoConsole -Level warning -Message 'Архив Python повреждён — повторная загрузка') Yellow
+                Remove-Item -LiteralPath $archive -Force -ErrorAction SilentlyContinue
+                continue
+            }
 
-        if (-not (Test-Path -LiteralPath $exe)) {
-            throw "После установки не найден: $exe"
-        }
+            $pythonSrc = Join-Path $extract 'python'
+            if (-not (Test-Path -LiteralPath (Join-Path $pythonSrc 'python.exe'))) {
+                $found = Get-ChildItem -Path $extract -Directory | Select-Object -First 1
+                if (-not $found -or -not (Test-Path -LiteralPath (Join-Path $found.FullName 'python.exe'))) {
+                    if ($attempt -ge 2) { throw 'В архиве не найден python.exe' }
+                    Write-ColorOutput (Format-ErgoConsole -Level warning -Message 'Архив Python некорректен — повторная загрузка') Yellow
+                    Remove-Item -LiteralPath $archive -Force -ErrorAction SilentlyContinue
+                    continue
+                }
+                $pythonSrc = $found.FullName
+            }
 
-        $ver = & $exe --version 2>&1
-        Write-ColorOutput (Format-ErgoConsole -Level ok -Message "Portable Python установлен: $ver") Green
+            if (Test-Path -LiteralPath $dest) {
+                Remove-Item -LiteralPath $dest -Recurse -Force
+            }
+            New-Item -ItemType Directory -Path (Split-Path -Parent $dest) -Force | Out-Null
+            Move-Item -LiteralPath $pythonSrc -Destination $dest
+
+            if (-not (Test-Path -LiteralPath $exe)) {
+                throw "После установки не найден: $exe"
+            }
+
+            $ver = & $exe --version 2>&1
+            Write-ColorOutput (Format-ErgoConsole -Level ok -Message "Portable Python установлен: $ver") Green
+            break
+        }
     }
     finally {
-        if (Test-Path -LiteralPath $archive) { Remove-Item -LiteralPath $archive -Force -ErrorAction SilentlyContinue }
+        if (Test-Path -LiteralPath $partial) { Remove-Item -LiteralPath $partial -Force -ErrorAction SilentlyContinue }
         if (Test-Path -LiteralPath $extract) { Remove-Item -LiteralPath $extract -Recurse -Force -ErrorAction SilentlyContinue }
     }
 
