@@ -18,7 +18,7 @@ Log "=== Запуск Setup Full System ==="
 $ErgomsScript = Join-Path $RootDir "core\deployment\windows\ergo_ms.ps1"
 if (-not (Test-Path $ErgomsScript)) { throw "Не найден скрипт $ErgomsScript" }
 powershell -ExecutionPolicy Bypass -File $ErgomsScript setup-full
-npm run install-extensions
+ergoms install-extensions
 Write-Host ""
 Log "=== Проверка Setup Full System завершена. ==="
 

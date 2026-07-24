@@ -82,7 +82,7 @@ alwaysApply: false
 |---------|-----------------|
 | `api:` | `core/api/`, команды Django |
 | `poetry:` | корень проекта |
-| `npm:` | корень проекта |
+| `npm:` | `virtual_env/npm/` (клиентский workspace) |
 | `shell:` | корень, любая ОС |
 | `win:` / `linux:` | только своя ОС |
 
@@ -133,5 +133,6 @@ migrate-all=api:makemigrations && api:migrate
 | Справка модулей | [`ergoms-module-help.mdc`](ergoms-module-help.mdc) |
 | Только ergoms, не manage.py | [`no-direct-manage-py.mdc`](no-direct-manage-py.mdc) |
 | Python-окружение | [`virtual-env.mdc`](virtual-env.mdc) |
+| npm workspace | [`npm-workspace.mdc`](npm-workspace.mdc) |
 | Windows / Linux | [`oc.mdc`](oc.mdc) |
 | Redis, nginx, TLS | [`deployment-infra.mdc`](deployment-infra.mdc) |

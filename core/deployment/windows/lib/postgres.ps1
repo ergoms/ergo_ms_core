@@ -66,6 +66,8 @@ function Invoke-PostgresPythonScript {
         Write-ColorOutput "[ERROR] Скрипт не найден: $scriptPath" Red
         return $false
     }
+    $env:PYTHONIOENCODING = 'utf-8'
+    $env:PYTHONUTF8 = '1'
     & $pythonExe $scriptPath @ExtraArgs
     return ($LASTEXITCODE -eq 0)
 }

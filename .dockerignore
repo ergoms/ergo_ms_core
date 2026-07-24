@@ -5,6 +5,7 @@
 **/*.pyc
 **/.pytest_cache
 node_modules
+virtual_env/npm/node_modules
 core/client/dist
 logs
 media

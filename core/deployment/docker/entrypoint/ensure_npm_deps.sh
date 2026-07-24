@@ -1,8 +1,10 @@
 #!/bin/sh
 # Установка npm-зависимостей в контейнере client (smart / always).
+# npm-root: /app/virtual_env/npm
 set -eu
 
-MARKER="${ERGO_NPM_DEPS_MARKER:-/app/node_modules/.ergo-docker-deps-ok}"
+NPM_ROOT="/app/virtual_env/npm"
+MARKER="${ERGO_NPM_DEPS_MARKER:-$NPM_ROOT/node_modules/.ergo-docker-deps-ok}"
 MODE="${DOCKER_NPM_INSTALL:-smart}"
 
 needs_install() {
@@ -15,8 +17,8 @@ needs_install() {
   fi
 
   for candidate in \
-    /app/package.json \
-    /app/package-lock.json \
+    "$NPM_ROOT/package.json" \
+    "$NPM_ROOT/package-lock.json" \
     /app/core/client/package.json
   do
     if [ -f "$candidate" ] && [ "$candidate" -nt "$MARKER" ]; then
@@ -63,7 +65,7 @@ prepare_docker_root_manifest() {
   staging="$1"
   node -e "
     const fs = require('fs');
-    const pkg = JSON.parse(fs.readFileSync('/app/package.json', 'utf8'));
+    const pkg = JSON.parse(fs.readFileSync('${NPM_ROOT}/package.json', 'utf8'));
     delete pkg.workspaces;
     fs.writeFileSync('${staging}/package.json', JSON.stringify(pkg, null, 2));
   "
@@ -71,38 +73,25 @@ prepare_docker_root_manifest() {
 
 docker_install_root_deps() {
   mkdir -p /app/virtual_env/cache/tmp
+  mkdir -p "$NPM_ROOT"
   staging="$(mktemp -d /app/virtual_env/cache/tmp/ergo-npm-root.XXXXXX)"
   trap 'rm -rf "$staging"' EXIT INT TERM
 
   prepare_docker_root_manifest "$staging"
-  if [ -f /app/.npmrc ]; then
-    cp /app/.npmrc "$staging/.npmrc"
+  if [ -f "$NPM_ROOT/.npmrc" ]; then
+    cp "$NPM_ROOT/.npmrc" "$staging/.npmrc"
   fi
 
-  echo "[INFO] npm: корневые пакеты (staging, без bind-mount)…"
+  echo "[INFO] npm: пакеты workspace-root (staging, без bind-mount)…"
   (
     cd "$staging"
     npm install $docker_npm_install_flags --loglevel=warn
   )
 
-  echo "[INFO] npm: копирование корневых пакетов в том node_modules…"
-  copy_node_modules_tree "$staging/node_modules" /app/node_modules
+  echo "[INFO] npm: копирование пакетов в том virtual_env/npm/node_modules…"
+  copy_node_modules_tree "$staging/node_modules" "$NPM_ROOT/node_modules"
   rm -rf "$staging"
   trap - EXIT INT TERM
-}
-
-link_client_workspace_bins() {
-  # Отдельный том core/client/node_modules без пакетов ломает npm run --prefix:
-  # бинарники (vite и др.) лежат в /app/node_modules/.bin после docker-install.
-  mkdir -p /app/core/client/node_modules/.bin
-  if [ ! -d /app/node_modules/.bin ]; then
-    return 0
-  fi
-  for bin in /app/node_modules/.bin/*; do
-    [ -e "$bin" ] || continue
-    name="$(basename "$bin")"
-    ln -sf "../../../node_modules/.bin/$name" "/app/core/client/node_modules/.bin/$name"
-  done
 }
 
 docker_install_npm_deps() {
@@ -111,8 +100,6 @@ docker_install_npm_deps() {
   docker_install_root_deps
   echo "[INFO] npm: модульные пакеты…"
   node core/deployment/scripts/sync-module-npm-deps.js --install-missing
-  echo "[INFO] npm: зависимости client workspace…"
-  npm install $docker_npm_install_flags --prefix core/client --loglevel=warn
 }
 
 if needs_install; then
@@ -120,14 +107,10 @@ if needs_install; then
     docker_install_npm_deps
   else
     echo "[INFO] npm: установка зависимостей…"
-    npm run install:all
+    ( cd "$NPM_ROOT" && npm run install:all )
   fi
   mkdir -p "$(dirname "$MARKER")"
   touch "$MARKER"
 else
   echo "[INFO] npm: зависимости актуальны"
-fi
-
-if [ -n "${ERGO_DOCKER_SERVICE_NAME:-}" ]; then
-  link_client_workspace_bins
 fi

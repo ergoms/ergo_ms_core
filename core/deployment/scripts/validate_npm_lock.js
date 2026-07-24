@@ -7,8 +7,9 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
-const LOCK_PATH = path.join(ROOT, 'package-lock.json')
-const PACKAGE_JSON_PATH = path.join(ROOT, 'package.json')
+const NPM_ROOT = path.join(ROOT, 'virtual_env', 'npm')
+const LOCK_PATH = path.join(NPM_ROOT, 'package-lock.json')
+const PACKAGE_JSON_PATH = path.join(NPM_ROOT, 'package.json')
 const MODULES_ROOT = path.join(ROOT, 'modules')
 
 const ALLOWED_ERGO_MS_PACKAGES = new Set(['@ergo-ms/core-client'])
@@ -107,7 +108,7 @@ function findForbiddenErgoMsPackages(lockContent) {
 
 function findModuleWorkspacePaths(lockContent) {
   const found = new Set()
-  const pattern = /"modules\/[^"]+"/g
+  const pattern = /"[^"]*modules\/[^"]+"/g
   let match = pattern.exec(lockContent)
   while (match) {
     found.add(match[0].slice(1, -1))
@@ -118,7 +119,12 @@ function findModuleWorkspacePaths(lockContent) {
 
 function main() {
   if (!fs.existsSync(LOCK_PATH)) {
-    console.error('[lock-check] package-lock.json не найден.')
+    console.error('[lock-check] package-lock.json не найден в virtual_env/npm.')
+    process.exit(1)
+  }
+
+  if (!fs.existsSync(PACKAGE_JSON_PATH)) {
+    console.error('[lock-check] package.json не найден в virtual_env/npm.')
     process.exit(1)
   }
 

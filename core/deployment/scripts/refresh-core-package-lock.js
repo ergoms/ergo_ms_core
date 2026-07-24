@@ -1,5 +1,5 @@
 /**
- * Пересобирает package-lock.json только для ядра (корень + core/client).
+ * Пересобирает package-lock.json только для ядра (virtual_env/npm + core/client).
  * Workspaces модулей временно убираются, чтобы lock не содержал modules.
  */
 
@@ -10,7 +10,9 @@ import { fileURLToPath } from 'node:url'
 import { sanitizePackageLockFile } from './sanitize-package-lock.js'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
-const PACKAGE_JSON_PATH = path.join(ROOT, 'package.json')
+const NPM_ROOT = path.join(ROOT, 'virtual_env', 'npm')
+const PACKAGE_JSON_PATH = path.join(NPM_ROOT, 'package.json')
+const CORE_CLIENT_WORKSPACE = '../../core/client'
 const VALIDATE_SCRIPT = path.join(ROOT, 'core/deployment/scripts/validate_npm_lock.js')
 
 function readPackageJson() {
@@ -22,7 +24,7 @@ function writePackageJson(data) {
 }
 
 function removeModuleWorkspaceLinks() {
-  const ergoMsDir = path.join(ROOT, 'node_modules', '@ergo-ms')
+  const ergoMsDir = path.join(NPM_ROOT, 'node_modules', '@ergo-ms')
   if (!fs.existsSync(ergoMsDir)) {
     return
   }
@@ -39,7 +41,7 @@ function removeModuleWorkspaceLinks() {
 }
 
 function runNpmInstall() {
-  const lockPath = path.join(ROOT, 'package-lock.json')
+  const lockPath = path.join(NPM_ROOT, 'package-lock.json')
   if (fs.existsSync(lockPath)) {
     fs.unlinkSync(lockPath)
     console.log('[npm] Удалён старый package-lock.json перед пересборкой.')
@@ -50,7 +52,7 @@ function runNpmInstall() {
     npmCmd,
     ['install', '--include-workspace-root', '--ignore-scripts', '--package-lock'],
     {
-      cwd: ROOT,
+      cwd: NPM_ROOT,
       stdio: 'inherit',
       env: process.env,
       shell: process.platform === 'win32',
@@ -75,6 +77,11 @@ function runValidation() {
 }
 
 function main() {
+  if (!fs.existsSync(PACKAGE_JSON_PATH)) {
+    console.error('[npm] package.json не найден в virtual_env/npm')
+    process.exit(1)
+  }
+
   const original = readPackageJson()
   const fullWorkspaces = original.workspaces ?? []
 
@@ -83,14 +90,14 @@ function main() {
 
   const patched = {
     ...original,
-    workspaces: ['core/client'],
+    workspaces: [CORE_CLIENT_WORKSPACE],
   }
   writePackageJson(patched)
 
   try {
     removeModuleWorkspaceLinks()
     runNpmInstall()
-    sanitizePackageLockFile(path.join(ROOT, 'package-lock.json'))
+    sanitizePackageLockFile(path.join(NPM_ROOT, 'package-lock.json'))
   } finally {
     writePackageJson(original)
     console.log('[npm] Workspaces в package.json восстановлены.')

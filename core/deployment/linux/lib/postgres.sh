@@ -69,6 +69,8 @@ _postgres_run_script() {
     echo "[ERROR] Python не найден. Выполните: ergoms setup" >&2
     return 1
   fi
+  export PYTHONIOENCODING=utf-8
+  export PYTHONUTF8=1
   "$py" "$root/core/deployment/scripts/install_postgres.py" --root "$root" "$@"
 }
 

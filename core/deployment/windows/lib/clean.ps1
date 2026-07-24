@@ -427,7 +427,8 @@ function Clear-ProjectDependencies {
     )
 
     $cleanTargets = @(
-        @{Path = "node_modules";               Label = "node_modules";               FullRemove = $true},
+        @{Path = "virtual_env\npm\node_modules"; Label = "virtual_env/npm/node_modules"; FullRemove = $true},
+        @{Path = "node_modules";               Label = "node_modules (legacy)";       FullRemove = $true},
         @{Path = "virtual_env\python";          Label = "virtual_env/python";          FullRemove = $false},
         @{Path = "virtual_env\static_api";      Label = "virtual_env/static_api";      FullRemove = $false},
         @{Path = "virtual_env\celery";          Label = "virtual_env/celery";          FullRemove = $false},

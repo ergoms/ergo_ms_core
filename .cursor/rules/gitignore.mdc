@@ -41,7 +41,7 @@ ERGO MS — **монорепозиторий-обёртка** (`ergo_ms`) с **g
 | Конфиг среды разработки | `databases.yaml`, `celery_workers.yaml`, `.env`, `.env.*`, `maintenance.flag` |
 | Общее Python-окружение проекта | `virtual_env/*` (с `.gitkeep`), `__pycache__/` |
 | Каталоги runtime проекта | `/logs/*`, `/media/*`, `/notebooks/*` |
-| Корневой npm | `/node_modules` |
+| npm workspace | `/virtual_env/npm/node_modules` (legacy: `/node_modules`) |
 | Deployment и Docker | `core/deployment/wrappers/*`, `core/deployment/docker/*.generated.*`, rendered nginx |
 | VS Code runtime | `.vscode/logs-services.runtime.yaml` |
 | Пути **относительно корня** к артефактам клиента | `core/client/dist`, `core/client/src/modules/core/sharedGlobs.generated.js` |
@@ -126,5 +126,6 @@ databases.yaml
 |------|------|
 | Архитектура, submodule | [`struct.mdc`](struct.mdc) |
 | `virtual_env/python/` | [`virtual-env.mdc`](virtual-env.mdc) |
+| npm workspace | [`npm-workspace.mdc`](npm-workspace.mdc) |
 | Deployment, docker | [`deployment-infra.mdc`](deployment-infra.mdc), [`docker.mdc`](docker.mdc) |
 | Модули | [`modules.mdc`](modules.mdc) |

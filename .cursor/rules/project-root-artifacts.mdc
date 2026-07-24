@@ -31,4 +31,5 @@ alwaysApply: true
 |---|---|
 | Детали, BAD/GOOD | [`project-root-artifacts-details.mdc`](project-root-artifacts-details.mdc) |
 | virtual_env | [`virtual-env.mdc`](virtual-env.mdc) |
+| npm workspace | [`npm-workspace.mdc`](npm-workspace.mdc) |
 | Redis / nginx / TLS | [`deployment-infra.mdc`](deployment-infra.mdc) |

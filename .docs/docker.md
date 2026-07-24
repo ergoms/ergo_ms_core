@@ -168,7 +168,7 @@ ergoms api createsuperuser --noinput
 ## Тома и данные
 
 - **Код проекта** — bind-mount всего корня в `/app` (изменения на хосте видны в контейнере)
-- **`poetry_venv`**, **`node_modules`**, **`npm_cache`** — named volumes (ускоряют повторный старт)
+- **`poetry_venv`**, **`node_modules`** (том на `/app/virtual_env/npm/node_modules`), **`npm_cache`** — named volumes (ускоряют повторный старт)
 - **`celery_cache`** — named volume или bind `virtual_env/cache` (`DOCKER_VOLUME_CELERY_CACHE=bind`)
 - **`postgres_data`** — данные PostgreSQL (profile postgres)
 - **`logs/`** и **`media/`** — по умолчанию bind на хост (`DOCKER_VOLUME_*=bind`)
@@ -180,7 +180,7 @@ ergoms api createsuperuser --noinput
 Сборка образов (`Dockerfile.python`, `Dockerfile.client`):
 
 - слой Poetry — только `pyproject.toml` + `poetry.lock` (`poetry install --no-root`); полная установка ядра и модулей — **`api install`** при `docker-init`;
-- npm — **`ensure_npm_deps.sh`** при старте client (`npm run install:all`, как `ergoms setup-full`); зависимости хранятся в томах `node_modules` / `npm_cache`.
+- npm — **`ensure_npm_deps.sh`** при старте client (`npm run install:all` в `virtual_env/npm`, как `ergoms setup-full`); зависимости хранятся в томах `node_modules` → `/app/virtual_env/npm/node_modules` и `npm_cache`.
 
 | Режим `DOCKER_DEPS_CACHE` | Поведение |
 |---------------------------|-----------|

@@ -181,10 +181,11 @@ function Execute-CommandString {
                 }
             }
             'npm' {
-                Push-Location $ProjectRoot
+                $npmRoot = Join-Path $ProjectRoot "virtual_env\npm"
+                Push-Location $npmRoot
                 try {
                     if (-not (Test-Path "package.json")) {
-                        Write-ColorOutput "[ERROR] package.json не найден в корне проекта" Red
+                        Write-ColorOutput "[ERROR] package.json не найден в virtual_env/npm" Red
                         Write-ColorOutput "  Текущий каталог: $(Get-Location)" Gray
                         exit 1
                     }
@@ -388,10 +389,26 @@ function Invoke-NpmCommand {
     
     $env:ERGOMS_INTERNAL = '1'
     
-    Push-Location $Root
+    $npmRoot = Join-Path $Root "virtual_env\npm"
+    Push-Location $npmRoot
     try {
-        # Use cmd /c to avoid PowerShell argument passing issues with npm.cmd on Windows
-        $npmCmdLine = "npm " + ($CommandArgs -join ' ')
+        $npmCache = Join-Path $Root "virtual_env\cache\npm"
+        New-Item -ItemType Directory -Path $npmCache -Force | Out-Null
+        $env:npm_config_cache = $npmCache
+        $env:NPM_CONFIG_CACHE = $npmCache
+        $nodeDir = Join-Path $Root "virtual_env\packages\nodejs"
+        if (Test-Path -LiteralPath $nodeDir) {
+            $env:PATH = "$nodeDir;$env:PATH"
+        }
+        $npmBin = Join-Path $nodeDir "npm.cmd"
+        if (-not (Test-Path -LiteralPath $npmBin)) {
+            $npmBin = "npm"
+        }
+        if ($npmBin -eq "npm") {
+            $npmCmdLine = "npm " + ($CommandArgs -join ' ')
+        } else {
+            $npmCmdLine = "`"$npmBin`" " + ($CommandArgs -join ' ')
+        }
         & cmd /c $npmCmdLine
     }
     finally {

@@ -1,9 +1,9 @@
 /**
  * Сканирует package.json в modules/<name>/client и проверяет, что все модульные
- * npm-зависимости установлены в корневом node_modules (hoisted).
+ * npm-зависимости установлены в virtual_env/npm/node_modules (hoisted).
  *
  * Установка — через npm install <pkg>@<ver> --no-save --no-package-lock,
- * чтобы модульные пакеты не попадали в корневой package-lock.json.
+ * чтобы модульные пакеты не попадали в package-lock.json npm-root.
  */
 
 import fs from 'node:fs'
@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url'
 import { loadDisabledModules } from '../../../core/client/scripts/lib/parse-disabled-modules.js'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
+const NPM_ROOT = path.join(ROOT, 'virtual_env', 'npm')
 const MODULES_ROOT = path.join(ROOT, 'modules')
 const INSTALL_MISSING = process.argv.includes('--install-missing')
 
@@ -54,7 +55,7 @@ function collectModuleDependencies() {
 }
 
 function isDependencyInstalled(depName) {
-  const rootDepPath = path.join(ROOT, 'node_modules', depName)
+  const rootDepPath = path.join(NPM_ROOT, 'node_modules', depName)
   if (fs.existsSync(rootDepPath)) {
     return true
   }
@@ -134,7 +135,7 @@ function installMissingPackagesDocker(specs) {
     }
 
     const stagingModules = path.join(staging, 'node_modules')
-    const targetModules = path.join(ROOT, 'node_modules')
+    const targetModules = path.join(NPM_ROOT, 'node_modules')
     fs.mkdirSync(targetModules, { recursive: true })
 
     for (const entry of fs.readdirSync(stagingModules)) {
@@ -167,7 +168,7 @@ function installMissingPackages(missing) {
     npmCmd,
     ['install', ...specs, '--no-save', '--no-package-lock', '--ignore-scripts'],
     {
-      cwd: ROOT,
+      cwd: NPM_ROOT,
       stdio: 'inherit',
       env: process.env,
       shell: process.platform === 'win32',

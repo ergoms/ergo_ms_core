@@ -52,7 +52,7 @@
 
 ### Задачи VS Code / Cursor
 
-В [`.vscode/tasks.json`](../../.vscode/tasks.json) — **только** `ergoms <команда>`. Прямой вызов `ergo_ms.ps1`, `sudo bash ergo_ms.sh` или `docker_cli.py` из задач **запрещён**. Пример: **Setup Full System** → `ergoms setup && npm run install-extensions`.
+В [`.vscode/tasks.json`](../../.vscode/tasks.json) — **только** `ergoms <команда>`. Прямой вызов `ergo_ms.ps1`, `sudo bash ergo_ms.sh` или `docker_cli.py` из задач **запрещён**. Пример: **Setup Full System** → `ergoms setup && ergoms install-extensions`.
 
 ### Кодировка PowerShell (Windows)
 

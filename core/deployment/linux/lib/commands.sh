@@ -146,7 +146,7 @@ execute_command_string() {
         exec "$venv_python" -m media_server.manage $cmd_args "${user_args[@]}"
         ;;
       npm)
-        cd "$root" || exit 1
+        cd "$root/virtual_env/npm" || exit 1
         _ergoms_export_tool_caches "$root"
         _ergoms_prepend_nodejs_path "$root"
         # shellcheck disable=SC2086
@@ -366,9 +366,10 @@ invoke_npm_command() {
   local root="${1:-}"
   shift
   export ERGOMS_INTERNAL=1
-  cd "$root" || exit 1
+  cd "$root/virtual_env/npm" || exit 1
   _ergoms_export_tool_caches "$root"
-  exec npm "$@"
+  _ergoms_prepend_nodejs_path "$root"
+  exec "$(_ergoms_npm_bin "$root")" "$@"
 }
 
 export -f _ergoms_export_tool_caches

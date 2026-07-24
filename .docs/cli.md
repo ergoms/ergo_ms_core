@@ -118,7 +118,7 @@ ergoms api module-list
 
 ## Lock-файлы (ядро и модули)
 
-`poetry.lock` и `package-lock.json` в корне — **только ядро**. Workspaces `modules/*/client` остаются в `package.json`, но установка не должна записывать модули в lock.
+`poetry.lock` в корне и `package-lock.json` в `virtual_env/npm/` — **только ядро**. Workspaces `../../modules/*/client` остаются в `virtual_env/npm/package.json`, но установка не должна записывать модули в lock.
 
 ```cmd
 ergoms npm run install:all
@@ -127,12 +127,12 @@ ergoms npm-lock-sanitize
 ergoms lock-check
 ```
 
-- Установка npm (ядро + модули в `node_modules`): `ergoms npm run install:all` — не используйте `npm ci` в корне.
-- После изменения зависимостей **ядра** в корневом `package.json`: `ergoms npm-lock-refresh`.
+- Установка npm (ядро + модули в `virtual_env/npm/node_modules`): `ergoms npm run install:all` — не используйте `npm ci` в корне репозитория.
+- После изменения зависимостей **ядра** в `virtual_env/npm/package.json`: `ergoms npm-lock-refresh`.
 - Если в `package-lock.json` снова появились `modules/*` (например после старого `npm install`): `ergoms npm-lock-sanitize` или полная пересборка через `ergoms npm-lock-refresh`.
 - Проверка утечек модулей в lock: `ergoms lock-check`.
 
-В `.npmrc` задано `package-lock=false`, чтобы обычный `npm install` не перезаписывал lock; пересборка lock — только через `ergoms npm-lock-refresh`.
+В `virtual_env/npm/.npmrc` задано `package-lock=false`, чтобы обычный `npm install` не перезаписывал lock; пересборка lock — только через `ergoms npm-lock-refresh`.
 
 Версии модульных npm-пакетов фиксируются в `modules/<имя>/client/package.json` submodule.
 

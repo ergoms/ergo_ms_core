@@ -7,6 +7,9 @@
 
 from __future__ import annotations
 
+import sys
+
+
 TAG_OK = '[OK]'
 TAG_ERROR = '[ERROR]'
 TAG_WARNING = '[WARNING]'
@@ -20,6 +23,13 @@ TAGS_BY_LEVEL: dict[str, str] = {
     'skip': TAG_SKIP,
     'info': TAG_INFO,
 }
+
+
+def configure_stdio_utf8() -> None:
+    """UTF-8 для stdout/stderr (Windows cp1252 иначе падает на кириллице)."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, 'reconfigure'):
+            stream.reconfigure(encoding='utf-8', errors='replace')
 
 
 def tag_for_level(level: str) -> str:

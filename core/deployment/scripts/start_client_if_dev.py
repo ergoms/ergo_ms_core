@@ -12,7 +12,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-CLIENT_DIR = Path(__file__).resolve().parents[2] / 'client'
 SCRIPTS_DIR = Path(__file__).resolve().parent
 DEPLOYMENT_DIR = SCRIPTS_DIR.parent
 PROJECT_ROOT = DEPLOYMENT_DIR.parent.parent
@@ -24,7 +23,7 @@ if str(DEPLOYMENT_DIR) not in sys.path:
 from deployment_env import is_nginx_enabled  # noqa: E402
 from log_env import client_dev_log_level  # noqa: E402
 from nginx_dev import run_nginx_foreground  # noqa: E402
-from project_layout import nodejs_bin_dir, npm_exe  # noqa: E402
+from project_layout import nodejs_bin_dir, npm_exe, npm_root_dir  # noqa: E402
 
 
 def main() -> int:
@@ -35,16 +34,32 @@ def main() -> int:
     if not Path(npm_cmd).is_file():
         npm_cmd = 'npm.cmd' if os.name == 'nt' else 'npm'
 
+    npm_root = npm_root_dir(PROJECT_ROOT)
     env = os.environ.copy()
     node_bin = nodejs_bin_dir(PROJECT_ROOT)
+    npm_bin_modules = npm_root / 'node_modules' / '.bin'
+    sep = ';' if os.name == 'nt' else ':'
+    path_parts = []
     if node_bin.is_dir():
-        sep = ';' if os.name == 'nt' else ':'
-        env['PATH'] = f'{node_bin}{sep}{env.get("PATH", "")}'
+        path_parts.append(str(node_bin))
+    if npm_bin_modules.is_dir():
+        path_parts.append(str(npm_bin_modules))
+    if path_parts:
+        env['PATH'] = sep.join(path_parts + [env.get('PATH', '')])
 
     log_level = client_dev_log_level()
     return subprocess.call(
-        [npm_cmd, 'run', 'dev', '--', '--logLevel', log_level],
-        cwd=str(CLIENT_DIR),
+        [
+            npm_cmd,
+            'run',
+            'dev',
+            '-w',
+            '@ergo-ms/core-client',
+            '--',
+            '--logLevel',
+            log_level,
+        ],
+        cwd=str(npm_root),
         env=env,
     )
 

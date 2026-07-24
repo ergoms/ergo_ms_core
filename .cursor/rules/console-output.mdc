@@ -80,9 +80,9 @@ Write-ColorOutput "[ПРОПУСК] уже пуст" Gray
 ## Базовый пример (clean)
 
 ```
-[SKIP] node_modules не найден
+[SKIP] virtual_env/npm/node_modules не найден
 [OK] Удалено 6 элементов из virtual_env/python
-[ERROR] Не удалось удалить node_modules
+[ERROR] Не удалось удалить virtual_env/npm/node_modules
 ```
 
 Заголовки шагов без метки — русский текст: `-> Шаг 2/9: очистка virtual_env/python...`

@@ -32,7 +32,7 @@
         {
             "label": "Setup Full System",
             "type": "shell",
-            "command": "ergoms setup && npm run install-extensions",
+            "command": "ergoms setup && ergoms install-extensions",
             "options": {
                 "cwd": "${workspaceFolder}"
             },
@@ -62,7 +62,7 @@
                         "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
                     }
                 },
-                "command": "ergoms setup && npm run install-extensions"
+                "command": "ergoms setup && ergoms install-extensions"
             },
             "presentation": {
                 "echo": true,

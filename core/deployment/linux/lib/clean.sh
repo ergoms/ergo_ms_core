@@ -40,6 +40,9 @@ stop_blocking_processes_for_clean() {
     if pkill -f "${packages_dir}" 2>/dev/null; then
       stopped=1
     fi
+    if pkill -f "${root}/virtual_env/npm/node_modules" 2>/dev/null; then
+      stopped=1
+    fi
     if pkill -f "${root}/node_modules" 2>/dev/null; then
       stopped=1
     fi
@@ -270,6 +273,7 @@ clear_project_dependencies() {
   local root="$1"
 
   local -a clean_paths=(
+    "virtual_env/npm/node_modules"
     "node_modules"
     "virtual_env/python"
     "virtual_env/static_api"
@@ -304,7 +308,7 @@ clear_project_dependencies() {
   for p in "${clean_paths[@]}"; do
     local full_path="$root/$p"
     local full_remove=0
-    [[ "$p" == "node_modules" ]] && full_remove=1
+    [[ "$p" == "node_modules" || "$p" == "virtual_env/npm/node_modules" ]] && full_remove=1
     if clean_target_has_work "$full_path" "$full_remove"; then
       has_work=1
       break
@@ -337,7 +341,7 @@ clear_project_dependencies() {
     echo "-> Шаг ${step}/${total}: очистка ${p}..."
 
     local full_remove=0
-    [[ "$p" == "node_modules" ]] && full_remove=1
+    [[ "$p" == "node_modules" || "$p" == "virtual_env/npm/node_modules" ]] && full_remove=1
 
     if ! clean_target_has_work "$full_path" "$full_remove"; then
       if [[ ! -e "$full_path" ]]; then

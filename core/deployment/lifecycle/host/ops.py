@@ -17,6 +17,7 @@ from console_tags import format_console  # noqa: E402
 from project_layout import (  # noqa: E402
     nodejs_bin_dir,
     npm_exe,
+    npm_root_dir,
     portable_python_exe,
     tool_cache_environ,
 )
@@ -154,15 +155,19 @@ def run_npm(ctx: DeploymentContext, script: str, extra_args: Sequence[str] = ())
             file=sys.stderr,
         )
         return 1
-    pkg = ctx.project_root / 'package.json'
+    npm_root = npm_root_dir(ctx.project_root)
+    pkg = npm_root / 'package.json'
     if not pkg.is_file():
-        print(format_console('error', 'package.json не найден в корне проекта'), file=sys.stderr)
+        print(
+            format_console('error', 'package.json не найден в virtual_env/npm'),
+            file=sys.stderr,
+        )
         return 1
     cmd = [npm, 'run', script, *extra_args]
     env = os.environ.copy()
     env.update(tool_cache_environ(ctx.project_root))
     _prepend_path(env, nodejs_bin_dir(ctx.project_root))
-    return subprocess.call(cmd, cwd=str(ctx.project_root), env=env)
+    return subprocess.call(cmd, cwd=str(npm_root), env=env)
 
 
 def run_python_script(

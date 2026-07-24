@@ -2,7 +2,8 @@
 # ERGO MS — Node-образ для клиента (dev Vite / prod build)
 #
 # npm-зависимости не ставятся при сборке образа: в compose проект bind-mount'ится,
-# node_modules — в именованных томах, установка — ensure_npm_deps.sh → npm run install:all
+# node_modules — в именованных томах (virtual_env/npm/node_modules),
+# установка — ensure_npm_deps.sh → npm run install:all
 # (тот же сценарий, что ergoms setup-full).
 FROM node:20-bookworm-slim
 
@@ -25,4 +26,4 @@ COPY core/deployment/docker/entrypoint/ensure_npm_deps.sh /usr/local/bin/ergo-en
 RUN sed -i 's/\r$//' /usr/local/bin/ergo-ensure-npm-deps.sh \
     && chmod +x /usr/local/bin/ergo-ensure-npm-deps.sh
 
-CMD ["npm", "run", "dev", "--prefix", "core/client"]
+CMD ["npm", "run", "dev", "-w", "@ergo-ms/core-client", "--prefix", "virtual_env/npm"]

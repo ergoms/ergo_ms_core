@@ -197,7 +197,7 @@ function Require-InstallReadyForLaunch {
     if (-not (Get-Command ergoms -ErrorAction SilentlyContinue)) { throw "ergoms not found in PATH." }
     if (-not (Test-Path "$RootDir\core\api") -or -not (Test-Path "$RootDir\core\client")) { throw "Missing core/api or core/client directories." }
     if (-not (Test-Path "$RootDir\virtual_env\python\Scripts\activate.ps1")) { throw "Missing virtual_env/python." }
-    if (-not (Test-Path "$RootDir\node_modules") -and -not (Test-Path "$RootDir\core\client\node_modules")) { throw "Missing node_modules." }
+    if (-not (Test-Path "$RootDir\virtual_env\npm\node_modules") -and -not (Test-Path "$RootDir\node_modules") -and -not (Test-Path "$RootDir\core\client\node_modules")) { throw "Missing node_modules." }
     Log "Launch prerequisites: OK."
 }
 

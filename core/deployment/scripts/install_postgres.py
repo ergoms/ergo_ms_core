@@ -24,7 +24,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 if str(DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(DEPLOYMENT_DIR))
 
-from console_tags import format_console  # noqa: E402
+from console_tags import configure_stdio_utf8, format_console  # noqa: E402
 from postgres_common import (  # noqa: E402
     DEFAULT_BIND,
     DEFAULT_PORT,
@@ -252,6 +252,7 @@ def install_postgres(
 
 
 def main() -> int:
+    configure_stdio_utf8()
     parser = argparse.ArgumentParser(
         description='Install portable PostgreSQL into virtual_env/packages/postgres'
     )

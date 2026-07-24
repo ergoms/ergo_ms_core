@@ -17,6 +17,8 @@ alwaysApply: true
 
 **Node.js LTS** — `virtual_env/packages/nodejs/` (`ergoms install-nodejs` / setup-full).
 
+**npm workspace** — `virtual_env/npm/` (`package.json`, `package-lock.json`, `node_modules`); кэш npm — `virtual_env/cache/npm/`. Команды клиента: `ergoms npm …` (cwd = этот каталог). Подробности, Vite, Docker, запрет symlink на корень — [`npm-workspace.mdc`](npm-workspace.mdc).
+
 Автоустановка при `setup-full` управляется в `.env`:
 
 - `PORTABLE_PYTHON_ENABLED=true|false` (по умолчанию `true`)
@@ -44,4 +46,5 @@ alwaysApply: true
 |------|------|
 | Команды ergoms | [`no-direct-manage-py.mdc`](no-direct-manage-py.mdc) |
 | Артефакты только в корне | [`project-root-artifacts.mdc`](project-root-artifacts.mdc) |
+| npm workspace (`virtual_env/npm`) | [`npm-workspace.mdc`](npm-workspace.mdc) |
 | Первичная настройка | [`.docs/cli.md`](../../.docs/cli.md) |

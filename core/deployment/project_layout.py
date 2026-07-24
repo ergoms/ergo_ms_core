@@ -30,6 +30,15 @@ def cache_npm_dir(root: Path) -> Path:
     return cache_dir(root) / 'npm'
 
 
+def npm_root_dir(root: Path) -> Path:
+    """Каталог npm workspace (package.json, lock, node_modules)."""
+    return virtual_env_dir(root) / 'npm'
+
+
+def npm_node_modules_dir(root: Path) -> Path:
+    return npm_root_dir(root) / 'node_modules'
+
+
 def cache_tmp_dir(root: Path) -> Path:
     return cache_dir(root) / 'tmp'
 

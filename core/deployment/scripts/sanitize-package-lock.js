@@ -7,18 +7,21 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
-const LOCK_PATH = path.join(ROOT, 'package-lock.json')
+const NPM_ROOT = path.join(ROOT, 'virtual_env', 'npm')
+const LOCK_PATH = path.join(NPM_ROOT, 'package-lock.json')
+const CORE_CLIENT_WORKSPACE = '../../core/client'
 const ALLOWED_ERGO_MS_PACKAGES = new Set(['@ergo-ms/core-client'])
 
 function isModuleWorkspaceKey(key) {
-  return key.startsWith('modules/')
+  return key.includes('modules/') || key.includes('modules\\')
 }
 
 function isModuleErgoMsNodeModulesKey(key) {
-  if (!key.startsWith('node_modules/@ergo-ms/')) {
+  if (!key.includes('node_modules/@ergo-ms/')) {
     return false
   }
-  const packageName = key.slice('node_modules/'.length)
+  const idx = key.lastIndexOf('node_modules/')
+  const packageName = key.slice(idx + 'node_modules/'.length)
   return !ALLOWED_ERGO_MS_PACKAGES.has(packageName)
 }
 
@@ -30,7 +33,7 @@ function shouldDropPackageEntry(key, value) {
     return true
   }
   if (value && typeof value === 'object' && typeof value.resolved === 'string') {
-    if (value.resolved.startsWith('modules/')) {
+    if (value.resolved.includes('modules/') || value.resolved.includes('modules\\')) {
       return true
     }
   }
@@ -40,6 +43,11 @@ function shouldDropPackageEntry(key, value) {
     }
   }
   return false
+}
+
+function isCoreClientWorkspace(workspace) {
+  const normalized = workspace.replace(/\\/g, '/')
+  return normalized === 'core/client' || normalized.endsWith('/core/client')
 }
 
 export function sanitizePackageLockData(lockData) {
@@ -55,9 +63,11 @@ export function sanitizePackageLockData(lockData) {
 
   if (cleaned[''] && typeof cleaned[''] === 'object') {
     const workspaces = cleaned[''].workspaces ?? []
-    cleaned[''].workspaces = workspaces.filter((workspace) => !workspace.includes('modules/'))
-    if (!cleaned[''].workspaces.includes('core/client')) {
-      cleaned[''].workspaces = ['core/client', ...cleaned[''].workspaces]
+    cleaned[''].workspaces = workspaces.filter(
+      (workspace) => !String(workspace).includes('modules/'),
+    )
+    if (!cleaned[''].workspaces.some(isCoreClientWorkspace)) {
+      cleaned[''].workspaces = [CORE_CLIENT_WORKSPACE, ...cleaned[''].workspaces]
     }
   }
 
@@ -80,7 +90,7 @@ export function sanitizePackageLockFile(lockPath = LOCK_PATH) {
 
 function main() {
   if (!sanitizePackageLockFile()) {
-    console.error('[npm] package-lock.json не найден.')
+    console.error('[npm] package-lock.json не найден в virtual_env/npm.')
     process.exit(1)
   }
   console.log('[npm] package-lock.json очищен от записей модулей.')

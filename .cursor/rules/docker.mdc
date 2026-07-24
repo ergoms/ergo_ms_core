@@ -52,7 +52,7 @@ alwaysApply: false
 | nginx | `ergo_ms.conf.template`, `install-nginx` | profile `nginx`, `ergo_ms.docker.conf.template`, upstream — **имена сервисов**, не `127.0.0.1` |
 | Celery workers | `celery_workers.yaml`, `start-worker` | `ergoms docker-gen-workers` → `docker-compose.workers.generated.yml` |
 | Env effective | `env_resolvers`, `*_runtime.py` | `build_compose_env_overrides()` в `docker_runtime.py` — не хардкодить в compose то, что уже выводится из `.env` |
-| Зависимости | `ergoms python-install`, `npm run install:all` | bootstrap: только `redis`+`postgres`+`api` → `api install` + npm + migrate → маркер `logs/.ergo-docker-setup-ok` → остальные сервисы; `Dockerfile.client` (Node + `ensure_npm_deps.sh`); env `DOCKER_NPM_INSTALL` |
+| Зависимости | `ergoms python-install`, `ergoms npm run install:all` | bootstrap: только `redis`+`postgres`+`api` → `api install` + npm + migrate → маркер `logs/.ergo-docker-setup-ok` → остальные сервисы; `Dockerfile.client` (Node + `ensure_npm_deps.sh`); npm-root `/app/virtual_env/npm`; env `DOCKER_NPM_INSTALL` |
 | Ожидание готовности | прогрев / health на хосте | `wait_for_docker_setup.py` + `wait_for_services.py`; журналы stdout в `logs/docker/<service>.log` |
 | Справка и docs | `help.manifest.yaml`, `.docs/cli.md`, `logic.md` | раздел `docker` в help, [`.docs/docker.md`](../../.docs/docker.md), этот файл |
 
@@ -148,6 +148,7 @@ proxy_pass http://127.0.0.1:8000;
 | Portable Redis, nginx, TLS на хосте | [`deployment-infra.mdc`](deployment-infra.mdc) |
 | Не писать в `.env` | [`no-auto-env-write.mdc`](no-auto-env-write.mdc) |
 | Команды ergoms | [`no-direct-manage-py.mdc`](no-direct-manage-py.mdc), [`ergoms-commands.mdc`](ergoms-commands.mdc) |
+| npm workspace / тома node_modules | [`npm-workspace.mdc`](npm-workspace.mdc) |
 | Celery, workers | [`celery.mdc`](celery.mdc) |
 | Jupyter | [`deployment-infra.mdc`](deployment-infra.mdc) → Jupyter |
 | Устройство deployment | [`core/deployment/logic.md`](../../core/deployment/logic.md) |

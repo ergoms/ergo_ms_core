@@ -60,6 +60,9 @@ __pycache__/
 /media/*
 !/media/.gitkeep
 
+# npm workspace: манифесты в virtual_env/npm/, пакеты — только node_modules
+/virtual_env/npm/node_modules
+# legacy: старый корневой node_modules до переноса в virtual_env/npm
 /node_modules
 
 # Временный staging для ergoms clean (удаление в фоне)

@@ -18,6 +18,7 @@ alwaysApply: false
 | nginx / Redis / NSSM | `virtual_env/packages/{nginx,redis,nssm}/` |
 | Let's Encrypt + ACME webroot | `virtual_env/packages/letsencrypt/`, `…/certbot/webroot/` |
 | pip / Poetry / npm cache | `virtual_env/cache/{pip,poetry,npm}/` |
+| npm workspace (package.json, lock, node_modules) | `virtual_env/npm/` |
 | Временные download/extract | `virtual_env/cache/tmp/` |
 | Jupyter | `virtual_env/jupyter/` |
 | Env + systemd units | `core/deployment/wrappers/`, `…/systemd/` |
@@ -71,3 +72,11 @@ certbot_bin="$root/virtual_env/python/bin/certbot"
 ```
 
 Тесты deployment могут использовать `%TEMP%` для изоляции прогона — не копируй это в install-скрипты.
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Кратко | [`project-root-artifacts.mdc`](project-root-artifacts.mdc) |
+| npm workspace | [`npm-workspace.mdc`](npm-workspace.mdc) |
+| virtual_env | [`virtual-env.mdc`](virtual-env.mdc) |
