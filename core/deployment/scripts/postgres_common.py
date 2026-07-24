@@ -562,6 +562,20 @@ def ensure_databases(root: Path, port: int | None = None) -> None:
             _exec_sql(f'CREATE DATABASE "{ename}" OWNER "{euser}"')
             print(format_console('ok', f'База данных создана: {ename}'))
 
+    print_db_access_summary(root, port=port_i)
+
+
+def print_db_access_summary(root: Path, port: int | None = None) -> None:
+    """Печатает имя БД и учётные данные (databases.yaml default или встроенные)."""
+    defaults = load_db_defaults(root)
+    port_i = effective_portable_port(root, port)
+    host = defaults.get('host') or 'localhost'
+    print(format_console(
+        'info',
+        f"БД: {defaults['name']}  host={host}  port={port_i}  "
+        f"user={defaults['user']}  password={defaults['password']}",
+    ))
+
 
 def ping_postgres(root: Path, port: int | None = None, timeout_sec: float = 5.0) -> bool:
     if not is_installed(root):

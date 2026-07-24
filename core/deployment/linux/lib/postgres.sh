@@ -104,6 +104,31 @@ _postgres_listen_bind() {
   esac
 }
 
+_postgres_db_access_field() {
+  local root="$1"
+  local field="$2"
+  local fallback="$3"
+  local value
+  value="$(_postgres_yaml_default_field "$root" "$field" || true)"
+  if [[ -n "$value" ]]; then
+    printf '%s' "$value"
+  else
+    printf '%s' "$fallback"
+  fi
+}
+
+_postgres_db_access_summary() {
+  local root="$1"
+  local db_name db_user db_password
+  db_name="$(_postgres_db_access_field "$root" name ergo_ms)"
+  db_user="$(_postgres_db_access_field "$root" user postgres)"
+  db_password="$(_postgres_db_access_field "$root" password admin)"
+  echo "    База: $db_name"
+  echo "    Пользователь: $db_user"
+  echo "    Пароль: $db_password"
+  echo "[INFO] Источник: databases.yaml (default) или значения по умолчанию portable"
+}
+
 _postgres_yaml_port_hint() {
   local root="$1"
   local listen_port="$2"
@@ -235,6 +260,7 @@ postgres_install() {
   echo "    Путь: $(_postgres_dir "$root")"
   echo "    Служба: $POSTGRES_SERVICE_NAME"
   echo "    Прослушивание: ${listen_bind}:${listen_port}"
+  _postgres_db_access_summary "$root"
   _postgres_yaml_port_hint "$root" "$listen_port"
 }
 

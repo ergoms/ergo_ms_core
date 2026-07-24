@@ -211,6 +211,7 @@ function Install-Postgres {
     Write-ColorOutput "    Путь: $pgDir" Cyan
     Write-ColorOutput "    Служба: $($script:PostgresServiceName)" Cyan
     Write-ColorOutput "    Прослушивание: ${listenBind}:${listenPort}" Cyan
+    Write-PostgresDbAccessSummary -Root $Root
     Write-PostgresYamlPortHint -Root $Root -ListenPort $listenPort
 }
 
@@ -438,6 +439,32 @@ function Get-PostgresListenBind {
         return $yamlHost
     }
     return '127.0.0.1'
+}
+
+function Get-PostgresDbAccessDefaults {
+    param([string]$Root)
+
+    $name = Get-PostgresYamlDefaultField -Root $Root -FieldName 'name'
+    if (-not $name) { $name = 'ergo_ms' }
+    $user = Get-PostgresYamlDefaultField -Root $Root -FieldName 'user'
+    if (-not $user) { $user = 'postgres' }
+    $password = Get-PostgresYamlDefaultField -Root $Root -FieldName 'password'
+    if (-not $password) { $password = 'admin' }
+    return @{
+        Name     = $name
+        User     = $user
+        Password = $password
+    }
+}
+
+function Write-PostgresDbAccessSummary {
+    param([string]$Root)
+
+    $access = Get-PostgresDbAccessDefaults -Root $Root
+    Write-ColorOutput "    База: $($access.Name)" Cyan
+    Write-ColorOutput "    Пользователь: $($access.User)" Cyan
+    Write-ColorOutput "    Пароль: $($access.Password)" Cyan
+    Write-ColorOutput '[INFO] Источник: databases.yaml (default) или значения по умолчанию portable' Cyan
 }
 
 function Write-PostgresYamlPortHint {
