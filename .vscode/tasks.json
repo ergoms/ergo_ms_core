@@ -342,7 +342,7 @@
         },
         {
             "label": "Start All Services",
-            "detail": "Прогрев кэшей, затем Redis → API/backend → клиент (по умолчанию)",
+            "detail": "Запустить все службы разработки: прогрев кэшей, Redis, API, Media API, Celery и клиент",
             "dependsOrder": "sequence",
             "dependsOn": [
                 "Cache Warmup",
