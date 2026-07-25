@@ -4,7 +4,9 @@ databases:
     name: "ergo_ms"
     user: "postgres"
     password: "admin"
-    host: "localhost"
+    # 127.0.0.1, не localhost: на Windows localhost → ::1, а Postgres слушает IPv4 —
+    # каждый connect тогда ~2 с (страницы «тупят» на каждом /api/).
+    host: "127.0.0.1"
     # 5433 — portable (ergoms install-postgres / setup-full); host/port — источник для listen portable
     # 5432 — системный Postgres, если используете его вместо portable
     port: 5433
@@ -14,7 +16,7 @@ databases:
     name: "ergo_ms_celery"
     user: "celery_user"
     password: "celery_password"
-    host: "localhost"
+    host: "127.0.0.1"
     port: 5433
   
   celery_worker:
@@ -22,7 +24,7 @@ databases:
     name: "ergo_ms_celery_worker"
     user: "celery_worker_user"
     password: "worker_password"
-    host: "localhost"
+    host: "127.0.0.1"
     port: 5433
   
   celery_beat:
@@ -30,7 +32,7 @@ databases:
     name: "ergo_ms_celery_beat"
     user: "celery_beat_user"
     password: "beat_password"
-    host: "localhost"
+    host: "127.0.0.1"
     port: 5433
 
   analytics:
@@ -38,5 +40,5 @@ databases:
     name: "world"
     user: "root"
     password: "admin"
-    host: "localhost"
+    host: "127.0.0.1"
     port: 3306
