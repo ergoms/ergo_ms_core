@@ -8,6 +8,7 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { sanitizePackageLockFile } from './sanitize-package-lock.js'
+import { runNpm } from './run_npm_spawn.js'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 const NPM_ROOT = path.join(ROOT, 'virtual_env', 'npm')
@@ -47,16 +48,9 @@ function runNpmInstall() {
     console.log('[npm] Удалён старый package-lock.json перед пересборкой.')
   }
 
-  const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm'
-  const result = spawnSync(
-    npmCmd,
+  const result = runNpm(
     ['install', '--include-workspace-root', '--ignore-scripts', '--package-lock'],
-    {
-      cwd: NPM_ROOT,
-      stdio: 'inherit',
-      env: process.env,
-      shell: process.platform === 'win32',
-    },
+    { cwd: NPM_ROOT },
   )
 
   if (result.status !== 0) {

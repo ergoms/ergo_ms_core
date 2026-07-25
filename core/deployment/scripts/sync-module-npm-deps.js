@@ -12,6 +12,7 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { loadDisabledModules } from '../../../core/client/scripts/lib/parse-disabled-modules.js'
+import { runNpm } from './run_npm_spawn.js'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 const NPM_ROOT = path.join(ROOT, 'virtual_env', 'npm')
@@ -153,7 +154,6 @@ function installMissingPackagesDocker(specs) {
 }
 
 function installMissingPackages(missing) {
-  const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm'
   const unique = uniqueMissingPackages(missing)
   const specs = unique.map((entry) => `${entry.depName}@${entry.depVersion}`)
 
@@ -164,15 +164,9 @@ function installMissingPackages(missing) {
 
   console.log(`[npm] Доустановка пакетов (${specs.length}): ${specs.join(', ')}`)
 
-  const result = spawnSync(
-    npmCmd,
+  const result = runNpm(
     ['install', ...specs, '--no-save', '--no-package-lock', '--ignore-scripts'],
-    {
-      cwd: NPM_ROOT,
-      stdio: 'inherit',
-      env: process.env,
-      shell: process.platform === 'win32',
-    },
+    { cwd: NPM_ROOT },
   )
 
   if (result.status !== 0) {
