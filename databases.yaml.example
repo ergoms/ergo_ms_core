@@ -4,10 +4,8 @@ databases:
     name: "ergo_ms"
     user: "postgres"
     password: "admin"
-    # 127.0.0.1, не localhost: на Windows localhost → ::1, а Postgres слушает IPv4 —
-    # каждый connect тогда ~2 с (страницы «тупят» на каждом /api/).
     host: "127.0.0.1"
-    # 5433 — portable (ergoms install-postgres / setup-full); host/port — источник для listen portable
+    # 5433 — portable (ergoms install-postgres / setup-full);
     # 5432 — системный Postgres, если используете его вместо portable
     port: 5433
 
