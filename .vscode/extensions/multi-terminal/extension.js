@@ -215,7 +215,10 @@ function readSourceFile(workspaceRoot, sourceConfig, silent = false) {
     const items = getValueByPath(data, sourceConfig.path);
     
     if (!items) {
-        vscode.window.showWarningMessage(`Путь "${sourceConfig.path}" не найден в ${sourceConfig.file}`);
+        // Пустой services: в runtime.yaml (Redis выключен) — не ошибка.
+        if (!silent) {
+            vscode.window.showWarningMessage(`Путь "${sourceConfig.path}" не найден в ${sourceConfig.file}`);
+        }
         return [];
     }
     
@@ -360,7 +363,9 @@ async function executeMultiTerminalTask(task) {
     }
     
     if (tasks.length === 0) {
-        if (!definition.hideControlTerminal) {
+        // Пустой список нормален для Redis Dev при REDIS_ENABLED=false —
+        // не пугаем toast'ом «Нет задач для запуска» в Start All Services.
+        if (!silentEmpty) {
             vscode.window.showWarningMessage('Нет задач для запуска');
         }
         return;

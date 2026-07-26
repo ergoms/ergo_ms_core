@@ -128,12 +128,26 @@ export async function installExtensionFromVsix(vsixPath, homeDir, tempRoot) {
   }
 
   const extensionDirName = `${publisher}.${name}-${version}`;
+  const extensionIdPrefix = `${publisher}.${name}-`;
   let installed = false;
 
   for (const installDir of getExtensionInstallDirs(homeDir)) {
     try {
       await mkdir(installDir, { recursive: true });
       const targetDir = join(installDir, extensionDirName);
+
+      // Удаляем предыдущие версии того же расширения (иначе Cursor может держать старый toast).
+      if (existsSync(installDir)) {
+        for (const entry of await readdirAsync(installDir, { withFileTypes: true })) {
+          if (!entry.isDirectory() || !entry.name.startsWith(extensionIdPrefix)) {
+            continue;
+          }
+          if (entry.name === extensionDirName) {
+            continue;
+          }
+          await rm(join(installDir, entry.name), { recursive: true, force: true }).catch(() => {});
+        }
+      }
 
       if (existsSync(targetDir)) {
         await rm(targetDir, { recursive: true, force: true });
