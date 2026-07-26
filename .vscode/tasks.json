@@ -247,6 +247,7 @@
                 "path": "services"
             },
             "commandTemplate": "ergoms start-${key}-dev",
+            "stopCommandTemplate": "ergoms stop-${key}-dev",
             "nameTemplate": "${key}",
             "group": "redis-dev",
             "delay": 500,
@@ -313,7 +314,7 @@
         },
         {
             "label": "Client Dev",
-            "detail": "Запустить клиентские сервисы разработки",
+            "detail": "Запустить клиент или nginx после готовности API",
             "hide": true,
             "type": "multi-terminal",
             "source": {
@@ -321,6 +322,7 @@
                 "path": "services"
             },
             "commandTemplate": "ergoms start-${key}-dev",
+            "stopCommandTemplate": "ergoms stop-${key}-dev",
             "nameTemplate": "${key}",
             "group": "client-dev",
             "delay": 300,
@@ -342,7 +344,7 @@
         },
         {
             "label": "Start All Services",
-            "detail": "Запустить все службы разработки: прогрев кэшей, Redis, API, Media API, Celery и клиент",
+            "detail": "Запустить все службы разработки: прогрев кэшей, Redis, API, Media API, Celery и клиент после готовности API",
             "dependsOrder": "sequence",
             "dependsOn": [
                 "Cache Warmup",
@@ -383,6 +385,7 @@
                 "path": "services"
             },
             "commandTemplate": "ergoms start-${key}-dev",
+            "stopCommandTemplate": "ergoms stop-${key}-dev",
             "nameTemplate": "${key}",
             "group": "optional-services",
             "hideControlTerminal": true,

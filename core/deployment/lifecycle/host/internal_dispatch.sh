@@ -93,6 +93,13 @@ case "$category" in
   nginx)
     case "$operation" in
       install) nginx_install "$root" "${1:-}" "${2:-}" "false" ;;
+      install-service)
+        if _nginx_is_installed "$root"; then
+          nginx_install_service "$root"
+        else
+          nginx_install "$root" "${1:-}" "${2:-}" "false"
+        fi
+        ;;
       uninstall)
         purge=false
         [[ "${1:-}" == "--purge" ]] && purge=true
@@ -117,6 +124,13 @@ case "$category" in
     done
     case "$operation" in
       install) redis_install "$root" "$port" "false" ;;
+      install-service)
+        if _redis_is_installed "$root"; then
+          redis_install_service "$root"
+        else
+          redis_install "$root" "$port" "true"
+        fi
+        ;;
       uninstall)
         purge=false
         [[ "${1:-}" == "--purge" ]] && purge=true

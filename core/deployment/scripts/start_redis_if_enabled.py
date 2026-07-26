@@ -1,13 +1,18 @@
 """
 Запуск Redis в foreground для VS Code / ergoms start-redis-dev.
 
-При REDIS_ENABLED=true: если Redis уже отвечает (warmup или внешний процесс) — только логи,
-без stop/restart (иначе гонка с ergoms dev). Иначе — foreground-запуск portable Redis.
-При REDIS_ENABLED=false: выход без сообщений (задача VS Code не занимает терминал).
+При REDIS_ENABLED=true:
+- нет процесса — foreground-запуск (закрытие терминала останавливает Redis);
+- есть marker (warmup) — только логи, но закрытие терминала останавливает Redis
+  (без stop/restart, чтобы не было окна без Redis перед API);
+- без marker (внешний) — только логи, процесс не трогаем.
+При REDIS_ENABLED=false: выход без сообщений.
 """
 
 from __future__ import annotations
 
+import atexit
+import signal
 import sys
 from pathlib import Path
 
@@ -28,6 +33,7 @@ from redis_dev import (  # noqa: E402
     is_redis_managed_service,
     read_dev_session_marker,
     run_redis_foreground,
+    stop_redis_for_dev,
 )
 
 
@@ -45,6 +51,44 @@ def redis_log_tail_paths() -> list[Path]:
         seen.add(key)
         unique.append(path)
     return unique
+
+
+def _tail_owned_session() -> int:
+    """Поток логов Redis с остановкой portable-процесса при выходе из терминала."""
+    session_owned = True
+
+    def _cleanup() -> None:
+        nonlocal session_owned
+        if not session_owned:
+            return
+        stop_redis_for_dev(PROJECT_ROOT, quiet=True)
+        clear_dev_session_marker(PROJECT_ROOT)
+        session_owned = False
+
+    def _handle_signal(signum: int, _frame: object) -> None:
+        _cleanup()
+        raise SystemExit(128 + signum if signum else 0)
+
+    if hasattr(signal, 'SIGTERM'):
+        signal.signal(signal.SIGTERM, _handle_signal)
+    signal.signal(signal.SIGINT, _handle_signal)
+    atexit.register(_cleanup)
+
+    print(format_console(
+        'info',
+        'Redis уже запущен (warmup); логи ниже. Ctrl+C или закрытие терминала останавливает Redis.',
+    ))
+    try:
+        return tail_log_files(
+            redis_log_tail_paths(),
+            service='Redis',
+            process_keeps_running=False,
+        )
+    except KeyboardInterrupt:
+        return 0
+    finally:
+        atexit.unregister(_cleanup)
+        _cleanup()
 
 
 def main() -> int:
@@ -65,14 +109,12 @@ def main() -> int:
 
     if ping_redis(PROJECT_ROOT):
         if marker is None:
-            hint = 'внешний'
-        else:
-            hint = marker.get('source', 'warmup')
-        print(format_console(
-            'info',
-            f'Redis уже запущен ({hint}); логи ниже. Ctrl+C только прекращает просмотр.',
-        ))
-        return tail_log_files(redis_log_tail_paths(), service='Redis', process_keeps_running=True)
+            print(format_console(
+                'info',
+                'Redis уже запущен (внешний); закрытие терминала не остановит сервер.',
+            ))
+            return tail_log_files(redis_log_tail_paths(), service='Redis', process_keeps_running=True)
+        return _tail_owned_session()
 
     if marker is not None:
         clear_dev_session_marker(PROJECT_ROOT)

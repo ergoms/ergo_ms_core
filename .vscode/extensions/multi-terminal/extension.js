@@ -262,7 +262,7 @@ function getWorkspaceRoot() {
 /**
  * Создаёт и запускает задачу
  */
-async function runTask(name, command, cwd, group) {
+async function runTask(name, command, cwd, group, stopCommand) {
     const taskDefinition = {
         type: 'shell',
         task: name
@@ -296,25 +296,88 @@ async function runTask(name, command, cwd, group) {
         if (!taskGroups.has(group)) {
             taskGroups.set(group, []);
         }
-        taskGroups.get(group).push(execution);
+        taskGroups.get(group).push({
+            execution,
+            stopCommand: stopCommand || null,
+            cwd,
+            name
+        });
     }
     
     return execution;
 }
 
 /**
+ * Выполняет stop-команду после закрытия терминала (синхронно — иначе на Windows
+ * detached-процесс может не успеть отработать).
+ */
+function runStopCommand(stopCommand, cwd) {
+    if (!stopCommand) {
+        return;
+    }
+    const { spawnSync } = require('child_process');
+    const isWin = process.platform === 'win32';
+    const workspaceRoot = cwd || getWorkspaceRoot();
+    const executable = isWin ? 'cmd.exe' : '/bin/bash';
+    const args = isWin ? ['/d', '/c', stopCommand] : ['-lc', stopCommand];
+    const env = { ...process.env };
+    if (workspaceRoot) {
+        const bin = path.join(workspaceRoot, 'core', 'deployment', 'bin');
+        const sep = isWin ? ';' : ':';
+        env.PATH = `${bin}${sep}${env.PATH || ''}`;
+        env.PYTHONIOENCODING = env.PYTHONIOENCODING || 'utf-8';
+        env.PYTHONUTF8 = env.PYTHONUTF8 || '1';
+    }
+    try {
+        spawnSync(executable, args, {
+            cwd: workspaceRoot || undefined,
+            stdio: 'ignore',
+            windowsHide: true,
+            env,
+            timeout: 20000
+        });
+    } catch (_) {
+        // stop best-effort: Redis/nginx могли уже остановиться в atexit
+    }
+}
+
+/**
+ * Находит запись задачи по TaskExecution (ссылка или имя — на Windows ссылка часто другая).
+ */
+function findTrackedTask(execution) {
+    const taskName = execution && execution.task ? execution.task.name : null;
+    for (const [group, items] of taskGroups) {
+        const index = items.findIndex((item) => (
+            item.execution === execution
+            || (taskName && item.name === taskName)
+        ));
+        if (index > -1) {
+            return { group, index, item: items[index] };
+        }
+    }
+    return null;
+}
+
+/**
  * Обрабатывает один источник данных и возвращает список задач
  */
-function processSource(workspaceRoot, sourceConfig, defaultCwd, silent = false) {
+function processSource(workspaceRoot, sourceConfig, defaultCwd, silent = false, defaultStopTemplate = null) {
     const items = readSourceFile(workspaceRoot, sourceConfig, silent);
     const commandTemplate = sourceConfig.commandTemplate || 'echo ${key}';
     const nameTemplate = sourceConfig.nameTemplate || 'Task: ${key}';
+    const stopTemplate = sourceConfig.stopCommandTemplate || defaultStopTemplate;
     
-    return items.map(item => ({
-        name: applyTemplate(nameTemplate, { key: item, item: item }),
-        command: applyTemplate(commandTemplate, { key: item, item: item }),
-        cwd: sourceConfig.cwd ? path.join(workspaceRoot, sourceConfig.cwd) : defaultCwd
-    }));
+    return items.map(item => {
+        const stopCommand = stopTemplate
+            ? applyTemplate(stopTemplate, { key: item, item: item })
+            : null;
+        return {
+            name: applyTemplate(nameTemplate, { key: item, item: item }),
+            command: applyTemplate(commandTemplate, { key: item, item: item }),
+            cwd: sourceConfig.cwd ? path.join(workspaceRoot, sourceConfig.cwd) : defaultCwd,
+            stopCommand
+        };
+    });
 }
 
 /**
@@ -332,6 +395,7 @@ async function executeMultiTerminalTask(task) {
     const group = definition.group || task.name;
     const cwd = definition.cwd ? path.join(workspaceRoot, definition.cwd) : workspaceRoot;
     const silentEmpty = Boolean(definition.hideControlTerminal);
+    const stopCommandTemplate = definition.stopCommandTemplate || null;
     
     let tasks = [];
     
@@ -340,7 +404,8 @@ async function executeMultiTerminalTask(task) {
         tasks = definition.terminals.map(t => ({
             name: t.name,
             command: t.command,
-            cwd: t.cwd ? path.join(workspaceRoot, t.cwd) : cwd
+            cwd: t.cwd ? path.join(workspaceRoot, t.cwd) : cwd,
+            stopCommand: t.stopCommand || null
         }));
     }
     
@@ -349,15 +414,16 @@ async function executeMultiTerminalTask(task) {
         const sourceWithTemplates = {
             ...definition.source,
             commandTemplate: definition.commandTemplate || 'echo ${key}',
-            nameTemplate: definition.nameTemplate || 'Task: ${key}'
+            nameTemplate: definition.nameTemplate || 'Task: ${key}',
+            stopCommandTemplate: definition.source.stopCommandTemplate || stopCommandTemplate
         };
-        tasks = tasks.concat(processSource(workspaceRoot, sourceWithTemplates, cwd, silentEmpty));
+        tasks = tasks.concat(processSource(workspaceRoot, sourceWithTemplates, cwd, silentEmpty, stopCommandTemplate));
     }
     
     // Вариант 3: Несколько источников (НОВОЕ!)
     if (definition.sources && Array.isArray(definition.sources)) {
         for (const sourceConfig of definition.sources) {
-            const sourceTasks = processSource(workspaceRoot, sourceConfig, cwd, silentEmpty);
+            const sourceTasks = processSource(workspaceRoot, sourceConfig, cwd, silentEmpty, stopCommandTemplate);
             tasks = tasks.concat(sourceTasks);
         }
     }
@@ -373,17 +439,18 @@ async function executeMultiTerminalTask(task) {
     
     // Останавливаем старые задачи этой группы
     if (taskGroups.has(group)) {
-        for (const exec of taskGroups.get(group)) {
+        for (const item of taskGroups.get(group)) {
             try {
-                exec.terminate();
+                item.execution.terminate();
             } catch (e) {}
+            runStopCommand(item.stopCommand, item.cwd || cwd);
         }
         taskGroups.set(group, []);
     }
     
     // Запускаем задачи
     for (const t of tasks) {
-        await runTask(t.name, t.command, t.cwd, group);
+        await runTask(t.name, t.command, t.cwd, group, t.stopCommand);
         await sleep(delay);
     }
 }
@@ -395,11 +462,12 @@ function stopAllTasks() {
     let count = 0;
     
     for (const [group, executions] of taskGroups) {
-        for (const exec of executions) {
+        for (const item of executions) {
             try {
-                exec.terminate();
+                item.execution.terminate();
                 count++;
             } catch (e) {}
+            runStopCommand(item.stopCommand, item.cwd);
         }
     }
     
@@ -519,18 +587,25 @@ function activate(context) {
         stopAllTasks
     );
     
-    // Отслеживаем завершение задач
-    const taskEndListener = vscode.tasks.onDidEndTask(e => {
-        for (const [group, executions] of taskGroups) {
-            const index = executions.findIndex(exec => exec === e.execution);
-            if (index > -1) {
-                executions.splice(index, 1);
-                break;
-            }
+    // Отслеживаем завершение задач (закрытие терминала / terminate)
+    const onTaskProcessEnd = (execution) => {
+        const found = findTrackedTask(execution);
+        if (!found) {
+            return;
         }
+        const { group, index, item } = found;
+        taskGroups.get(group).splice(index, 1);
+        runStopCommand(item.stopCommand, item.cwd);
+    };
+
+    const taskEndListener = vscode.tasks.onDidEndTaskProcess((e) => {
+        onTaskProcessEnd(e.execution);
+    });
+    const taskEndListener2 = vscode.tasks.onDidEndTask((e) => {
+        onTaskProcessEnd(e.execution);
     });
     
-    context.subscriptions.push(taskProvider, stopAllCmd, taskEndListener);
+    context.subscriptions.push(taskProvider, stopAllCmd, taskEndListener, taskEndListener2);
 }
 
 function deactivate() {

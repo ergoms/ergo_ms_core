@@ -63,6 +63,7 @@ switch ($Category) {
         $listenPort = if ($Extra.Count -ge 2) { $Extra[1] } else { '' }
         switch ($Operation) {
             'install' { Install-Nginx -Root $Root -ServerName $serverName -ListenPort $listenPort }
+            'install-service' { Install-Nginx -Root $Root -ServerName $serverName -ListenPort $listenPort -AsService }
             'uninstall' {
                 $purge = $Extra -contains '--purge'
                 Uninstall-Nginx -Root $Root -PurgeData:$purge
@@ -82,6 +83,7 @@ switch ($Category) {
         $port = if ($Extra.Count -ge 1 -and $Extra[0] -match '^\d+$') { $Extra[0] } else { '' }
         switch ($Operation) {
             'install' { Install-Redis -Root $Root -ListenPort $port }
+            'install-service' { Install-Redis -Root $Root -ListenPort $port -AsService }
             'uninstall' {
                 $purge = $Extra -contains '--purge'
                 Uninstall-Redis -Root $Root -PurgeData:$purge

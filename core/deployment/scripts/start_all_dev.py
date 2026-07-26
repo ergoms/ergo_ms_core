@@ -23,6 +23,11 @@ def _run_warmup() -> int:
     return subprocess.call([PYTHON, str(warmup)], cwd=str(PROJECT_ROOT))
 
 
+def _wait_api_ready() -> int:
+    wait_script = SCRIPTS_DIR / 'wait_api_ready.py'
+    return subprocess.call([PYTHON, str(wait_script)], cwd=str(PROJECT_ROOT))
+
+
 def _ordered_dev_commands() -> list[tuple[str, str]]:
     """Порядок: Redis → API / media / celery → client|nginx."""
     from deployment_env import is_nginx_enabled, is_redis_enabled
@@ -45,11 +50,15 @@ def _ordered_dev_commands() -> list[tuple[str, str]]:
 
 def _spawn_windows() -> int:
     redis_started = False
+    api_started = False
     for title, command in _ordered_dev_commands():
         if title == 'API' and redis_started:
             time.sleep(_GROUP_DELAY_SEC)
         if title in ('Client', 'Nginx'):
-            time.sleep(_GROUP_DELAY_SEC)
+            if api_started:
+                _wait_api_ready()
+            else:
+                time.sleep(_GROUP_DELAY_SEC)
         subprocess.Popen(
             f'start "{title}" cmd /c "{command}"',
             shell=True,
@@ -58,6 +67,8 @@ def _spawn_windows() -> int:
         if title == 'Redis':
             redis_started = True
             time.sleep(_GROUP_DELAY_SEC)
+        if title == 'API':
+            api_started = True
     return 0
 
 
@@ -65,15 +76,21 @@ def _spawn_linux() -> int:
     commands = _ordered_dev_commands()
     processes = []
     redis_started = False
+    api_started = False
     for title, command in commands:
         if title == 'API' and redis_started:
             time.sleep(_GROUP_DELAY_SEC)
         if title in ('Client', 'Nginx'):
-            time.sleep(_GROUP_DELAY_SEC)
+            if api_started:
+                _wait_api_ready()
+            else:
+                time.sleep(_GROUP_DELAY_SEC)
         processes.append(subprocess.Popen(command, shell=True, cwd=str(PROJECT_ROOT)))
         if title == 'Redis':
             redis_started = True
             time.sleep(_GROUP_DELAY_SEC)
+        if title == 'API':
+            api_started = True
     exit_code = 0
     for process in processes:
         code = process.wait()

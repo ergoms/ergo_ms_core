@@ -1,7 +1,7 @@
 """
 Запуск nginx в foreground для VS Code / ergoms start-nginx-dev.
 
-При NGINX_ENABLED=true: nginx и потоковый вывод логов.
+При NGINX_ENABLED=true: ждёт API ready, затем nginx в foreground.
 При NGINX_ENABLED=false: выход без сообщений.
 """
 
@@ -16,11 +16,16 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 from deployment_env import is_nginx_enabled  # noqa: E402
 from nginx_dev import run_nginx_foreground  # noqa: E402
+from wait_api_ready import wait_for_api_ready  # noqa: E402
 
 
 def main() -> int:
     if not is_nginx_enabled():
         return 0
+    code = wait_for_api_ready()
+    if code != 0:
+        # Таймаут — всё равно поднимаем nginx (прокси пригодится, когда API догонит).
+        pass
     return run_nginx_foreground()
 
 

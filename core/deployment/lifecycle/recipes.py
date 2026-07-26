@@ -43,7 +43,13 @@ from lifecycle.steps.host_steps import (
     PoetryInstallStep,
     UpdateModuleSubmodulesStep,
 )
-from lifecycle.steps.infra_steps import EnsureNginxStep, EnsureRedisStep, InfraOperationStep
+from lifecycle.steps.infra_steps import (  # noqa: E402
+    EnsureNginxOsServiceStep,
+    EnsureNginxStep,
+    EnsureRedisOsServiceStep,
+    EnsureRedisStep,
+    InfraOperationStep,
+)
 from lifecycle.steps.postgres_steps import EnsurePostgresStep
 from lifecycle.steps.service_steps import ServiceOperationStep
 
@@ -338,6 +344,22 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
             if op == 'uninstall' and sid != 'all':
                 continue
             name = f'service-{op}-{sid}'
+            if name == 'service-install-all':
+                # Redis → app-службы → nginx (если включены в .env)
+                specs.append(
+                    RecipeSpec(
+                        name,
+                        (
+                            EnsureRedisOsServiceStep(),
+                            ServiceOperationStep(op, sid),
+                            EnsureNginxOsServiceStep(),
+                        ),
+                        target='service',
+                        needs_sudo=True,
+                        description='Службы ОС: install all (+ nginx/redis при флагах в .env)',
+                    )
+                )
+                continue
             specs.append(
                 RecipeSpec(
                     name,
@@ -349,6 +371,7 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
 
     for component, op in (
         ('nginx', 'install'),
+        ('nginx', 'install-service'),
         ('nginx', 'uninstall'),
         ('nginx', 'start'),
         ('nginx', 'stop'),
@@ -357,6 +380,7 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
         ('nginx', 'status'),
         ('nginx', 'test'),
         ('redis', 'install'),
+        ('redis', 'install-service'),
         ('redis', 'uninstall'),
         ('redis', 'start'),
         ('redis', 'stop'),
@@ -380,7 +404,7 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
                 name,
                 (InfraOperationStep(component, op),),
                 target='infra',
-                needs_sudo=component in ('nginx', 'redis', 'postgres', 'tls') and op != 'status' and op != 'test',
+                needs_sudo=component in ('nginx', 'redis', 'postgres', 'tls') and op not in ('status', 'test'),
                 description=f'Инфра {component}: {op}',
             )
         )
@@ -405,6 +429,7 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
         'status-all-services': 'service-status-all',
         'dev': 'dev-api',
         'install-nginx': 'nginx-install',
+        'install-nginx-service': 'nginx-install-service',
         'uninstall-nginx': 'nginx-uninstall',
         'start-nginx': 'nginx-start',
         'stop-nginx': 'nginx-stop',
@@ -413,6 +438,7 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
         'status-nginx': 'nginx-status',
         'test-nginx': 'nginx-test',
         'install-redis': 'redis-install',
+        'install-redis-service': 'redis-install-service',
         'uninstall-redis': 'redis-uninstall',
         'start-redis': 'redis-start',
         'stop-redis': 'redis-stop',

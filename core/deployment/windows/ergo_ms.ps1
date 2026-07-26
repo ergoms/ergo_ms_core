@@ -711,13 +711,17 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            Load-HeavyModules
-
             $serverName = if ($RemainingArgs.Count -ge 1) { $RemainingArgs[0] } else { '' }
 
             $listenPort = if ($RemainingArgs.Count -ge 2) { $RemainingArgs[1] } else { '' }
 
-            Install-Nginx -Root $projectRoot -ServerName $serverName -ListenPort $listenPort -AsService
+            $extra = @()
+
+            if ($serverName) { $extra += @('--server-name', $serverName) }
+
+            if ($listenPort) { $extra += @('--listen-port', $listenPort) }
+
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'install-nginx-service' -ExtraArgs $extra
 
         }
 
@@ -785,13 +789,15 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            Load-HeavyModules
-
             $portArgs = @($RemainingArgs | Where-Object { $_ -ne '--configure' })
 
             $listenPort = if ($portArgs.Count -ge 1) { $portArgs[0] } else { '' }
 
-            Install-Redis -Root $projectRoot -ListenPort $listenPort -AsService
+            $extra = @()
+
+            if ($listenPort) { $extra += @('--listen-port', $listenPort) }
+
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'install-redis-service' -ExtraArgs $extra
 
         }
 

@@ -19,7 +19,7 @@ sections:
       - name: install
         summary: "Алиас install-services: установить и запустить все службы"
       - name: install-services
-        summary: "Установить и запустить все службы ОС"
+        summary: "Установить и запустить все службы ОС (nginx/redis — при NGINX_ENABLED/REDIS_ENABLED в .env)"
       - name: install-api-service
         summary: "Установить и запустить только службу API"
       - name: install-client-service
@@ -167,6 +167,20 @@ sections:
         summary: "Redis (если включён) и прогрев только при пустом или устаревшем кэше"
       - name: ensure-redis-dev
         summary: "Запустить Redis для разработки без терминала логов"
+      - name: start-redis-dev
+        summary: "Redis в foreground для VS Code (закрытие терминала останавливает Redis)"
+      - name: stop-redis-dev
+        summary: "Остановить portable Redis dev-сессии (после закрытия терминала)"
+      - name: start-nginx-dev
+        summary: "Nginx в foreground после готовности API (закрытие терминала останавливает nginx)"
+      - name: stop-nginx-dev
+        summary: "Остановить portable nginx dev-сессии (после закрытия терминала)"
+      - name: start-client-dev
+        summary: "Vite-клиент после готовности API (если nginx выключен)"
+      - name: stop-client-dev
+        summary: "Заглушка остановки Vite-клиента (процесс завершается с терминалом)"
+      - name: wait-api-ready
+        summary: "Дождаться GET /api/system/ready/ перед запуском клиента или nginx"
       - name: warmup-celery
         summary: "Прогреть только celery-кэши"
       - name: invalidate-caches

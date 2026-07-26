@@ -69,7 +69,7 @@ main() {
       command="$normalized_cmd"
     fi
     case "$command" in
-      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|update-submodules|update-module-submodules|clean|help|poetry|api|media_api|npm|install-nginx|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx|install-tls|renew-tls|status-tls|install-redis|install-redis-service|uninstall-redis|start-redis|stop-redis|restart-redis|status-redis|test-redis|install-postgres|install-postgres-service|uninstall-postgres|start-postgres|stop-postgres|restart-postgres|status-postgres|test-postgres|install-python|install-python-runtime|install-nodejs|install-node)
+      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|update-submodules|update-module-submodules|clean|help|poetry|api|media_api|npm|install-nginx|install-nginx-service|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx|install-tls|renew-tls|status-tls|install-redis|install-redis-service|uninstall-redis|start-redis|stop-redis|restart-redis|status-redis|test-redis|install-postgres|install-postgres-service|uninstall-postgres|start-postgres|stop-postgres|restart-postgres|status-postgres|test-postgres|install-python|install-python-runtime|install-nodejs|install-node)
         shift ;;
       *:poetry)
         shift ;;  # module:poetry command, handled below
@@ -123,7 +123,7 @@ main() {
   
   # Check if it's a custom command (doesn't require root)
   # Exclude built-in commands to avoid recursion (e.g. install-cli would re-invoke self via commands.conf)
-  local builtin_override="install-cli|uninstall-cli|install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|start|stop|restart|status|uninstall-services|setup-full|install-nginx|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx|install-tls|renew-tls|status-tls|install-redis|install-redis-service|uninstall-redis|start-redis|stop-redis|restart-redis|status-redis|test-redis|install-postgres|install-postgres-service|uninstall-postgres|start-postgres|stop-postgres|restart-postgres|status-postgres|test-postgres|install-python|install-python-runtime|install-nodejs|install-node"
+  local builtin_override="install-cli|uninstall-cli|install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|start|stop|restart|status|uninstall-services|setup-full|install-nginx|install-nginx-service|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx|install-tls|renew-tls|status-tls|install-redis|install-redis-service|uninstall-redis|start-redis|stop-redis|restart-redis|status-redis|test-redis|install-postgres|install-postgres-service|uninstall-postgres|start-postgres|stop-postgres|restart-postgres|status-postgres|test-postgres|install-python|install-python-runtime|install-nodejs|install-node"
   local is_custom_command=false
   if [[ -v "available_custom_cmds[$command]" ]] && [[ ! "$command" =~ ^($builtin_override)$ ]]; then
     is_custom_command=true
@@ -156,7 +156,7 @@ main() {
   # Check if it's a nginx command (requires root for install/uninstall, not for others)
   local is_nginx_command=false
   case "$command" in
-    install-nginx|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx|install-tls|renew-tls|status-tls)
+    install-nginx|install-nginx-service|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx|install-tls|renew-tls|status-tls)
       is_nginx_command=true ;;
   esac
 
@@ -239,7 +239,7 @@ main() {
       done
       [[ "$nginx_purge" == true ]] && extra+=(--purge)
       case "$command" in
-        install-nginx|install-tls)
+        install-nginx|install-nginx-service|install-tls)
           extra+=(--server-name "${1:-}" --listen-port "${2:-}" --domain "${1:-}" --email "${2:-}")
           ;;
       esac
@@ -271,8 +271,11 @@ main() {
       [[ "$redis_purge" == true ]] && extra+=(--purge)
       [[ -n "$redis_port" ]] && extra+=(--listen-port "$redis_port")
       case "$command" in
-        install-redis|install-redis-service)
+        install-redis)
           invoke_lifecycle_runner "$ERGO_ROOT" install-redis "${extra[@]}"
+          ;;
+        install-redis-service)
+          invoke_lifecycle_runner "$ERGO_ROOT" install-redis-service "${extra[@]}"
           ;;
         *)
           invoke_lifecycle_runner "$ERGO_ROOT" "$command" "${extra[@]}"

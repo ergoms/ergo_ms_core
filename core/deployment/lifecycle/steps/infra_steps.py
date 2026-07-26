@@ -37,12 +37,12 @@ class InfraOperationStep(DeploymentStep):
             extra.append('--purge')
         if self._operation == 'renew' and ctx.option_bool('dry_run'):
             extra.append('--dry-run')
-        if self._component == 'nginx' and self._operation == 'install':
+        if self._component == 'nginx' and self._operation in ('install', 'install-service'):
             extra.extend([
                 ctx.option_str('server_name'),
                 ctx.option_str('listen_port'),
             ])
-        if self._component == 'redis' and self._operation == 'install':
+        if self._component == 'redis' and self._operation in ('install', 'install-service'):
             port = ctx.option_str('listen_port')
             if port:
                 extra.append(port)
@@ -111,4 +111,56 @@ class EnsureNginxStep(DeploymentStep):
         if code != 0:
             return StepResult(exit_code=code, message='Не удалось установить nginx')
         print(format_console('ok', 'nginx готов'))
+        return StepResult()
+
+
+class EnsureRedisOsServiceStep(DeploymentStep):
+    """При REDIS_ENABLED=true — зарегистрировать Redis как службу ОС (install-services)."""
+
+    @property
+    def name(self) -> str:
+        return 'ensure_redis_os_service'
+
+    def should_run(self, ctx: DeploymentContext) -> bool:
+        return ctx.runtime == 'host'
+
+    def run(self, ctx: DeploymentContext) -> StepResult:
+        from deployment_env import is_redis_enabled  # noqa: WPS433
+
+        if not is_redis_enabled():
+            print(format_console('skip', 'REDIS_ENABLED=false — служба Redis не создаётся'))
+            return StepResult()
+
+        print(format_console('info', 'Установка службы Redis (REDIS_ENABLED=true)…'))
+        ctx.options.setdefault('needs_sudo', True)
+        code = invoke_dispatch(ctx, 'redis', 'install-service')
+        if code != 0:
+            return StepResult(exit_code=code, message='Не удалось установить службу Redis')
+        print(format_console('ok', 'Служба Redis готова'))
+        return StepResult()
+
+
+class EnsureNginxOsServiceStep(DeploymentStep):
+    """При NGINX_ENABLED=true — зарегистрировать nginx как службу ОС (install-services)."""
+
+    @property
+    def name(self) -> str:
+        return 'ensure_nginx_os_service'
+
+    def should_run(self, ctx: DeploymentContext) -> bool:
+        return ctx.runtime == 'host'
+
+    def run(self, ctx: DeploymentContext) -> StepResult:
+        from deployment_env import is_nginx_enabled  # noqa: WPS433
+
+        if not is_nginx_enabled():
+            print(format_console('skip', 'NGINX_ENABLED=false — служба nginx не создаётся'))
+            return StepResult()
+
+        print(format_console('info', 'Установка службы nginx (NGINX_ENABLED=true)…'))
+        ctx.options.setdefault('needs_sudo', True)
+        code = invoke_dispatch(ctx, 'nginx', 'install-service')
+        if code != 0:
+            return StepResult(exit_code=code, message='Не удалось установить службу nginx')
+        print(format_console('ok', 'Служба nginx готова'))
         return StepResult()
