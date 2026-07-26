@@ -776,14 +776,6 @@ function Uninstall-AllServices {
 
     $serviceNames = Get-ServiceNames -ProjectRoot $ProjectRoot
 
-    
-
-    # Также добавляем legacy службу воркера (если была)
-
-    $serviceNames += "ergo-celery-worker"
-
-    
-
     foreach ($serviceName in $serviceNames) {
 
         $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue

@@ -112,9 +112,19 @@ ergoms api module-remove <модуль> <пакет>
 ergoms api module-list
 ```
 
-`module-add` без явной версии сам подбирает последнюю совместимую; флаг `--install` сразу устанавливает пакет. После добавления или удаления без `--install` нужно выполнить `ergoms python-install`, чтобы применить изменения.
+`module-add` без явной версии сам подбирает последнюю совместимую; флаг `--install` сразу устанавливает пакет. После добавления или удаления без `--install` нужно выполнить `ergoms python-install`, чтобы применить изменения (установка недостающих и удаление пакетов, которых больше нет в `pyproject.toml` / `poetry.lock`).
 
 Модульные пакеты **не** добавляют в корневой `pyproject.toml` и **не** должны попадать в `poetry.lock`. Пересборка lock ядра — только при изменении зависимостей в корневом `pyproject.toml` (`ergoms poetry lock`).
+
+Обновление в пределах ограничений версий — ядро и модули:
+
+```cmd
+ergoms python-update
+ergoms npm update
+ergoms update-all
+```
+
+`python-update` / `poetry update` обновляет `poetry.lock` ядра и пакеты из `modules/*/pyproject.toml`; `npm update` — зависимости npm-root и `modules/*/client/package.json`.
 
 ## Lock-файлы (ядро и модули)
 
@@ -127,7 +137,7 @@ ergoms npm-lock-sanitize
 ergoms lock-check
 ```
 
-- Установка npm (ядро + модули в `virtual_env/npm/node_modules`): `ergoms npm run install:all` — не используйте `npm ci` в корне репозитория.
+- Установка npm (ядро + модули в `virtual_env/npm/node_modules`): `ergoms npm run install:all` — ставит недостающее, удаляет пакеты вне `package.json` и чистит `virtual_env/cache/npm` от неиспользуемых tarball'ов; не используйте `npm ci` в корне репозитория.
 - После изменения зависимостей **ядра** в `virtual_env/npm/package.json`: `ergoms npm-lock-refresh`.
 - Если в `package-lock.json` снова появились `modules/*` (например после старого `npm install`): `ergoms npm-lock-sanitize` или полная пересборка через `ergoms npm-lock-refresh`.
 - Проверка утечек модулей в lock: `ergoms lock-check`.

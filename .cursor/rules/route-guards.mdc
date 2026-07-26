@@ -26,8 +26,11 @@ export default organizationGuard
 ## Порядок в beforeEach
 
 1. Проверка токена / auth
-2. **Route guards модулей** (алфавит по имени модуля)
-3. Permission rules и ADP access
+2. **Platform session-scope** — `runSessionScopeGuard` в [`routers.js`](../../core/client/src/js/routers.js) для `meta.requiresSessionScope` / `requiresActiveSessionScope` (welcome/home из `session.scope_entry_routes`)
+3. **Route guards модулей** (алфавит по имени модуля) — доменная логика (например `validateSession`)
+4. Permission rules и ADP access
+
+Модульный `routeGuard` **не обязан** повторно вызывать `runSessionScopeGuard`, если достаточно platform-проверки. Владелец scope (organizations) может добавить доменную валидацию в своём guard после шага 2.
 
 При redirect guard возвращает объект маршрута через `next({ name: '...' })` — ядро перехватывает object-redirect и прерывает цепочку.
 

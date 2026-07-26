@@ -68,9 +68,11 @@ _nginx_install_binary() {
     return 1
   fi
 
-  local nginx_dir tarball src_dir build_dir jobs pcre_flag
+  local nginx_dir tarball src_dir build_dir jobs pcre_flag cache_tmp
   nginx_dir="$(_nginx_packages_dir "$root")"
-  build_dir="$(mktemp -d)"
+  cache_tmp="$root/virtual_env/cache/tmp"
+  mkdir -p "$cache_tmp"
+  build_dir="$(mktemp -d "$cache_tmp/nginx-build.XXXXXX")"
   tarball="$build_dir/nginx-${NGINX_VERSION}.tar.gz"
   src_dir="$build_dir/nginx-${NGINX_VERSION}"
   jobs="$(nproc 2>/dev/null || echo 2)"

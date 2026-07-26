@@ -83,8 +83,6 @@ def build_public_base_url(env_vars: dict) -> str:
 
 def build_internal_base_url(env_vars: dict) -> str:
     explicit = env_vars.get('MEDIA_API_INTERNAL_URL', '').strip()
-    if not explicit:
-        explicit = env_vars.get('MEDIA_API_INTERNAL_BASE_URL', '').strip()
     if explicit:
         return explicit.rstrip('/')
 

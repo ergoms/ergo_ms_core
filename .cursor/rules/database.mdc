@@ -10,9 +10,32 @@ alwaysApply: false
 - Таблицы — только через миграции Django (`ergoms db-makemigrations`, `ergoms db-migrate`).
 - Индексы, нумерация файлов, цикл `makemigrations` — [`django-migrations.mdc`](django-migrations.mdc).
 - Обычная работа — ORM Django.
-- Сложные выборки — SQL через `SqlAlchemyManager` (`core/api/src/core/utils/database/base.py`).
-- Конфиг подключений — `DBConfig` (`core/api/src/core/utils/database/dbconfig.py`).
+- Сложные выборки — SQL через `SqlAlchemyManager` / executors (`core/api/src/core/utils/database/`).
+- Конфиг подключений Django/Celery — `DjangoDatabaseConfigLoader` / `CeleryDatabaseConfigLoader` (`config_manager.py`), источник — корневой `databases.yaml`.
+- Внешние/SSH-подключения и URL БД для SQLAlchemy — `DBConfig` (`dbconfig.py`); зависимость `sshtunnel` обязательна.
 - Тяжёлые запросы выноси в `queries.py` модуля.
+
+## Стек SQLAlchemy (обязателен)
+
+Пакет `sqlalchemy` и модули ниже — **часть платформы**, не удалять как «неиспользуемые»:
+
+| Символ | Файл | Назначение |
+|--------|------|------------|
+| `SqlAlchemyManager` | `base.py` | Менеджер SQLAlchemy (pandas/`to_sql`, retry) |
+| `DBConfig` / `SSHConnection` | `dbconfig.py` | Конфиг URL и SSH-туннель (`sshtunnel`) |
+| `QueryExecutor` / `OrderedDictQueryExecutor` | `main.py` | Выполнение SQL / результатов |
+| `DjangoSAExecutor` | `main.py` | SQLAlchemy Core через Django connection |
+
+Импорт: `from src.core.utils.database import …` (реэкспорт в `__init__.py`).
+
+```python
+# GOOD — сложный JOIN / отчёт
+from src.core.utils.database import SqlAlchemyManager
+# или
+from src.core.utils.database import DjangoSAExecutor
+```
+
+Не дублируй свой SQLAlchemy-клиент в модуле — используй этот стек.
 
 ## Запрещено
 
@@ -26,11 +49,15 @@ cursor.execute(f"SELECT * FROM t WHERE id = {user_id}")
 MyModel.objects.filter(owner=user)
 ```
 
-## SqlAlchemyManager
+```python
+# GOOD — параметризованный SQL через платформенный executor / SqlAlchemyManager
+```
 
-Когда ORM неудобен (отчёты, сложные JOIN) — запросы в `queries.py`, выполнение через `SqlAlchemyManager`, не размазывай SQL по views.
+## Конфигурация
 
 Конфигурация БД — в корневом `databases.yaml`; Celery broker на Redis — `CELERY_BROKER_BACKEND` и `REDIS_ENABLED` в `.env`. См. [`.docs/configuration.md`](../../.docs/configuration.md), [`deployment-infra.mdc`](../../.cursor/rules/deployment-infra.mdc).
+
+Зависимости Poetry: `sqlalchemy`, `sshtunnel` (см. корневой `pyproject.toml`).
 
 ## Модели
 

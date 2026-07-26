@@ -189,7 +189,7 @@ After=network.target
 
 [Service]
 Type=simple
-EnvironmentFile=-/etc/default/ergo_ms
+EnvironmentFile=-__ERGO_MS_ENV__
 User=root
 ExecStart=$postgres -D $data
 ExecStop=$(_postgres_bin "$root" pg_ctl) stop -D $data -m fast

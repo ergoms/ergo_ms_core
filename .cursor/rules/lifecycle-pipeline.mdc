@@ -32,7 +32,7 @@ ergoms / tasks.json / ergo_ms.ps1|sh / commands.conf / docker_cli.py
 | Каталог / файл | Назначение |
 |----------------|------------|
 | [`runner.py`](../../core/deployment/lifecycle/runner.py) | argparse, `--list`, `--recreate-venv`, `--purge`, `--worker`, `--docker-mode`; `setup-full` до venv — системный Python |
-| [`orchestrator.py`](../../core/deployment/lifecycle/orchestrator.py) | `run_recipe()`; legacy `docker_init()` |
+| [`orchestrator.py`](../../core/deployment/lifecycle/orchestrator.py) | `run_recipe()` |
 | [`context.py`](../../core/deployment/lifecycle/context.py) | `runtime` (host/docker), `target`, `options` |
 | [`recipes.py`](../../core/deployment/lifecycle/recipes.py) | `RecipeSpec`: шаги, `needs_sudo`, алиасы ergoms |
 | [`steps/common_steps.py`](../../core/deployment/lifecycle/steps/common_steps.py) | Python/npm/migrate/warmup/build/static — ветвление host/docker |

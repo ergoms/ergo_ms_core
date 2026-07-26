@@ -25,23 +25,6 @@ from env_resolvers import read_env_file  # noqa: E402
 
 from lifecycle.docker import ops as docker_ops  # noqa: E402
 from lifecycle.orchestrator import DeploymentOrchestrator  # noqa: E402
-
-# Обратная совместимость для внешних импортов
-COMPOSE_ARTIFACT_PATHS = docker_ops.COMPOSE_ARTIFACT_PATHS
-SETUP_MARKER_REL = docker_ops.SETUP_MARKER_REL
-DOCKER_PYTHON_INSTALL_LOG = docker_ops.DOCKER_PYTHON_INSTALL_LOG
-DOCKER_NPM_INSTALL_LOG = docker_ops.DOCKER_NPM_INSTALL_LOG
-
-find_docker_compose = docker_ops.find_docker_compose
-compose_file_list = docker_ops.compose_file_list
-compose_file_list_full = docker_ops.compose_file_list_full
-build_compose_cmd = docker_ops.build_compose_cmd
-run_generate_workers = docker_ops.run_generate_workers
-render_nginx_docker_config = docker_ops.render_nginx_docker_config
-warn_conflicts = docker_ops.warn_conflicts
-remove_compose_artifacts = docker_ops.remove_compose_artifacts
-
-from docker_runtime import prepare_compose_artifacts  # noqa: E402
 from docker_stats import add_stats_arguments, run_stats  # noqa: E402
 
 
@@ -55,7 +38,6 @@ def cmd_up(args: argparse.Namespace) -> int:
         extra_services=list(args.extra),
     )
 
-
 def cmd_down(args: argparse.Namespace) -> int:
     return DeploymentOrchestrator(PROJECT_ROOT.resolve()).run_recipe(
         'docker-down',
@@ -64,7 +46,6 @@ def cmd_down(args: argparse.Namespace) -> int:
         options={'compose_extra_args': list(args.extra)},
     )
 
-
 def cmd_ps(args: argparse.Namespace) -> int:
     return DeploymentOrchestrator(PROJECT_ROOT.resolve()).run_recipe(
         'docker-ps',
@@ -72,7 +53,6 @@ def cmd_ps(args: argparse.Namespace) -> int:
         docker_mode=args.mode,
         options={'compose_extra_args': list(args.extra)},
     )
-
 
 def cmd_logs(args: argparse.Namespace) -> int:
     extra = ['-f'] if args.follow else []
@@ -84,7 +64,6 @@ def cmd_logs(args: argparse.Namespace) -> int:
         docker_mode=args.mode,
         options={'compose_extra_args': extra},
     )
-
 
 def cmd_build(args: argparse.Namespace, *, skip_if_present: bool = False) -> int:
     root = PROJECT_ROOT.resolve()
@@ -100,34 +79,28 @@ def cmd_build(args: argparse.Namespace, *, skip_if_present: bool = False) -> int
         options={'compose_extra_args': extra},
     )
 
-
 def cmd_exec_api_shell(_: argparse.Namespace) -> int:
-    if not find_docker_compose():
+    if not docker_ops.find_docker_compose():
         print(format_console('error', 'Docker не найден.'), file=sys.stderr)
         return 1
-    cmd, cwd = build_compose_cmd('exec', extra_args=['api', 'bash'])
+    cmd, cwd = docker_ops.build_compose_cmd('exec', extra_args=['api', 'bash'])
     return subprocess.call(cmd, cwd=str(cwd))
-
 
 def cmd_install_deps(args: argparse.Namespace | None = None) -> int:
     mode = getattr(args, 'mode', None) if args is not None else None
     return DeploymentOrchestrator(PROJECT_ROOT.resolve()).docker_install_deps(docker_mode=mode)
 
-
 def cmd_install_npm_deps(mode: str | None = None) -> int:
     return DeploymentOrchestrator(PROJECT_ROOT.resolve()).docker_install_npm(docker_mode=mode)
-
 
 def cmd_migrate(args: argparse.Namespace | None = None) -> int:
     mode = getattr(args, 'mode', None) if args is not None else None
     return DeploymentOrchestrator(PROJECT_ROOT.resolve()).docker_migrate(docker_mode=mode)
 
-
 _CLEAN_CONFIRM_TEXT = (
     'Полная очистка удалит контейнеры, тома (включая PostgreSQL), локальные образы '
     'и сгенерированные файлы compose.'
 )
-
 
 def _confirm_docker_clean(*, assume_yes: bool) -> bool:
     if assume_yes:
@@ -158,18 +131,17 @@ def _confirm_docker_clean(*, assume_yes: bool) -> bool:
     print(format_console('info', 'Очистка отменена.'))
     return False
 
-
 def cmd_clean(args: argparse.Namespace) -> int:
     if not _confirm_docker_clean(assume_yes=args.yes):
         return 1
 
-    if not find_docker_compose():
+    if not docker_ops.find_docker_compose():
         print(format_console('error', 'Docker не найден. Установите Docker Desktop или docker compose CLI.'), file=sys.stderr)
         return 1
 
     root = PROJECT_ROOT.resolve()
     print(format_console('info', 'Остановка стека и удаление контейнеров, томов и локальных образов…'))
-    cmd, cwd = build_compose_cmd(
+    cmd, cwd = docker_ops.build_compose_cmd(
         'down',
         extra_args=['--remove-orphans', '-v', '--rmi', 'local'],
         for_clean=True,
@@ -179,19 +151,21 @@ def cmd_clean(args: argparse.Namespace) -> int:
         print(format_console('warning', f'docker compose down завершился с кодом {code} — продолжаем очистку артефактов'))
 
     print(format_console('info', 'Удаление сгенерированных файлов compose…'))
-    remove_compose_artifacts(root)
+    docker_ops.remove_compose_artifacts(root)
     docker_ops.clear_setup_marker(root)
     print(format_console('ok', 'Docker-стек ERGO MS полностью удалён. Для нового запуска: ergoms docker-init'))
     return 0
 
-
 def cmd_init(args: argparse.Namespace) -> int:
-    return DeploymentOrchestrator(PROJECT_ROOT.resolve()).docker_init(
+    extra = list(args.extra or [])
+    options = {'build_extra_args': extra} if extra else None
+    return DeploymentOrchestrator(PROJECT_ROOT.resolve()).run_recipe(
+        'docker-init',
+        runtime='docker',
         docker_mode=args.mode,
-        extra_services=list(args.extra),
-        build_extra_args=list(args.extra) if args.extra else [],
+        extra_services=extra,
+        options=options,
     )
-
 
 def main() -> int:
     if hasattr(sys.stdout, 'reconfigure'):
@@ -210,7 +184,7 @@ def main() -> int:
         ('build', cmd_build),
         ('init', cmd_init),
         ('migrate', cmd_migrate),
-        ('gen-workers', lambda a: run_generate_workers()),
+        ('gen-workers', lambda a: docker_ops.run_generate_workers()),
         ('shell-api', cmd_exec_api_shell),
     ):
         p = sub.add_parser(name)
@@ -237,7 +211,6 @@ def main() -> int:
 
     args = parser.parse_args()
     return args.handler(args)
-
 
 if __name__ == '__main__':
     raise SystemExit(main())

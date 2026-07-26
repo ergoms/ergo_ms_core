@@ -73,10 +73,11 @@ class DockerBuildStep(DeploymentStep):
         if self._skip_if_present and docker_ops.should_skip_build(ctx.raw_env):
             print(format_console('skip', 'Локальные образы уже собраны (DOCKER_BUILD_POLICY=if-missing)'))
             return StepResult()
+        extra = list(ctx.options.get('build_extra_args') or []) or list(self._extra_args)
         cmd, cwd = docker_ops.build_compose_cmd(
             'build',
             mode=ctx.docker_mode,
-            extra_args=self._extra_args,
+            extra_args=extra,
             project_root=ctx.project_root,
         )
         code = subprocess.call(cmd, cwd=str(cwd), env=docker_ops.build_subprocess_env(ctx.raw_env))

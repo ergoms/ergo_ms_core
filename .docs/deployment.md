@@ -4,7 +4,7 @@
 
 Альтернатива изолированному стеку в контейнерах — **Docker Compose** (`ergoms docker-*`). См. [docker.md](docker.md).
 
-Путь к корню проекта задаётся переменной **`ERGO_ROOT`** в файле `/etc/default/ergo_ms` или передаётся флагом **`--root`** при установке.
+Путь к корню проекта задаётся переменной **`ERGO_ROOT`** в файле `core/deployment/wrappers/ergo_ms.env` или передаётся флагом **`--root`** при установке.
 
 ## Установка и управление службами
 
@@ -29,7 +29,7 @@ cd /path/to/ergo_ms
 ./core/deployment/bin/ergoms status
 ```
 
-Устаревшие обёртки при необходимости снимите: `bash core/deployment/linux/ergo_ms.sh uninstall-cli`.
+CLI лежит в `core/deployment/bin` (репозиторий). Команда `uninstall-cli` файлы не удаляет — только напоминает об этом.
 ## Имена служб
 
 | Служба systemd | Компонент |

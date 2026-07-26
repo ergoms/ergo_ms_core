@@ -40,17 +40,9 @@ cd /path/to/ergo_ms
 ./core/deployment/bin/ergoms help
 ```
 
-Устаревшую глобальную обёртку или файлы в корне репозитория (если остались) можно убрать:
+Локальный CLI — `core/deployment/bin/ergoms` (и `ergoms.cmd` на Windows). Он входит в репозиторий и не удаляется командой `uninstall-cli` (она только сообщает об этом). Убедитесь, что `core/deployment/bin` в PATH (профиль Project-Shell в Cursor/VS Code).
 
-```cmd
-.\core\deployment\windows\ergo_ms.ps1 uninstall-cli
-```
-
-```bash
-bash core/deployment/linux/ergo_ms.sh uninstall-cli
-```
-
-Либо повторите полную настройку из README: `setup-full` проверит локальный CLI и снимет устаревшие обёртки при возможности.
+Либо повторите полную настройку из README: `setup-full` проверит локальный CLI.
 
 ## База данных
 

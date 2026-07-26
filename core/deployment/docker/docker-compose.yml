@@ -56,8 +56,10 @@ services:
       ERGO_DOCKER_SERVICE_NAME: media-api
       ERGO_DOCKER_REQUIRES_SETUP: "1"
     volumes: *python_volumes
-    ports:
-      - "${MEDIA_API_BIND_PORT:-8003}:${MEDIA_API_BIND_PORT:-8003}"
+    # Порт на хост не публикуем: /internal/* не должен быть снаружи.
+    # Публичный доступ — через nginx (profile) или docker-сеть.
+    expose:
+      - "${MEDIA_API_BIND_PORT:-8003}"
     depends_on:
       redis:
         condition: service_healthy

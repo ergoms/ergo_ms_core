@@ -91,9 +91,6 @@ function applyNginxClientEnv(env = process.env) {
   }
 }
 
-/** @deprecated используйте applyNginxClientEnv */
-const applyNginxViteEnv = applyNginxClientEnv
-
 module.exports = {
   nginxEnabled,
   nginxPublicHost,
@@ -102,5 +99,4 @@ module.exports = {
   nginxUseHttps,
   nginxPublicBaseUrl,
   applyNginxClientEnv,
-  applyNginxViteEnv,
 }

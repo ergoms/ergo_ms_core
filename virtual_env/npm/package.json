@@ -1,6 +1,6 @@
 {
   "name": "ergo-ms",
-  "version": "2.1.0",
+  "version": "2.7.8",
   "private": true,
   "type": "module",
   "description": "ErgoMS npm workspace (client)",
@@ -25,8 +25,8 @@
     "preview": "Предварительный просмотр сборки",
     "lint": "Проверка и исправление кода с помощью ESLint",
     "format": "Форматирование кода с помощью Prettier",
-    "postinstall": "Доустановка npm-зависимостей модулей без записи в package-lock.json",
-    "install:all": "Установка ядра и workspace без обновления package-lock.json, затем модульные пакеты"
+    "postinstall": "Доустановка npm-зависимостей модулей и удаление лишних пакетов без записи в package-lock.json",
+    "install:all": "Установка ядра и модулей, удаление пакетов вне package.json (без обновления package-lock.json)"
   },
   "dependencies": {
     "@bhplugin/vue3-datatable": "^2.0.2",

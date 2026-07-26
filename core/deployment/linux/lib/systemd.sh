@@ -37,6 +37,9 @@ install_unit() {
   local legacy_path="/etc/systemd/system/${name}.service"
   local env_file="$root/core/deployment/wrappers/ergo_ms.env"
 
+  # Шаблоны используют __ERGO_MS_ENV__; старый /etc/default — на случай ручных unit.
+  content="${content//EnvironmentFile=-__ERGO_MS_ENV__/EnvironmentFile=-$env_file}"
+  content="${content//EnvironmentFile=__ERGO_MS_ENV__/EnvironmentFile=$env_file}"
   content="${content//EnvironmentFile=-\/etc\/default\/ergo_ms/EnvironmentFile=-$env_file}"
   content="${content//EnvironmentFile=\/etc\/default\/ergo_ms/EnvironmentFile=$env_file}"
 
@@ -101,7 +104,7 @@ Wants=ergo-redis.service
 
 [Service]
 Type=simple
-EnvironmentFile=/etc/default/ergo_ms
+EnvironmentFile=__ERGO_MS_ENV__
 ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && python core/api/scripts/start_api.py'
 Restart=always
 RestartSec=5
@@ -122,7 +125,7 @@ After=network.target
 
 [Service]
 Type=simple
-EnvironmentFile=/etc/default/ergo_ms
+EnvironmentFile=__ERGO_MS_ENV__
 ExecStart=/bin/bash -lc 'cd "\$ERGO_ROOT" && . "\$ERGO_ROOT/virtual_env/python/bin/activate" && python core/deployment/scripts/start_client_if_dev.py'
 Restart=always
 RestartSec=5
@@ -143,7 +146,7 @@ Requires=ergo-api-dev.service
 
 [Service]
 Type=simple
-EnvironmentFile=/etc/default/ergo_ms
+EnvironmentFile=__ERGO_MS_ENV__
 ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && python api/scripts/start_celery_beat.py'
 Restart=always
 RestartSec=5
@@ -164,7 +167,7 @@ After=network.target
 
 [Service]
 Type=simple
-EnvironmentFile=/etc/default/ergo_ms
+EnvironmentFile=__ERGO_MS_ENV__
 Environment=PYTHONUNBUFFERED=1
 Environment=ERGO_LOG_CONSOLE=false
 ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && python core/api/scripts/start_media_api.py'
@@ -196,7 +199,7 @@ Requires=ergo-api-dev.service
 
 [Service]
 Type=simple
-EnvironmentFile=/etc/default/ergo_ms
+EnvironmentFile=__ERGO_MS_ENV__
 ExecStart=/bin/bash -lc 'cd "\$ERGO_ROOT/core" && . "\$ERGO_ROOT/virtual_env/python/bin/activate" && python api/scripts/start_celery_worker.py --worker=$worker_name'
 Restart=always
 RestartSec=5
@@ -220,7 +223,7 @@ Requires=ergo-api-dev.service
 
 [Service]
 Type=simple
-EnvironmentFile=/etc/default/ergo_ms
+EnvironmentFile=__ERGO_MS_ENV__
 ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && python api/scripts/start_celery_worker.py'
 Restart=always
 RestartSec=5
@@ -232,20 +235,6 @@ StandardError=append:${ERGO_ROOT}/logs/ergo-celery-worker.stderr.log
 [Install]
 WantedBy=multi-user.target
 UNIT
-}
-
-# Устаревшая функция для обратной совместимости
-# Используется только если вызывается напрямую
-get_unit_definitions() {
-  local root="${1:-${ERGO_ROOT:-}}"
-  if [[ -z "$root" ]]; then
-    root="$(pwd)"
-  fi
-  get_base_unit_definitions "$root"
-  
-  # Для обратной совместимости генерируем default worker unit
-  CELERY_WORKER_UNIT="$(generate_default_worker_unit)"
-  export CELERY_WORKER_UNIT
 }
 
 # Установка всех воркеров из конфигурации
@@ -290,6 +279,5 @@ export -f enable_and_start
 export -f get_base_unit_definitions
 export -f generate_worker_unit
 export -f generate_default_worker_unit
-export -f get_unit_definitions
 export -f install_worker_units
 export -f enable_and_start_workers

@@ -349,11 +349,8 @@ def api_warmup_shell() -> str:
 
 
 def remove_compose_artifacts(project_root: Path | None = None) -> None:
-    from lifecycle.docker.ignore import cleanup_root_dockerignore_legacy_section
-
     root = project_root or PROJECT_ROOT
     for path in COMPOSE_ARTIFACT_PATHS:
         if path.is_file():
             path.unlink()
             print(format_console('ok', f'Удалён {path.relative_to(root)}'))
-    cleanup_root_dockerignore_legacy_section(root)

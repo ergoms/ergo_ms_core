@@ -4,9 +4,8 @@ services:
     ports:
       - "${API_PORT:-8000}:${API_PORT:-8000}"
 
-  media-api:
-    ports:
-      - "${MEDIA_API_BIND_PORT:-8003}:${MEDIA_API_BIND_PORT:-8003}"
+  # media-api: порт на хост не публикуем (/internal не должен быть снаружи).
+  # В docker-dev доступ с хоста — через nginx profile или docker network.
 
   client:
     image: ${DOCKER_NODE_IMAGE:-ergo_ms-client:local}

@@ -242,17 +242,6 @@ uninstall_all() {
     fi
   done
   
-  # Также удаляем старые службы воркеров (без имени) для обратной совместимости
-  if [[ -f "/etc/systemd/system/ergo-celery-worker.service" ]]; then
-    systemctl_do disable "ergo-celery-worker.service" || true
-    if [[ $(id -u) -eq 0 ]]; then
-      rm -f "/etc/systemd/system/ergo-celery-worker.service"
-    else
-      sudo rm -f "/etc/systemd/system/ergo-celery-worker.service"
-    fi
-    echo "Удалён /etc/systemd/system/ergo-celery-worker.service (устаревший)"
-  fi
-  
   daemon_reload
   if [[ "$purge" == "true" ]]; then
     if [[ -f "/etc/default/ergo_ms" ]]; then

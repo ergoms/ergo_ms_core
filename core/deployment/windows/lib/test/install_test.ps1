@@ -36,8 +36,7 @@ try {
     try {
         ergoms install-services
     } catch {
-        # Совместимость: в некоторых версиях команда называлась install-all-services
-        ergoms install-all-services
+        ergoms install-services
     }
 } catch {
     Log "[WARNING] установка служб завершилась с ошибкой. Продолжаем тест."

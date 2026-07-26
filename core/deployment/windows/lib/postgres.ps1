@@ -215,11 +215,152 @@ function Install-Postgres {
     Write-PostgresYamlPortHint -Root $Root -ListenPort $listenPort
 }
 
+function Get-NssmParameterValue {
+    param(
+        [string]$NssmExe,
+        [string]$ServiceName,
+        [string]$Parameter
+    )
+
+    $prevEa = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $raw = & $NssmExe get $ServiceName $Parameter 2>&1
+        if ($LASTEXITCODE -ne 0) { return '' }
+        # nssm get пишет UTF-16; в PowerShell строка содержит NUL между символами.
+        $text = [string]($raw | Out-String)
+        return ($text -replace "`0", '' -replace '[\r\n]+', '').Trim()
+    }
+    finally {
+        $ErrorActionPreference = $prevEa
+    }
+}
+
+function ConvertTo-NormalizedFsPath {
+    param([string]$PathValue)
+
+    if ([string]::IsNullOrWhiteSpace($PathValue)) { return '' }
+    $trimmed = $PathValue.Trim().Trim('"')
+    try {
+        return [System.IO.Path]::GetFullPath($trimmed).TrimEnd('\')
+    }
+    catch {
+        return $trimmed.TrimEnd('\')
+    }
+}
+
+function ConvertTo-NormalizedPostgresAppParameters {
+    param(
+        [string]$Value,
+        [string]$DataDir
+    )
+
+    $normalizedData = ConvertTo-NormalizedFsPath -PathValue $DataDir
+    if ($Value -match '(?i)^-D\s+"?(.+?)"?\s*$') {
+        return "-D $(ConvertTo-NormalizedFsPath -PathValue $Matches[1])"
+    }
+    return "-D $normalizedData"
+}
+
+function Test-PostgresNssmServiceMatches {
+    param(
+        [string]$NssmExe,
+        [string]$PostgresExe,
+        [string]$PgDir,
+        [string]$DataDir,
+        [string]$StdoutLog,
+        [string]$StderrLog
+    )
+
+    $name = $script:PostgresServiceName
+    $checks = @(
+        @{
+            Param = 'Application'
+            Expected = ConvertTo-NormalizedFsPath -PathValue $PostgresExe
+            Actual = ConvertTo-NormalizedFsPath -PathValue (Get-NssmParameterValue -NssmExe $NssmExe -ServiceName $name -Parameter 'Application')
+        },
+        @{
+            Param = 'AppDirectory'
+            Expected = ConvertTo-NormalizedFsPath -PathValue $PgDir
+            Actual = ConvertTo-NormalizedFsPath -PathValue (Get-NssmParameterValue -NssmExe $NssmExe -ServiceName $name -Parameter 'AppDirectory')
+        },
+        @{
+            Param = 'AppParameters'
+            Expected = ConvertTo-NormalizedPostgresAppParameters -Value "-D `"$DataDir`"" -DataDir $DataDir
+            Actual = ConvertTo-NormalizedPostgresAppParameters -Value (Get-NssmParameterValue -NssmExe $NssmExe -ServiceName $name -Parameter 'AppParameters') -DataDir $DataDir
+        },
+        @{
+            Param = 'ObjectName'
+            Expected = $script:PostgresServiceAccount
+            Actual = Get-NssmParameterValue -NssmExe $NssmExe -ServiceName $name -Parameter 'ObjectName'
+        },
+        @{
+            Param = 'Start'
+            Expected = 'SERVICE_AUTO_START'
+            Actual = Get-NssmParameterValue -NssmExe $NssmExe -ServiceName $name -Parameter 'Start'
+        },
+        @{
+            Param = 'AppStdout'
+            Expected = ConvertTo-NormalizedFsPath -PathValue $StdoutLog
+            Actual = ConvertTo-NormalizedFsPath -PathValue (Get-NssmParameterValue -NssmExe $NssmExe -ServiceName $name -Parameter 'AppStdout')
+        },
+        @{
+            Param = 'AppStderr'
+            Expected = ConvertTo-NormalizedFsPath -PathValue $StderrLog
+            Actual = ConvertTo-NormalizedFsPath -PathValue (Get-NssmParameterValue -NssmExe $NssmExe -ServiceName $name -Parameter 'AppStderr')
+        },
+        @{
+            Param = 'AppRestartDelay'
+            Expected = '5000'
+            Actual = Get-NssmParameterValue -NssmExe $NssmExe -ServiceName $name -Parameter 'AppRestartDelay'
+        }
+    )
+
+    foreach ($item in $checks) {
+        if (-not [string]::Equals([string]$item.Expected, [string]$item.Actual, [System.StringComparison]::OrdinalIgnoreCase)) {
+            return $false
+        }
+    }
+    return $true
+}
+
+function Start-PostgresServiceAndVerify {
+    param(
+        [string]$StderrLog,
+        [string]$OkMessage
+    )
+
+    try {
+        Start-Service -Name $script:PostgresServiceName -ErrorAction Stop
+    }
+    catch {
+        Write-ColorOutput (Format-ErgoConsole -Level error -Message 'Не удалось запустить службу PostgreSQL') Red
+        if (Test-Path $StderrLog) {
+            Get-Content $StderrLog -Tail 15 -ErrorAction SilentlyContinue | ForEach-Object {
+                Write-ColorOutput "    $_" Red
+            }
+        }
+        throw
+    }
+    Start-Sleep -Seconds 2
+    $running = Get-Service -Name $script:PostgresServiceName -ErrorAction SilentlyContinue
+    if (-not $running -or $running.Status -ne 'Running') {
+        Write-ColorOutput (Format-ErgoConsole -Level error -Message 'Служба PostgreSQL не перешла в Running') Red
+        if (Test-Path $StderrLog) {
+            Get-Content $StderrLog -Tail 15 -ErrorAction SilentlyContinue | ForEach-Object {
+                Write-ColorOutput "    $_" Red
+            }
+        }
+        exit 1
+    }
+    Write-ColorOutput (Format-ErgoConsole -Level ok -Message $OkMessage) Green
+}
+
 function Install-PostgresService {
     param([string]$Root)
 
     if (-not (Test-PostgresInstalled -Root $Root)) {
-        Write-ColorOutput '[ERROR] PostgreSQL не установлен. Выполните: ergoms install-postgres' Red
+        Write-ColorOutput (Format-ErgoConsole -Level error -Message 'PostgreSQL не установлен. Выполните: ergoms install-postgres') Red
         return
     }
 
@@ -228,11 +369,33 @@ function Install-PostgresService {
     $dataDir = Get-PostgresDataDir -Root $Root
     $nssmExe = Install-NSSM -Root $Root
 
-    Stop-PostgresClusterIfRunning -Root $Root -DataDir $dataDir
+    $logsDir = Join-Path $pgDir 'logs'
+    if (-not (Test-Path $logsDir)) { New-Item -ItemType Directory -Path $logsDir -Force | Out-Null }
+    $stderrLog = Join-Path $logsDir 'service_stderr.log'
+    $stdoutLog = Join-Path $logsDir 'service_stdout.log'
 
     $existingService = Get-Service -Name $script:PostgresServiceName -ErrorAction SilentlyContinue
+    if (
+        $existingService -and
+        (Test-PostgresNssmServiceMatches -NssmExe $nssmExe -PostgresExe $postgresExe -PgDir $pgDir -DataDir $dataDir -StdoutLog $stdoutLog -StderrLog $stderrLog)
+    ) {
+        Grant-PostgresServiceDirectoryAccess -PgDir $pgDir
+        if ($existingService.Status -eq 'Running') {
+            Write-ColorOutput (Format-ErgoConsole -Level skip -Message "Служба $($script:PostgresServiceName) уже настроена и запущена") Gray
+            return
+        }
+        Write-ColorOutput (Format-ErgoConsole -Level info -Message "Служба $($script:PostgresServiceName) уже настроена — запуск...") Cyan
+        Start-PostgresServiceAndVerify -StderrLog $stderrLog -OkMessage 'Служба PostgreSQL запущена'
+        return
+    }
+
     if ($existingService) {
-        Write-ColorOutput "-> Служба $($script:PostgresServiceName) уже существует, переустановка..." Yellow
+        Write-ColorOutput (Format-ErgoConsole -Level info -Message "Служба $($script:PostgresServiceName): параметры устарели, переустановка...") Cyan
+    }
+
+    Stop-PostgresClusterIfRunning -Root $Root -DataDir $dataDir
+
+    if ($existingService) {
         if ($existingService.Status -eq 'Running' -or $existingService.Status -eq 'Paused') {
             $prevEa = $ErrorActionPreference
             $ErrorActionPreference = 'Continue'
@@ -247,15 +410,15 @@ function Install-PostgresService {
         }
         & $nssmExe remove $script:PostgresServiceName confirm 2>$null
         if (-not (Wait-PostgresServiceRemoved)) {
-            Write-ColorOutput '[ERROR] Служба PostgreSQL помечена на удаление, но ещё не снята. Повторите команду через несколько секунд' Red
+            Write-ColorOutput (Format-ErgoConsole -Level error -Message 'Служба PostgreSQL помечена на удаление, но ещё не снята. Повторите команду через несколько секунд') Red
             exit 1
         }
     }
 
-    Write-ColorOutput '-> Установка PostgreSQL как службы Windows...' Cyan
+    Write-ColorOutput (Format-ErgoConsole -Level info -Message 'Установка PostgreSQL как службы Windows...') Cyan
     & $nssmExe install $script:PostgresServiceName $postgresExe
     if ($LASTEXITCODE -ne 0) {
-        Write-ColorOutput '[ERROR] Не удалось зарегистрировать службу PostgreSQL в NSSM' Red
+        Write-ColorOutput (Format-ErgoConsole -Level error -Message 'Не удалось зарегистрировать службу PostgreSQL в NSSM') Red
         exit 1
     }
     & $nssmExe set $script:PostgresServiceName AppParameters "-D `"$dataDir`""
@@ -265,10 +428,6 @@ function Install-PostgresService {
     # LocalSystem запрещён для postmaster; пустой пароль — для встроенной учётки.
     & $nssmExe set $script:PostgresServiceName ObjectName $script:PostgresServiceAccount ''
 
-    $logsDir = Join-Path $pgDir 'logs'
-    if (-not (Test-Path $logsDir)) { New-Item -ItemType Directory -Path $logsDir -Force | Out-Null }
-    $stderrLog = Join-Path $logsDir 'service_stderr.log'
-    $stdoutLog = Join-Path $logsDir 'service_stdout.log'
     if (Test-Path $stderrLog) { Clear-Content $stderrLog -ErrorAction SilentlyContinue }
     if (Test-Path $stdoutLog) { Clear-Content $stdoutLog -ErrorAction SilentlyContinue }
     & $nssmExe set $script:PostgresServiceName AppStdout $stdoutLog
@@ -278,31 +437,7 @@ function Install-PostgresService {
     & $nssmExe set $script:PostgresServiceName AppRestartDelay 5000
 
     Grant-PostgresServiceDirectoryAccess -PgDir $pgDir
-
-    try {
-        Start-Service -Name $script:PostgresServiceName -ErrorAction Stop
-    }
-    catch {
-        Write-ColorOutput '[ERROR] Не удалось запустить службу PostgreSQL' Red
-        if (Test-Path $stderrLog) {
-            Get-Content $stderrLog -Tail 15 -ErrorAction SilentlyContinue | ForEach-Object {
-                Write-ColorOutput "    $_" Red
-            }
-        }
-        throw
-    }
-    Start-Sleep -Seconds 2
-    $running = Get-Service -Name $script:PostgresServiceName -ErrorAction SilentlyContinue
-    if (-not $running -or $running.Status -ne 'Running') {
-        Write-ColorOutput '[ERROR] Служба PostgreSQL не перешла в Running' Red
-        if (Test-Path $stderrLog) {
-            Get-Content $stderrLog -Tail 15 -ErrorAction SilentlyContinue | ForEach-Object {
-                Write-ColorOutput "    $_" Red
-            }
-        }
-        exit 1
-    }
-    Write-ColorOutput '[OK] Служба PostgreSQL установлена и запущена' Green
+    Start-PostgresServiceAndVerify -StderrLog $stderrLog -OkMessage 'Служба PostgreSQL установлена и запущена'
 }
 
 function Stop-PostgresProcess {

@@ -94,7 +94,7 @@ if org is None:
   - Client: [`getOrganizationPublicRef`](../../modules/organizations/client/js/organizationUtils.js), [`departmentDetailPath`](../../modules/organizations/client/js/organizationUtils.js)
 - Эталон пользователя (`auth.User`) — поле `public_id` есть на модели по умолчанию:
   - Поле `public_id`: колонка в `auth_user`, ORM — `ErgoUser` (`core/api/src/core/cms/adp/ergo_user.py`)
-  - API: [`UserPublicInfoView`](../../core/api/src/core/cms/views.py) — lookup по `users/by-ref/<uuid:ref>/public-info/`; числовой `users/<int:user_id>/...` — только устаревший запасной путь, не использовать в новом коде
+  - API: [`UserPublicInfoView`](../../core/api/src/core/cms/views.py) — lookup только по `users/by-ref/<uuid:ref>/public-info/` (числовой id в URL запрещён)
   - Client: `@/components/UserAvatar.vue` — проп `user-ref` (не `userId`), см. [`components.mdc`](components.mdc) → «Аватар пользователя»
   - Любой сериализатор/ответ, отдающий `user.id` для последующего показа аватара/публичных данных, должен рядом отдавать `public_id` (`SerializerMethodField`, `str(user.public_id) if getattr(user, 'public_id', None) else None`)
 - Контекст сессии (org/dept/user) — **из JWT** через `tokenStorage.js`, не дублировать pk в storage «для удобства»
@@ -105,9 +105,9 @@ router.push(`/projects/${project.id}`)
 localStorage.setItem('active_project_id', String(project.id))
 Cookies.set('org_id', organization.id)
 
-// GOOD — непрозрачная ссылка в URL; контекст из JWT
+// GOOD — непрозрачная ссылка в URL; контекст из JWT (имя claim — из контракта модуля)
 router.push(`/projects/${project.public_id}`)
-const orgId = getOrganizationId() // из JWT, не из localStorage
+const scopeClaim = getSessionClaim('organization_id') // пример имени; не из localStorage
 ```
 
 ```python
@@ -135,7 +135,7 @@ if org is None or not user_has_access(request.user, org):
 
 **Допустимо** только UI-преференсы без влияния на безопасность: тема, язык, свёрнутость меню, черновики форм без персональных данных.
 
-Идентификаторы сессии — **только из JWT** через [`tokenStorage.js`](../../core/client/src/core/cms/js/tokenStorage.js): `getUserId()`, `getOrganizationId()`, `getPayload()`.
+Идентификаторы сессии — **только из JWT** через [`tokenStorage.js`](../../core/client/src/core/cms/js/tokenStorage.js): `getSessionClaim(name)`, `hasActiveSessionScope()`.
 Токены — **только через** `getAccess()` / `setTokens()` / `clearTokens()` в том же модуле. Не дублировать логику в модулях.
 
 ```js
@@ -147,9 +147,9 @@ Cookies.set('refresh', refresh)
 // ✅ GOOD — UI-преференс (ключ из useMenuCollapsedPreference.js)
 localStorage.setItem('menu-sidebar-collapsed', 'true')
 
-// ✅ GOOD — контекст из JWT
-import { getUserId } from '@/core/cms/js/tokenStorage.js'
-const userId = getUserId()
+// ✅ GOOD — контекст из JWT (имя claim задаёт модуль через session_context.claims)
+import { getSessionClaim } from '@/core/cms/js/tokenStorage.js'
+const scopeId = getSessionClaim('organization_id')
 ```
 
 ---

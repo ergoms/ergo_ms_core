@@ -55,26 +55,12 @@ def _strip_disabled_section(lines: list[str]) -> tuple[list[str], bool]:
     return out, changed
 
 
-def cleanup_root_dockerignore_legacy_section(project_root: Path) -> None:
-    """Убирает устаревшую автосекцию из корневого .dockerignore (миграция)."""
-    dockerignore = project_root / '.dockerignore'
-    if not dockerignore.is_file():
-        return
-    lines = dockerignore.read_text(encoding='utf-8').splitlines()
-    cleaned, changed = _strip_disabled_section(lines)
-    if not changed:
-        return
-    dockerignore.write_text('\n'.join(cleaned).rstrip() + '\n', encoding='utf-8')
-
-
 def clear_dockerignore_artifacts(project_root: Path | None = None) -> None:
-    """Удаляет сгенерированные dockerignore-артефакты и чистит legacy-секцию в корне."""
+    """Удаляет сгенерированные dockerignore-артефакты рядом с Dockerfile."""
+    _ = project_root
     for path in DOCKERIGNORE_ARTIFACT_PATHS:
         if path.is_file():
             path.unlink()
-    if project_root is not None:
-        cleanup_root_dockerignore_legacy_section(project_root)
-
 
 def write_modules_dockerignore_artifact(catalog: ModuleCatalog) -> Path:
     lines = build_disabled_modules_ignore_lines(catalog)
@@ -95,10 +81,8 @@ def _read_root_dockerignore_base(project_root: Path) -> list[str]:
 def sync_dockerfile_dockerignore(project_root: Path, catalog: ModuleCatalog) -> None:
     """Синхронизирует Dockerfile.*.dockerignore и фрагмент modules.dockerignore.generated.
 
-    Корневой `.dockerignore` не перезаписывается (кроме одноразовой очистки legacy-секции).
+    Корневой `.dockerignore` не перезаписывается.
     """
-    cleanup_root_dockerignore_legacy_section(project_root)
-
     if not catalog.disabled:
         clear_dockerignore_artifacts(project_root=None)
         return
@@ -114,8 +98,3 @@ def sync_dockerfile_dockerignore(project_root: Path, catalog: ModuleCatalog) -> 
 
     for path in DOCKERFILE_DOCKERIGNORE_ARTIFACTS:
         path.write_text(content, encoding='utf-8')
-
-
-def merge_dockerignore_section(project_root: Path, catalog: ModuleCatalog) -> None:
-    """Совместимость: то же, что sync_dockerfile_dockerignore."""
-    sync_dockerfile_dockerignore(project_root, catalog)

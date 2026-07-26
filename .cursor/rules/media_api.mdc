@@ -54,7 +54,7 @@ with get_scratch_store().session('job') as workdir:
 - `local` — API читает/пишет файлы на том же сервере
 - `remote` — через internal API media_api, нужен `MEDIA_API_INTERNAL_KEY`
 
-Переменные: `MEDIA_API_PUBLIC_BASE_URL`, `MEDIA_API_INTERNAL_BASE_URL`, `MEDIA_API_BIND_PORT` — см. `core/api/src/config/settings/base.py`.
+Переменные: `MEDIA_API_PUBLIC_BASE_URL`, `MEDIA_API_INTERNAL_URL`, `MEDIA_API_BIND_PORT` — см. `core/api/src/config/settings/base.py`.
 
 ## Запрещено
 

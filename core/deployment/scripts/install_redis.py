@@ -243,16 +243,6 @@ def _install_windows(root: Path, force: bool) -> None:
         force = True
 
     if force and paths['base'].exists():
-        legacy_names = (
-            'redis-server.exe',
-            'redis-cli.exe',
-            'redis.windows.conf',
-            'redis.windows-service.conf',
-        )
-        for name in legacy_names:
-            target = paths['base'] / name
-            if target.is_file():
-                target.unlink()
         for target in paths['base'].iterdir():
             if target.is_file() and target.suffix.lower() in {'.exe', '.dll'}:
                 target.unlink()

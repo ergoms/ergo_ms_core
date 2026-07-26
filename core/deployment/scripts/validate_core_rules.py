@@ -11,12 +11,14 @@
 - запрет console.error в прикладном коде клиента (кроме logError.js / logger.js)
 - запрет нативного <select> / b-form-select в .vue ядра
 - запрет from modules. в core/api/src (дополнительный текстовый grep)
+- mid-indent / ast.parse для .py в core/api/src и core/deployment/scripts
 - UTF-8 BOM в .ps1 deployment с не-ASCII (Windows PowerShell 5.1)
 - LF без BOM в .sh deployment (Linux shebang и source)
 """
 
 from __future__ import annotations
 
+import ast
 import os
 import re
 import subprocess
@@ -382,6 +384,63 @@ def check_modules_imports_in_core() -> list[str]:
     return violations
 
 
+def _first_significant_line(source: str) -> str | None:
+    """Первая непустая строка вне блочного docstring / комментариев в начале файла."""
+    in_triple: str | None = None
+    for raw in source.splitlines():
+        line = raw.rstrip('\r\n')
+        stripped = line.lstrip()
+        if in_triple:
+            if in_triple in stripped:
+                in_triple = None
+            continue
+        if not stripped:
+            continue
+        if stripped.startswith('#'):
+            continue
+        if stripped.startswith(('"""', "'''")):
+            quote = stripped[:3]
+            rest = stripped[3:]
+            if quote not in rest:
+                in_triple = quote
+            continue
+        return line
+    return None
+
+
+def check_python_file_integrity() -> list[str]:
+    """Запрет mid-function cut: mid-indent на старте файла и сломанный ast.parse."""
+    violations: list[str] = []
+    roots = (
+        CORE_API_SRC,
+        _DEPLOYMENT_DIR / 'scripts',
+    )
+    for root in roots:
+        if not root.is_dir():
+            continue
+        for path in _iter_files(root, '.py'):
+            rel = _relative_posix(path)
+            try:
+                source = path.read_text(encoding='utf-8-sig')
+            except OSError as exc:
+                violations.append(f'{rel}: не удалось прочитать ({exc})')
+                continue
+
+            first = _first_significant_line(source)
+            if first is not None and first[:1] in (' ', '\t'):
+                violations.append(
+                    f'{rel}: первая значимая строка с отступом '
+                    '(подозрение на mid-function cut)'
+                )
+
+            try:
+                ast.parse(source, filename=str(path))
+            except SyntaxError as exc:
+                line = exc.lineno or '?'
+                violations.append(f'{rel}:{line}: SyntaxError: {exc.msg}')
+    return violations
+
+
 def main() -> int:
     all_errors: list[str] = []
 
@@ -456,6 +515,15 @@ def main() -> int:
             print(f'[ERROR] {item}')
     else:
         print('[OK] импорты modules.* в core/api/src не найдены')
+
+    print('\n=== Проверка Python: mid-indent / ast.parse ===')
+    py_integrity_violations = check_python_file_integrity()
+    if py_integrity_violations:
+        all_errors.extend(py_integrity_violations)
+        for item in py_integrity_violations:
+            print(f'[ERROR] {item}')
+    else:
+        print('[OK] mid-indent / SyntaxError в core/api/src и deployment/scripts не найдены')
 
     print('\n=== Проверка deployment: UTF-8 BOM в .ps1 ===')
     ps1_violations = find_ps1_encoding_violations()

@@ -419,33 +419,13 @@ function Main {
     switch ($Command.ToLower()) {
 
         'install' {
-
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
-
-            Write-ColorOutput "-> Установка служб для: $projectRoot" Cyan
-
-            Install-AllServices -Root $projectRoot
-
-            Start-AllServices -ProjectRoot $projectRoot
-
-            if (-not $NoCli) {
-
-                Install-CliWrapper -ProjectRoot $projectRoot
-
-            }
-
-            Write-ColorOutput "`n[OK] Установка завершена!" Green
-
-            Show-ServicesStatus -ProjectRoot $projectRoot
-
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'install-services'
         }
 
         'install-services' {
-
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
-
             Invoke-LifecycleRunner -Root $projectRoot -Recipe 'install-services'
-
         }
 
         'install-api-service' {

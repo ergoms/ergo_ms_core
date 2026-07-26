@@ -483,7 +483,7 @@ main() {
       invoke_lifecycle_runner "$ERGO_ROOT" setup-full "${extra[@]}"
       exit 0
       ;;
-    install-services)
+    install|install-services)
       invoke_lifecycle_runner "$ERGO_ROOT" install-services
       exit 0
       ;;
@@ -507,65 +507,7 @@ main() {
       invoke_lifecycle_runner "$ERGO_ROOT" install-media-service
       exit 0
       ;;
-    install)  ;; # Continue to install flow
     *)        echo "Неизвестная команда: $command" >&2; print_usage "$detected_root"; exit 1 ;;
-  esac
-
-  # INSTALL flow
-  # Basic sanity checks for expected structure
-  if [[ ! -d "$ERGO_ROOT/core/api" ]] || [[ ! -d "$ERGO_ROOT/core/client" ]]; then
-    echo "Каталог $ERGO_ROOT не похож на проект ergo_ms (нет core/api/ или core/client/)." >&2
-    echo "Выполните ergoms setup для инициализации всех submodule." >&2
-    exit 1
-  fi
-
-  # Handle install command (legacy systemd flow)
-  case "$command" in
-    install)
-      write_env_file "$ERGO_ROOT"
-      
-      # Получаем базовые unit definitions
-      get_base_unit_definitions "$ERGO_ROOT"
-      
-      local skip_client=0
-      is_nginx_enabled "$ERGO_ROOT" && skip_client=1
-
-      # Устанавливаем базовые службы
-      install_unit "ergo-api-dev"        "$API_UNIT"
-      if (( skip_client == 0 )); then
-        install_unit "ergo-client-dev"     "$CLIENT_UNIT"
-      else
-        disable_client_service_if_nginx "$ERGO_ROOT"
-      fi
-      install_unit "ergo-media-api"      "$MEDIA_API_UNIT"
-      install_unit "ergo-celery-beat"    "$CELERY_BEAT_UNIT"
-      
-      # Устанавливаем воркеры из конфигурации
-      install_worker_units "$ERGO_ROOT"
-
-      daemon_reload
-
-      # Включаем и запускаем базовые службы
-      enable_and_start ergo-api-dev.service
-      if (( skip_client == 0 )); then
-        enable_and_start ergo-client-dev.service
-      fi
-      enable_and_start ergo-media-api.service
-      enable_and_start ergo-celery-beat.service
-      
-      # Включаем и запускаем воркеры
-      enable_and_start_workers "$ERGO_ROOT"
-
-      echo "Все службы установлены и запущены."
-      echo "Просмотр логов: journalctl -u ergo-api-dev -n 500 -f"
-
-      if [[ "$no_cli" == false ]]; then
-        create_cli_wrapper "$ERGO_ROOT"
-        echo "Доступны команды: ergoms start|stop|restart|status|uninstall-services [--purge] (из каталога проекта; bin в PATH)"
-      else
-        echo "Проверка/очистка CLI-обёртки пропущена (--no-cli)."
-      fi
-      ;;
   esac
 }
 

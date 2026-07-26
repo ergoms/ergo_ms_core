@@ -17,9 +17,9 @@ sections:
     note: "Требуют права администратора (Windows) или root/sudo (Linux). Для разработки достаточно start-all."
     commands:
       - name: install
-        summary: "Установить и запустить все службы"
+        summary: "Алиас install-services: установить и запустить все службы"
       - name: install-services
-        summary: "Установить и запустить службы без полной установки"
+        summary: "Установить и запустить все службы ОС"
       - name: install-api-service
         summary: "Установить и запустить только службу API"
       - name: install-client-service
@@ -47,9 +47,9 @@ sections:
       - name: setup-full
         summary: "Полная первичная настройка; Redis/nginx — при REDIS_ENABLED/NGINX_ENABLED=true"
       - name: install-cli
-        summary: "Проверить локальный ergoms и убрать устаревшую системную обёртку"
+        summary: "Проверить локальный ergoms в PATH"
       - name: uninstall-cli
-        summary: "Удалить устаревшую системную обёртку ergoms (локальные файлы остаются)"
+        summary: "Сообщение: локальный CLI в core/deployment/bin не удаляется"
 
   - id: development
     title: "Локальная разработка"
@@ -128,9 +128,9 @@ sections:
       - name: install-deps
         summary: "Python + npm, миграции и прогрев кэшей"
       - name: python-install
-        summary: "Установить Python-зависимости (api:install)"
+        summary: "Установить Python-зависимости, удалить лишние пакеты и их кэш в virtual_env/cache"
       - name: python-update
-        summary: "Обновить Python-зависимости (poetry update)"
+        summary: "Обновить Python-зависимости ядра и модулей (poetry update)"
       - name: db-migrate
         summary: "Применить миграции"
       - name: db-makemigrations
@@ -138,7 +138,7 @@ sections:
       - name: migrate-all
         summary: "Создать и применить миграции"
       - name: update-all
-        summary: "Обновить зависимости Python и npm"
+        summary: "Обновить зависимости Python и npm (ядро и модули)"
       - name: reinstall
         summary: "Переустановить зависимости (poetry install --sync, npm ci)"
       - name: deps
@@ -189,9 +189,6 @@ sections:
         summary: "Удалить зависимости и static (media сохраняется)"
       - name: clear-pycache
         summary: "Удалить каталоги __pycache__"
-      - name: clean-pycache
-        invoke: "ergoms clean-pycache"
-        summary: "То же, что clear-pycache (запасной вариант имени)"
       - name: maintenance-on
         summary: "Включить режим технических работ"
       - name: maintenance-off
@@ -205,7 +202,7 @@ sections:
       - name: safe-drop-app
         summary: "Безопасно удалить Django-приложение"
       - name: core-rules-check
-        summary: "Проверка ядра: изоляция модулей, console.error, native select, импорты modules.*, BOM/LF в deployment-скриптах"
+        summary: "Проверка ядра: изоляция модулей, console.error, native select, импорты modules.*, mid-indent/ast.parse, BOM/LF в deployment-скриптах"
       - name: ps1-encoding-check
         invoke: "ergoms ps1-encoding-check [--fix]"
         summary: "Проверка UTF-8 BOM в .ps1 deployment с кириллицей (Windows PowerShell 5.1)"

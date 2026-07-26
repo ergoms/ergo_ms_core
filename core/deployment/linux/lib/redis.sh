@@ -166,7 +166,7 @@ After=network.target
 
 [Service]
 Type=forking
-EnvironmentFile=-/etc/default/ergo_ms
+EnvironmentFile=-__ERGO_MS_ENV__
 ExecStart=$server $conf
 ExecStop=$(_redis_cli "$root") -c $conf shutdown
 PIDFile=$(_redis_dir "$root")/run/redis.pid

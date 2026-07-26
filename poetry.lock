@@ -717,7 +717,10 @@ click = ">=8.1.2,<9.0"
 click-didyoumean = ">=0.3.0"
 click-plugins = ">=1.1.1"
 click-repl = ">=0.2.0"
-kombu = ">=5.6.0"
+kombu = [
+    {version = ">=5.6.0"},
+    {version = "*", extras = ["sqlalchemy"], optional = true, markers = "extra == \"sqlalchemy\""},
+]
 python-dateutil = ">=2.8.2"
 tzlocal = "*"
 vine = ">=5.1.0,<6.0"
@@ -2404,6 +2407,7 @@ files = [
 [package.dependencies]
 amqp = ">=5.1.1,<6.0.0"
 packaging = "*"
+sqlalchemy = {version = ">=1.4.48,<2.1", optional = true, markers = "extra == \"sqlalchemy\""}
 tzdata = ">=2025.2"
 vine = "5.1.0"
 
@@ -5669,4 +5673,4 @@ testing = ["coverage[toml]", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<3.13"
-content-hash = "eb976712e9219f57b52779ad74b55fc78ecda7b3f8c5dd6577a42f5eb3a3303f"
+content-hash = "d743d3420b12faa96069d1f86f73e361f0245b15dced10baad89fe71b82aed08"

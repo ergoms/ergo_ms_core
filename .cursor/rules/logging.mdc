@@ -157,10 +157,10 @@ ergoms logs ergo-celery-worker
 | Ошибки браузера на сервер | `CLIENT_BROWSER_LOG_*` |
 | Журнал действий | `AUDIT_LOG_FILE_ENABLED`, `AUDIT_LOG_FILE_LEVEL` |
 | nginx | `NGINX_ERROR_LOG_LEVEL`, `NGINX_ACCESS_LOG_ENABLED` → `ergoms reload-nginx` |
-| Redis | `REDIS_LOG_LEVEL` → `ergoms install-redis --configure` |
+| Redis | `REDIS_LOG_LEVEL` → `ergoms install-redis` |
 | Ротация infra | `ERGO_LOG_INFRA_*`, `ERGO_LOG_NGINX_*`, `ERGO_LOG_REDIS_*` → `ergoms rotate-logs`; планировщик — `install-infra-log-rotate` |
 
-После смены имён файлов или путей client-dev/nginx/redis: **`ergoms install-services`** / **`reload-nginx`** / **`install-redis --configure`**.
+После смены имён файлов или путей client-dev/nginx/redis: **`ergoms install-services`** / **`reload-nginx`** / **`install-redis`**.
 После смены лимитов infra-ротации достаточно **`ergoms rotate-logs`** (перезапуск служб не нужен).
 
 ---
@@ -189,7 +189,7 @@ ergoms logs celery-beat [module] [lines]
 - `logs/celery/beat/<имя>/beat.log`
 - `logs/debug.log`, `logs/ergo-*.log`
 - `virtual_env/packages/nginx/logs/*.log` (после `reload-nginx`)
-- `virtual_env/packages/redis/logs/redis.log` (после `install-redis --configure`)
+- `virtual_env/packages/redis/logs/redis.log` (после `install-redis`)
 
 После смены конфигурации: `ergoms install-services`, `ergoms sync-logs-services`, перезапуск worker/beat.
 

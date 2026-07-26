@@ -14,9 +14,16 @@ import { getRelativeTime, formatDateTime } from '@/js/utils/timeUtils.js'
 |--------|---------|
 | «5 минут назад» | `getRelativeTime` |
 | Дата и время | `formatDateTime` |
+| Дата «01 января 2024» | `formatDate` |
 | Короткая дата | `formatDateShort` |
-| Диапазон | `formatDateRange` |
-| ISO для API | `toISODate` |
+| YYYY-MM-DD (локально) | `formatDateLocal`, `toISODate` |
+| Диапазон дат | `formatDateRange`, `formatDateRangeShort`, `formatMonthRange` |
+| Ключ YYYY-MM → «Март 2026» | `formatYearMonthKeyRu` |
+| День недели и дата | `formatWeekdayDate` |
+| Месяц и год («с июня 2026 г.») | `formatMonthYearGenitive` |
+| Имя месяца по номеру 1–12 | `getMonthNameByNumber` |
+| Дефолты периода проекта | `getDefaultStartDate`, `getDefaultEndDate` |
+| Относительное + полное | `getFormattedDateWithRelative`, `getFullDateTime` |
 
 Не копируй склонение «минут/минуты/минут» в модулях — уже в `getRelativeTime`.
 

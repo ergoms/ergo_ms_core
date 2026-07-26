@@ -46,19 +46,6 @@ function Install-PortableNodejs {
 
     $dest = Get-PortableNodejsDir -Root $Root
     $exe = Get-PortableNodeExe -Root $Root
-    $legacy = Join-Path $Root 'virtual_env\nodejs'
-
-    # Перенос со старого пути virtual_env/nodejs
-    if (-not (Test-Path -LiteralPath $exe) -and (Test-Path -LiteralPath (Join-Path $legacy 'node.exe'))) {
-        New-Item -ItemType Directory -Path (Split-Path -Parent $dest) -Force | Out-Null
-        if (Test-Path -LiteralPath $dest) {
-            Remove-Item -LiteralPath $dest -Recurse -Force
-        }
-        Move-Item -LiteralPath $legacy -Destination $dest
-        Write-ColorOutput (Format-ErgoConsole -Level ok -Message "Portable Node.js перенесён в virtual_env/packages/nodejs") Green
-    } elseif (Test-Path -LiteralPath $legacy) {
-        Remove-Item -LiteralPath $legacy -Recurse -Force -ErrorAction SilentlyContinue
-    }
 
     if (-not $Force -and (Test-PortableNodejsInstalled -Root $Root)) {
         $ver = & $exe --version 2>&1

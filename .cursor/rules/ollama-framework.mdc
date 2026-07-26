@@ -12,7 +12,7 @@ alwaysApply: false
 
 - LLM-запросы из модулей — через `modules.ollama_framework.api.transport.ollama_invoke` или `create_client` из `modules.ollama_framework.api.client.factory`
 - Транспорт — `OLLAMA_FRAMEWORK_TRANSPORT=local|http` в `.env` модуля
-- Управление процессом — `ergoms ollama_framework:start-ollama`, `stop-ollama`, `ollama-status`, служба `ergo-ollama`
+- Управление процессом и моделями — `ergoms ollama_framework:start-ollama`, `stop-ollama`, `ollama-status`, `ollama --pull` (скрипты `deployment/`, без Django); служба `ergo-ollama`
 - Учёт в `ergoms resource-usage` — [`process_roles.yaml`](../../modules/ollama_framework/process_roles.yaml) модуля, не правки classifier ядра (см. [`process-roles.mdc`](process-roles.mdc))
 - Stop/install в Windows-тестах deployment — [`host_lifecycle.yaml`](../../modules/ollama_framework/host_lifecycle.yaml) (см. [`host-lifecycle.mdc`](host-lifecycle.mdc))
 - MCP Cursor — `modules/ollama_framework/mcp/`, имя сервера `ergo-module-ollama-framework` (см. [`mcp.mdc`](mcp.mdc))

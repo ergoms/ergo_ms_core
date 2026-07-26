@@ -46,20 +46,9 @@ portable_node_arch_suffix() {
 install_portable_nodejs() {
   local root="$1"
   local force="${2:-false}"
-  local dest exe legacy
+  local dest exe
   dest="$(portable_nodejs_dir "$root")"
   exe="$(portable_node_exe "$root")"
-  legacy="$root/virtual_env/nodejs"
-
-  # Перенос со старого пути virtual_env/nodejs
-  if [[ ! -x "$exe" && -x "$legacy/bin/node" ]]; then
-    mkdir -p "$(dirname "$dest")"
-    rm -rf "$dest"
-    mv "$legacy" "$dest"
-    echo "$(format_ergo_console ok 'Portable Node.js перенесён в virtual_env/packages/nodejs')"
-  elif [[ -d "$legacy" ]]; then
-    rm -rf "$legacy"
-  fi
 
   if [[ "$force" != "true" ]] && portable_nodejs_installed "$root"; then
     echo "$(format_ergo_console skip "Portable Node.js уже установлен: $($exe --version 2>&1)")"

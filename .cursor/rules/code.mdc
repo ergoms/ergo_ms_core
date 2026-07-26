@@ -5,13 +5,36 @@ alwaysApply: true
 # Общие правила кода
 
 - Тесты — только по просьбе пользователя
-- Файл — не больше **700** строк; длиннее — разбивай
+- Файл — не больше **700** строк; длиннее — разбивай **по границам** `def` / `class` / логическим модулям
 - SOLID, меньше дублирования
 - Тяжёлые задачи — **Celery**, пул потоков; в модуле — `config.py` CPU/GPU (по умолчанию GPU)
 - Импорты вверху файла; внутри модуля — относительные, из ядра — полные (`src.core...`)
 - В командах и логах — без эмодзи
 
 После задачи — проверь: лишний код, неиспользуемые импорты, соответствие правилам.
+
+## Разбиение больших файлов
+
+Каждый файл после разбиения должен **сам** парситься (`ast.parse` / `python -m py_compile`). Связь модулей — **именованные** импорты.
+
+**Запрещено:**
+- рез по номеру строки (chop-at-N) и скрипты `split_*` с таким резом;
+- обрыв `def` / `class` посередине с продолжением в другом файле;
+- склейка разрезанных кусков через `from .X import *` + `# noqa: F403`.
+
+```python
+# BAD — mid-function cut + star-import glue
+# a.py заканчивается на: for parent in current.parents:
+# b.py начинается с:         if (parent / "core").is_dir(): ...
+from .a import *  # noqa: F403
+from .b import *  # noqa: F403
+
+# GOOD — целые функции в каждом файле, явные импорты
+from .deps_scanner import detect_project_root, load_toml
+from .deps_workspace import scan_scope, build_workspace_report
+```
+
+Проверка регрессий: `ergoms core-rules-check` (mid-indent / `ast.parse` в `core/api/src`).
 
 ## Сериализаторы и Swagger
 

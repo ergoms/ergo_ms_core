@@ -261,10 +261,16 @@ invoke_poetry_command() {
   shift
   export ERGOMS_INTERNAL=1
 
-  # Intercept "poetry install" → custom api install (core + all modules)
+  # Intercept poetry install/update → api (core + modules)
   if [[ "${1:-}" == "install" ]]; then
     shift
     invoke_api_command "$root" install "$@"
+    return
+  fi
+
+  if [[ "${1:-}" == "update" ]]; then
+    shift
+    invoke_api_command "$root" update "$@"
     return
   fi
 
@@ -369,7 +375,28 @@ invoke_npm_command() {
   cd "$root/virtual_env/npm" || exit 1
   _ergoms_export_tool_caches "$root"
   _ergoms_prepend_nodejs_path "$root"
-  exec "$(_ergoms_npm_bin "$root")" "$@"
+  local npm_bin
+  npm_bin="$(_ergoms_npm_bin "$root")"
+
+  if [[ "${1:-}" == "update" ]]; then
+    shift
+    "$npm_bin" update "$@"
+    local npm_rc=$?
+    if [[ $npm_rc -ne 0 ]]; then
+      return "$npm_rc"
+    fi
+    local pkg_args=()
+    local arg
+    for arg in "$@"; do
+      [[ "$arg" == -* ]] && continue
+      [[ -n "$arg" ]] && pkg_args+=("$arg")
+    done
+    echo "[INFO] Обновление npm-зависимостей модулей..."
+    node "$root/core/deployment/scripts/sync-module-npm-deps.js" --update --install-missing "${pkg_args[@]}"
+    return $?
+  fi
+
+  exec "$npm_bin" "$@"
 }
 
 export -f _ergoms_export_tool_caches

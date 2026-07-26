@@ -11,7 +11,7 @@ alwaysApply: false
 
 - Команды: `docker-init`, `docker-clean`, `docker-up`, `docker-down`, `docker-dev`, `docker-prod`, `docker-migrate`, `docker-gen-workers`, `docker-shell-api`, `docker-logs`, `docker-ps`, `docker-build`
 - Каталог: `core/deployment/docker/` — compose-файлы, `Dockerfile.python`, `Dockerfile.client`, `docker_cli.py`, `docker_runtime.py`
-- OOP lifecycle: `core/deployment/lifecycle/` — `runner.py`, `DeploymentOrchestrator`, `recipes.py`, шаги compose (`compose_steps.py`); **`docker_cli.py`** делегирует `up`/`down`/`build`/`ps`/`logs` в `run_recipe('docker-*')`, `init` — `docker_init()`
+- OOP lifecycle: `core/deployment/lifecycle/` — `runner.py`, `DeploymentOrchestrator`, `recipes.py`, шаги compose (`compose_steps.py`); **`docker_cli.py`** делегирует `up`/`down`/`build`/`ps`/`logs`/`init` в `run_recipe('docker-*')`
 - Режимы: **`dev`** (bind-mount, Vite, runserver) и **`prod`** (daphne, `client-build`, опционально nginx)
 - Profiles: `postgres`, `nginx`, `jupyter` — через `DOCKER_PROFILE_*` в `.env`
 - Генерируемые артефакты — **не коммитить** (см. корневой `.gitignore`)

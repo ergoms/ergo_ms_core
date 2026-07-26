@@ -302,12 +302,17 @@ function Invoke-PoetryCommand {
     
     $env:ERGOMS_INTERNAL = '1'
 
-    # Перехватываем "poetry install [...]" и заменяем собственной реализацией,
-    # которая устанавливает ядро + зависимости всех модулей.
+    # Перехватываем poetry install/update: ядро + зависимости модулей.
     # Остальные poetry-подкоманды выполняются напрямую.
     if ($CommandArgs.Count -gt 0 -and $CommandArgs[0] -eq 'install') {
         $extraArgs = if ($CommandArgs.Count -gt 1) { $CommandArgs[1..($CommandArgs.Count - 1)] } else { @() }
         Invoke-ApiCommand -CommandArgs (@('install') + $extraArgs) -Root $Root
+        return
+    }
+
+    if ($CommandArgs.Count -gt 0 -and $CommandArgs[0] -eq 'update') {
+        $extraArgs = if ($CommandArgs.Count -gt 1) { $CommandArgs[1..($CommandArgs.Count - 1)] } else { @() }
+        Invoke-ApiCommand -CommandArgs (@('update') + $extraArgs) -Root $Root
         return
     }
 
@@ -410,6 +415,30 @@ function Invoke-NpmCommand {
             $npmCmdLine = "`"$npmBin`" " + ($CommandArgs -join ' ')
         }
         & cmd /c $npmCmdLine
+        $npmExit = $LASTEXITCODE
+
+        if ($CommandArgs.Count -gt 0 -and $CommandArgs[0] -eq 'update' -and $npmExit -eq 0) {
+            $pkgArgs = @()
+            if ($CommandArgs.Count -gt 1) {
+                foreach ($arg in $CommandArgs[1..($CommandArgs.Count - 1)]) {
+                    if ($arg -and -not $arg.StartsWith('-')) {
+                        $pkgArgs += $arg
+                    }
+                }
+            }
+            $nodeBin = Join-Path $nodeDir "node.exe"
+            if (-not (Test-Path -LiteralPath $nodeBin)) {
+                $nodeBin = "node"
+            }
+            $syncScript = Join-Path $Root "core\deployment\scripts\sync-module-npm-deps.js"
+            Write-ColorOutput (Format-ErgoConsole -Level info -Message 'Обновление npm-зависимостей модулей...') Cyan
+            & $nodeBin $syncScript '--update' '--install-missing' @pkgArgs
+            if ($LASTEXITCODE -ne 0) {
+                exit $LASTEXITCODE
+            }
+        } elseif ($npmExit -ne 0) {
+            exit $npmExit
+        }
     }
     finally {
         Pop-Location

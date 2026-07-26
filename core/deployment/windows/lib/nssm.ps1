@@ -2,7 +2,6 @@
 # Управление NSSM для служб Windows (бинарь в virtual_env/packages/nssm)
 
 $script:NssmUrl = 'https://nssm.cc/release/nssm-2.24.zip'
-$script:NssmLegacyDir = "$env:ProgramData\ergo_ms\nssm"
 
 function Get-NssmDir {
     param(
@@ -10,15 +9,6 @@ function Get-NssmDir {
         [string]$Root
     )
     return Join-Path $Root "virtual_env\packages\nssm"
-}
-
-function Remove-NssmLegacyProgramData {
-    $legacyRoot = "$env:ProgramData\ergo_ms"
-    if (-not (Test-Path -LiteralPath $legacyRoot)) {
-        return
-    }
-    Remove-Item -LiteralPath $legacyRoot -Recurse -Force -ErrorAction SilentlyContinue
-    Write-ColorOutput "[OK] Удалён устаревший каталог: $legacyRoot" Green
 }
 
 function Install-NSSM {
@@ -31,17 +21,7 @@ function Install-NSSM {
     $nssmExe = Join-Path $nssmDir "nssm.exe"
 
     if (Test-Path -LiteralPath $nssmExe) {
-        Remove-NssmLegacyProgramData
         Write-ColorOutput "[OK] NSSM уже установлен: $nssmExe" Green
-        return $nssmExe
-    }
-
-    $legacyExe = Join-Path $script:NssmLegacyDir "nssm.exe"
-    if (Test-Path -LiteralPath $legacyExe) {
-        New-Item -ItemType Directory -Path $nssmDir -Force | Out-Null
-        Copy-Item -LiteralPath $legacyExe -Destination $nssmExe -Force
-        Remove-NssmLegacyProgramData
-        Write-ColorOutput "[OK] NSSM перенесён в проект: $nssmExe" Green
         return $nssmExe
     }
 
@@ -70,7 +50,6 @@ function Install-NSSM {
 
         New-Item -ItemType Directory -Path $nssmDir -Force | Out-Null
         Copy-Item $nssmSource.FullName -Destination $nssmExe -Force
-        Remove-NssmLegacyProgramData
 
         Write-ColorOutput "[OK] NSSM установлен: $nssmExe" Green
     }
