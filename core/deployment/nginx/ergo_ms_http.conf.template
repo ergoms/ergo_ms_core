@@ -59,13 +59,8 @@ ${ERGO_MAINTENANCE_SNIPPET}
         try_files /maintenance.json =404;
     }
 
-    # Ранний boot-скрипт — без долгого кэша (иначе после правок остаётся старый спиннер)
-    location = /js/bootstrap-early.js {
-        add_header Cache-Control "no-store" always;
-        try_files /js/bootstrap-early.js =404;
-    }
-
     # --- Vite hashed assets (ergoms client-build -> core/client/dist/assets) ---
+    # bootstrap-early — hashed /assets/bootstrap-early-*.js (см. vite bootstrapEarlyAssetPlugin)
     location /assets/ {
         expires 1y;
         add_header Cache-Control "public, immutable" always;

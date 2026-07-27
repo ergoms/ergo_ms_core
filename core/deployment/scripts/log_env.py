@@ -121,17 +121,14 @@ def file_level_for_key(
     global_level = _read_env_file('ERGO_LOG_FILE_LEVEL', env_file, '')
     if global_level:
         return global_level.upper()
-    return LOG_LEVEL_FILE_DEFAULTS.get(key, 'DEBUG')
+    return LOG_LEVEL_FILE_DEFAULTS.get(key, 'INFO')
 
 
 def service_levels(service: str, project_root: Path | None = None) -> tuple[str, str, bool]:
+    """Уровни только из ERGO_LOG_* / <SERVICE>_LOG_* — без ветвления по *_DEPLOY_TYPE."""
     env_file = _env_file(project_root)
     prefix = service.upper().replace('-', '_')
-    deploy = _read_env_file('API_DEPLOY_TYPE', env_file, '').lower()
-    default_file = 'INFO' if deploy == 'production' else 'DEBUG'
-    if service == 'media_api':
-        media_deploy = _read_env_file('MEDIA_API_DEPLOY_TYPE', env_file, deploy).lower()
-        default_file = 'INFO' if media_deploy == 'production' else 'DEBUG'
+    default_file = 'INFO'
 
     file_level = _read_env_file(f'{prefix}_LOG_FILE_LEVEL', env_file, '')
     if not file_level and prefix == 'CELERY_BEAT':

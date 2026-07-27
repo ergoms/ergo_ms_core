@@ -3,9 +3,9 @@
 
 При REDIS_ENABLED=true:
 - нет процесса — foreground-запуск (закрытие терминала останавливает Redis);
-- есть marker (warmup) — только логи, но закрытие терминала останавливает Redis
-  (без stop/restart, чтобы не было окна без Redis перед API);
-- без marker (внешний) — только логи, процесс не трогаем.
+- portable уже запущен (warmup / leftover) — только логи, закрытие терминала
+  останавливает Redis (без stop/restart, чтобы не было окна без Redis перед API);
+- служба ОС — только логи, процесс не трогаем.
 При REDIS_ENABLED=false: выход без сообщений.
 """
 
@@ -32,8 +32,10 @@ from redis_dev import (  # noqa: E402
     clear_dev_session_marker,
     is_redis_managed_service,
     read_dev_session_marker,
+    read_redis_pid,
     run_redis_foreground,
     stop_redis_for_dev,
+    write_dev_session_marker,
 )
 
 
@@ -76,7 +78,7 @@ def _tail_owned_session() -> int:
 
     print(format_console(
         'info',
-        'Redis уже запущен (warmup); логи ниже. Ctrl+C или закрытие терминала останавливает Redis.',
+        'Redis уже запущен; логи ниже. Ctrl+C или закрытие терминала останавливает Redis.',
     ))
     try:
         return tail_log_files(
@@ -108,12 +110,14 @@ def main() -> int:
     marker = read_dev_session_marker(PROJECT_ROOT)
 
     if ping_redis(PROJECT_ROOT):
+        # Portable Redis из warmup/прошлого сеанса: терминал Redis Dev всегда владеет
+        # остановкой. Иначе после сбоя atexit на Windows процесс остаётся «чужим».
         if marker is None:
-            print(format_console(
-                'info',
-                'Redis уже запущен (внешний); закрытие терминала не остановит сервер.',
-            ))
-            return tail_log_files(redis_log_tail_paths(), service='Redis', process_keeps_running=True)
+            write_dev_session_marker(
+                PROJECT_ROOT,
+                pid=read_redis_pid(PROJECT_ROOT),
+                source='terminal-adopt',
+            )
         return _tail_owned_session()
 
     if marker is not None:

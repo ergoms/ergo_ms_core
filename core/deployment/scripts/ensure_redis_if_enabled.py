@@ -60,7 +60,18 @@ def ensure_redis_for_dev(*, quiet: bool = False) -> int:
             print(format_console('info', 'Redis работает как служба ОС.'))
         return 0
 
+    def _claim_dev_session(*, source: str) -> None:
+        # Marker нужен start-redis-dev: без него portable Redis считается «внешним»
+        # и закрытие терминала VS Code его не остановит.
+        if read_dev_session_marker(PROJECT_ROOT) is None:
+            write_dev_session_marker(
+                PROJECT_ROOT,
+                pid=read_redis_pid(PROJECT_ROOT),
+                source=source,
+            )
+
     if ping_redis(PROJECT_ROOT):
+        _claim_dev_session(source='warmup-adopt')
         if not quiet:
             print(format_console('info', 'Redis уже запущен.'))
         return 0
@@ -79,9 +90,7 @@ def ensure_redis_for_dev(*, quiet: bool = False) -> int:
     connect_port = effective_redis_port()
     while time.monotonic() < deadline:
         if ping_redis(PROJECT_ROOT) and _redis_tcp_ready(connect_host, connect_port):
-            if read_dev_session_marker(PROJECT_ROOT) is None:
-                pid = read_redis_pid(PROJECT_ROOT)
-                write_dev_session_marker(PROJECT_ROOT, pid=pid, source='warmup')
+            _claim_dev_session(source='warmup')
             if not quiet:
                 print(format_console('ok', 'Redis запущен.'))
             return 0

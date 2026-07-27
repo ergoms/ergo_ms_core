@@ -308,6 +308,62 @@ async function runTask(name, command, cwd, group, stopCommand) {
 }
 
 /**
+ * Маппинг ergoms stop-*-dev → прямой вызов Python (без powershell-обёртки ergoms).
+ * На Windows `ergoms stop-redis-dev` часто занимает 10+ с и упирается в timeout.
+ */
+const STOP_DEV_SCRIPTS = {
+    'stop-redis-dev': path.join('core', 'deployment', 'scripts', 'stop_redis_if_enabled.py'),
+    'stop-nginx-dev': path.join('core', 'deployment', 'scripts', 'stop_nginx_if_enabled.py'),
+    'stop-client-dev': path.join('core', 'deployment', 'scripts', 'stop_client_if_enabled.py')
+};
+
+function resolvePythonExecutable(workspaceRoot) {
+    if (!workspaceRoot) {
+        return null;
+    }
+    if (process.platform === 'win32') {
+        const winPy = path.join(workspaceRoot, 'virtual_env', 'python', 'Scripts', 'python.exe');
+        if (fs.existsSync(winPy)) {
+            return winPy;
+        }
+    } else {
+        const unixPy = path.join(workspaceRoot, 'virtual_env', 'python', 'bin', 'python');
+        if (fs.existsSync(unixPy)) {
+            return unixPy;
+        }
+    }
+    return null;
+}
+
+/**
+ * Преобразует stop-команду в быстрый spawn (python script) или shell fallback.
+ */
+function resolveStopInvocation(stopCommand, workspaceRoot) {
+    const trimmed = String(stopCommand || '').trim();
+    const match = trimmed.match(/^ergoms\s+(stop-[a-z0-9-]+-dev)\s*$/i);
+    if (match && workspaceRoot) {
+        const scriptRel = STOP_DEV_SCRIPTS[match[1].toLowerCase()];
+        const pythonExe = resolvePythonExecutable(workspaceRoot);
+        if (scriptRel && pythonExe) {
+            return {
+                executable: pythonExe,
+                args: [path.join(workspaceRoot, scriptRel)],
+                envExtra: {
+                    PYTHONIOENCODING: 'utf-8',
+                    PYTHONUTF8: '1'
+                }
+            };
+        }
+    }
+    const isWin = process.platform === 'win32';
+    return {
+        executable: isWin ? 'cmd.exe' : '/bin/bash',
+        args: isWin ? ['/d', '/c', trimmed] : ['-lc', trimmed],
+        envExtra: {}
+    };
+}
+
+/**
  * Выполняет stop-команду после закрытия терминала (синхронно — иначе на Windows
  * detached-процесс может не успеть отработать).
  */
@@ -316,25 +372,23 @@ function runStopCommand(stopCommand, cwd) {
         return;
     }
     const { spawnSync } = require('child_process');
-    const isWin = process.platform === 'win32';
     const workspaceRoot = cwd || getWorkspaceRoot();
-    const executable = isWin ? 'cmd.exe' : '/bin/bash';
-    const args = isWin ? ['/d', '/c', stopCommand] : ['-lc', stopCommand];
-    const env = { ...process.env };
+    const invocation = resolveStopInvocation(stopCommand, workspaceRoot);
+    const env = { ...process.env, ...invocation.envExtra };
     if (workspaceRoot) {
         const bin = path.join(workspaceRoot, 'core', 'deployment', 'bin');
-        const sep = isWin ? ';' : ':';
+        const sep = process.platform === 'win32' ? ';' : ':';
         env.PATH = `${bin}${sep}${env.PATH || ''}`;
         env.PYTHONIOENCODING = env.PYTHONIOENCODING || 'utf-8';
         env.PYTHONUTF8 = env.PYTHONUTF8 || '1';
     }
     try {
-        spawnSync(executable, args, {
+        spawnSync(invocation.executable, invocation.args, {
             cwd: workspaceRoot || undefined,
             stdio: 'ignore',
             windowsHide: true,
             env,
-            timeout: 20000
+            timeout: 45000
         });
     } catch (_) {
         // stop best-effort: Redis/nginx могли уже остановиться в atexit
@@ -356,6 +410,43 @@ function findTrackedTask(execution) {
         }
     }
     return null;
+}
+
+/**
+ * Находит запись по имени терминала VS Code (Task - redis / redis).
+ */
+function findTrackedTaskByTerminalName(terminalName) {
+    if (!terminalName) {
+        return null;
+    }
+    const normalized = String(terminalName).replace(/^Task\s*-\s*/i, '').trim();
+    for (const [group, items] of taskGroups) {
+        const index = items.findIndex((item) => (
+            item.name === terminalName
+            || item.name === normalized
+            || terminalName === `Task - ${item.name}`
+        ));
+        if (index > -1) {
+            return { group, index, item: items[index] };
+        }
+    }
+    return null;
+}
+
+function releaseTrackedTask(found) {
+    if (!found) {
+        return;
+    }
+    const { group, index, item } = found;
+    const items = taskGroups.get(group);
+    if (!items) {
+        return;
+    }
+    items.splice(index, 1);
+    if (items.length === 0) {
+        taskGroups.delete(group);
+    }
+    runStopCommand(item.stopCommand, item.cwd);
 }
 
 /**
@@ -587,15 +678,11 @@ function activate(context) {
         stopAllTasks
     );
     
-    // Отслеживаем завершение задач (закрытие терминала / terminate)
+    // Отслеживаем завершение задач (закрытие терминала / terminate).
+    // На Windows atexit в Python при Kill Terminal часто не успевает —
+    // stop-*-dev должен вызваться отсюда.
     const onTaskProcessEnd = (execution) => {
-        const found = findTrackedTask(execution);
-        if (!found) {
-            return;
-        }
-        const { group, index, item } = found;
-        taskGroups.get(group).splice(index, 1);
-        runStopCommand(item.stopCommand, item.cwd);
+        releaseTrackedTask(findTrackedTask(execution));
     };
 
     const taskEndListener = vscode.tasks.onDidEndTaskProcess((e) => {
@@ -604,11 +691,27 @@ function activate(context) {
     const taskEndListener2 = vscode.tasks.onDidEndTask((e) => {
         onTaskProcessEnd(e.execution);
     });
+    // Backup: trash-иконка терминала в Cursor иногда не даёт TaskEnd с нужной ссылкой.
+    const terminalCloseListener = vscode.window.onDidCloseTerminal((terminal) => {
+        releaseTrackedTask(findTrackedTaskByTerminalName(terminal && terminal.name));
+    });
     
-    context.subscriptions.push(taskProvider, stopAllCmd, taskEndListener, taskEndListener2);
+    context.subscriptions.push(
+        taskProvider,
+        stopAllCmd,
+        taskEndListener,
+        taskEndListener2,
+        terminalCloseListener
+    );
 }
 
 function deactivate() {
+    // Закрытие окна / reload extension host: погасить portable Redis/nginx.
+    for (const [, items] of taskGroups) {
+        for (const item of items) {
+            runStopCommand(item.stopCommand, item.cwd);
+        }
+    }
     taskGroups.clear();
 }
 

@@ -27,7 +27,7 @@ alwaysApply: false
 
 | Нужно | Как |
 |-------|-----|
-| Проверить «без анимаций» | `useUiModes().reducedMotionActive` или `html[data-ergo-motion='reduce']` / миксин `ui-reduced-motion` (декор). Лоадеры — opacity-пульс (`SpinnerLoading`, `.spinner-border`, `[data-ergo-motion-safe='pulse']`); скелетон — ровная заливка |
+| Проверить «без анимаций» | `useUiModes().reducedMotionActive` или `html[data-ergo-motion='reduce']` / миксин `ui-reduced-motion` (декор). Лоадеры — текст «Загрузка...» (`SpinnerLoading`; кружки `.spinner-border` скрыты); опциональный пульс — `[data-ergo-motion-safe='pulse']`; скелетон — ровная заливка |
 | Проверить «без картинок» | `useUiModes().imagesOff` или `html[data-ergo-images='off']`; контент — `@/components/ContentImage.vue`. Preference `system` (дефолт) — probe браузера (Chrome «не показывать изображения») |
 | Высокий контраст | `useUiModes().contrastMore` / `html[data-ergo-contrast='more']`. Preference `system` (дефолт) — `prefers-contrast` / `forced-colors`; палитра временно как «Высокий контраст», `activeTheme` не затирается |
 | Экранный диктор (`assist`) | UI: «Экранный диктор → Включён». `useUiModes().a11yAssist`; усиленный focus в `_modes.scss` |
@@ -53,7 +53,10 @@ const { isShellDesktop, isCompactLayout } = useBreakpoint()
 ```
 
 ```html
-<!-- GOOD — свой индикатор загрузки в режиме reduce (opacity-пульс из _modes.scss) -->
+<!-- GOOD — загрузка через SpinnerLoading (в reduce сам покажет «Загрузка...») -->
+<SpinnerLoading />
+
+<!-- GOOD — не-спиннер индикатор с безопасным пульсом -->
 <span class="my-loader" data-ergo-motion-safe="pulse" />
 ```
 
@@ -96,7 +99,7 @@ if (!getReducedMotionActive()) { /* анимация */ }
 | Тема | Путь |
 |------|------|
 | Prefs + attrs | [`uiPreferences.js`](../../core/client/src/js/uiPreferences.js) |
-| Early apply | [`bootstrap-early.js`](../../core/client/public/js/bootstrap-early.js) |
+| Early apply | [`bootstrap-early.js`](../../core/client/src/js/bootstrap-early.js) |
 | CSS режимов | [`_modes.scss`](../../core/client/src/scss/ui/_modes.scss) |
 | Настройки UI | [`SystemPanel.vue`](../../core/client/src/core/cms/adp/user/account/component/settings-panels/SystemPanel.vue) |
 | Skip / main | [`LayoutMenu.vue`](../../core/client/src/LayoutMenu.vue), [`SkipLink.vue`](../../core/client/src/components/SkipLink.vue) |

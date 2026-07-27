@@ -56,6 +56,8 @@ PID и temp nginx/redis — в `virtual_env/packages/*/run|temp`, **не** в `l
 
 Имя модуля Celery видно в **`logger.name`** — отдельные файлы по модулям не нужны.
 
+HTTP access (API и Media API): одна строка `"METHOD path proto" status` через middleware (`django.server`). Встроенный access daphne/runserver отключён. Уровни по умолчанию — из `ERGO_LOG_*` / `<SERVICE>_LOG_*`, **не** из `*_DEPLOY_TYPE`.
+
 ---
 
 ## Сервер (Python)
