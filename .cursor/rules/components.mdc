@@ -31,14 +31,23 @@ alwaysApply: false
 
 Компонент: `@/components/DropDown.vue`.
 
-Bootstrap-выпадающее меню **действий** (редактировать, удалить, экспорт), не выбор значения из списка. Слоты `#main` (кнопка-триггер) и `#list` (пункты `<li><a class="dropdown-item">`).
+Выпадающее меню **действий** (редактировать, удалить, экспорт), не выбор значения из списка. Слоты `#main` (кнопка-триггер) и `#list` (пункты `<li><a class="dropdown-item">`).
+
+Триггер **bare**: без padding/hover на обёртке — размер и хром задаёт слот `#main`. Меню телепортируется в `body`, позиция адаптируется к viewport (flip вверх, clamp). Не обходи `.dropdown-button` через `:deep` в модуле.
+
+| Prop | Когда |
+|------|-------|
+| `compact` | компактные пункты (⋯ у строк/карточек) |
+| `dropdown-menu-class="dropdown-menu-end"` | выравнивание вправо от триггера |
+| `menu-min-width` | минимальная ширина меню (по умолчанию 160) |
+| `offset="0,N"` | зазор снизу/сверху, px |
 
 ### Когда DropDown, а когда SelectBox
 
 | Сценарий | Компонент |
 |----------|-----------|
 | Выбрать значение поля формы, фильтра, статуса | `SelectBox` — [`select-box.mdc`](select-box.mdc) |
-| Кнопка «⋯» с 2–5 действиями над строкой/карточкой | `DropDown` |
+| Кнопка «⋯» с 2–5 действиями над строкой/карточкой | `DropDown` + `compact` |
 | Несколько фильтров под одной кнопкой «Фильтры» | `FilterMenu` — [`filter-menu.mdc`](filter-menu.mdc) |
 
 ### Базовый пример
@@ -50,7 +59,7 @@ import { MoreHorizontal, Edit, Trash2 } from 'lucide-vue-next'
 </script>
 
 <template>
-  <DropDown dropdown-menu-class="dropdown-menu-end">
+  <DropDown dropdown-menu-class="dropdown-menu-end" compact>
     <template #main>
       <button type="button" class="btn btn-link p-0" aria-label="Действия">
         <MoreHorizontal :size="18" />
