@@ -1,0 +1,97 @@
+---
+description: Производительность клиента Vue — lazy-чанки, async-модалки, параллельные API, prefetch меню
+globs:
+  - "core/client/**/*.vue"
+  - "core/client/**/*.js"
+  - "modules/**/client/**/*.vue"
+  - "modules/**/client/**/*.js"
+alwaysApply: false
+---
+
+# Производительность клиента (прогрузка страниц)
+
+Цель — быстрый первый экран на медленной сети (3G): меньше JS в оболочке и в чанке маршрута, меньше последовательных API-запросов. **Не** ломай видимый UI ради микрооптимизаций.
+
+Маршруты ядра уже code-split через строки в `routes.js` + `RouteManager` / `createDeferredComponentImport`. Узкие места — **shell**, **модалки/вкладки внутри страницы**, **waterfall API**.
+
+## Кратко
+
+- Страницы — lazy на уровне router (пути-строки в `routes.js`, не static `import` страницы)
+- Оболочка (`LayoutMenu`, `MenuToolbar`) — **без** тяжёлых настроек/редакторов/crop до открытия
+- Модалки, вкладки, предпросмотры — `defineAsyncComponent` + `v-if` при открытии
+- Независимые запросы на mount — `Promise.all`, не цепочка `await`
+- Hover/focus пункта меню — `prefetchRouteByName` (`@/js/utils/prefetchRoute.js`)
+- Индикация загрузки списков — [`loading-content-area.mdc`](loading-content-area.mdc), не свой overlay
+
+## Обязательно
+
+| Нужно | Как |
+|-------|-----|
+| Новая страница в `routes.js` | component — строка `@/...`, не sync import |
+| Модалка только по клику | `defineAsyncComponent(() => import(...))` и монтировать при открытии (`v-if` / «mounted once») |
+| Вкладки (`v-if` / query `tab`) | async-компонент на вкладку, не тянуть обе сразу |
+| Независимые GET на mount | `Promise.all([...])` |
+| Prefetch из меню | уже в `MenuItem`; для своих списков ссылок — `prefetchRouteByName(router, name)` |
+| Shell dropdown по режиму UI | `SidebarNotifications` / `AppsMenu` — async; `v-if` по `actionButton` недостаточен без async import |
+| Тяжёлая панель после access-check | async-компонент + `v-if="hasAdminAccess"` (не sync в странице-обёртке) |
+
+Эталон оболочки: [`MenuToolbar.vue`](../../core/client/src/components/menu/MenuToolbar.vue) — `UserSettingsModal` после первого открытия; `SidebarNotifications` / `AppsMenu` — async по `actionButton`. `UserMenu` / `SettingsMenu` остаются sync (нужны сразу в toolbar).  
+Эталон вкладок настроек: [`userSettingsTabs.js`](../../core/client/src/core/cms/adp/user/account/component/userSettingsTabs.js).  
+Эталон admin после access-check: [`AuditLog.vue`](../../core/client/src/core/cms/adp/admin/AuditLog.vue) → async `AuditLogPanel`; детали события — async + `v-if` в [`AuditLogPanel.vue`](../../core/client/src/core/audit/components/AuditLogPanel.vue).
+
+## Запрещено
+
+```js
+// BAD — тяжёлая модалка / inbox в shell всегда в бандле
+import UserSettingsModal from '@/core/cms/adp/user/account/component/UserSettingsModal.vue'
+import SidebarNotifications from '@/components/menu/SidebarNotifications.vue'
+
+// BAD — v-if без async: неактивная ветка всё равно в чанке
+import AppsMenu from '@/components/menu/AppsMenu.vue'
+// <AppsMenu v-else /> — sync import уже скачал код
+
+// BAD — панель аудита в обёртке до/вместе с access-check
+import AuditLogPanel from '@/core/audit/components/AuditLogPanel.vue'
+
+// BAD — последовательные независимые запросы
+roles.value = await getRoles()
+roleGroups.value = await getRoleGroupOptions()
+```
+
+```js
+// GOOD
+const SidebarNotifications = defineAsyncComponent(() =>
+  import('@/components/menu/SidebarNotifications.vue'),
+)
+const AuditLogPanel = defineAsyncComponent(() =>
+  import('@/core/audit/components/AuditLogPanel.vue'),
+)
+const [roles, roleGroups] = await Promise.all([getRoles(), getRoleGroupOptions()])
+```
+
+```vue
+<!-- GOOD — чанк модалки / панели после клика или access-check -->
+<AdminUserSettingsModal v-if="showUserSettings" v-model:show="showUserSettings" ... />
+<AuditLogPanel v-if="hasAdminAccess" />
+```
+
+Не выноси в async то, что нужно **сразу** на первом кадре страницы (таблица списка, `UserMenu` / `SettingsMenu`, критичный текст). Не дублируй prefetch сетевыми «прогревами» API без нужды.
+
+## Чеклист перед merge экрана ядра / модуля
+
+1. Страница не импортируется sync в `routes.js` / layout shell
+2. Модалки create/edit/settings/crop — async + монтирование при открытии
+3. Неактивные вкладки и ветки `v-if` (action-button, tab) — async, не sync import
+4. Тяжёлая панель admin — после access-check (`v-if="hasAdminAccess"`)
+5. Mount: независимые API — параллельно; доступ (admin) может идти первым
+6. UI и a11y не деградировали (те же спиннеры / `LoadingContentArea`, без пустого layout)
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Клиент Vue | [`client_code.mdc`](client_code.mdc) |
+| Загрузка списков | [`loading-content-area.mdc`](loading-content-area.mdc) |
+| Модалки | [`modal-center.mdc`](modal-center.mdc) |
+| Меню | [`menu.mdc`](menu.mdc) |
+| Диагностика «старый dist» | [`diagnose-before-code.mdc`](diagnose-before-code.mdc) |

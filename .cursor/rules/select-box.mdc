@@ -1,6 +1,10 @@
 ---
 description: Выпадающие списки на клиенте — только SelectBox из ядра
-globs: "{core/client,modules/**/client}/**/*.{vue,js}"
+globs:
+  - "core/client/**/*.vue"
+  - "core/client/**/*.js"
+  - "modules/**/client/**/*.vue"
+  - "modules/**/client/**/*.js"
 alwaysApply: false
 ---
 

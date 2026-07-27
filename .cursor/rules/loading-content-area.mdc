@@ -1,6 +1,8 @@
 ---
 description: Плавная загрузка списков и блоков контента — LoadingContentArea из ядра
-globs: "{core/client,modules/**/client}/**/*.vue"
+globs:
+  - "core/client/**/*.vue"
+  - "modules/**/client/**/*.vue"
 alwaysApply: false
 ---
 
@@ -84,4 +86,5 @@ const isLoading = ref(false)
 | Тема | Файл |
 |------|------|
 | Другие компоненты ядра | [`components.mdc`](components.mdc) |
+| Производительность прогрузки | [`client-perf.mdc`](client-perf.mdc) |
 | SelectBox в фильтрах | [`select-box.mdc`](select-box.mdc) |

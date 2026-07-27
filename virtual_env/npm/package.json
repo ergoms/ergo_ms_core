@@ -5,8 +5,7 @@
   "type": "module",
   "description": "ErgoMS npm workspace (client)",
   "workspaces": [
-    "../../core/client",
-    "../../modules/*/client"
+    "../../core/client"
   ],
   "scripts": {
     "dev": "python ../../core/deployment/scripts/start_client_if_dev.py",
@@ -14,9 +13,10 @@
     "build": "npm run build -w @ergo-ms/core-client",
     "preview": "npm run preview -w @ergo-ms/core-client",
     "lint": "npm run lint -w @ergo-ms/core-client",
+    "lint:a11y": "npm run lint:a11y -w @ergo-ms/core-client",
     "format": "npm run format -w @ergo-ms/core-client",
     "postinstall": "node ../../core/deployment/scripts/sync-module-npm-deps.js --install-missing",
-    "install:all": "npm install --ignore-scripts --no-package-lock && node ../../core/deployment/scripts/sync-module-npm-deps.js --install-missing"
+    "install:all": "npm install --ignore-scripts --no-package-lock --no-audit --no-fund && node ../../core/deployment/scripts/sync-module-npm-deps.js --install-missing"
   },
   "script_comments": {
     "dev": "Запуск сервера разработки",
@@ -24,6 +24,7 @@
     "build": "Сборка проекта",
     "preview": "Предварительный просмотр сборки",
     "lint": "Проверка и исправление кода с помощью ESLint",
+    "lint:a11y": "Проверка доступности Vue (eslint-plugin-vuejs-accessibility)",
     "format": "Форматирование кода с помощью Prettier",
     "postinstall": "Доустановка npm-зависимостей модулей и удаление лишних пакетов без записи в package-lock.json",
     "install:all": "Установка ядра и модулей, удаление пакетов вне package.json (без обновления package-lock.json)"
@@ -69,16 +70,26 @@
     "@eslint/js": "^9.37.0",
     "@vitejs/plugin-vue": "^5.2.4",
     "@vue/eslint-config-prettier": "^10.2.0",
+    "cross-env": "^7.0.3",
     "eslint": "^9.37.0",
     "eslint-plugin-vue": "^9.33.0",
+    "eslint-plugin-vuejs-accessibility": "^2.5.0",
     "prettier": "^3.6.2",
     "rollup-plugin-visualizer": "^5.14.0",
-    "cross-env": "^7.0.3",
     "sass": "1.77.6",
     "unplugin-auto-import": "^21.0.0",
     "vite": "^6.3.6",
     "vite-plugin-vue-devtools": "^7.7.7"
   },
+  "browserslist": [
+    "last 2 Chrome versions",
+    "last 2 Edge versions",
+    "last 2 Firefox versions",
+    "last 2 Safari versions",
+    "last 2 iOS versions",
+    "not dead",
+    "not ie 11"
+  ],
   "overrides": {
     "uuid": "11.1.1"
   }

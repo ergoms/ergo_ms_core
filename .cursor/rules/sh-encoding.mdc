@@ -1,6 +1,7 @@
 ---
 description: Shell .sh в deployment — только LF без BOM, sh_io.write_sh, sh-encoding-check
-globs: "core/deployment/**/*.sh"
+globs:
+  - "core/deployment/**/*.sh"
 alwaysApply: false
 ---
 

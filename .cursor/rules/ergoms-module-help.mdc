@@ -1,6 +1,7 @@
 ---
 description: Справка ergoms для модулей — ergoms.help.yaml рядом с ergoms.conf, help module, русский текст
-globs: "modules/**/ergoms.conf"
+globs:
+  - "modules/**/ergoms.conf"
 alwaysApply: false
 ---
 

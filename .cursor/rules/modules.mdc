@@ -1,6 +1,7 @@
 ---
 description: Модули modules/ — структура, регистрация, ModuleBridge, theme-defaults.js, Celery, git-submodule
-globs: "modules/**"
+globs:
+  - "modules/**"
 alwaysApply: false
 ---
 # Модули
@@ -47,12 +48,19 @@ Stop/install модульного демона в Windows-тестах deploymen
 # api/apps.py
 class MyModuleConfig(AppConfig):
     name = 'modules.my_module.api'
+    # Если ready()/import нужен bridge другого модуля — объяви зависимость
+    # (имена папок modules/<name>). Discovery топологически упорядочит INSTALLED_APPS.
+    # Только односторонние дуги: мягкий bridge.has в обе стороны не дублируй
+    # (иначе цикл competence_core↔vacancies_parser, org↔students/projects).
+    module_requires = ('tasks',)
 
     def ready(self):
         from . import integrations  # если есть мост
 ```
 
-Регистрация в `INSTALLED_APPS` вручную не нужна — находит `ModuleDiscoverer`.
+Регистрация в `INSTALLED_APPS` вручную не нужна — находит `ModuleDiscoverer` + [`module_load_order.py`](../../core/api/src/core/utils/auto_api/module_load_order.py).
+
+**Lean schema CLI** (`migrate` / `makemigrations`): у `modules.*` пропускается `ready()` и **не** подключаются URL модулей — схема БД без runtime-моста.
 
 ## Регистрация на клиенте
 
@@ -136,6 +144,21 @@ def _handler(user):
 ```
 
 Имена операций: `'модуль.действие'`. Если провайдера нет — `call` вернёт `default`.
+
+**Запрещено** на уровне модуля (import-time):
+
+```python
+# BAD — class-base / Meta от результата bridge.call (на migrate bridge пуст → None.Meta)
+Base = bridge.call('tasks.get_stage_result_task_serializer_cls')
+class MySerializer(Base):
+    class Meta(Base.Meta):
+        pass
+
+# GOOD — resolve в момент использования (после ready провайдера), см. project_ed get_stage_task_serializer_class
+def get_my_serializer_class():
+    base = bridge.call('tasks.get_stage_result_task_serializer_cls')
+    ...
+```
 
 **Клиент** — `@/integrations/ModuleBridge.js`, регистрация в `client/js/integrations.js`.
 

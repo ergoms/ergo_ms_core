@@ -1,6 +1,8 @@
 ---
 description: Пагинация списков в клиенте — Pagination / DataTable, не bootstrap ul.pagination
-globs: "**/*.{vue,js}"
+globs:
+  - "**/*.vue"
+  - "**/*.js"
 alwaysApply: false
 ---
 

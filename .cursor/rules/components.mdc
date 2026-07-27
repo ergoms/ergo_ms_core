@@ -17,10 +17,15 @@ alwaysApply: false
 | Меню действий (⋯, контекст) | `DropDown` | этот раздел |
 | Боковое меню приложения | `MenuList`, миграции `MenuItem` | [`menu.mdc`](menu.mdc) |
 | Загрузка списков без «мигания» | `LoadingContentArea` | [`loading-content-area.mdc`](loading-content-area.mdc) |
+| Быстрая прогрузка страниц | lazy-модалки, prefetch | [`client-perf.mdc`](client-perf.mdc) |
 | Постраничная навигация | `Pagination` / `DataTable` (`enable-pagination`) | [`pagination.mdc`](pagination.mdc) |
 | Модальные окна | `ModalCenter`, `confirm.js` | [`modal-center.mdc`](modal-center.mdc) |
 | Multi-select выбор пользователей | `MemberPickerModal` | этот раздел |
 | Аватар пользователя | `UserAvatar` | этот раздел |
+| Контентное изображение (режим без картинок) | `ContentImage` | [`client-a11y.mdc`](client-a11y.mdc) |
+| Skip-link / landmarks | `SkipLink`, `<main id="main-content">` | [`client-a11y.mdc`](client-a11y.mdc) |
+
+Режимы анимаций, картинок и помощи диктору — [`client-a11y.mdc`](client-a11y.mdc) (`useUiModes`, `data-ergo-*`).
 
 ## Меню действий — DropDown
 
@@ -121,6 +126,7 @@ import { MoreHorizontal, Edit, Trash2 } from 'lucide-vue-next'
 | Тема | Файл |
 |------|------|
 | Клиент Vue | [`client_code.mdc`](client_code.mdc) |
+| Доступность, режимы UI | [`client-a11y.mdc`](client-a11y.mdc) |
 | public_id | [`security.mdc`](security.mdc), [`security-details.mdc`](security-details.mdc) |
 | Темы (иконки в списках) | [`themes.mdc`](themes.mdc) |
 | Боковое меню | [`menu.mdc`](menu.mdc) |

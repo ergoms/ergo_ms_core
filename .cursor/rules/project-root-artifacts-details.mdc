@@ -1,6 +1,7 @@
 ---
 description: Детали хранения артефактов в ERGO_ROOT — virtual_env, certbot, кэши, temp, Docker
-globs: "core/deployment/**/*"
+globs:
+  - "core/deployment/**"
 alwaysApply: false
 ---
 

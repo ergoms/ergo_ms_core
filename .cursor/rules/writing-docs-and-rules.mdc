@@ -1,6 +1,9 @@
 ---
 description: Как писать документацию и правила Cursor — стиль, структура, язык, примеры; понятно агенту и человеку
-globs: "**/*.{md,mdc},.cursor/rules/**"
+globs:
+  - "**/*.md"
+  - "**/*.mdc"
+  - ".cursor/rules/**"
 alwaysApply: false
 ---
 
@@ -60,7 +63,9 @@ alwaysApply: false
 ```yaml
 ---
 description: Одна строка — тема, область, ключевые сущности (для выбора правила агентом)
-globs: "**/*.py"          # Auto Attached: только при работе с подходящими файлами
+globs:                    # Auto Attached: YAML-список, без braces и без CSV в кавычках
+  - "**/*.py"
+  - core/api/**/*.py
 alwaysApply: false        # true — только неснимаемый минимум (см. таблицу)
 ---
 ```
@@ -68,7 +73,7 @@ alwaysApply: false        # true — только неснимаемый мин�
 | Поле | Когда |
 |------|--------|
 | `alwaysApply: true` | **Только** то, без чего агент ломает проект в любой задаче: isolation, ergoms, `virtual_env`, краткий security-чеклист, краткая архитектура, `docs`/`code`/`clarifying-questions`. Не справочники и не UI-компоненты |
-| `globs` | Правило для клиента, modules, migrations, deployment, `.gitignore` и т.п. **Не** комбинируй с `alwaysApply: true` |
+| `globs` | YAML-список паттернов (`- pattern`). Не CSV-строка в кавычках, не `{a,b}` / `*.{vue,js}`. **Не** комбинируй с `alwaysApply: true` |
 | `description` без globs | Agent Requested: справочники (Celery, Docker, audit) — агент подтягивает по ключевым словам |
 | `description` | 1 предложение; nouns из реальных задач (`SelectBox`, `migrate`, `ModuleBridge`, `nginx`) |
 
@@ -234,6 +239,7 @@ import SelectBox from '@/components/SelectBox.vue'
 - [ ] `description` отражает тему и ключевые слова
 - [ ] `alwaysApply: true` только если правило входит в неснимаемый минимум; иначе globs или только description
 - [ ] Нет пары `alwaysApply: true` + `globs` одновременно
+- [ ] `globs` — YAML-список (`- pattern`), без CSV в кавычках и без `{a,b}` / `*.{ext}`
 - [ ] Есть «кратко» или явные «обязательно / запрещено»
 - [ ] Есть пример с реальным путём или кодом проекта
 - [ ] Разделы короткие и с говорящими заголовками

@@ -1,6 +1,7 @@
 ---
 description: VS Code tasks.json — ergoms, PATH, detail по-русски, hide для внутренних задач
-globs: "**/.vscode/tasks.json"
+globs:
+  - "**/.vscode/tasks.json"
 alwaysApply: false
 ---
 

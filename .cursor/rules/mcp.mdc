@@ -1,6 +1,9 @@
 ---
 description: MCP серверы ERGO MS — модульный mcp/, registry, mcp-sync, отдельная строка в Cursor на модуль
-globs: "modules/**/mcp/**,.cursor/mcp*.yaml,.cursor/mcp*.py"
+globs:
+  - "modules/**/mcp/**"
+  - ".cursor/mcp*.yaml"
+  - ".cursor/mcp*.py"
 alwaysApply: false
 ---
 

@@ -1,6 +1,11 @@
 ---
 description: Боковое меню — миграции MenuMigrationHelper, MenuItem в БД, MenuList, MenuPanel
-globs: "**/core/client/src/components/menu/**,**/menu/migration_utils.py,**/*_menu*.py,**/menuService.js,**/MenuPanel.vue"
+globs:
+  - "core/client/src/components/menu/**"
+  - "**/menu/migration_utils.py"
+  - "**/*_menu*.py"
+  - "**/menuService.js"
+  - "**/MenuPanel.vue"
 alwaysApply: false
 ---
 

@@ -1,14 +1,40 @@
 ---
-description: Клиент Vue — русский UI, toast, confirm, импорты, компоненты ядра
+description: Клиент Vue — русский UI без англицизмов, toast, confirm, импорты, компоненты ядра
 alwaysApply: false
 ---
 # Клиент (Vue)
 
-- Интерфейс на **русском**
-- Адаптивная вёрстка (мобильные тоже)
-- Иконки — **Lucide**, выравнивай по центру с текстом
+- Интерфейс на **русском**, без лишних англицизмов в текстах для пользователя
+- Адаптивная вёрстка (мобильные тоже) — `useBreakpoint` / Bootstrap; см. [`client-a11y.mdc`](client-a11y.mdc)
+- Режимы анимаций / картинок / помощи диктору — только через `data-ergo-*` и `useUiModes` ([`client-a11y.mdc`](client-a11y.mdc))
+- Иконки — **Lucide**, выравнивай по центру с текстом; icon-only — `aria-label`
 - Темы и цвета — через CSS-переменные ядра (`themes.mdc`), не хардкод hex
 - Шрифты — только `var(--font-family-base)` / `var(--font-family-mono)`; **без** Google Fonts и других CDN (`themes.mdc`)
+
+## Язык интерфейса
+
+Подписи, подсказки, toast, confirm, пустые состояния, ошибки — **по-русски**, понятным языком. Имена в коде (`toast`, `SelectBox`, API) в UI **не** копируй.
+
+| Не пиши в UI | Пиши |
+|---|---|
+| toast | всплывающее уведомление |
+| баннер ОС / OS notification | системное уведомление |
+| dropdown | выпадающий список |
+| fallback | значение по умолчанию, запасной вариант |
+| offline / online (как статус) | не в сети / в сети |
+| loading | загрузка… / идёт загрузка |
+| client / frontend (о приложении) | приложение |
+| settings (как подпись) | настройки |
+
+**Допустимо** в UI: устоявшиеся имена продуктов и модулей (CRM, API при необходимости), единицы (MB), общепринятые аббревиатуры без замены смысла. Стиль для документации и правил — [`writing-docs-and-rules.mdc`](writing-docs-and-rules.mdc).
+
+```vue
+<!-- BAD -->
+<span>Включает toast и баннер ОС</span>
+
+<!-- GOOD -->
+<span>Включает всплывающие уведомления в приложении и системные уведомления</span>
+```
 
 ## Toast-уведомления
 
@@ -85,6 +111,8 @@ const pageSize = clientEnv.biPreviewItemsPerPage
 
 Общие компоненты ядра — [`components.mdc`](components.mdc) (SelectBox, SearchInput, UserAvatar и др.).
 
+Производительность прогрузки (lazy-модалки, параллельные API, prefetch меню) — [`client-perf.mdc`](client-perf.mdc).
+
 `defineProps` / `defineEmits` не импортируй — это макросы компилятора.
 
 ## Фильтры list-страниц
@@ -118,6 +146,8 @@ watchState(() => {
 
 | Тема | Файл |
 |------|------|
+| Доступность, режимы UI, адаптив | [`client-a11y.mdc`](client-a11y.mdc) |
+| Производительность прогрузки | [`client-perf.mdc`](client-perf.mdc) |
 | Компоненты UI | [`components.mdc`](components.mdc) |
 | Темы, шрифты | [`themes.mdc`](themes.mdc) |
 | Модалки, confirm | [`modal-center.mdc`](modal-center.mdc) |

@@ -1,6 +1,9 @@
 ---
 description: Метки консольного вывода ergoms — [OK]/[ERROR]/[WARNING]/[SKIP] на английском, текст на русском; console_tags.py
-globs: "core/deployment/**,**/console_tags.py,**/ergoms_console.py"
+globs:
+  - "core/deployment/**"
+  - "**/console_tags.py"
+  - "**/ergoms_console.py"
 alwaysApply: false
 ---
 

@@ -1,6 +1,9 @@
 ---
 description: Глобальный админ — эквивалентность superuser и роли «Администратор»; единая проверка через PermissionService
-globs: "**/adp/**,**/permissions.py,**/*permission*"
+globs:
+  - "**/adp/**"
+  - "**/permissions.py"
+  - "**/*permission*"
 alwaysApply: false
 ---
 

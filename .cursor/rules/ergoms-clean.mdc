@@ -1,6 +1,8 @@
 ---
 description: ergoms clean — перед удалением virtual_env/packages останавливать nginx, redis, postgres (ergo_ms_* и процессы в packages)
-globs: "core/deployment/**/clean.ps1,core/deployment/**/clean.sh"
+globs:
+  - "core/deployment/**/clean.ps1"
+  - "core/deployment/**/clean.sh"
 alwaysApply: false
 ---
 

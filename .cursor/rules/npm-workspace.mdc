@@ -1,6 +1,13 @@
 ---
 description: npm workspace в virtual_env/npm — package.json, lock, node_modules, ergoms npm, Vite resolve, Docker; без symlink на корневой node_modules
-globs: "package.json,virtual_env/npm/**,core/client/package.json,core/client/vite.config.js,core/deployment/**/*npm*,core/deployment/scripts/start_client_if_*.py,core/deployment/project_layout.py"
+globs:
+  - package.json
+  - "virtual_env/npm/**"
+  - core/client/package.json
+  - core/client/vite.config.js
+  - "core/deployment/**/*npm*"
+  - "core/deployment/scripts/start_client_if_*.py"
+  - core/deployment/project_layout.py
 alwaysApply: false
 ---
 

@@ -1,6 +1,8 @@
 ---
 description: Корневые env.example — одинаковый набор директив, разные значения по сценариям
-globs: "**/.env*.example,core/deployment/nginx/env.example"
+globs:
+  - "**/.env*.example"
+  - core/deployment/nginx/env.example
 alwaysApply: false
 ---
 

@@ -1,6 +1,7 @@
 ---
 description: Django-миграции ERGO MS — индексы с явными name, нумерация, makemigrations без циклов, ergoms
-globs: "**/migrations/*.py"
+globs:
+  - "**/migrations/*.py"
 alwaysApply: false
 ---
 

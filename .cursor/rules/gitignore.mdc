@@ -1,6 +1,7 @@
 ---
 description: Какой .gitignore править — корень ergo_ms, сабмодули core/api, core/client, core/media_api, modules; отдельные репозитории
-globs: "**/.gitignore"
+globs:
+  - "**/.gitignore"
 alwaysApply: false
 ---
 

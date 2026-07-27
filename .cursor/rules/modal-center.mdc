@@ -1,8 +1,8 @@
 ---
 description: Модальные окна — ModalCenter; подтверждения — confirm.js
 globs:
-  - core/client/**/*.vue
-  - modules/**/client/**/*.vue
+  - "core/client/**/*.vue"
+  - "modules/**/client/**/*.vue"
 alwaysApply: false
 ---
 # Модальные окна

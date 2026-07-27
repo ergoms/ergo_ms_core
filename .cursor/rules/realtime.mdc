@@ -1,6 +1,11 @@
 ---
 description: Realtime — WebSocket, SSE, http_polling, RealtimeHub, JWT auth, REALTIME_TRANSPORT
-globs: "**/ws/**,**/realtime/**,**/consumers/**,**/routing.py,**/asgi.py"
+globs:
+  - "**/ws/**"
+  - "**/realtime/**"
+  - "**/consumers/**"
+  - "**/routing.py"
+  - "**/asgi.py"
 alwaysApply: false
 ---
 

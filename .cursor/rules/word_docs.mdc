@@ -1,6 +1,9 @@
 ---
 description: Word-документы — метрические единицы (мм, см, pt), не дюймы
-globs: "**/*.{py,js,vue}"
+globs:
+  - "**/*.py"
+  - "**/*.js"
+  - "**/*.vue"
 alwaysApply: false
 ---
 # Word-документы

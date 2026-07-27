@@ -5,10 +5,11 @@
  * Установка — через npm install <pkg>@<ver> --no-save --no-package-lock,
  * чтобы модульные пакеты не попадали в package-lock.json npm-root.
  *
- * С --install-missing / --update в конце: npm prune (лишнее у ядра), затем снова
- * ставит модульные пакеты — prune считает --no-save лишними, хотя они нужны модулям.
- * После этого чистит virtual_env/cache/npm от tarball'ов пакетов, которых нет
- * в текущем node_modules, и мусор в virtual_env/cache/tmp.
+ * С --install-missing / --update: сначала npm prune (лишнее у ядра), затем один
+ * раз ставит модульные пакеты — prune считает --no-save лишними, поэтому их
+ * нельзя ставить до prune. После этого чистит virtual_env/cache/npm от
+ * tarball'ов пакетов, которых нет в текущем node_modules, и мусор в
+ * virtual_env/cache/tmp.
  *
  * С --update — переустанавливает модульные пакеты в пределах semver из package.json.
  */
@@ -190,7 +191,15 @@ function installPackageSpecs(specs, label) {
   console.log(`[npm] ${label} (${specs.length}): ${specs.join(', ')}`)
 
   const result = runNpm(
-    ['install', ...specs, '--no-save', '--no-package-lock', '--ignore-scripts'],
+    [
+      'install',
+      ...specs,
+      '--no-save',
+      '--no-package-lock',
+      '--ignore-scripts',
+      '--no-audit',
+      '--no-fund',
+    ],
     { cwd: NPM_ROOT },
   )
 
@@ -211,26 +220,16 @@ function updateModulePackages(moduleDeps) {
   installPackageSpecs(specs, 'Обновление модульных пакетов в пределах semver')
 }
 
-function pruneExtraneousPackages(allModuleDeps) {
+function pruneExtraneousPackages() {
+  // npm prune считает пакеты из `npm install --no-save` лишними — модульные
+  // зависимости ставятся один раз уже после prune (см. main).
   console.log('[npm] Удаление пакетов, которых нет в package.json ядра...')
   const result = runNpm(
-    ['prune', '--no-package-lock', '--ignore-scripts'],
+    ['prune', '--no-package-lock', '--ignore-scripts', '--no-audit', '--no-fund'],
     { cwd: NPM_ROOT },
   )
   if (result.status !== 0) {
     process.exit(result.status ?? 1)
-  }
-
-  // npm prune считает пакеты из `npm install --no-save` лишними, даже если они
-  // объявлены в package.json workspace-модуля (их нет в package-lock ядра).
-  const missingAfterPrune = allModuleDeps.filter(
-    (entry) => !isDependencyInstalled(entry.depName),
-  )
-  if (missingAfterPrune.length > 0) {
-    console.log(
-      `[npm] Восстановление ${uniqueMissingPackages(missingAfterPrune).length} модульных пакетов после prune...`,
-    )
-    installMissingPackages(missingAfterPrune)
   }
 }
 
@@ -402,9 +401,39 @@ function pruneUnusedNpmCache() {
   })
 }
 
-function finalizeDependencySync(allModuleDeps) {
-  pruneExtraneousPackages(allModuleDeps)
-  pruneUnusedNpmCache()
+function ensureModulePackagesInstalled(moduleDeps) {
+  if (moduleDeps.length === 0) {
+    console.log('[npm] Модульных npm-зависимостей не найдено.')
+    return
+  }
+
+  const missing = moduleDeps.filter((entry) => !isDependencyInstalled(entry.depName))
+  if (missing.length === 0) {
+    console.log(`[npm] Модульные зависимости (${moduleDeps.length}) установлены.`)
+    return
+  }
+
+  const uniqueMissing = uniqueMissingPackages(missing)
+  console.log(`[npm] Не установлено пакетов: ${uniqueMissing.length}`)
+  for (const entry of uniqueMissing) {
+    console.log(`  - ${entry.depName}`)
+  }
+
+  installMissingPackages(missing)
+
+  const stillMissing = missing.filter((entry) => !isDependencyInstalled(entry.depName))
+  if (stillMissing.length > 0) {
+    console.error('[npm] Не удалось установить пакеты:')
+    for (const entry of uniqueMissingPackages(stillMissing)) {
+      const sources = stillMissing
+        .filter((item) => item.depName === entry.depName)
+        .map((item) => item.module)
+      console.error(`  - ${entry.depName} (модули: ${sources.join(', ')})`)
+    }
+    process.exit(1)
+  }
+
+  console.log('[npm] Модульные зависимости успешно установлены.')
 }
 
 function main() {
@@ -413,6 +442,30 @@ function main() {
   const moduleDeps = filterModuleDeps(allModuleDeps)
   const applyChanges = INSTALL_MISSING || UPDATE
 
+  if (!applyChanges) {
+    if (moduleDeps.length === 0) {
+      console.log('[npm] Модульных npm-зависимостей не найдено.')
+      return
+    }
+
+    const missing = moduleDeps.filter((entry) => !isDependencyInstalled(entry.depName))
+    if (missing.length === 0) {
+      console.log(`[npm] Модульные зависимости (${moduleDeps.length}) установлены.`)
+      return
+    }
+
+    const uniqueMissing = uniqueMissingPackages(missing)
+    console.log(`[npm] Не установлено пакетов: ${uniqueMissing.length}`)
+    for (const entry of uniqueMissing) {
+      console.log(`  - ${entry.depName}`)
+    }
+    console.log('[npm] Запустите: ergoms npm run install:all')
+    return
+  }
+
+  // prune до установки: иначе --no-save пакеты снимаются и ставятся повторно.
+  pruneExtraneousPackages()
+
   if (UPDATE) {
     if (moduleDeps.length === 0) {
       console.log('[npm] Модульных npm-зависимостей для обновления не найдено.')
@@ -420,50 +473,11 @@ function main() {
       updateModulePackages(moduleDeps)
       console.log('[npm] Модульные зависимости обновлены.')
     }
-    finalizeDependencySync(allModuleDeps)
-    return
   }
 
-  if (moduleDeps.length === 0) {
-    console.log('[npm] Модульных npm-зависимостей не найдено.')
-  } else {
-    const missing = moduleDeps.filter((entry) => !isDependencyInstalled(entry.depName))
-
-    if (missing.length === 0) {
-      console.log(`[npm] Модульные зависимости (${moduleDeps.length}) установлены.`)
-    } else {
-      const uniqueMissing = uniqueMissingPackages(missing)
-      console.log(`[npm] Не установлено пакетов: ${uniqueMissing.length}`)
-      for (const entry of uniqueMissing) {
-        console.log(`  - ${entry.depName}`)
-      }
-
-      if (!INSTALL_MISSING) {
-        console.log('[npm] Запустите: ergoms npm run install:all')
-        return
-      }
-
-      installMissingPackages(missing)
-
-      const stillMissing = missing.filter((entry) => !isDependencyInstalled(entry.depName))
-      if (stillMissing.length > 0) {
-        console.error('[npm] Не удалось установить пакеты:')
-        for (const entry of uniqueMissingPackages(stillMissing)) {
-          const sources = stillMissing
-            .filter((item) => item.depName === entry.depName)
-            .map((item) => item.module)
-          console.error(`  - ${entry.depName} (модули: ${sources.join(', ')})`)
-        }
-        process.exit(1)
-      }
-
-      console.log('[npm] Модульные зависимости успешно установлены.')
-    }
-  }
-
-  if (applyChanges) {
-    finalizeDependencySync(allModuleDeps)
-  }
+  // После prune / update — один проход доустановки всех модульных deps.
+  ensureModulePackagesInstalled(allModuleDeps)
+  pruneUnusedNpmCache()
 }
 
 main()

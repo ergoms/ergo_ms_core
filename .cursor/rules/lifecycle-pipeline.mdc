@@ -1,6 +1,7 @@
 ---
 description: Единый lifecycle-pipeline ergoms — runner.py, рецепты, шаги, internal_dispatch, VS Code tasks, Docker compose
-globs: "core/deployment/lifecycle/**"
+globs:
+  - "core/deployment/lifecycle/**"
 alwaysApply: false
 ---
 

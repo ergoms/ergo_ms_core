@@ -1,6 +1,13 @@
 ---
 description: Portable PostgreSQL — virtual_env/packages/postgres, setup-full EnsurePostgresStep, POSTGRES_FORCE_INSTALL, службы ergo_ms_postgres / ergo-postgres
-globs: "**/install_postgres.py,**/postgres_common.py,**/postgres_steps.py,**/postgres.ps1,**/postgres.sh,core/deployment/**/core.ps1,core/deployment/**/core.sh"
+globs:
+  - "**/install_postgres.py"
+  - "**/postgres_common.py"
+  - "**/postgres_steps.py"
+  - "**/postgres.ps1"
+  - "**/postgres.sh"
+  - "core/deployment/**/core.ps1"
+  - "core/deployment/**/core.sh"
 alwaysApply: false
 ---
 

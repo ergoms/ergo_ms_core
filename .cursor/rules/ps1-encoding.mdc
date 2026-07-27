@@ -1,6 +1,7 @@
 ---
 description: PowerShell .ps1 в deployment — UTF-8 BOM при кириллице, ps1_io.write_ps1, ps1-encoding-check
-globs: "core/deployment/**/*.ps1"
+globs:
+  - "core/deployment/**/*.ps1"
 alwaysApply: false
 ---
 
