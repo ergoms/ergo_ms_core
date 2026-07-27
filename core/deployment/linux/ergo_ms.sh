@@ -69,7 +69,7 @@ main() {
       command="$normalized_cmd"
     fi
     case "$command" in
-      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|update-submodules|update-module-submodules|clean|help|poetry|api|media_api|npm|install-nginx|install-nginx-service|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx|install-tls|renew-tls|status-tls|install-redis|install-redis-service|uninstall-redis|start-redis|stop-redis|restart-redis|status-redis|test-redis|install-postgres|install-postgres-service|uninstall-postgres|start-postgres|stop-postgres|restart-postgres|status-postgres|test-postgres|install-python|install-python-runtime|install-nodejs|install-node)
+      install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|start|stop|restart|status|uninstall-services|install-cli|uninstall-cli|logs|setup-full|update-submodules|update-module-submodules|clean|help|poetry|api|media_api|npm|install-nginx|install-nginx-service|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx|install-tls|renew-tls|status-tls|install-redis|install-redis-service|uninstall-redis|start-redis|stop-redis|restart-redis|status-redis|test-redis|install-postgres|install-postgres-service|uninstall-postgres|start-postgres|stop-postgres|restart-postgres|status-postgres|test-postgres|migrate-postgres-to-portable|install-python|install-python-runtime|install-nodejs|install-node)
         shift ;;
       *:poetry)
         shift ;;  # module:poetry command, handled below
@@ -123,7 +123,7 @@ main() {
   
   # Check if it's a custom command (doesn't require root)
   # Exclude built-in commands to avoid recursion (e.g. install-cli would re-invoke self via commands.conf)
-  local builtin_override="install-cli|uninstall-cli|install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|start|stop|restart|status|uninstall-services|setup-full|install-nginx|install-nginx-service|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx|install-tls|renew-tls|status-tls|install-redis|install-redis-service|uninstall-redis|start-redis|stop-redis|restart-redis|status-redis|test-redis|install-postgres|install-postgres-service|uninstall-postgres|start-postgres|stop-postgres|restart-postgres|status-postgres|test-postgres|install-python|install-python-runtime|install-nodejs|install-node"
+  local builtin_override="install-cli|uninstall-cli|install|install-services|install-api-service|install-client-service|install-worker-service|install-beat-service|install-media-service|start|stop|restart|status|uninstall-services|setup-full|install-nginx|install-nginx-service|uninstall-nginx|start-nginx|stop-nginx|restart-nginx|reload-nginx|status-nginx|test-nginx|install-tls|renew-tls|status-tls|install-redis|install-redis-service|uninstall-redis|start-redis|stop-redis|restart-redis|status-redis|test-redis|install-postgres|install-postgres-service|uninstall-postgres|start-postgres|stop-postgres|restart-postgres|status-postgres|test-postgres|migrate-postgres-to-portable|install-python|install-python-runtime|install-nodejs|install-node"
   local is_custom_command=false
   if [[ -v "available_custom_cmds[$command]" ]] && [[ ! "$command" =~ ^($builtin_override)$ ]]; then
     is_custom_command=true
@@ -170,7 +170,7 @@ main() {
   # Check if it's a postgres command
   local is_postgres_command=false
   case "$command" in
-    install-postgres|install-postgres-service|uninstall-postgres|start-postgres|stop-postgres|restart-postgres|status-postgres|test-postgres)
+    install-postgres|install-postgres-service|uninstall-postgres|start-postgres|stop-postgres|restart-postgres|status-postgres|test-postgres|migrate-postgres-to-portable)
       is_postgres_command=true ;;
   esac
 
@@ -286,6 +286,37 @@ main() {
 
     # Execute postgres via lifecycle runner
     if [[ "$is_postgres_command" == true ]]; then
+      if [[ "$command" == "migrate-postgres-to-portable" ]]; then
+        local extra=()
+        local has_source_password=false
+        while (( "$#" )); do
+          case "$1" in
+            --source-port)
+              [[ -n "${2:-}" ]] || { echo "[ERROR] --source-port требует значение" >&2; exit 1; }
+              extra+=(--source-port "$2"); shift 2 ;;
+            --source-host)
+              [[ -n "${2:-}" ]] || { echo "[ERROR] --source-host требует значение" >&2; exit 1; }
+              extra+=(--source-host "$2"); shift 2 ;;
+            --source-user)
+              [[ -n "${2:-}" ]] || { echo "[ERROR] --source-user требует значение" >&2; exit 1; }
+              extra+=(--source-user "$2"); shift 2 ;;
+            --source-password)
+              [[ -n "${2:-}" ]] || { echo "[ERROR] --source-password требует значение" >&2; exit 1; }
+              extra+=(--source-password "$2"); has_source_password=true; shift 2 ;;
+            --force|--dry-run)
+              extra+=("$1"); shift ;;
+            *)
+              echo "[ERROR] Неизвестный аргумент: $1" >&2
+              exit 1 ;;
+          esac
+        done
+        if [[ "$has_source_password" != true ]]; then
+          echo "[ERROR] Укажите --source-password <пароль системного Postgres>" >&2
+          exit 1
+        fi
+        invoke_lifecycle_runner "$ERGO_ROOT" migrate-postgres-to-portable "${extra[@]}"
+        exit 0
+      fi
       local pg_port="" pg_purge=false pg_force=false
       local extra=()
       while (( "$#" )); do

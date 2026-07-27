@@ -56,10 +56,12 @@ ergoms start-postgres
 ergoms stop-postgres
 ergoms status-postgres
 ergoms test-postgres
+ergoms migrate-postgres-to-portable
 ergoms uninstall-postgres
 ```
 
 - `uninstall-postgres --purge` / `-Purge` — удалить и каталог packages
+- `migrate-postgres-to-portable` — перенос из системного Postgres в portable; в `databases.yaml` — учётные данные **portable**; системный — `--source-password` (обязательно), опционально `--source-user` / `--source-host` / `--source-port`; после успеха выставляет `port` portable в yaml
 - `setup-full --with-postgres` — то же, что force для одного прогона
 - Алиасы рецептов: `postgres-install`, … → builtin / `internal_dispatch` category `postgres`
 

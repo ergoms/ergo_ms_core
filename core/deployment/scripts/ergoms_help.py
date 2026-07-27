@@ -34,6 +34,7 @@ _BUILTIN_COMMANDS = frozenset({
     'start-redis', 'stop-redis', 'restart-redis', 'status-redis', 'test-redis',
     'install-postgres', 'install-postgres-service', 'uninstall-postgres',
     'start-postgres', 'stop-postgres', 'restart-postgres', 'status-postgres', 'test-postgres',
+    'migrate-postgres-to-portable',
     'install-tls', 'renew-tls', 'status-tls',
     'deploy-api', 'deploy-client', 'deploy-api-dev', 'deploy-client-dev', 'deploy-all',
 })

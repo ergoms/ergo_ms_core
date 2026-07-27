@@ -146,6 +146,10 @@ case "$category" in
     ;;
 
   postgres)
+    if [[ "$operation" == "migrate-to-portable" ]]; then
+      postgres_migrate_to_portable "$root" "$@"
+      exit $?
+    fi
     port=""
     no_skip=false
     purge=false

@@ -352,6 +352,8 @@ sections:
         summary: "Статус portable PostgreSQL"
       - name: test-postgres
         summary: "Проверка подключения (ping)"
+      - name: migrate-postgres-to-portable
+        summary: "Перенос в portable: --source-password обязателен; yaml = portable; после успеха обновляет port в yaml"
   - id: extensions
     title: "Расширения VS Code"
     commands:

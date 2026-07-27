@@ -52,12 +52,32 @@ class InfraOperationStep(DeploymentStep):
                 extra.append(port)
             if ctx.option_bool('with_postgres') or ctx.option_bool('no_skip_system'):
                 extra.append('--no-skip-system')
+        if self._component == 'postgres' and self._operation == 'migrate-to-portable':
+            source_port = ctx.option_str('source_port')
+            if source_port:
+                extra.extend(['--source-port', source_port])
+            source_host = ctx.option_str('source_host')
+            if source_host:
+                extra.extend(['--source-host', source_host])
+            source_user = ctx.option_str('source_user')
+            if source_user:
+                extra.extend(['--source-user', source_user])
+            source_password = ctx.option_str('source_password')
+            if source_password:
+                extra.extend(['--source-password', source_password])
+            if ctx.option_bool('force'):
+                extra.append('--force')
+            if ctx.option_bool('dry_run'):
+                extra.append('--dry-run')
         if self._component == 'tls' and self._operation == 'install':
             extra.extend([
                 ctx.option_str('domain'),
                 ctx.option_str('email'),
             ])
-        ctx.options.setdefault('needs_sudo', self._component in ('nginx', 'redis', 'postgres', 'tls'))
+        if self._component == 'postgres' and self._operation == 'migrate-to-portable':
+            ctx.options['needs_sudo'] = False
+        else:
+            ctx.options.setdefault('needs_sudo', self._component in ('nginx', 'redis', 'postgres', 'tls'))
         code = invoke_dispatch(ctx, self._component, self._operation, *extra)
         return StepResult(exit_code=code)
 

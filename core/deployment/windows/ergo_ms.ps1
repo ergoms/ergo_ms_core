@@ -182,7 +182,7 @@ function Main {
 
     # Commands that don't require admin
 
-    $noAdminCommands = @('logs', 'help', 'clean', 'update-submodules', 'update-module-submodules', 'status-nginx', 'test-nginx', 'status-redis', 'test-redis', 'status-postgres', 'test-postgres', 'install-python', 'install-python-runtime', 'install-nodejs', 'install-node')
+    $noAdminCommands = @('logs', 'help', 'clean', 'update-submodules', 'update-module-submodules', 'status-nginx', 'test-nginx', 'status-redis', 'test-redis', 'status-postgres', 'test-postgres', 'migrate-postgres-to-portable', 'install-python', 'install-python-runtime', 'install-nodejs', 'install-node')
 
     
 
@@ -902,6 +902,80 @@ function Main {
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
             Invoke-LifecycleRunner -Root $projectRoot -Recipe 'restart-postgres'
+
+        }
+
+        'migrate-postgres-to-portable' {
+
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+
+            $extra = @()
+
+            $hasSourcePassword = $false
+
+            for ($i = 0; $i -lt $RemainingArgs.Count; $i++) {
+
+                $arg = $RemainingArgs[$i]
+
+                if ($arg -eq '--source-port' -and ($i + 1) -lt $RemainingArgs.Count) {
+
+                    $extra += @('--source-port', $RemainingArgs[$i + 1])
+
+                    $i++
+
+                }
+
+                elseif ($arg -eq '--source-host' -and ($i + 1) -lt $RemainingArgs.Count) {
+
+                    $extra += @('--source-host', $RemainingArgs[$i + 1])
+
+                    $i++
+
+                }
+
+                elseif ($arg -eq '--source-user' -and ($i + 1) -lt $RemainingArgs.Count) {
+
+                    $extra += @('--source-user', $RemainingArgs[$i + 1])
+
+                    $i++
+
+                }
+
+                elseif ($arg -eq '--source-password' -and ($i + 1) -lt $RemainingArgs.Count) {
+
+                    $extra += @('--source-password', $RemainingArgs[$i + 1])
+
+                    $hasSourcePassword = $true
+
+                    $i++
+
+                }
+
+                elseif ($arg -in @('--force', '--dry-run')) {
+
+                    $extra += $arg
+
+                }
+
+                else {
+
+                    Write-ColorOutput "[ERROR] Неизвестный аргумент: $arg" Red
+
+                    exit 1
+
+                }
+
+            }
+
+            if (-not $hasSourcePassword) {
+
+                Write-ColorOutput '[ERROR] Укажите --source-password <пароль системного Postgres>' Red
+
+                exit 1
+
+            }
+
+            Invoke-LifecycleRunner -Root $projectRoot -Recipe 'migrate-postgres-to-portable' -ExtraArgs $extra
 
         }
 

@@ -50,6 +50,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--domain', default='')
     parser.add_argument('--email', default='')
     parser.add_argument('--dry-run', action='store_true')
+    parser.add_argument('--force', action='store_true',
+                        help='Принудительная перезапись (migrate-postgres-to-portable)')
+    parser.add_argument('--source-port', default='',
+                        help='Порт системного Postgres для migrate-postgres-to-portable')
+    parser.add_argument('--source-host', default='',
+                        help='Host системного Postgres для migrate-postgres-to-portable')
+    parser.add_argument('--source-user', default='',
+                        help='Пользователь системного Postgres для migrate-postgres-to-portable')
+    parser.add_argument('--source-password', default='',
+                        help='Пароль системного Postgres для migrate-postgres-to-portable')
     parser.add_argument('--with-postgres', action='store_true',
                         help='Принудительно поставить portable PostgreSQL')
     parser.add_argument('--mode', choices=('dev', 'prod'), default=None, help='alias для --docker-mode')
@@ -99,6 +109,16 @@ def main(argv: list[str] | None = None) -> int:
         options['email'] = args.email
     if args.dry_run:
         options['dry_run'] = True
+    if args.force:
+        options['force'] = True
+    if args.source_port:
+        options['source_port'] = args.source_port
+    if args.source_host:
+        options['source_host'] = args.source_host
+    if args.source_user:
+        options['source_user'] = args.source_user
+    if args.source_password:
+        options['source_password'] = args.source_password
     if args.with_postgres:
         options['with_postgres'] = True
     if extra:

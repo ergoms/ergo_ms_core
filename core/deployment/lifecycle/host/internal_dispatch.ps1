@@ -130,6 +130,11 @@ switch ($Category) {
                 }
                 Write-ColorOutput '[OK] PONG' Green
             }
+            'migrate-to-portable' {
+                $migrateArgs = @()
+                if ($Extra) { $migrateArgs = @($Extra) }
+                Migrate-PostgresToPortable -Root $Root -ExtraArgs $migrateArgs
+            }
             default { throw "Неизвестная операция postgres: $Operation" }
         }
     }

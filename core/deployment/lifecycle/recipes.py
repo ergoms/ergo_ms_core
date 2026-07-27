@@ -394,6 +394,7 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
         ('postgres', 'restart'),
         ('postgres', 'status'),
         ('postgres', 'test'),
+        ('postgres', 'migrate-to-portable'),
         ('tls', 'install'),
         ('tls', 'renew'),
         ('tls', 'status'),
@@ -404,7 +405,10 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
                 name,
                 (InfraOperationStep(component, op),),
                 target='infra',
-                needs_sudo=component in ('nginx', 'redis', 'postgres', 'tls') and op not in ('status', 'test'),
+                needs_sudo=(
+                    component in ('nginx', 'redis', 'postgres', 'tls')
+                    and op not in ('status', 'test', 'migrate-to-portable')
+                ),
                 description=f'Инфра {component}: {op}',
             )
         )
@@ -452,6 +456,7 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
         'restart-postgres': 'postgres-restart',
         'status-postgres': 'postgres-status',
         'test-postgres': 'postgres-test',
+        'migrate-postgres-to-portable': 'postgres-migrate-to-portable',
         'install-tls': 'tls-install',
         'renew-tls': 'tls-renew',
         'status-tls': 'tls-status',

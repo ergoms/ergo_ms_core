@@ -135,7 +135,8 @@ function Invoke-PostgresPythonScript {
     }
     $env:PYTHONIOENCODING = 'utf-8'
     $env:PYTHONUTF8 = '1'
-    & $pythonExe $scriptPath @ExtraArgs
+    $env:PYTHONUNBUFFERED = '1'
+    & $pythonExe -u $scriptPath @ExtraArgs
     return ($LASTEXITCODE -eq 0)
 }
 
@@ -531,6 +532,31 @@ function Test-PostgresPing {
         '--root', $Root,
         '--ping-only'
     )
+}
+
+function Migrate-PostgresToPortable {
+    param(
+        [string]$Root,
+        [string[]]$ExtraArgs = @()
+    )
+
+    Write-ColorOutput '' White
+    Write-ColorOutput '=== PostgreSQL: миграция данных в portable ===' Cyan
+    Write-ColorOutput '' White
+
+    if (-not (Test-PostgresInstalled -Root $Root)) {
+        Write-ColorOutput (Format-ErgoConsole -Level error -Message 'PostgreSQL не установлен. Выполните: ergoms install-postgres') Red
+        exit 1
+    }
+
+    $scriptArgs = @('--root', $Root)
+    if ($ExtraArgs) {
+        $scriptArgs += $ExtraArgs
+    }
+    $ok = Invoke-PostgresPythonScript -Root $Root -ScriptName 'migrate_postgres_to_portable.py' -ExtraArgs $scriptArgs
+    if (-not $ok) {
+        exit 1
+    }
 }
 
 function Get-PostgresYamlDefaultField {

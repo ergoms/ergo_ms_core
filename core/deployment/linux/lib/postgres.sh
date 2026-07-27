@@ -396,6 +396,31 @@ postgres_test() {
   _postgres_run_script "$root" --ping-only
 }
 
+postgres_migrate_to_portable() {
+  local root="$1"
+  shift || true
+
+  echo ""
+  echo "=== PostgreSQL: миграция данных в portable ==="
+  echo ""
+
+  if ! _postgres_is_installed "$root"; then
+    echo "[ERROR] PostgreSQL не установлен. Выполните: ergoms install-postgres" >&2
+    return 1
+  fi
+
+  local py
+  py="$(_postgres_python "$root")"
+  if [[ -z "$py" ]]; then
+    echo "[ERROR] Python не найден. Выполните: ergoms setup" >&2
+    return 1
+  fi
+  export PYTHONIOENCODING=utf-8
+  export PYTHONUTF8=1
+  export PYTHONUNBUFFERED=1
+  "$py" -u "$root/core/deployment/scripts/migrate_postgres_to_portable.py" --root "$root" "$@"
+}
+
 postgres_uninstall() {
   local root="$1"
   local purge="${2:-false}"
