@@ -195,6 +195,10 @@ sections:
         summary: "Скачать базу GeoIP (DB-IP City Lite)"
       - name: geoip-backfill
         summary: "Заполнить city/country в сессиях по GeoIP"
+      - name: i18n-makemessages
+        summary: "Извлечь строки gettext API в .po (ru/en/fr)"
+      - name: i18n-compilemessages
+        summary: "Скомпилировать .po каталоги API в .mo"
 
   - id: maintenance
     title: "Обслуживание"

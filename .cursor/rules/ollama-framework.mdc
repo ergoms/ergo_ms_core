@@ -18,7 +18,7 @@ alwaysApply: false
 - Учёт в `ergoms resource-usage` — [`process_roles.yaml`](../../modules/ollama_framework/process_roles.yaml) модуля, не правки classifier ядра (см. [`process-roles.mdc`](process-roles.mdc))
 - Stop/install в Windows-тестах deployment — [`host_lifecycle.yaml`](../../modules/ollama_framework/host_lifecycle.yaml) (см. [`host-lifecycle.mdc`](host-lifecycle.mdc))
 - MCP Cursor — `modules/ollama_framework/mcp/`, имя сервера `ergo-module-ollama-framework` (см. [`mcp.mdc`](mcp.mdc))
-- Проверка health в API — `GET /api/ollama_framework/status/` (alias в `ai_assistant/ollama_status/` сохранён для совместимости)
+- Проверка health в API — `GET /api/ollama_framework/status/`
 
 ## Запрещено
 
@@ -59,4 +59,4 @@ client.chat(messages, stream=True, stream_callback=cb, return_stats=True)
 | MCP Cursor | [`mcp.mdc`](mcp.mdc) |
 | Роли процессов | [`process-roles.mdc`](process-roles.mdc) |
 | Host lifecycle (тесты) | [`host-lifecycle.mdc`](host-lifecycle.mdc) |
-| ai_assistant (re-export) | [`modules/ai_assistant/api/llm_utils.py`](../../modules/ai_assistant/api/llm_utils.py) |
+| ai_assistant (gateway) | [`modules/ai_assistant/api/ollama_gateway.py`](../../modules/ai_assistant/api/ollama_gateway.py) |

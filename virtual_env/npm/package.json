@@ -14,6 +14,7 @@
     "preview": "npm run preview -w @ergo-ms/core-client",
     "lint": "npm run lint -w @ergo-ms/core-client",
     "lint:a11y": "npm run lint:a11y -w @ergo-ms/core-client",
+    "check-i18n": "npm run check-i18n -w @ergo-ms/core-client",
     "format": "npm run format -w @ergo-ms/core-client",
     "postinstall": "node ../../core/deployment/scripts/sync-module-npm-deps.js --install-missing",
     "install:all": "npm install --ignore-scripts --no-package-lock --no-audit --no-fund && node ../../core/deployment/scripts/sync-module-npm-deps.js --install-missing"
@@ -59,6 +60,7 @@
     "vue-chartjs": "^5.3.2",
     "vue-codemirror6": "^1.4.1",
     "vue-echarts": "^8.0.0",
+    "vue-i18n": "^11.4.8",
     "vue-router": "^4.5.1",
     "vue-slicksort": "^2.0.5",
     "vue-toastification": "2.0.0-rc.5",

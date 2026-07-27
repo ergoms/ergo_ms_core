@@ -1,0 +1,108 @@
+---
+description: Локализация UI и API — vue-i18n, locales.js модулей, Django gettext, язык профиля
+globs:
+  - core/client/src/i18n/**
+  - core/client/src/**/*.{vue,js}
+  - modules/*/client/js/locales.js
+  - core/api/locale/**
+  - core/api/src/config/settings/localization.py
+alwaysApply: false
+---
+
+# Локализация (ru / en / fr)
+
+Централизованный механизм ядра: клиент — **vue-i18n**, сервер — **Django gettext**. Поддерживаемые языки — список в [`supportedLocales.js`](../../core/client/src/i18n/supportedLocales.js) и `LANGUAGES` в [`localization.py`](../../core/api/src/config/settings/localization.py) (сейчас `ru`, `en`, `fr`).
+
+## Кратко
+
+- Каталоги ядра клиента: [`core/client/src/i18n/locales/{ru,en,fr}/`](../../core/client/src/i18n/locales/)
+- Модули клиента: hook [`client/js/locales.js`](../../modules/module_template/client/js/locales.js) → `LocaleManager` merge
+- API: `gettext` / `gettext_lazy`, каталоги [`core/api/locale/`](../../core/api/locale/)
+- Язык по умолчанию (гость / новый профиль): `DEFAULT_LANGUAGE` в корневом `.env` (`ru`|`en`|`fr`)
+- Язык пользователя: Настройки → Система → «Язык интерфейса» → `UserProfile.language` + `localStorage['language']`
+- Заголовок `Accept-Language` на запросах API
+- Проверка паритета ключей (все SUPPORTED_LOCALES vs ru): `ergoms npm run check-i18n`
+- Каталоги API: `ergoms i18n-makemessages`, `ergoms i18n-compilemessages`
+
+## Клиент
+
+### Обязательно
+
+| Нужно | Как |
+|----|-----|
+| Строка в UI ядра | ключ в `locales/ru` + `locales/en`, в шаблоне `t('…')` / `$t`, в JS — `tGlobal` / `useAppI18n` |
+| Новый модуль с UI | `client/js/locales.js` с namespace = имя модуля (`my_module.*`) |
+| Смена языка | SelectBox в SystemPanel → `uiSettings.language` → `setAppLocale` + PATCH профиля |
+| Даты / Intl | `getCurrentBcp47()` / `timeUtils.js`, не хардкод `'ru-RU'` |
+| Заголовок маршрута | `meta.titleKey` (ключ i18n); отображение через `resolveRouteTitle` |
+| Пункт бокового меню | тот же `meta.titleKey` маршрута через `resolveMenuItemTitle`; подпись из БД — запасной вариант / разделители |
+
+```js
+// modules/<name>/client/js/locales.js — ключи языков = SUPPORTED_LOCALES
+export default {
+  ru: { my_module: { title: '…' } },
+  en: { my_module: { title: '…' } },
+  fr: { my_module: { title: '…' } },
+}
+```
+
+```vue
+<script setup>
+import { useAppI18n } from '@/i18n/useAppI18n.js'
+const { t } = useAppI18n()
+</script>
+<template>
+  <h1>{{ t('settings.system.title') }}</h1>
+</template>
+```
+
+### Запрещено
+
+- Новые пользовательские литералы на русском/английском в `core/client` без ключа i18n
+- Прямой import каталогов модуля в ядро по имени модуля — только glob `locales.js`
+- Класть межмодульные словари в `moduleContracts` ядра
+- JWT / localStorage для секретов; язык в localStorage допустим (не security-sensitive)
+
+## API
+
+### Обязательно
+
+- Пользовательские `Response` / `ValidationError` / сообщения сервисов — `_()` / `gettext_lazy`
+- `UserProfile.language` ∈ `SUPPORTED_UI_LANGUAGES` (`ru` / `en` / `fr`); middleware: профиль > Accept-Language > `LANGUAGE_CODE`
+- Модули: стандартный `locale/` Django-app или строки через `_()` (подхват при makemessages)
+
+### Команды
+
+```text
+ergoms i18n-makemessages
+ergoms i18n-compilemessages
+```
+
+На хосте нужны GNU gettext tools (`msguniq` / `msgfmt`). Без них каталоги правят вручную / Babel.
+
+## Источник языка
+
+1. Авторизованный пользователь — свой `UserProfile.language` (меняет только сам в настройках)
+2. Иначе — `localStorage['language']` (выбор до логина / после logout сохраняется)
+3. Иначе — `DEFAULT_LANGUAGE` из `.env` (клиент: `CLIENT_DEFAULT_LANGUAGE` ← Vite из того же ключа)
+4. Жёсткий запасной — `ru`
+
+## Эталон
+
+| Слой | Путь |
+|---|---|
+| Bootstrap клиента | [`core/client/src/i18n/index.js`](../../core/client/src/i18n/index.js) |
+| Merge модулей | [`LocaleManager.js`](../../core/client/src/modules/i18n/LocaleManager.js) |
+| Prefs | [`uiSettings.js`](../../core/client/src/core/cms/js/uiSettings.js) |
+| Django settings | [`localization.py`](../../core/api/src/config/settings/localization.py) |
+| Profile locale MW | [`profile_locale_middleware.py`](../../core/api/src/core/utils/middleware/profile_locale_middleware.py) |
+| Модуль | [`modules/module_template/client/js/locales.js`](../../modules/module_template/client/js/locales.js) |
+
+## Связанные правила
+
+| Тема | Файл |
+|---|---|
+| Клиент Vue | [`client_code.mdc`](client_code.mdc) |
+| Модули, hooks | [`modules.mdc`](modules.mdc) |
+| Безопасность | [`security.mdc`](security.mdc) |
+| ergoms | [`no-direct-manage-py.mdc`](no-direct-manage-py.mdc) |

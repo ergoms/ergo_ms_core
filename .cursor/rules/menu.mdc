@@ -28,6 +28,7 @@ alwaysApply: false
 - Эталон: [`modules/module_template/api/migrations/0004_add_menu.py`](../../modules/module_template/api/migrations/0004_add_menu.py)
 - Ядро CMS: [`0007_populate_core_menu.py`](../../core/api/src/core/cms/adp/migrations/0007_populate_core_menu.py)
 - Каждый пункт меню ссылается на **`routeName`** из `routes.js` модуля
+- Подпись в UI — из `meta.titleKey` маршрута (`resolveMenuItemTitle`); в миграции имя на русском остаётся запасным вариантом в БД
 - Иконки — имена Lucide (PascalCase); на клиенте резолвер — `@/config/icons-mapping.js`
 - После правок в админке — событие `menu-updated` или перезагрузка страницы
 - Навигация из меню — `safeNavigateByName` / `routeName`, не хардкод path с pk

@@ -23,6 +23,7 @@ modules/<имя>/
 │   │   ├── permission-rules.js
 │   │   ├── routeGuard.js      # опционально: guard для Vue Router
 │   │   ├── integrations.js  # операции моста на клиенте
+│   │   ├── locales.js         # каталоги ru/en модуля (i18n.mdc)
 │   │   └── theme-defaults.js  # обязателен, если у модуля отдельная палитра (themes.mdc)
 │   ├── styles/
 │   │   └── theme-bootstrap.scss  # обязателен вместе с theme-defaults.js

@@ -1,10 +1,10 @@
 ---
-description: Клиент Vue — русский UI без англицизмов, toast, confirm, импорты, компоненты ядра
+description: Клиент Vue — i18n ru/en, toast, confirm, импорты, компоненты ядра
 alwaysApply: false
 ---
 # Клиент (Vue)
 
-- Интерфейс на **русском**, без лишних англицизмов в текстах для пользователя
+- Тексты UI — через **i18n** (`ru` / `en`), без лишних англицизмов в формулировках каталогов
 - Адаптивная вёрстка (мобильные тоже) — `useBreakpoint` / Bootstrap; см. [`client-a11y.mdc`](client-a11y.mdc)
 - Режимы анимаций / картинок / помощи диктору — только через `data-ergo-*` и `useUiModes` ([`client-a11y.mdc`](client-a11y.mdc))
 - Иконки — **Lucide**, выравнивай по центру с текстом; icon-only — `aria-label`
@@ -13,9 +13,11 @@ alwaysApply: false
 
 ## Язык интерфейса
 
-Подписи, подсказки, toast, confirm, пустые состояния, ошибки — **по-русски**, понятным языком. Имена в коде (`toast`, `SelectBox`, API) в UI **не** копируй.
+Подписи, подсказки, toast, confirm, пустые состояния, ошибки — **ключи i18n** (`t` / `tGlobal`), каталоги [`core/client/src/i18n/locales/`](../../core/client/src/i18n/locales/). Механизм и hook модулей — [`i18n.mdc`](i18n.mdc).
 
-| Не пиши в UI | Пиши |
+В текстах каталогов (особенно `ru`) — понятный язык **без** копирования имён из кода (`toast`, `SelectBox`) в UI.
+
+| Не пиши в каталоге UI | Пиши |
 |---|---|
 | toast | всплывающее уведомление |
 | баннер ОС / OS notification | системное уведомление |
@@ -29,11 +31,20 @@ alwaysApply: false
 **Допустимо** в UI: устоявшиеся имена продуктов и модулей (CRM, API при необходимости), единицы (MB), общепринятые аббревиатуры без замены смысла. Стиль для документации и правил — [`writing-docs-and-rules.mdc`](writing-docs-and-rules.mdc).
 
 ```vue
-<!-- BAD -->
+<!-- BAD — литерал без i18n -->
 <span>Включает toast и баннер ОС</span>
 
 <!-- GOOD -->
-<span>Включает всплывающие уведомления в приложении и системные уведомления</span>
+<span>{{ t('settings.notifications.title') }}</span>
+```
+
+```javascript
+import { useAppI18n } from '@/i18n/useAppI18n.js'
+import { tGlobal } from '@/i18n/index.js'
+
+const { t } = useAppI18n()
+toast.success(t('common.saved'))
+showSuccess(tGlobal('common.saved'))
 ```
 
 ## Toast-уведомления
@@ -42,18 +53,19 @@ alwaysApply: false
 
 ```javascript
 import { useToast, showSuccess, showError, handleApiError } from '@/js/utils/toast.js'
+import { tGlobal } from '@/i18n/index.js'
 
 // в setup / composable
 const toast = useToast()
-toast.success('Сохранено')
-toast.error('Ошибка сохранения')
+toast.success(tGlobal('common.saved'))
+toast.error(tGlobal('common.somethingWentWrong'))
 
 // вне setup (handlers, utils)
-showSuccess('Готово')
-showError('Не удалось загрузить')
+showSuccess(tGlobal('common.success'))
+showError(tGlobal('errors.api.generic'))
 
 // ошибки API
-try { ... } catch (e) { await handleApiError(e, 'Не удалось сохранить') }
+try { ... } catch (e) { await handleApiError(e, tGlobal('errors.api.generic')) }
 ```
 
 Полезные функции: `showWarning`, `showInfo`, `showToast`, `normalizeToastMessage`, `getToast`, `showValidationError`, `showSaveSuccess`, `showDeleteSuccess`.
@@ -66,12 +78,21 @@ try { ... } catch (e) { await handleApiError(e, 'Не удалось сохра�
 
 ```javascript
 import { confirmAction, confirmDelete, runWithConfirm } from '@/js/utils/confirm.js'
+import { tGlobal } from '@/i18n/index.js'
 
-const ok = await confirmDelete('Удаление', 'Вы уверены?')
+const ok = await confirmDelete(
+  tGlobal('components.confirm.deleteTitle'),
+  tGlobal('components.confirm.deleteMessage'),
+)
 if (!ok) return
 
 await runWithConfirm(
-  { title: 'Удаление', message: 'Удалить?', variant: 'danger', confirmText: 'Удалить' },
+  {
+    title: tGlobal('components.confirm.deleteTitle'),
+    message: tGlobal('components.confirm.deleteMessage'),
+    variant: 'danger',
+    confirmText: tGlobal('components.confirm.deleteConfirm'),
+  },
   () => apiClient.delete(url),
 )
 ```
