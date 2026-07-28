@@ -13,7 +13,7 @@ alwaysApply: false
 
 # Portable PostgreSQL
 
-СУБД для локальной разработки и запуска на хосте без системного PostgreSQL. Бинарники и data — в `virtual_env/packages/postgres/`. Portable Postgres **всегда** в `setup-full` (если нет системной службы `postgresql*`); Redis/nginx — только при `REDIS_ENABLED` / `NGINX_ENABLED=true`.
+СУБД для локальной разработки и запуска на хосте без системного PostgreSQL. Бинарники и data — в `virtual_env/packages/postgres/`. Portable Postgres в `setup-full` при `ERGO_DB=portable_postgres` (если нет системной службы `postgresql*` — см. EnsurePostgresStep); Redis/nginx — при `ERGO_BROKER=redis` / `ERGO_PROXY=nginx`.
 
 Краткий обзор с Redis/nginx/TLS — [`deployment-infra.mdc`](deployment-infra.mdc).
 
@@ -24,9 +24,9 @@ alwaysApply: false
 - Наши службы **не** считаются системными: Windows `ergo_ms_postgres`, Linux `ergo-postgres`
 - Нет системной службы → latest stable → initdb → БД `ergo_ms` → OS-служба на **5433** → дальше `MigrateStep`
 - Есть системная служба → `[SKIP]` portable (если не force)
-- Force: `POSTGRES_FORCE_INSTALL=true` в `.env` или `ergoms setup-full --with-postgres` — portable всё равно на **5433**; `--no-skip-system` — внутренний ключ `install_postgres.py`, не флаг `setup-full`
-- Host/port portable — только `databases.yaml` (`default.host` / `default.port`, по умолчанию в example — `localhost` / `5433`); маркер `virtual_env/packages/postgres/PORT` после install
-- В `.env` для Postgres — только `POSTGRES_FORCE_INSTALL` (скрипты **не** пишут host/port в `.env` / yaml)
+- Режим: `ERGO_DB=portable_postgres` в `.env`; force — legacy `POSTGRES_FORCE_INSTALL=true` или `ergoms setup-full --with-postgres` — portable на **5433**
+- Host/port portable — только `databases.yaml` (`default.host` / `default.port`, в example — `127.0.0.1` / `5433`); маркер `virtual_env/packages/postgres/PORT` после install
+- Скрипты **не** пишут host/port в `.env` / yaml
 - Установленный portable входит в `ergoms start` / `start-all-services` (`Get-ServiceNames` / `generate_units_list`)
 - Скрипты **не пишут** в `.env` — только читают `POSTGRES_FORCE_INSTALL` ([`no-auto-env-write.mdc`](no-auto-env-write.mdc))
 
@@ -79,7 +79,7 @@ ergoms uninstall-postgres
 1. Новый код детекта системного Postgres — исключай `OUR_SERVICE_WINDOWS` / `OUR_SERVICE_LINUX` из `postgres_common.py`.
 2. `EnsurePostgresStep` остаётся **до** `MigrateStep` в `setup-full`.
 3. При установленном portable — юнит в списке служб для `ergoms start` (как redis/nginx при наличии).
-4. Ключ `POSTGRES_FORCE_INSTALL` — во **всех** корневых `.env*.example` ([`env-examples.mdc`](env-examples.mdc)). Host/port — только в `databases.yaml`.
+4. Режим БД — `ERGO_DB` в `.env.example` ([`env-examples.mdc`](env-examples.mdc)). Host/port — только в `databases.yaml`.
 5. `ergoms clean` останавливает `ergo_ms_postgres` / `ergo-postgres` и процессы из `packages/postgres` ([`ergoms-clean.mdc`](ergoms-clean.mdc)).
 6. Сообщения консоли — русский текст, метки `[OK]` / `[SKIP]` / `[WARNING]` / `[ERROR]` ([`console-output.mdc`](console-output.mdc)).
 

@@ -7,12 +7,14 @@ celery_workers.yaml
 
 .env.*
 !.env.example
-!.env.docker.example
-!.env.nginx-redis.example
 
 maintenance.flag
 
-env/
+# Фрагменты окружения: шаблоны *.example в git, рабочие env/*.env — локально
+/env/*
+!/env/*.example
+
+# Локальный Python venv с именем venv/ (не путать с /env/)
 venv/
 
 *.log

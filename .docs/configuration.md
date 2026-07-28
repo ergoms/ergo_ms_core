@@ -1,40 +1,39 @@
 # Настройка конфигурации
 
-Перед первым запуском в корне проекта нужны **`.env`** и **`databases.yaml`**. При полной первичной настройке (`setup-full`) они создаются из примеров автоматически; после этого их нужно проверить и при необходимости настроить под свою среду.
+Перед первым запуском в корне проекта нужны **`.env`**, при необходимости **`env/nginx.env`** / **`env/docker.env`**, и **`databases.yaml`**. При полной первичной настройке (`setup-full`) они создаются из примеров автоматически; после этого их нужно проверить и при необходимости настроить под свою среду.
 
-## Файл `.env`
+## Файл `.env` и фрагменты `env/`
 
-Если файла ещё нет, скопируйте `.env.example` в `.env`. В примере перечислены все переменные с комментариями; для локальной разработки обычно хватает минимального набора (остальное можно оставить как в `.env.example`):
+Если файла ещё нет, скопируйте `.env.example` в `.env`. Режимы работы задаются четырьмя переключателями:
 
 ```env
-API_HOST=localhost
-API_PORT=8000
-API_ALLOWED_HOSTS=localhost,127.0.0.1
-API_DEPLOY_TYPE=development
-API_SECRET_KEY=замени-на-длинную-случайную-строку
-
-API_JWT_LIFETIME_ENABLED=true
-API_ACCESS_TOKEN_LIFETIME=30
-API_REFRESH_TOKEN_LIFETIME=60
-
-CLIENT_HOST=localhost
-CLIENT_PORT=8001
-
-EMAIL_ENABLED=false
-
-CLIENT_DEFAULT_THEME=auto
-CLIENT_LOG_LEVEL=debug
+ERGO_RUNTIME=host
+ERGO_PROXY=none
+ERGO_BROKER=local
+ERGO_DB=portable_postgres
 ```
 
-Почту для разработки можно не настраивать: при `EMAIL_ENABLED=false` письма не отправляются. Для staging или сервера включите `EMAIL_ENABLED=true` и задайте `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_SSL` / `EMAIL_USE_TLS` — см. `.env.example`.
+| Переключатель | Значения | Смысл |
+|---------------|----------|--------|
+| `ERGO_RUNTIME` | `host` \| `docker` | процессы на машине или Docker Compose |
+| `ERGO_PROXY` | `none` \| `nginx` | прямой доступ или reverse proxy (`env/nginx.env`) |
+| `ERGO_BROKER` | `local` \| `redis` | locmem/SQLite Celery или Redis из `databases.yaml` |
+| `ERGO_DB` | `sqlite` \| `postgres` \| `portable_postgres` \| `mysql` \| `mssql` | engine секции `default` |
+| `ERGO_JUPYTER` | `none` \| `auto` \| `local` \| `lan` \| `nginx` | JupyterLab; детали — `env/jupyter.env` |
+| `ERGO_EMAIL` | `none` \| `smtp` | исходящая почта; SMTP — `env/smtp.env` |
+| `ERGO_MEDIA` | `local` \| `remote` | доступ core/api к файлам; детали — `env/media.env` |
+| `ERGO_REALTIME` | `websocket` \| `sse` \| `http_polling` | транспорт событий клиенту; детали — `env/realtime.env` |
+| `ERGO_ENV` | `development` \| `production` (коротко `dev` \| `prod`) | режим API, клиента и media_api |
 
-Полный перечень переменных и их смысл — в `.env.example`.
+Детали — шаблоны в [`env/`](../env/) (`*.env.example`: nginx, docker, jupyter, smtp, logging, mcp, media, realtime, cache, celery). Порядок загрузки: `.env` → `env/*.env` → `modules/**/.env`.
 
-При развёртывании на сервере обязательно смените `API_SECRET_KEY` на криптостойкий ключ, выставьте `API_DEPLOY_TYPE=production` и укажите реальные домены в `API_ALLOWED_HOSTS`.
+Для локальной разработки обычно хватает режимов по умолчанию и минимального набора API/CLIENT (см. `.env.example`). Почту можно не настраивать при `ERGO_EMAIL=none`.
+
+При развёртывании на сервере смените `API_SECRET_KEY`, выставьте `ERGO_ENV=production`, при необходимости `ERGO_PROXY=nginx` и правьте `env/nginx.env`.
 
 ## Файл `databases.yaml`
 
-Если файла ещё нет, скопируйте `databases.yaml.example` в `databases.yaml`. Для начала работы нужна хотя бы секция **`default`** — основная база приложения:
+Если файла ещё нет, скопируйте `databases.yaml.example` в `databases.yaml`. Для начала работы нужна хотя бы секция **`default`** — основная база приложения. Engine секции `default` при заданном `ERGO_DB` выставляет loader (`portable_postgres` → `postgresql`); host/user/password/port/name задаёте здесь.
 
 ```yaml
 databases:
@@ -43,11 +42,22 @@ databases:
     name: "ergo_ms"
     user: "postgres"
     password: "admin"
-    host: "localhost"
-    port: 5432
+    host: "127.0.0.1"
+    port: 5433
+
+  redis:
+    engine: "redis"
+    host: "127.0.0.1"
+    port: 6379
+    db_channel: 0
+    db_cache: 1
+    db_celery_broker: 2
+    db_celery_result: 3
 ```
 
-Убедитесь, что база `ergo_ms` создана в PostgreSQL и пользователь имеет к ней доступ. После правок конфигурации примените миграции: `ergoms db-migrate`.
+Секция **`redis`** используется при `ERGO_BROKER=redis` (кэш, channel layer, Celery). Дополнительные SQL-базы — новые секции под `databases:` (как `analytics`).
+
+Убедитесь, что основная база создана и пользователь имеет к ней доступ. После правок примените миграции: `ergoms db-migrate`.
 
 ### Базы для Celery
 
@@ -86,13 +96,12 @@ databases:
 
 ## Настройки клиента
 
-Все параметры клиента — в `.env` с префиксом **`CLIENT_*`** или через общие переменные **`API_*`**, **`DISABLED_MODULES`**, **`REALTIME_*`**. Сборка (`core/client/vite.config.js`) подставляет их в бандл; в коде используйте **`@/js/clientEnv.js`**, не `import.meta.env` напрямую.
+Все параметры клиента — в `.env` с префиксом **`CLIENT_*`** или через общие переменные **`API_*`**, **`DISABLED_MODULES`**, **`REALTIME_*`** (фрагмент `env/realtime.env`). Сборка (`core/client/vite.config.js`) подставляет их в бандл; в коде используйте **`@/js/clientEnv.js`**, не `import.meta.env` напрямую.
 
 | Переменная в `.env` | Назначение |
 |---------------------|------------|
-| `CLIENT_DEFAULT_THEME` | Тема по умолчанию: `auto`, `light`, `dark` |
 | `CLIENT_LOG_LEVEL` | Уровень логов клиента |
-| `CLIENT_USE_RELATIVE_API` | API и WebSocket с того же origin, что SPA (nginx) |
+| `CLIENT_USE_RELATIVE_API` | обычно из `ERGO_PROXY=nginx`; override — `env/nginx.env` |
 | `API_HOST`, `API_PORT` | Адрес API в dev без nginx |
 | `API_PASSWORD_*` | Политика паролей (сервер и подсказки в формах) |
 | `DISABLED_MODULES` | Отключённые модули (сервер и клиент) |
@@ -102,8 +111,6 @@ databases:
 ## Настройки модулей
 
 У части модулей есть собственные `.env.example` в каталоге `modules/<имя>/`. При `setup-full` из них создаётся `modules/<имя>/.env`. Переменные из модульных `.env` **переопределяют** одноимённые из корневого `.env` — и на сервере (Django), и при сборке клиента (Vite).
-
-Проверка соответствия example и рабочего файла: `ergoms env`.
 
 | Модуль | Файл | Примеры переменных |
 |--------|------|-------------------|
@@ -116,13 +123,13 @@ databases:
 
 ## Realtime (WebSocket, SSE и polling)
 
-Переменные **`REALTIME_*`** в `.env` — **единые для сервера и клиента**. После входа клиент синхронизируется с `GET /api/realtime/config/`.
+Переменные **`REALTIME_*`** — в [`env/realtime.env`](../env/realtime.env.example), **единые для сервера и клиента**. После входа клиент синхронизируется с `GET /api/realtime/config/`.
 
 - `websocket` — Django Channels (по умолчанию); API через ASGI.
 - `sse` — push через **Server-Sent Events** (`GET /api/realtime/stream/`).
 - `http_polling` — клиент опрашивает REST по интервалам (`GET /api/realtime/sync/`).
 
-**Channel layer** (для push между worker’ами): `CHANNEL_LAYER_BACKEND=memory` (dev, один процесс), `postgres` (без Redis, через основную БД) или `redis`. См. `.env.example`.
+**Channel layer** (для push между worker’ами): `CHANNEL_LAYER_BACKEND=memory` (dev, один процесс), `postgres` (без Redis, через основную БД) или `redis`. См. [`env/realtime.env.example`](../env/realtime.env.example).
 
 Интервалы polling (секунды): `REALTIME_POLL_*`. SSE keepalive: `REALTIME_SSE_KEEPALIVE_INTERVAL`.
 
@@ -130,7 +137,7 @@ Nginx: отдельный location для `/api/realtime/stream/` — `core/depl
 
 ## Кэш Django
 
-Переменная **`API_CACHE_BACKEND`** в `.env`:
+Переменная **`API_CACHE_BACKEND`** в [`env/cache.env`](../env/cache.env.example):
 
 | Значение | Когда |
 |----------|-------|
@@ -138,7 +145,7 @@ Nginx: отдельный location для `/api/realtime/stream/` — `core/depl
 | `file` | без Redis на Linux (не рекомендуется на Windows) |
 | `redis` | несколько процессов, общий кэш |
 
-При `REDIS_ENABLED=true` без явного `API_CACHE_BACKEND` effective-backend — `redis` (см. [`redis_runtime.py`](../core/api/src/config/redis_runtime.py)).
+При `ERGO_BROKER=redis` без явного `API_CACHE_BACKEND` effective-backend — `redis` (см. [`redis_runtime.py`](../core/api/src/config/redis_runtime.py)).
 
 ## Celery broker
 
@@ -155,21 +162,21 @@ Nginx: отдельный location для `/api/realtime/stream/` — `core/depl
 
 ## Redis и несколько процессов {#redis-и-несколько-процессов}
 
-Portable Redis при `REDIS_ENABLED=true` ставит `setup-full` (шаг `EnsureRedisStep`). Вручную:
+Portable Redis при `ERGO_BROKER=redis` ставит `setup-full` (шаг `EnsureRedisStep`). Вручную:
 
 ```cmd
 ergoms install-redis
 ergoms test-redis
 ```
 
-В `.env`: **`REDIS_ENABLED=true`**, перезапустите API.
+В `.env`: **`ERGO_BROKER=redis`**, параметры подключения — секция `redis` в `databases.yaml`, перезапустите API.
 
-При `REDIS_ENABLED=true` модуль [`redis_runtime.py`](../core/api/src/config/redis_runtime.py) по умолчанию включает `redis` для channel layer, кэша и Celery broker — если не заданы явно `CHANNEL_LAYER_BACKEND`, `API_CACHE_BACKEND`, `CELERY_BROKER_BACKEND`.
+При `ERGO_BROKER=redis` модуль [`redis_runtime.py`](../core/api/src/config/redis_runtime.py) по умолчанию включает `redis` для channel layer, кэша и Celery broker — если не заданы явно `CHANNEL_LAYER_BACKEND`, `API_CACHE_BACKEND`, `CELERY_BROKER_BACKEND`.
 
 Типичный набор для production (см. блок «Несколько процессов» в `.env.example`):
 
 ```env
-REDIS_ENABLED=true
+ERGO_BROKER=redis
 REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
 API_CACHE_BACKEND=redis
@@ -185,16 +192,16 @@ CELERY_BROKER_BACKEND=redis
 
 ## Production за nginx
 
-Эталон переменных для запуска за обратным прокси — [`core/deployment/nginx/env.example`](../core/deployment/nginx/env.example). Скопируйте нужные значения в корневой `.env`.
+Эталон переменных для запуска за обратным прокси — [`env/nginx.env.example`](../env/nginx.env.example) при `ERGO_PROXY=nginx` в корневом `.env`.
 
 Ключевые переменные:
 
 | Переменная | Назначение |
 |------------|------------|
-| `NGINX_ENABLED` | включить сценарий nginx; при `true` `setup-full` ставит portable nginx |
+| `ERGO_PROXY=nginx` | включить сценарий nginx; `setup-full` ставит portable nginx; детали — `env/nginx.env` |
 | `NGINX_SERVER_NAME`, `NGINX_PUBLIC_HOST` | домен |
-| `CLIENT_USE_RELATIVE_API` | API и WebSocket с того же origin, что SPA |
-| `API_DEPLOY_TYPE`, `CLIENT_DEPLOY_TYPE` | `production` |
+| `CLIENT_USE_RELATIVE_API` | при `ERGO_PROXY=nginx` — true; иначе override в `env/nginx.env` |
+| `ERGO_ENV` | `production` (или legacy `API_DEPLOY_TYPE` / `CLIENT_DEPLOY_TYPE`) |
 | `ERGO_TLS_*`, `ERGO_SSL_CERT`, `ERGO_SSL_KEY` | TLS (Linux, `ergoms install-tls`) |
 
 Команды: `ergoms install-nginx`, `ergoms reload-nginx`, `ergoms test-nginx` — см. [cli.md](cli.md#nginx-опционально).

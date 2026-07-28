@@ -5,19 +5,19 @@ alwaysApply: false
 
 # Инфраструктура развёртывания (Redis, nginx, TLS, Docker)
 
-Опциональные компоненты для запуска как на сервере: обратный прокси, общий кэш, channel layer и брокер Celery. В `setup-full` ставятся **только если** в `.env` уже `REDIS_ENABLED=true` / `NGINX_ENABLED=true`; иначе — вручную `ergoms install-redis` / `install-nginx`.
+Опциональные компоненты для запуска как на сервере: обратный прокси, общий кэш, channel layer и брокер Celery. В `setup-full` ставятся **только если** `ERGO_BROKER=redis` / `ERGO_PROXY=nginx` (или legacy `REDIS_ENABLED` / `NGINX_ENABLED`); иначе — вручную `ergoms install-redis` / `install-nginx`.
 
-**Docker Compose** — отдельный сценарий (`ergoms docker-*`): Redis, PostgreSQL, nginx и сервисы приложения в контейнерах. Подробности — [`.cursor/rules/docker.mdc`](docker.mdc), [`.docs/docker.md`](../../.docs/docker.md). Не смешивайте portable redis/nginx на хосте и Docker-стек на одних портах.
+**Docker Compose** — `ERGO_RUNTIME=docker` + фрагмент [`env/docker.env.example`](../../env/docker.env.example); команды `ergoms docker-*`. Подробности — [`docker.mdc`](docker.mdc), [`.docs/docker.md`](../../.docs/docker.md). Не смешивайте portable redis/nginx на хосте и Docker-стек на одних портах.
 
 **При изменении** сценариев запуска, служб, Redis/nginx/TLS или команд ergoms — **обязательно** сверяйтесь с Docker: чеклист «Параллельные сценарии» в [`docker.mdc`](docker.mdc). Хост и compose должны оставаться согласованными.
 
 ## Кратко
 
-- **Redis** — portable-бинарники в `virtual_env/packages/redis/`; `ergoms install-redis`, затем `REDIS_ENABLED=true` в `.env`
-- **nginx** — `virtual_env/packages/nginx/`; `ergoms install-nginx`; шаблон — `core/deployment/nginx/ergo_ms.conf.template`
-- **TLS** (Let's Encrypt) — только Linux: `ergoms install-tls`, `renew-tls`, `status-tls`
-- Effective-значения URL и backend'ов — **`redis_runtime`**, **`nginx_runtime`**, **`tls_runtime`**, **`jupyter_runtime`**; скрипты **не пишут** в `.env` — см. [`no-auto-env-write.mdc`](no-auto-env-write.mdc)
-- Production `.env` за nginx — эталон [`core/deployment/nginx/env.example`](../../core/deployment/nginx/env.example)
+- **Режимы** — `ERGO_RUNTIME` / `ERGO_PROXY` / `ERGO_BROKER` / `ERGO_DB` в [`.env.example`](../../.env.example); детали — `env/nginx.env`, `env/docker.env`
+- **Redis** — portable в `virtual_env/packages/redis/`; host/port/db — секция `redis` в `databases.yaml`; включение — `ERGO_BROKER=redis`
+- **nginx** — `virtual_env/packages/nginx/`; `ERGO_PROXY=nginx` + [`env/nginx.env.example`](../../env/nginx.env.example)
+- **TLS** (Let's Encrypt) — только Linux: `ergoms install-tls`; ключи в `env/nginx.env`
+- Effective — **`ergo_modes`**, **`redis_runtime`**, **`nginx_runtime`**, **`tls_runtime`**; скрипты **не пишут** в `.env` — [`no-auto-env-write.mdc`](no-auto-env-write.mdc)
 
 ## Redis
 
@@ -28,7 +28,7 @@ alwaysApply: false
 | Локальная разработка, один процесс API | `CHANNEL_LAYER_BACKEND=memory`, `API_CACHE_BACKEND=locmem` |
 | Несколько worker API, push между процессами | Нужен `postgres` или `redis` для channel layer |
 | Общий кэш Django между процессами | `redis` (или `file` на Linux) |
-| Celery broker на Redis | `CELERY_BROKER_BACKEND=redis` или `REDIS_ENABLED=true` |
+| Celery broker на Redis | `ERGO_BROKER=redis` или `CELERY_BROKER_BACKEND=redis` |
 
 ### Установка
 
@@ -37,13 +37,13 @@ ergoms install-redis
 ergoms test-redis
 ```
 
-В `.env`: `REDIS_ENABLED=true`. При уже включённом флаге `setup-full` сам вызывает `install-redis`. Перезапустите API. Проверка: `ergoms test-redis` → `PONG`.
+В `.env`: `ERGO_BROKER=redis`. При уже включённом режиме `setup-full` сам вызывает `install-redis`. Перезапустите API. Проверка: `ergoms test-redis` → `PONG`.
 
-Служба: `ergoms install-redis-service` (Windows: `ergo_ms_redis`, Linux: `ergo-redis`). Логи — `logs/redis.log`, `ergoms logs ergo-redis` (Linux) или `ergoms logs ergo_ms_redis` (Windows).
+Служба: `ergoms install-redis-service` (Windows: `ergo_ms_redis`, Linux: `ergo-redis`). Логи — `logs/redis.log`.
 
 ### `redis_runtime`
 
-Модуль [`redis_runtime.py`](../../core/api/src/config/redis_runtime.py) собирает URL из `REDIS_HOST`, `REDIS_PORT`, `REDIS_DB_*`:
+Модуль [`redis_runtime.py`](../../core/api/src/config/redis_runtime.py) собирает URL из секции `redis` в `databases.yaml` (fallback на legacy `REDIS_*` в `.env`):
 
 | DB (по умолчанию) | Назначение |
 |-------------------|------------|
@@ -52,7 +52,7 @@ ergoms test-redis
 | 2 | Celery broker |
 | 3 | Celery result backend |
 
-При `REDIS_ENABLED=true` без явных override:
+При `ERGO_BROKER=redis` без явных override:
 
 - `effective_channel_layer_backend()` → `redis`
 - `effective_cache_backend()` → `redis`
@@ -68,7 +68,7 @@ ergoms test-redis
 |-------------------------|-------|
 | `memory` | dev, один процесс API (по умолчанию без Redis) |
 | `postgres` | несколько worker без Redis — через основную БД |
-| `redis` | несколько worker, с `REDIS_ENABLED` или явным URL |
+| `redis` | несколько worker, с `ERGO_BROKER=redis` или явным URL |
 
 Realtime push между worker'ами — см. [`realtime.mdc`](realtime.mdc).
 
@@ -91,8 +91,9 @@ ergoms status-nginx
 
 В `.env`:
 
-- `CLIENT_USE_RELATIVE_API=true` — API и WebSocket с того же origin, что SPA
-- `NGINX_ENABLED=true`, `NGINX_SERVER_NAME`, `NGINX_PUBLIC_HOST` — см. `env.example` nginx
+- `ERGO_PROXY=nginx` в корневом `.env`
+- `CLIENT_USE_RELATIVE_API` — effective `true` при `ERGO_PROXY=nginx`; явный override в `env/nginx.env`
+- `NGINX_SERVER_NAME`, `NGINX_PUBLIC_HOST` — в [`env/nginx.env.example`](../../env/nginx.env.example)
 
 SSE: location `/api/realtime/stream/` — `proxy_buffering off`, `proxy_read_timeout 3600s` в `ergo_ms.conf.template`.
 
@@ -120,7 +121,8 @@ ergoms status-tls
 sudo ergoms renew-tls
 ```
 
-Переменные: `ERGO_TLS_EMAIL`, `ERGO_SSL_CERT`, `ERGO_SSL_KEY`, `CORS_ALLOWED_ORIGINS` — см. `core/deployment/nginx/env.example`.
+TLS: `ERGO_TLS_EMAIL`, `ERGO_SSL_CERT`, `ERGO_SSL_KEY` — [`env/nginx.env.example`](../../env/nginx.env.example).  
+CORS: `CORS_ALLOWED_ORIGINS` — корневой `.env`.
 
 ## Запрещено
 

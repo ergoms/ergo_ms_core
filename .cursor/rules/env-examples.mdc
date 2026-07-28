@@ -1,56 +1,73 @@
 ---
-description: Корневые env.example — одинаковый набор директив, разные значения по сценариям
+description: Шаблоны .env — корень + фрагменты env/*.example и databases.yaml
 globs:
   - "**/.env*.example"
-  - core/deployment/nginx/env.example
+  - "env/*.example"
+  - databases.yaml.example
 alwaysApply: false
 ---
 
-# Шаблоны `.env.example`
+# Шаблоны окружения
 
-Корневые сценарии окружения — **полные** копии одного набора директив. Различаются **значения** (и при необходимости раскомментирование опциональных ключей сценария), не состав ключей.
+Корневой сценарий — **не** четыре полных копии `.env`. Режимы задаются в корне, детали инфраструктуры — во фрагментах `env/`, подключения — в `databases.yaml`.
 
 ## Кратко
 
-| Файл | Сценарий |
-|------|----------|
-| [`.env.example`](../../.env.example) | локальная разработка (`ergoms dev`) — **эталон структуры** |
-| [`.env.docker.example`](../../.env.docker.example) | Docker Compose + nginx + Redis |
-| [`.env.nginx-redis.example`](../../.env.nginx-redis.example) | nginx + Redis на хосте, доступ по IP |
-| [`core/deployment/nginx/env.example`](../../core/deployment/nginx/env.example) | nginx + Redis на хосте, домен и TLS |
+| Файл | Назначение |
+|------|------------|
+| [`.env.example`](../../.env.example) | общие настройки + `ERGO_*` режимы |
+| [`env/nginx.env.example`](../../env/nginx.env.example) | `NGINX_*`, TLS (`ERGO_TLS_*` / `ERGO_SSL_*`) |
+| [`env/docker.env.example`](../../env/docker.env.example) | `DOCKER_*` |
+| [`env/jupyter.env.example`](../../env/jupyter.env.example) | `API_JUPYTER_*` |
+| [`env/smtp.env.example`](../../env/smtp.env.example) | `EMAIL_*` (SMTP) |
+| [`env/logging.env.example`](../../env/logging.env.example) | логи, клиентский лог/мониторинг, аудит |
+| [`env/mcp.env.example`](../../env/mcp.env.example) | `ADMIN_LOGIN` / `ADMIN_PASSWORD` для MCP |
+| [`env/media.env.example`](../../env/media.env.example) | `MEDIA_API_*`, пути и лимиты загрузок |
+| [`env/realtime.env.example`](../../env/realtime.env.example) | `REALTIME_*`, channel layer |
+| [`env/cache.env.example`](../../env/cache.env.example) | `API_CACHE_*`, TTL меню/прав/уведомлений |
+| [`env/celery.env.example`](../../env/celery.env.example) | `CELERY_BROKER_*` |
+| [`databases.yaml.example`](../../databases.yaml.example) | SQL + секция `redis` |
 
-- **Одинаковый набор имён ключей** во всех четырёх файлах (активные `KEY=` и закомментированные `# KEY=`).
-- Эталон порядка секций и комментариев — `.env.example`.
-- Новый ключ — сразу во **все** шаблоны; в профилях — осмысленное значение под сценарий.
-- Модульные `modules/*/.env.example` — **отдельный** набор (только ключи модуля), не смешивать с корневыми.
+- Загрузка: `.env` → `env/*.env` → `modules/**/.env` (модули перекрывают).
+- Новый **общий** ключ — в `.env.example`; ключ только для фрагмента — в соответствующем `env/*.example`.
+- Модульные `modules/*/.env.example` — отдельный набор, не смешивать с корневыми.
+
+## Режимы
+
+```env
+ERGO_RUNTIME=host|docker
+ERGO_PROXY=none|nginx
+ERGO_BROKER=local|redis
+ERGO_DB=sqlite|postgres|portable_postgres|mysql|mssql
+ERGO_JUPYTER=none|auto|local|lan|nginx
+ERGO_EMAIL=none|smtp
+ERGO_MEDIA=local|remote
+ERGO_REALTIME=websocket|sse|http_polling
+ERGO_ENV=development|production
+```
+
+Явные `REDIS_ENABLED` / `NGINX_ENABLED` / `DOCKER_ENABLED` / `MEDIA_ACCESS_MODE` / `REALTIME_TRANSPORT` / `*_DEPLOY_TYPE` (если заданы) имеют приоритет над `ERGO_*` — legacy.
 
 ## Обязательно
 
-1. После добавления/удаления переменной окружения обнови **все** корневые шаблоны из таблицы.
-2. Меняй в профиле только **значения** (и раскомментирование опциональных ключей, нужных сценарию: TLS, `MEDIA_API_URL`, …).
-3. Не заводи фрагменты «только nginx-ключи» — полный файл, как у остальных.
-4. Проверка: множества имён ключей (active ∪ `# KEY=`) у четырёх файлов совпадают.
+1. После добавления переменной обнови нужный example (корень или фрагмент).
+2. Connection Redis — только `databases.yaml` → `redis`, не дублируй `REDIS_HOST` в корневых шаблонах.
 
 ## Запрещено
 
 ```dotenv
-# BAD — в .env.docker.example нет ключа, который есть в .env.example
-# (пропущен PORTABLE_PYTHON_ENABLED или POSTGRES_FORCE_INSTALL)
-
-# BAD — отдельный урезанный env.example только с NGINX_*
-NGINX_ENABLED=true
-API_HOST=127.0.0.1
+# BAD — снова завести полный .env.docker.example с копией всех ключей
+# BAD — REDIS_HOST=… в .env.example (должен быть в databases.yaml)
 ```
 
 ```dotenv
-# GOOD — тот же ключ во всех шаблонах, разное значение
-# .env.example
-REDIS_ENABLED=false
-REDIS_HOST=127.0.0.1
+# GOOD — режим в корне, детали во фрагменте
+# .env
+ERGO_PROXY=nginx
+ERGO_BROKER=redis
 
-# .env.docker.example
-REDIS_ENABLED=true
-REDIS_HOST=redis
+# env/nginx.env
+NGINX_SERVER_NAME=app.example.com
 ```
 
 ## Связанные правила

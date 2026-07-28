@@ -30,10 +30,19 @@ class EnsurePostgresStep(DeploymentStep):
         return ctx.runtime == 'host'
 
     def run(self, ctx: DeploymentContext) -> StepResult:
-        from deployment_env import is_postgres_force_install  # noqa: WPS433
+        from deployment_env import (  # noqa: WPS433
+            is_postgres_force_install,
+            should_setup_portable_postgres,
+        )
         from install_postgres import has_system_postgresql_service, is_installed  # noqa: WPS433
 
         force = ctx.option_bool('with_postgres') or is_postgres_force_install()
+        if not force and not should_setup_portable_postgres():
+            print(format_console(
+                'skip',
+                'ERGO_DB не portable_postgres — portable PostgreSQL не устанавливается',
+            ))
+            return StepResult()
 
         if has_system_postgresql_service() and not force:
             print(format_console('skip', 'Системная служба PostgreSQL уже есть'))

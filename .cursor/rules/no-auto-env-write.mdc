@@ -10,27 +10,25 @@ alwaysApply: false
 
 # Не записывать .env автоматически
 
-Файл `.env` (и модульные `modules/*/.env`) редактирует **только человек**. Скрипты, установщики и код приложения **не** дописывают и **не** перезаписывают в них переменные окружения.
+Файлы `.env`, `env/*.env` и модульные `modules/*/.env` редактирует **только человек**. Скрипты, установщики и код приложения **не** дописывают и **не** перезаписывают в них переменные окружения.
 
 ## Кратко
 
-- Читать переменные — `from src.config.env import env` и модули `*_runtime.py`
-- Значения по умолчанию и вывод из других ключей — в `env.str(..., default=...)`, `nginx_runtime`, `redis_runtime`, `tls_runtime`
-- Deployment без Django — `core/deployment/env_resolvers.py`, `resolve_env.py` (только чтение + effective-значения)
-- Явная команда пользователя `ergoms env-normalize` — исключение (осознанная нормализация по `.env.example`)
+- Читать переменные — `from src.config.env import env` и модули `*_runtime.py` / `ergo_runtime.py`
+- Режимы — `ERGO_RUNTIME` / `ERGO_PROXY` / `ERGO_BROKER` / `ERGO_DB`; effective — `ergo_modes.py` / `*_runtime`
+- Deployment без Django — `env_file_loader.py`, `env_resolvers.py`, `resolve_env.py` (только чтение + effective-значения)
 
 ## Обязательно
 
-- Новые настройки: ключ в `.env.example` + чтение через `env` или `*_runtime` с `default=`
-- Сценарии nginx / Redis / TLS: effective-логика в `src/config/nginx_runtime.py`, `redis_runtime.py`, `tls_runtime.py` или `core/deployment/env_resolvers.py`
-- Install-скрипты (nginx, TLS) подставляют effective-значения **в конфиг процесса**, не в файл `.env`
+- Новые настройки: ключ в `.env.example` или `env/*.example` + чтение через `env` / `*_runtime` с `default=`
+- Сценарии nginx / Redis / TLS: effective-логика в `nginx_runtime`, `redis_runtime`, `tls_runtime`, `ergo_modes` или `env_resolvers`
+- Install-скрипты подставляют effective-значения **в конфиг процесса**, не в `.env` / `env/*.env`
 
 ## Запрещено
 
 ```python
 # BAD — запись в .env из кода
 env_path.write_text(...)
-set_env_var_in_content(content, 'API_HOST', '127.0.0.1')
 Path('.env').write_text(...)
 ```
 
@@ -41,15 +39,13 @@ def sync_env_on_install(env_path: Path) -> None:
 ```
 
 ```powershell
-# BAD — дописать .env из ergoms без явной команды пользователя
-Add-Content .env "REDIS_ENABLED=true"
+# BAD — дописать .env из ergoms
+Add-Content .env "ERGO_BROKER=redis"
 ```
 
 **Допустимо:**
 
-- `ConfigScaffolder` создаёт `.env` **один раз** из `.env.example`, если файла ещё нет (`setup-full`)
-- `ergoms env-normalize` — только по явному вызову пользователя
-- `ergoms env` — только чтение и отчёт
+- `ConfigScaffolder` создаёт `.env` и `env/*.env` **один раз** из `*.example`, если файла ещё нет (`setup-full`)
 
 ## Базовый пример (runtime вместо автозаписи)
 
@@ -75,9 +71,10 @@ CACHE_BACKEND = effective_cache_backend()
 
 | Область | Файл |
 |---------|------|
-| Загрузка .env в Django | [`core/api/src/config/env.py`](../../core/api/src/config/env.py) |
+| Загрузка .env + env/ | [`env.py`](../../core/api/src/config/env.py), [`env_file_loader.py`](../../core/deployment/env_file_loader.py) |
+| Режимы ERGO_* | [`ergo_runtime.py`](../../core/api/src/config/ergo_runtime.py), [`ergo_modes.py`](../../core/deployment/ergo_modes.py) |
 | Nginx-сценарий | [`nginx_runtime.py`](../../core/api/src/config/nginx_runtime.py), [`env_resolvers.py`](../../core/deployment/env_resolvers.py) |
-| Redis-сценарий | [`redis_runtime.py`](../../core/api/src/config/redis_runtime.py) |
+| Redis-сценарий | [`redis_runtime.py`](../../core/api/src/config/redis_runtime.py), секция `redis` в `databases.yaml` |
 | TLS / Let's Encrypt | [`tls_runtime.py`](../../core/api/src/config/tls_runtime.py), [`tls_config.py`](../../core/deployment/nginx/tls_config.py) |
 | Клиент (Vite) | [`nginx-env.cjs`](../../core/deployment/nginx/nginx-env.cjs) |
 

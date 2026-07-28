@@ -19,8 +19,12 @@ from mcp.types import Tool, TextContent
 
 # Определяем корневую директорию проекта
 PROJECT_DIR = Path(__file__).parent.parent.absolute()
-ENV_FILE = PROJECT_DIR / '.env'
 DATABASES_YAML = PROJECT_DIR / 'databases.yaml'
+_DEPLOYMENT_DIR = PROJECT_DIR / 'core' / 'deployment'
+if str(_DEPLOYMENT_DIR) not in sys.path:
+    sys.path.insert(0, str(_DEPLOYMENT_DIR))
+
+from env_file_loader import load_project_env  # noqa: E402
 
 # Глобальные переменные для конфигурации
 API_BASE_URL = None
@@ -33,21 +37,10 @@ server = Server("ergo-api-server")
 
 
 def load_env() -> dict:
-    """Загружает переменные окружения из .env файла"""
-    env_vars = {}
-    
-    if not ENV_FILE.exists():
-        raise FileNotFoundError(f"Файл .env не найден: {ENV_FILE}")
-    
-    with open(ENV_FILE, 'r', encoding='utf-8') as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith('#') and '=' in line:
-                key, value = line.split('=', 1)
-                # Убираем кавычки, если они есть
-                value = value.strip().strip('"').strip("'")
-                env_vars[key.strip()] = value
-    
+    """Загружает .env + env/*.env (в т.ч. env/mcp.env)."""
+    env_vars = load_project_env(PROJECT_DIR)
+    if not env_vars and not (PROJECT_DIR / '.env').is_file():
+        raise FileNotFoundError(f'Файл .env не найден: {PROJECT_DIR / ".env"}')
     return env_vars
 
 
@@ -121,7 +114,9 @@ async def initialize_config():
         api_port = env_vars.get('API_PORT', '8000')
         
         if not admin_login or not admin_password:
-            raise ValueError("ADMIN_LOGIN и ADMIN_PASSWORD должны быть указаны в .env файле")
+            raise ValueError(
+                'ADMIN_LOGIN и ADMIN_PASSWORD должны быть указаны в .env или env/mcp.env'
+            )
         
         # Формируем базовый URL API
         API_BASE_URL = f"http://{api_host}:{api_port}"

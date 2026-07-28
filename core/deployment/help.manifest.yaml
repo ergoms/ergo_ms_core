@@ -19,7 +19,7 @@ sections:
       - name: install
         summary: "Алиас install-services: установить и запустить все службы"
       - name: install-services
-        summary: "Установить и запустить все службы ОС (nginx/redis — при NGINX_ENABLED/REDIS_ENABLED в .env)"
+        summary: "Установить и запустить все службы ОС (nginx/redis — при ERGO_PROXY/ERGO_BROKER в .env)"
       - name: install-api-service
         summary: "Установить и запустить только службу API"
       - name: install-client-service
@@ -45,7 +45,7 @@ sections:
         invoke: "ergoms logs <имя_службы> [строки]"
         summary: "Журнал службы"
       - name: setup-full
-        summary: "Полная первичная настройка; Redis/nginx — при REDIS_ENABLED/NGINX_ENABLED=true"
+        summary: "Полная первичная настройка; Redis/nginx — при ERGO_BROKER=redis / ERGO_PROXY=nginx"
       - name: install-cli
         summary: "Проверить локальный ergoms в PATH"
       - name: uninstall-cli
@@ -55,7 +55,7 @@ sections:
     title: "Локальная разработка"
     commands:
       - name: dev
-        summary: "Запуск API с прогревом кэшей (режим из API_DEPLOY_TYPE)"
+        summary: "Запуск API с прогревом кэшей (режим из ERGO_ENV)"
       - name: start-all
         summary: "API, клиент, Media API, worker и beat (без служб ОС)"
       - name: start-api
@@ -151,6 +151,8 @@ sections:
         summary: "Собрать клиент (npm run build)"
       - name: client-build-analyze
         summary: "Собрать клиент с отчётом rollup-plugin-visualizer (dist/stats.html)"
+      - name: client-check
+        summary: "Полная проверка клиента (lint, i18n, build, a11y); логи в logs/client-check/"
       - name: client-preview
         summary: "Предпросмотр сборки клиента"
       - name: build-all
@@ -187,10 +189,6 @@ sections:
         summary: "Сбросить все кэши ядра"
       - name: invalidate-caches-warmup
         summary: "Сбросить кэши и прогреть заново"
-      - name: env
-        summary: "Сверка .env с .env.example (корень и модули)"
-      - name: env-normalize
-        summary: "Нормализация .env по .env.example"
       - name: geoip-download
         summary: "Скачать базу GeoIP (DB-IP City Lite)"
       - name: geoip-backfill
@@ -320,7 +318,7 @@ sections:
 
   - id: redis
     title: "Redis (опционально)"
-    note: "Portable в virtual_env/packages/redis. Авто в setup-full при REDIS_ENABLED=true."
+    note: "Portable в virtual_env/packages/redis. Авто в setup-full при ERGO_BROKER=redis."
     commands:
       - name: install-redis
         summary: "Установить и запустить Redis"

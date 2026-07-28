@@ -12,7 +12,12 @@ function readBool(value, defaultValue = false) {
 }
 
 function nginxEnabled(env = process.env) {
-  return readBool(env.NGINX_ENABLED, false)
+  const explicit = env.NGINX_ENABLED
+  if (explicit !== undefined && explicit !== null && String(explicit).trim() !== '') {
+    return readBool(explicit, false)
+  }
+  const proxy = String(env.ERGO_PROXY || 'none').trim().toLowerCase()
+  return proxy === 'nginx'
 }
 
 function detectLanIp() {
@@ -83,10 +88,15 @@ function applyNginxClientEnv(env = process.env) {
   if (!nginxEnabled(env)) {
     return env
   }
+  const relativeExplicit = env.CLIENT_USE_RELATIVE_API
+  const hasRelative =
+    relativeExplicit !== undefined
+    && relativeExplicit !== null
+    && String(relativeExplicit).trim() !== ''
   return {
     ...env,
-    CLIENT_USE_RELATIVE_API: 'true',
-    CLIENT_DEPLOY_TYPE: env.CLIENT_DEPLOY_TYPE || 'production',
+    CLIENT_USE_RELATIVE_API: hasRelative ? String(relativeExplicit).trim() : 'true',
+    CLIENT_DEPLOY_TYPE: env.CLIENT_DEPLOY_TYPE || env.ERGO_ENV || 'production',
     API_HOST: env.API_HOST || '127.0.0.1',
   }
 }

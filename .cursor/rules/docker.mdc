@@ -36,7 +36,7 @@ alwaysApply: false
 
 - новый или изменённый **сервис** (API, media_api, worker, beat, jupyter, клиент)
 - правки **`commands.conf`**, **`help.manifest.yaml`**, встроенных команд в **`ergo_ms.ps1` / `ergo_ms.sh`**
-- новые **`start_*.py`**, переменные **`.env` / `.env.example`**, **`databases.yaml`**
+- новые **`start_*.py`**, переменные **`.env` / `env/docker.env`**, **`databases.yaml`**
 - **Redis**, **nginx**, **TLS**, **Celery workers** (`celery_workers.yaml`)
 - **зависимости** образа (Poetry, npm, системные пакеты в Dockerfile)
 - **документацию** запуска ([`.docs/development.md`](../../.docs/development.md), [`.docs/deployment.md`](../../.docs/deployment.md), [`.docs/cli.md`](../../.docs/cli.md))
@@ -47,7 +47,7 @@ alwaysApply: false
 |-----|------|--------|
 | Точка входа процесса | `commands.conf` → `runner.py`, рецепты `dev-*` | `command` в `docker-compose*.yml` → тот же `core/api/scripts/start_*.py` |
 | Новый Python-сервис | строка в `commands.conf` + help | сервис в compose + тома + `depends_on`; при workers — `generate_workers_compose.py` |
-| Новый порт / bind | `.env.example`, `*_runtime.py` | тот же ключ порта в compose; в контейнере `*_HOST=0.0.0.0` через [`docker_runtime.py`](../../core/deployment/docker/docker_runtime.py) |
+| Новый порт / bind | `.env.example` / `env/*.example`, `*_runtime.py` | тот же ключ порта в compose; в контейнере `*_HOST=0.0.0.0` через [`docker_runtime.py`](../../core/deployment/docker/docker_runtime.py) |
 | Redis / PostgreSQL | portable или внешняя БД, `redis_runtime` | сервисы `redis` / `postgres`, profile; `wait_for_services.py`; хост БД `localhost` → `postgres` в `.compose.databases.yaml` |
 | nginx | `ergo_ms.conf.template`, `install-nginx` | profile `nginx`, `ergo_ms.docker.conf.template`, upstream — **имена сервисов**, не `127.0.0.1` |
 | Celery workers | `celery_workers.yaml`, `start-worker` | `ergoms docker-gen-workers` → `docker-compose.workers.generated.yml` |
@@ -61,7 +61,7 @@ alwaysApply: false
 - Менять только хостовый путь (`ergoms dev`, службы, portable nginx/redis) и **не проверять** compose / `docker_runtime` / Dockerfile
 - Добавлять **отдельную** команду запуска в compose, отличную от `start_*.py`, если на хосте уже есть единый скрипт
 - Документировать новый способ запуска **только** для хоста — в пользовательской документации укажи эквивалент Docker или явно «не поддерживается в compose» с обоснованием
-- Ломать обратную совместимость `DOCKER_*` и profiles без обновления `.env.example` и [`.docs/docker.md`](../../.docs/docker.md)
+- Ломать обратную совместимость `DOCKER_*` и profiles без обновления `env/docker.env.example` и [`.docs/docker.md`](../../.docs/docker.md)
 
 ### Минимальная проверка после правки
 
@@ -69,7 +69,7 @@ alwaysApply: false
 2. Сервис отражён в нужном `docker-compose*.yml` или в автогене workers.
 3. `docker_runtime.build_compose_env_overrides()` покрывает новые переменные окружения.
 4. При новой внешней зависимости — `wait_for_services.py` или `depends_on` с healthcheck.
-5. Обновлены `.env.example`, help и docs при смене контракта.
+5. Обновлены `env/docker.env.example` / `.env.example`, help и docs при смене контракта.
 
 ## Обязательно
 
@@ -128,7 +128,7 @@ proxy_pass http://127.0.0.1:8000;
 
 ## Переменные (эталон)
 
-Секция **Docker** в [`.env.example`](../../.env.example): `DOCKER_ENABLED`, `DOCKER_MODE`, `DOCKER_DATABASE`, `DOCKER_PROFILE_*`, `DOCKER_COMPOSE_PROJECT`, `DOCKER_VOLUME_*`, `DOCKER_SERVICE_*`, `DOCKER_BUILD_CACHE`, `DOCKER_DEPS_CACHE`, `DOCKER_BUILD_POLICY`, `DOCKER_NPM_INSTALL`.
+Режим: `ERGO_RUNTIME=docker` в [`.env.example`](../../.env.example). Ключи Compose — [`env/docker.env.example`](../../env/docker.env.example): `DOCKER_MODE`, `DOCKER_DATABASE`, `DOCKER_PROFILE_*`, `DOCKER_COMPOSE_PROJECT`, `DOCKER_VOLUME_*`, `DOCKER_SERVICE_*`, `DOCKER_BUILD_CACHE`, `DOCKER_DEPS_CACHE`, `DOCKER_BUILD_POLICY`, `DOCKER_NPM_INSTALL`.
 
 Кэш зависимостей: build — слой `poetry install --no-root` + BuildKit; runtime — `poetry_venv` / `node_modules` volumes, `api install` при init, `ensure_npm_deps.sh` для client. Bind хостового `virtual_env/python/` **не** поддерживается (Windows/Linux venv несовместимы).
 

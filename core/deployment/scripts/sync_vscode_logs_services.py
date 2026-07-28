@@ -12,11 +12,11 @@ REDIS_DEV_RUNTIME_YAML = PROJECT_ROOT / '.vscode' / 'redis-dev.runtime.yaml'
 CLIENT_DEV_RUNTIME_YAML = PROJECT_ROOT / '.vscode' / 'client-dev.runtime.yaml'
 
 LOGS_HEADER = """# Сгенерировано sync_vscode_logs_services.py — не редактировать вручную.
-# Источник: .vscode/logs-services.yaml + NGINX_ENABLED / REDIS_ENABLED из .env
+# Источник: .vscode/logs-services.yaml + ERGO_PROXY / ERGO_BROKER (или legacy NGINX_ENABLED / REDIS_ENABLED)
 """
 
 OPTIONAL_SERVICES_HEADER = """# Сгенерировано sync_vscode_logs_services.py — не редактировать вручную.
-# Источник: NGINX_ENABLED / REDIS_ENABLED из .env (порядок: Redis → client/nginx)
+# Источник: ERGO_PROXY / ERGO_BROKER из .env (порядок: Redis → client/nginx)
 """
 
 REDIS_DEV_HEADER = """# Сгенерировано sync_vscode_logs_services.py — не редактировать вручную.

@@ -91,7 +91,7 @@
 
 ## Redis (optional, portable packages)
 
-Опциональный локальный Redis для общего кэша Django и channel layer. В `setup-full` ставится при `REDIS_ENABLED=true` в `.env`.
+Опциональный локальный Redis для общего кэша Django и channel layer. В `setup-full` ставится при `ERGO_BROKER=redis` в `.env`.
 
 | Что | Где |
 |-----|-----|
@@ -110,25 +110,25 @@
 
 ### Первичная настройка Redis
 
-1. В `.env`: `REDIS_ENABLED=true`, затем `ergoms install-redis` (или `setup-full` — шаг `EnsureRedisStep`)
+1. В `.env`: `ERGO_BROKER=redis`, секция `redis` в `databases.yaml`, затем `ergoms install-redis` (или `setup-full` — шаг `EnsureRedisStep`)
 2. Перезапустить API
 3. Проверка: `ergoms test-redis` → `PONG`
 
-Переменные: `REDIS_ENABLED`, `REDIS_HOST`, `REDIS_PORT`, `API_CACHE_REDIS_URL`, `CHANNEL_LAYER_REDIS_URL` — см. `.env.example`. Effective-логика — [`redis_runtime.py`](../../core/api/src/config/redis_runtime.py).
+Режим — `ERGO_BROKER`; host/port/db — `databases.yaml` → `redis`. Effective-логика — [`redis_runtime.py`](../../core/api/src/config/redis_runtime.py).
 
 ## Nginx (optional, portable packages)
 
-Обратный прокси для запуска как на сервере: один origin для клиента, API, WebSocket и media_api. В `setup-full` ставится при `NGINX_ENABLED=true` в `.env`.
+Обратный прокси для запуска как на сервере: один origin для клиента, API, WebSocket и media_api. В `setup-full` ставится при `ERGO_PROXY=nginx` в `.env`.
 
 | Что | Где |
 |-----|-----|
 | Бинарники | `virtual_env/packages/nginx/` |
 | Шаблон конфига | `core/deployment/nginx/ergo_ms.conf.template` |
 | Рендер конфига | `core/deployment/scripts/render_nginx_config.py`, `resolve_env.py` |
-| Effective-переменные | `nginx_runtime.py`, `env_resolvers.py` |
+| Effective-переменные | `nginx_runtime.py`, `env_resolvers.py`, `ergo_modes.py` |
 | Windows | `core/deployment/windows/lib/nginx.ps1`, служба `ergo_ms_nginx` (NSSM) |
 | Linux | `core/deployment/linux/lib/nginx.sh`, unit `ergo_ms_nginx.service` |
-| Эталон `.env` | `core/deployment/nginx/env.example` |
+| Эталон фрагмента | `env/nginx.env.example` |
 
 ### Команды
 
@@ -142,12 +142,12 @@
 
 ### Первичная настройка nginx
 
-1. Скопируйте нужные переменные из `core/deployment/nginx/env.example` в корневой `.env` (`NGINX_ENABLED=true`, `CLIENT_USE_RELATIVE_API=true`, …).
-2. `ergoms install-nginx` (или `setup-full` при уже `NGINX_ENABLED=true`; на Linux runner при необходимости запросит `sudo`).
+1. В корневом `.env`: `ERGO_PROXY=nginx`; детали — `env/nginx.env` из `env/nginx.env.example`.
+2. `ergoms install-nginx` (или `setup-full` при уже `ERGO_PROXY=nginx`; на Linux runner при необходимости запросит `sudo`).
 3. Проверка: `ergoms test-nginx`, `ergoms status-nginx`.
 4. После смены клиента: `ergoms client-build && ergoms reload-nginx`.
 
-Переменные: `NGINX_*`, `CLIENT_USE_RELATIVE_API` — см. `.env.example` и `env.example` nginx.
+Переменные: `ERGO_PROXY`, `NGINX_*` в `env/nginx.env`.
 
 ## TLS (Let's Encrypt, Linux)
 
@@ -167,12 +167,12 @@
 
 ### Первичная настройка TLS
 
-1. nginx установлен и `NGINX_ENABLED=true`.
-2. В `.env`: `ERGO_TLS_EMAIL`, домены (`NGINX_SERVER_NAME` или `ERGO_TLS_DOMAINS`).
+1. nginx установлен и `ERGO_PROXY=nginx`.
+2. В `env/nginx.env`: `ERGO_TLS_EMAIL`, домены (`NGINX_SERVER_NAME` или `ERGO_TLS_DOMAINS`).
 3. `sudo ergoms install-tls`.
-4. Сверьте `ergoms status-tls` с путями `ERGO_SSL_CERT` / `ERGO_SSL_KEY` в `.env`.
+4. Сверьте `ergoms status-tls` с путями `ERGO_SSL_CERT` / `ERGO_SSL_KEY` в `env/nginx.env`.
 
-Переменные: `ERGO_TLS_*`, `ERGO_SSL_CERT`, `ERGO_SSL_KEY`, `CORS_ALLOWED_ORIGINS` — см. `core/deployment/nginx/env.example`.
+TLS: `ERGO_TLS_*`, `ERGO_SSL_CERT`, `ERGO_SSL_KEY` — `env/nginx.env`. CORS: `CORS_ALLOWED_ORIGINS` — корневой `.env`.
 
 ## Docker Compose
 

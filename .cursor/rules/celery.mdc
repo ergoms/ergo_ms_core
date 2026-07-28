@@ -13,8 +13,8 @@ alwaysApply: false
 Worker и Beat должны смотреть на **один** брокер. Источник настроек:
 
 - **`databases.yaml`** — секции `celery`, `celery_worker`, `celery_beat` (SQLite/PostgreSQL как брокер)
-- **`CELERY_BROKER_BACKEND`** в `.env` — `auto` \| `redis` \| `database` \| `local`
-- При **`REDIS_ENABLED=true`** без явного backend effective — `redis` ([`redis_runtime.py`](../../core/api/src/config/redis_runtime.py))
+- **[`env/celery.env.example`](../../env/celery.env.example)** — `CELERY_BROKER_BACKEND` (`auto` \| `redis` \| `database` \| `local`) и URL
+- При **`ERGO_BROKER=redis`** / **`REDIS_ENABLED=true`** без явного backend effective — `redis` ([`redis_runtime.py`](../../core/api/src/config/redis_runtime.py))
 
 Подробнее — [`deployment-infra.mdc`](deployment-infra.mdc).
 

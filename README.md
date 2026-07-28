@@ -46,7 +46,7 @@ ERGO MS — модульный фреймворк для корпоративн�
 |----------|-----------|----------------------------------|
 | **Системный** PostgreSQL 14+ | Если служба `postgresql*` уже есть, `setup-full` **пропускает** portable (`[SKIP]`), пока не включён force. Используйте уже установленный сервер. | `host` / `port` вашей установки (часто `127.0.0.1` и `5432`), имя БД, пользователь и пароль. База `ergo_ms` должна существовать или быть создана вами. |
 | **Portable** (авто) | Нет системной службы `postgresql*` → `setup-full` ставит portable, инициализирует кластер, создаёт БД `ergo_ms`, регистрирует службу на **5433**. | В примере уже `port: 5433`. После установки при необходимости поправьте пароль и снова выполните `ergoms migrate-all`. |
-| **Force portable** | В `.env`: `POSTGRES_FORCE_INSTALL=true`, либо один прогон `ergoms setup-full --with-postgres`. Portable ставится на **5433** даже при наличии системного Postgres. | Обязательно укажите `port: 5433` (или другой свободный порт portable), иначе API останется на системном `5432`. |
+| **Force portable** | В `.env`: `ERGO_DB=portable_postgres` (или legacy `POSTGRES_FORCE_INSTALL=true`), либо один прогон `ergoms setup-full --with-postgres`. Portable ставится на **5433** даже при наличии системного Postgres. | Обязательно укажите `port: 5433` (или другой свободный порт portable), иначе API останется на системном `5432`. |
 
 Отдельно, без полной настройки:
 
@@ -132,6 +132,6 @@ bash core/deployment/linux/ergo_ms.sh setup-full
 ergoms install-redis
 ```
 
-Затем вручную в `.env`: `REDIS_ENABLED=true`, перезапустите API. Проверка: `ergoms test-redis` → `PONG`. Подробнее — [configuration.md](.docs/configuration.md#redis-и-несколько-процессов) и [`core/deployment/logic.md`](core/deployment/logic.md#redis-optional-portable-packages).
+Затем вручную в `.env`: `ERGO_BROKER=redis` (параметры — секция `redis` в `databases.yaml`), перезапустите API. Проверка: `ergoms test-redis` → `PONG`. Подробнее — [configuration.md](.docs/configuration.md#redis-и-несколько-процессов) и [`core/deployment/logic.md`](core/deployment/logic.md#redis-optional-portable-packages).
 
-Запуск как на сервере (обратный прокси, один origin для клиента и API): эталон переменных — [`core/deployment/nginx/env.example`](core/deployment/nginx/env.example), команды — `ergoms install-nginx`, см. [cli.md](.docs/cli.md#nginx-опционально).
+Запуск как на сервере (обратный прокси, один origin для клиента и API): `ERGO_PROXY=nginx` и [`env/nginx.env.example`](env/nginx.env.example), команды — `ergoms install-nginx`, см. [cli.md](.docs/cli.md#nginx-опционально).

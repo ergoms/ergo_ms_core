@@ -39,7 +39,7 @@ ERGO MS — **монорепозиторий-обёртка** (`ergo_ms`) с **g
 
 | Что игнорировать | Примеры в файле |
 |------------------|-----------------|
-| Конфиг среды разработки | `databases.yaml`, `celery_workers.yaml`, `.env`, `.env.*`, `maintenance.flag` |
+| Конфиг среды разработки | `databases.yaml`, `celery_workers.yaml`, `.env`, `.env.*`, `/env/*` (кроме `*.example`), `maintenance.flag` |
 | Общее Python-окружение проекта | `virtual_env/*` (с `.gitkeep`), `__pycache__/` |
 | Каталоги runtime проекта | `/logs/*`, `/media/*`, `/notebooks/*` |
 | npm workspace | `/virtual_env/npm/node_modules` (legacy: `/node_modules`) |

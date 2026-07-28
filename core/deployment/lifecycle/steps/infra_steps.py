@@ -83,7 +83,7 @@ class InfraOperationStep(DeploymentStep):
 
 
 class EnsureRedisStep(DeploymentStep):
-    """При REDIS_ENABLED=true в .env — установить portable Redis (setup-full)."""
+    """При ERGO_BROKER=redis (или REDIS_ENABLED) — установить portable Redis (setup-full)."""
 
     @property
     def name(self) -> str:
@@ -96,10 +96,13 @@ class EnsureRedisStep(DeploymentStep):
         from deployment_env import is_redis_enabled  # noqa: WPS433
 
         if not is_redis_enabled():
-            print(format_console('skip', 'REDIS_ENABLED=false — Redis не устанавливается'))
+            print(format_console(
+                'skip',
+                'ERGO_BROKER≠redis (и REDIS_ENABLED не true) — Redis не устанавливается',
+            ))
             return StepResult()
 
-        print(format_console('info', 'Установка / проверка Redis (REDIS_ENABLED=true)…'))
+        print(format_console('info', 'Установка / проверка Redis (ERGO_BROKER=redis)…'))
         ctx.options.setdefault('needs_sudo', True)
         code = invoke_dispatch(ctx, 'redis', 'install')
         if code != 0:
@@ -109,7 +112,7 @@ class EnsureRedisStep(DeploymentStep):
 
 
 class EnsureNginxStep(DeploymentStep):
-    """При NGINX_ENABLED=true в .env — установить portable nginx (setup-full)."""
+    """При ERGO_PROXY=nginx (или NGINX_ENABLED) — установить portable nginx (setup-full)."""
 
     @property
     def name(self) -> str:
@@ -122,10 +125,13 @@ class EnsureNginxStep(DeploymentStep):
         from deployment_env import is_nginx_enabled  # noqa: WPS433
 
         if not is_nginx_enabled():
-            print(format_console('skip', 'NGINX_ENABLED=false — nginx не устанавливается'))
+            print(format_console(
+                'skip',
+                'ERGO_PROXY≠nginx (и NGINX_ENABLED не true) — nginx не устанавливается',
+            ))
             return StepResult()
 
-        print(format_console('info', 'Установка / проверка nginx (NGINX_ENABLED=true)…'))
+        print(format_console('info', 'Установка / проверка nginx (ERGO_PROXY=nginx)…'))
         ctx.options.setdefault('needs_sudo', True)
         code = invoke_dispatch(ctx, 'nginx', 'install')
         if code != 0:
@@ -148,10 +154,13 @@ class EnsureRedisOsServiceStep(DeploymentStep):
         from deployment_env import is_redis_enabled  # noqa: WPS433
 
         if not is_redis_enabled():
-            print(format_console('skip', 'REDIS_ENABLED=false — служба Redis не создаётся'))
+            print(format_console(
+                'skip',
+                'ERGO_BROKER≠redis — служба Redis не создаётся',
+            ))
             return StepResult()
 
-        print(format_console('info', 'Установка службы Redis (REDIS_ENABLED=true)…'))
+        print(format_console('info', 'Установка службы Redis (ERGO_BROKER=redis)…'))
         ctx.options.setdefault('needs_sudo', True)
         code = invoke_dispatch(ctx, 'redis', 'install-service')
         if code != 0:
@@ -174,10 +183,13 @@ class EnsureNginxOsServiceStep(DeploymentStep):
         from deployment_env import is_nginx_enabled  # noqa: WPS433
 
         if not is_nginx_enabled():
-            print(format_console('skip', 'NGINX_ENABLED=false — служба nginx не создаётся'))
+            print(format_console(
+                'skip',
+                'ERGO_PROXY≠nginx — служба nginx не создаётся',
+            ))
             return StepResult()
 
-        print(format_console('info', 'Установка службы nginx (NGINX_ENABLED=true)…'))
+        print(format_console('info', 'Установка службы nginx (ERGO_PROXY=nginx)…'))
         ctx.options.setdefault('needs_sudo', True)
         code = invoke_dispatch(ctx, 'nginx', 'install-service')
         if code != 0:

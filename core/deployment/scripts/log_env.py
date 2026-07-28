@@ -1,11 +1,20 @@
-"""Чтение переменных логирования из .env (без Django)."""
+"""Чтение переменных логирования из .env + env/*.env (без Django)."""
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
 from deployment_env import PROJECT_ROOT, read_env
+
+_DEPLOYMENT_DIR = PROJECT_ROOT / 'core' / 'deployment'
+if str(_DEPLOYMENT_DIR) not in sys.path:
+    sys.path.insert(0, str(_DEPLOYMENT_DIR))
+
+from env_file_loader import load_project_env  # noqa: E402
+
+_MERGED_BY_ROOT: dict[Path, dict[str, str]] = {}
 
 LOG_FILE_DEFAULTS: dict[str, str] = {
     'API': 'api.log',
@@ -20,14 +29,18 @@ LOG_FILE_DEFAULTS: dict[str, str] = {
     'REDIS': 'redis.log',
     'CLIENT_DEV': 'client-dev.log',
     'CLIENT_BROWSER': 'client-browser.log',
+    'CLIENT_MONITOR': 'client-monitor.log',
     'AUDIT': 'audit.log',
 }
+
 
 LOG_LEVEL_FILE_DEFAULTS: dict[str, str] = {
     'CELERY_BROKER': 'INFO',
     'CLIENT_BROWSER': 'WARNING',
+    'CLIENT_MONITOR': 'INFO',
     'AUDIT': 'INFO',
 }
+
 
 NGINX_ERROR_LEVELS = frozenset({
     'debug', 'info', 'notice', 'warn', 'warning', 'error', 'crit', 'critical', 'alert', 'emerg',
@@ -36,35 +49,35 @@ REDIS_LOG_LEVELS = frozenset({'debug', 'verbose', 'notice', 'warning', 'warn'})
 VITE_LOG_LEVELS = frozenset({'info', 'warn', 'warning', 'error', 'silent'})
 
 
-def _read_env_file(name: str, env_file: Path, default: str = '') -> str:
-    value = read_env(name, '')
-    if value:
-        return value
-    if not env_file.is_file():
-        return default
-    for line in env_file.read_text(encoding='utf-8').splitlines():
-        line = line.strip()
-        if not line or line.startswith('#') or '=' not in line:
-            continue
-        key, _, raw = line.partition('=')
-        if key.strip() == name:
-            return raw.strip().strip('"').strip("'")
-    return default
+def _merged_env(project_root: Path | None = None) -> dict[str, str]:
+    root = (project_root or PROJECT_ROOT).resolve()
+    cached = _MERGED_BY_ROOT.get(root)
+    if cached is None:
+        cached = load_project_env(root)
+        _MERGED_BY_ROOT[root] = cached
+    return cached
 
 
-def _env_file(project_root: Path | None) -> Path:
-    return (project_root or PROJECT_ROOT) / '.env'
+def _read_env_value(name: str, default: str = '', project_root: Path | None = None) -> str:
+    """os.environ → merge (.env + env/*.env, в т.ч. logging.env)."""
+    root = (project_root or PROJECT_ROOT).resolve()
+    if root == PROJECT_ROOT.resolve():
+        return read_env(name, default)
+    os_val = os.environ.get(name)
+    if os_val is not None and str(os_val).strip() != '':
+        return str(os_val).strip()
+    return _merged_env(root).get(name, default)
 
 
 def read_bool(name: str, default: bool = True, project_root: Path | None = None) -> bool:
-    raw = _read_env_file(name, _env_file(project_root), '')
+    raw = _read_env_value(name, '', project_root)
     if raw == '':
         return default
     return raw.lower() in ('1', 'true', 'yes', 'on')
 
 
 def read_int(name: str, default: int, project_root: Path | None = None) -> int:
-    raw = _read_env_file(name, _env_file(project_root), '')
+    raw = _read_env_value(name, '', project_root)
     if raw == '':
         return default
     try:
@@ -75,7 +88,7 @@ def read_int(name: str, default: int, project_root: Path | None = None) -> int:
 
 def resolve_logs_dir(project_root: Path | None = None) -> Path:
     root = project_root or PROJECT_ROOT
-    custom = _read_env_file('ERGO_LOGS_DIR', _env_file(root), '')
+    custom = _read_env_value('ERGO_LOGS_DIR', '', root)
     if custom:
         path = Path(custom)
         if not path.is_absolute():
@@ -85,7 +98,7 @@ def resolve_logs_dir(project_root: Path | None = None) -> Path:
 
 
 def log_basename(key: str, project_root: Path | None = None) -> str:
-    custom = _read_env_file(f'ERGO_LOG_FILE_{key}', _env_file(project_root), '')
+    custom = _read_env_value(f'ERGO_LOG_FILE_{key}', '', project_root)
     if custom:
         name = Path(custom).name
         return name or LOG_FILE_DEFAULTS[key]
@@ -110,15 +123,14 @@ def file_level_for_key(
     project_root: Path | None = None,
     service_prefix: str | None = None,
 ) -> str:
-    env_file = _env_file(project_root)
-    specific = _read_env_file(f'ERGO_LOG_LEVEL_{key}', env_file, '')
+    specific = _read_env_value(f'ERGO_LOG_LEVEL_{key}', '', project_root)
     if specific:
         return specific.upper()
     if service_prefix:
-        level = _read_env_file(f'{service_prefix}_LOG_FILE_LEVEL', env_file, '')
+        level = _read_env_value(f'{service_prefix}_LOG_FILE_LEVEL', '', project_root)
         if level:
             return level.upper()
-    global_level = _read_env_file('ERGO_LOG_FILE_LEVEL', env_file, '')
+    global_level = _read_env_value('ERGO_LOG_FILE_LEVEL', '', project_root)
     if global_level:
         return global_level.upper()
     return LOG_LEVEL_FILE_DEFAULTS.get(key, 'INFO')
@@ -126,22 +138,21 @@ def file_level_for_key(
 
 def service_levels(service: str, project_root: Path | None = None) -> tuple[str, str, bool]:
     """Уровни только из ERGO_LOG_* / <SERVICE>_LOG_* — без ветвления по *_DEPLOY_TYPE."""
-    env_file = _env_file(project_root)
     prefix = service.upper().replace('-', '_')
     default_file = 'INFO'
 
-    file_level = _read_env_file(f'{prefix}_LOG_FILE_LEVEL', env_file, '')
+    file_level = _read_env_value(f'{prefix}_LOG_FILE_LEVEL', '', project_root)
     if not file_level and prefix == 'CELERY_BEAT':
-        file_level = _read_env_file('CELERY_LOG_FILE_LEVEL', env_file, '')
+        file_level = _read_env_value('CELERY_LOG_FILE_LEVEL', '', project_root)
     if not file_level:
-        file_level = _read_env_file('ERGO_LOG_FILE_LEVEL', env_file, default_file)
+        file_level = _read_env_value('ERGO_LOG_FILE_LEVEL', default_file, project_root)
 
-    console_level = _read_env_file(f'{prefix}_LOG_CONSOLE_LEVEL', env_file, '')
+    console_level = _read_env_value(f'{prefix}_LOG_CONSOLE_LEVEL', '', project_root)
     if not console_level:
-        console_level = _read_env_file('ERGO_LOG_CONSOLE_LEVEL', env_file, 'INFO')
+        console_level = _read_env_value('ERGO_LOG_CONSOLE_LEVEL', 'INFO', project_root)
 
     console_enabled = read_bool('ERGO_LOG_CONSOLE', True, project_root)
-    service_console = _read_env_file(f'{prefix}_LOG_CONSOLE', env_file, '')
+    service_console = _read_env_value(f'{prefix}_LOG_CONSOLE', '', project_root)
     if service_console:
         lowered = service_console.lower()
         if lowered in ('0', 'false', 'no', 'off'):
@@ -162,7 +173,7 @@ def resolve_logging_service(argv: list[str] | None = None) -> str:
 
 
 def nginx_error_log_level(project_root: Path | None = None) -> str:
-    raw = (_read_env_file('NGINX_ERROR_LOG_LEVEL', _env_file(project_root), 'warn') or 'warn').lower()
+    raw = (_read_env_value('NGINX_ERROR_LOG_LEVEL', 'warn', project_root) or 'warn').lower()
     if raw == 'warning':
         raw = 'warn'
     if raw == 'critical':
@@ -175,7 +186,7 @@ def nginx_access_log_enabled(project_root: Path | None = None) -> bool:
 
 
 def redis_log_level(project_root: Path | None = None) -> str:
-    raw = (_read_env_file('REDIS_LOG_LEVEL', _env_file(project_root), 'notice') or 'notice').lower()
+    raw = (_read_env_value('REDIS_LOG_LEVEL', 'notice', project_root) or 'notice').lower()
     if raw == 'warn':
         raw = 'warning'
     return raw if raw in REDIS_LOG_LEVELS else 'notice'
@@ -187,8 +198,8 @@ def client_dev_log_enabled(project_root: Path | None = None) -> bool:
 
 def client_dev_log_level(project_root: Path | None = None) -> str:
     raw = (
-        _read_env_file('CLIENT_DEV_LOG_LEVEL', _env_file(project_root), '')
-        or _read_env_file('ERGO_LOG_CONSOLE_LEVEL', _env_file(project_root), 'info')
+        _read_env_value('CLIENT_DEV_LOG_LEVEL', '', project_root)
+        or _read_env_value('ERGO_LOG_CONSOLE_LEVEL', 'info', project_root)
     ).lower()
     if raw == 'warning':
         raw = 'warn'
@@ -201,7 +212,7 @@ def _read_int_chain(
     project_root: Path | None = None,
 ) -> int:
     for name in names:
-        raw = _read_env_file(name, _env_file(project_root), '')
+        raw = _read_env_value(name, '', project_root)
         if not raw:
             continue
         try:

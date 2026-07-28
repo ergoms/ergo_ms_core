@@ -10,28 +10,18 @@ import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-DEPLOYMENT_NGINX = PROJECT_ROOT / 'core' / 'deployment' / 'nginx'
+DEPLOYMENT_DIR = PROJECT_ROOT / 'core' / 'deployment'
+DEPLOYMENT_NGINX = DEPLOYMENT_DIR / 'nginx'
+sys.path.insert(0, str(DEPLOYMENT_DIR))
 sys.path.insert(0, str(DEPLOYMENT_NGINX))
 
+from env_file_loader import load_project_env  # noqa: E402
 from host_policy import compute_template_vars  # noqa: E402
 from jupyter_nginx import (  # noqa: E402
     render_jupyter_location_block,
     render_jupyter_upstream_block,
 )
 from tls_config import webroot_path  # noqa: E402
-
-
-def _read_env(path: Path) -> dict[str, str]:
-    if not path.is_file():
-        return {}
-    result: dict[str, str] = {}
-    for line in path.read_text(encoding='utf-8').splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith('#') or '=' not in stripped:
-            continue
-        key, _, raw = stripped.partition('=')
-        result[key.strip()] = raw.strip().strip('"').strip("'")
-    return result
 
 
 def _truthy(value: str) -> bool:
@@ -55,7 +45,7 @@ def render_template(
     ssl_cert: str = '',
     ssl_key: str = '',
 ) -> str:
-    values = _read_env(root / '.env')
+    values = load_project_env(root)
     snippets_dir = root / 'core' / 'deployment' / 'nginx' / 'snippets'
     root_forward = str(root).replace('\\', '/')
     snippets_forward = str(snippets_dir).replace('\\', '/')

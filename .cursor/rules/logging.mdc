@@ -31,6 +31,7 @@ alwaysApply: false
 | `redis.log` | redis |
 | `client-dev.log` | Vite (служба) |
 | `client-browser.log` | `client.browser` (ошибки из браузера) |
+| `client-check/<timestamp>/` | артефакты `ergoms client-check` (01-lint…04-a11y, summary, full); не RotatingFileHandler |
 | `audit.log` | `core.audit` — журнал действий (дублирование записей из БД) |
 | `<service>.stderr.log` | crash/traceback служб (не дублирует app-логи) |
 
@@ -141,7 +142,7 @@ ergoms logs ergo-celery-worker
 
 ## Переменные окружения
 
-Единый источник: [`log_env.py`](../../core/deployment/scripts/log_env.py), см. [`.env.example`](../../.env.example).
+Единый источник: [`log_env.py`](../../core/deployment/scripts/log_env.py), шаблон — [`env/logging.env.example`](../../env/logging.env.example) (включая клиентский лог/мониторинг и `AUDIT_*`).
 
 | Группа | Переменные |
 |--------|------------|

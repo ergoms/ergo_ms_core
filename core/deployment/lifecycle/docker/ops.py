@@ -19,7 +19,7 @@ if str(DOCKER_DIR) not in sys.path:
     sys.path.insert(0, str(DOCKER_DIR))
 
 from console_tags import format_console  # noqa: E402
-from env_resolvers import read_env_file  # noqa: E402
+from env_resolvers import load_merged_env  # noqa: E402
 
 from docker_runtime import (  # noqa: E402
     BUILD_CACHE_OUTPUT,
@@ -170,19 +170,25 @@ def render_nginx_docker_config(raw_env: dict[str, str]) -> Path:
 
 
 def warn_conflicts(raw_env: dict[str, str]) -> None:
-    if not _truthy(raw_env, 'DOCKER_ENABLED'):
+    from ergo_modes import effective_docker_enabled, effective_nginx_enabled, effective_redis_enabled
+
+    if not effective_docker_enabled(raw_env) and not _truthy(raw_env, 'DOCKER_ENABLED'):
         return
-    if _truthy(raw_env, 'REDIS_ENABLED') and raw_env.get('REDIS_HOST', '127.0.0.1') not in (
+    if effective_redis_enabled(raw_env) and raw_env.get('REDIS_HOST', '127.0.0.1') not in (
         'redis',
         '127.0.0.1',
         'localhost',
+        '',
     ):
-        print(format_console('warning', 'REDIS_HOST указывает на хост — в Docker будет переопределён на сервис redis'))
-    if _truthy(raw_env, 'NGINX_ENABLED') and not _truthy(raw_env, 'DOCKER_PROFILE_NGINX'):
+        print(format_console(
+            'warning',
+            'REDIS_HOST / redis.host указывает на внешний хост — в Docker host remapped на сервис redis',
+        ))
+    if effective_nginx_enabled(raw_env) and not _truthy(raw_env, 'DOCKER_PROFILE_NGINX'):
         print(
             format_console(
                 'warning',
-                'NGINX_ENABLED=true, но DOCKER_PROFILE_NGINX=false — nginx на хосте и в Docker могут конфликтовать',
+                'ERGO_PROXY=nginx, но DOCKER_PROFILE_NGINX=false — nginx на хосте и в Docker могут конфликтовать',
             )
         )
 
@@ -209,7 +215,7 @@ def build_compose_cmd(
         sys.exit(1)
 
     root = (project_root or PROJECT_ROOT).resolve()
-    raw = read_env_file(root / '.env')
+    raw = load_merged_env(root)
     if mode:
         raw = dict(raw)
         raw['DOCKER_MODE'] = mode

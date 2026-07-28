@@ -80,28 +80,70 @@ function getValueByPath(obj, pathStr) {
 }
 
 /**
- * Читает булев флаг из корневого .env (NGINX_ENABLED / REDIS_ENABLED).
+ * Читает KEY=VALUE из корневого .env и env/*.env (nginx.env, docker.env).
+ */
+function readMergedEnv(workspaceRoot) {
+    const merged = {};
+    const files = [path.join(workspaceRoot, '.env')];
+    const envDir = path.join(workspaceRoot, 'env');
+    if (fs.existsSync(envDir)) {
+        const priority = ['nginx.env', 'docker.env'];
+        const names = fs.readdirSync(envDir).filter(
+            (name) => name.endsWith('.env') && !name.endsWith('.example'),
+        );
+        for (const name of priority) {
+            if (names.includes(name)) {
+                files.push(path.join(envDir, name));
+            }
+        }
+        for (const name of names.sort()) {
+            if (!priority.includes(name)) {
+                files.push(path.join(envDir, name));
+            }
+        }
+    }
+    for (const envPath of files) {
+        if (!fs.existsSync(envPath)) {
+            continue;
+        }
+        const lines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
+        for (const raw of lines) {
+            const line = raw.trim();
+            if (!line || line.startsWith('#') || !line.includes('=')) {
+                continue;
+            }
+            const eq = line.indexOf('=');
+            const key = line.substring(0, eq).trim();
+            const value = line.substring(eq + 1).trim().replace(/^["']|["']$/g, '');
+            merged[key] = value;
+        }
+    }
+    return merged;
+}
+
+function envTruthy(value) {
+    const normalized = String(value || '').trim().toLowerCase();
+    return normalized === '1' || normalized === 'true' || normalized === 'yes';
+}
+
+/**
+ * Effective nginx/redis: явный NGINX_ENABLED/REDIS_ENABLED или ERGO_PROXY/ERGO_BROKER.
  */
 function readEnvFlag(workspaceRoot, name) {
-    const envPath = path.join(workspaceRoot, '.env');
-    if (!fs.existsSync(envPath)) {
-        return false;
-    }
-    const lines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
-    for (const raw of lines) {
-        const line = raw.trim();
-        if (!line || line.startsWith('#') || !line.includes('=')) {
-            continue;
+    const env = readMergedEnv(workspaceRoot);
+    if (name === 'NGINX_ENABLED') {
+        if (env.NGINX_ENABLED !== undefined && String(env.NGINX_ENABLED).trim() !== '') {
+            return envTruthy(env.NGINX_ENABLED);
         }
-        const eq = line.indexOf('=');
-        const key = line.substring(0, eq).trim();
-        if (key !== name) {
-            continue;
-        }
-        const value = line.substring(eq + 1).trim().replace(/^["']|["']$/g, '').toLowerCase();
-        return value === '1' || value === 'true' || value === 'yes';
+        return String(env.ERGO_PROXY || 'none').trim().toLowerCase() === 'nginx';
     }
-    return false;
+    if (name === 'REDIS_ENABLED') {
+        if (env.REDIS_ENABLED !== undefined && String(env.REDIS_ENABLED).trim() !== '') {
+            return envTruthy(env.REDIS_ENABLED);
+        }
+        return String(env.ERGO_BROKER || 'local').trim().toLowerCase() === 'redis';
+    }
+    return envTruthy(env[name]);
 }
 
 /**

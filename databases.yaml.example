@@ -1,3 +1,6 @@
+# Каталог подключений. Режим default задаётся ERGO_DB в .env
+# (sqlite | postgres | portable_postgres | mysql | mssql) — loader выставляет engine.
+# Host/user/password/port/name для SQL — здесь. Redis — секция redis (не в .env).
 databases:
   default:
     engine: "postgresql"
@@ -5,8 +8,8 @@ databases:
     user: "postgres"
     password: "admin"
     host: "127.0.0.1"
-    # 5433 — portable (ergoms install-postgres / setup-full);
-    # 5432 — системный Postgres, если используете его вместо portable
+    # 5433 — portable (ERGO_DB=portable_postgres / ergoms install-postgres);
+    # 5432 — системный Postgres; MySQL обычно 3306; MSSQL — 1433
     port: 5433
 
   celery:
@@ -16,7 +19,7 @@ databases:
     password: "celery_password"
     host: "127.0.0.1"
     port: 5433
-  
+
   celery_worker:
     engine: "postgresql"
     name: "ergo_ms_celery_worker"
@@ -24,7 +27,7 @@ databases:
     password: "worker_password"
     host: "127.0.0.1"
     port: 5433
-  
+
   celery_beat:
     engine: "postgresql"
     name: "ergo_ms_celery_beat"
@@ -40,3 +43,14 @@ databases:
     password: "admin"
     host: "127.0.0.1"
     port: 3306
+
+  # При ERGO_BROKER=redis — кэш, channel layer и Celery.
+  # В Docker host обычно remapped на имя сервиса (DOCKER_SERVICE_REDIS).
+  redis:
+    engine: "redis"
+    host: "127.0.0.1"
+    port: 6379
+    db_channel: 0
+    db_cache: 1
+    db_celery_broker: 2
+    db_celery_result: 3

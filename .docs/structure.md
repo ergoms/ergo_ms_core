@@ -16,8 +16,9 @@
 
 В корне проекта:
 
-- **`.env`** — переменные окружения (создаётся из `.env.example`, в том числе при `setup-full`).
-- **`databases.yaml`** — подключения к PostgreSQL и, при необходимости, к базам Celery (из `databases.yaml.example`).
+- **`.env`** — общие настройки и режимы `ERGO_*` (из `.env.example`, в том числе при `setup-full`).
+- **`env/`** — фрагменты `nginx`, `docker`, `jupyter`, `smtp`, `logging`, `mcp`, `media`, `realtime`, `cache`, `celery` (из `env/*.example`).
+- **`databases.yaml`** — каталог подключений SQL и Redis (из `databases.yaml.example`).
 - **`celery_workers.yaml`** — какие очереди обслуживает каждый исполнитель Celery.
 
 У модулей могут быть свои **`.env`** и **`ergoms.conf`** — локальные переопределения и команды, которые ergoms регистрирует с префиксом имени модуля.

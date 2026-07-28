@@ -29,13 +29,6 @@ class ScaffoldResult:
 
 
 @dataclass(frozen=True)
-class EnvFilePair:
-    label: str
-    example_path: Path
-    env_path: Path
-
-
-@dataclass(frozen=True)
 class ConfigTemplate:
     source_rel: str
     target_rel: str
@@ -77,14 +70,11 @@ class ConfigTemplateRegistry:
 
     @staticmethod
     def project_templates() -> list[ConfigTemplate]:
-        from .strategies import HeadLinesCopyStrategy
-
         return [
             ConfigTemplate(
                 'databases.yaml.example',
                 'databases.yaml',
-                HeadLinesCopyStrategy(8),
-                created_detail='first 8 lines',
+                FullCopyStrategy(),
             ),
             ConfigTemplate(
                 'celery_workers.yaml.example',
@@ -94,6 +84,56 @@ class ConfigTemplateRegistry:
             ConfigTemplate(
                 '.env.example',
                 '.env',
+                FullCopyStrategy(),
+            ),
+            ConfigTemplate(
+                'env/nginx.env.example',
+                'env/nginx.env',
+                FullCopyStrategy(),
+            ),
+            ConfigTemplate(
+                'env/docker.env.example',
+                'env/docker.env',
+                FullCopyStrategy(),
+            ),
+            ConfigTemplate(
+                'env/jupyter.env.example',
+                'env/jupyter.env',
+                FullCopyStrategy(),
+            ),
+            ConfigTemplate(
+                'env/smtp.env.example',
+                'env/smtp.env',
+                FullCopyStrategy(),
+            ),
+            ConfigTemplate(
+                'env/logging.env.example',
+                'env/logging.env',
+                FullCopyStrategy(),
+            ),
+            ConfigTemplate(
+                'env/mcp.env.example',
+                'env/mcp.env',
+                FullCopyStrategy(),
+            ),
+            ConfigTemplate(
+                'env/media.env.example',
+                'env/media.env',
+                FullCopyStrategy(),
+            ),
+            ConfigTemplate(
+                'env/realtime.env.example',
+                'env/realtime.env',
+                FullCopyStrategy(),
+            ),
+            ConfigTemplate(
+                'env/cache.env.example',
+                'env/cache.env',
+                FullCopyStrategy(),
+            ),
+            ConfigTemplate(
+                'env/celery.env.example',
+                'env/celery.env',
                 FullCopyStrategy(),
             ),
         ]
@@ -132,24 +172,3 @@ class ConfigTemplateRegistry:
     @classmethod
     def all_templates(cls, project_root: Path) -> list[ConfigTemplate]:
         return cls.project_templates() + cls.module_env_templates(project_root)
-
-    @classmethod
-    def env_check_pairs(cls, project_root: Path) -> list[EnvFilePair]:
-        pairs: list[EnvFilePair] = []
-        for template in cls.all_templates(project_root):
-            if not template.source_rel.endswith('.env.example'):
-                continue
-            example_path = project_root / template.source_rel
-            env_path = project_root / template.target_rel
-            if template.target_rel == '.env':
-                label = '.env (корень)'
-            else:
-                label = template.target_rel.replace('\\', '/')
-            pairs.append(
-                EnvFilePair(
-                    label=label,
-                    example_path=example_path,
-                    env_path=env_path,
-                ),
-            )
-        return pairs

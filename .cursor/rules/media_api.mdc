@@ -51,10 +51,12 @@ with get_scratch_store().session('job') as workdir:
 
 ## Режимы
 
+В корневом `.env`: `ERGO_MEDIA=local|remote` (явный `MEDIA_ACCESS_MODE` перекрывает).
+
 - `local` — API читает/пишет файлы на том же сервере
 - `remote` — через internal API media_api, нужен `MEDIA_API_INTERNAL_KEY`
 
-Переменные: `MEDIA_API_PUBLIC_BASE_URL`, `MEDIA_API_INTERNAL_URL`, `MEDIA_API_BIND_PORT` — см. `core/api/src/config/settings/base.py`.
+Детали (`MEDIA_API_*`, лимиты): [`env/media.env.example`](../../env/media.env.example).
 
 ## Запрещено
 

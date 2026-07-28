@@ -15,23 +15,21 @@ if str(_NGINX_DIR) not in sys.path:
     sys.path.insert(0, str(_NGINX_DIR))
 
 from detect_lan_ip import detect_lan_ip  # noqa: E402
+from env_file_loader import load_project_env, parse_env_file  # noqa: E402
+from ergo_modes import effective_nginx_enabled  # noqa: E402
 from host_policy import is_valid_hostname  # noqa: E402
 from tls_config import cert_exists, cert_paths, primary_domain  # noqa: E402
 from jupyter_nginx import resolve_jupyter_vars  # noqa: E402
 
 
 def read_env_file(path: Path) -> dict[str, str]:
-    if not path.is_file():
-        return {}
+    """Читает один .env-файл. Для полного merge корня используйте load_merged_env."""
+    return parse_env_file(path)
 
-    result: dict[str, str] = {}
-    for line in path.read_text(encoding='utf-8').splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith('#') or '=' not in stripped:
-            continue
-        key, _, raw = stripped.partition('=')
-        result[key.strip()] = raw.strip().strip('"').strip("'")
-    return result
+
+def load_merged_env(root: Path) -> dict[str, str]:
+    """Корневой .env + env/*.env."""
+    return load_project_env(root)
 
 
 def _truthy(value: str) -> bool:
@@ -46,7 +44,7 @@ def _use_https(values: dict[str, str]) -> bool:
 
 def resolve_nginx_vars(values: dict[str, str]) -> dict[str, str]:
     """Effective nginx/TLS-переменные для install-nginx и render_nginx_config."""
-    enabled = _truthy(values.get('NGINX_ENABLED', ''))
+    enabled = effective_nginx_enabled(values)
     use_https = _use_https(values)
 
     public_host = values.get('NGINX_PUBLIC_HOST', '').strip()

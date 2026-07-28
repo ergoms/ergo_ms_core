@@ -52,10 +52,11 @@ ergoms db-migrate
 ergoms migrate-all
 ergoms collectstatic
 ergoms client-build
+ergoms client-check
 ergoms build-all
 ```
 
-Первые три команды создают и применяют миграции; последние собирают клиент и статику Django.
+Первые три команды создают и применяют миграции; `client-build` собирает клиент, `client-check` — полный прогон lint/i18n/build/a11y с логами в `logs/client-check/`; `build-all` собирает клиент и статику Django.
 
 ## Зависимости и первичная настройка {#зависимости-и-первичная-настройка}
 
@@ -158,17 +159,6 @@ ergoms geoip-backfill --dry-run
 
 Перед первым использованием включите **`GEOIP_ENABLED=true`** в `.env` и скачайте MMDB. Подробнее — [`core/deployment/logic.md`](../core/deployment/logic.md#geoip-db-ip-city-lite) и [configuration.md](configuration.md#geoip-геолокация-ip).
 
-## Конфигурация `.env`
-
-Сверка рабочих `.env` с примерами (корень и модули):
-
-```cmd
-ergoms env
-ergoms env-normalize --dry-run
-```
-
-`env-normalize` применяет изменения по `.env.example` с сохранением существующих значений — только по явному вызову.
-
 ## Nginx (опционально) {#nginx-опционально}
 
 Команды реализованы в `ergo_ms.ps1` / `ergo_ms.sh` (не в `commands.conf`). При `NGINX_ENABLED=true` ставит `setup-full`. Установка может потребовать прав администратора; `status-nginx` и `test-nginx` — без них.
@@ -182,11 +172,11 @@ ergoms start-nginx
 ergoms stop-nginx
 ```
 
-Служба с автозапуском: `ergoms install-nginx-service` (Windows). Эталон `.env` — [`core/deployment/nginx/env.example`](../core/deployment/nginx/env.example).
+Служба с автозапуском: `ergoms install-nginx-service` (Windows). Эталон — [`env/nginx.env.example`](../env/nginx.env.example) при `ERGO_PROXY=nginx`.
 
 ## Redis (опционально) {#redis-опционально}
 
-Portable-сборка в `virtual_env/packages/redis/`. При `REDIS_ENABLED=true` ставит `setup-full`.
+Portable-сборка в `virtual_env/packages/redis/`. При `ERGO_BROKER=redis` ставит `setup-full`.
 
 ```cmd
 ergoms install-redis
@@ -196,11 +186,11 @@ ergoms start-redis
 ergoms stop-redis
 ```
 
-В `.env`: `REDIS_ENABLED=true`, перезапустите API. Служба: `ergoms install-redis-service`.
+В `.env`: `ERGO_BROKER=redis`, перезапустите API. Служба: `ergoms install-redis-service`.
 
 ## Docker Compose {#docker-compose}
 
-Запуск API, клиента, Redis, PostgreSQL, Celery и опционально nginx/Jupyter в контейнерах. Команды в `commands.conf`; переменные — секция **Docker** в `.env.example`, БД — `databases.yaml`.
+Запуск API, клиента, Redis, PostgreSQL, Celery и опционально nginx/Jupyter в контейнерах. Команды в `commands.conf`; режим `ERGO_RUNTIME=docker`, детали — `env/docker.env`, БД — `databases.yaml`.
 
 ```cmd
 ergoms docker-init

@@ -18,7 +18,7 @@ alwaysApply: true
 
 | Симптом | Сначала проверь | Действие |
 |---|---|----|
-| CSP `connect-src 'self'`, запросы на `localhost:API_PORT` за nginx | В `.env` есть `CLIENT_USE_RELATIVE_API=true` / `NGINX_ENABLED=true`, а в `core/client/dist` зашито `false` | `ergoms client-build`, Ctrl+F5; при службе — `ergoms reload-nginx` |
+| CSP `connect-src 'self'`, запросы на `localhost:API_PORT` за nginx | В `.env` есть `ERGO_PROXY=nginx` (или `CLIENT_USE_RELATIVE_API=true`), а в `core/client/dist` зашито `false` | `ergoms client-build`, Ctrl+F5; при службе — `ergoms reload-nginx` |
 | Старые переменные в SPA после правки `.env` | Production-бандл печёт env на сборке (`clientEnv`, `vite.config.js`) | Пересобрать клиент, не дублировать «runtime fallback» |
 | «Не подхватился» nginx / Redis / TLS | Служба, порт, `install-*` / `reload-*` | Команды ergoms из [`deployment-infra.mdc`](deployment-infra.mdc) |
 | Dev без nginx ходит не туда | Vite vs `ergoms start-client` при `NGINX_ENABLED` | Сценарий запуска, не правка `baseUrl` |
@@ -37,7 +37,7 @@ BAD — CSP блокирует http://localhost:8000 за nginx
 → патч baseUrl.js / connect-src / «умный» fallback в клиенте
 
 GOOD
-→ в .env уже CLIENT_USE_RELATIVE_API=true, NGINX_ENABLED=true
+→ в .env уже ERGO_PROXY=nginx (relative API effective)
 → в dist зашито false → сказать: ergoms client-build (и обновление страницы)
 ```
 

@@ -25,7 +25,11 @@ from mcp.server.stdio import stdio_server
 from mcp.types import Tool, TextContent
 
 
-ENV_FILE = PROJECT_DIR / '.env'
+_DEPLOYMENT_DIR = PROJECT_DIR / 'core' / 'deployment'
+if str(_DEPLOYMENT_DIR) not in sys.path:
+    sys.path.insert(0, str(_DEPLOYMENT_DIR))
+
+from env_file_loader import load_project_env  # noqa: E402
 
 SECRET_KEY: Optional[str] = None
 PUBLIC_BASE_URL: Optional[str] = None
@@ -43,16 +47,10 @@ server = Server('ergo-media-api-server')
 
 
 def load_env() -> dict:
-    env_vars = {}
-    if not ENV_FILE.exists():
-        raise FileNotFoundError(f'Файл .env не найден: {ENV_FILE}')
-
-    with open(ENV_FILE, 'r', encoding='utf-8') as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith('#') and '=' in line:
-                key, value = line.split('=', 1)
-                env_vars[key.strip()] = value.strip().strip('"').strip("'")
+    """Загружает .env + env/*.env (в т.ч. env/mcp.env)."""
+    env_vars = load_project_env(PROJECT_DIR)
+    if not env_vars and not (PROJECT_DIR / '.env').is_file():
+        raise FileNotFoundError(f'Файл .env не найден: {PROJECT_DIR / ".env"}')
     return env_vars
 
 

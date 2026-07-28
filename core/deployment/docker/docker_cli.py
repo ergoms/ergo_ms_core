@@ -21,7 +21,7 @@ if str(DOCKER_DIR) not in sys.path:
     sys.path.insert(0, str(DOCKER_DIR))
 
 from console_tags import format_console  # noqa: E402
-from env_resolvers import read_env_file  # noqa: E402
+from env_resolvers import load_merged_env  # noqa: E402
 
 from lifecycle.docker import ops as docker_ops  # noqa: E402
 from lifecycle.orchestrator import DeploymentOrchestrator  # noqa: E402
@@ -68,7 +68,7 @@ def cmd_logs(args: argparse.Namespace) -> int:
 def cmd_build(args: argparse.Namespace, *, skip_if_present: bool = False) -> int:
     root = PROJECT_ROOT.resolve()
     orchestrator = DeploymentOrchestrator(root)
-    if skip_if_present and docker_ops.should_skip_build(read_env_file(root / '.env')):
+    if skip_if_present and docker_ops.should_skip_build(load_merged_env(root)):
         print(format_console('skip', 'Локальные образы уже собраны (DOCKER_BUILD_POLICY=if-missing)'))
         return 0
     extra = list(args.extra or [])

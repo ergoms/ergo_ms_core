@@ -10,11 +10,13 @@ import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-DEPLOYMENT_NGINX = PROJECT_ROOT / 'core' / 'deployment' / 'nginx'
+DEPLOYMENT_DIR = PROJECT_ROOT / 'core' / 'deployment'
+DEPLOYMENT_NGINX = DEPLOYMENT_DIR / 'nginx'
+sys.path.insert(0, str(DEPLOYMENT_DIR))
 sys.path.insert(0, str(DEPLOYMENT_NGINX))
 
+from env_file_loader import load_project_env  # noqa: E402
 from tls_config import (  # noqa: E402
-    _read_env,
     cert_status,
     primary_domain,
     resolve_domains,
@@ -24,12 +26,8 @@ from tls_config import (  # noqa: E402
 )
 
 
-def _env_path(root: Path) -> Path:
-    return root / '.env'
-
-
 def cmd_validate(args: argparse.Namespace) -> int:
-    values = _read_env(_env_path(args.root))
+    values = load_project_env(args.root)
     errors = validate_tls_prerequisites(values)
     if errors:
         for item in errors:
@@ -43,10 +41,10 @@ def cmd_validate(args: argparse.Namespace) -> int:
 
 
 def cmd_suggest_env(args: argparse.Namespace) -> int:
-    values = _read_env(_env_path(args.root))
+    values = load_project_env(args.root)
     domain = args.domain or primary_domain(values)
     if not domain:
-        print('[ERROR] Домен не указан и не найден в .env', file=sys.stderr)
+        print('[ERROR] Домен не указан и не найден в .env / env/nginx.env', file=sys.stderr)
         return 1
     extra = resolve_domains(values)
     extra = [item for item in extra if item != domain]
@@ -56,7 +54,7 @@ def cmd_suggest_env(args: argparse.Namespace) -> int:
         print(json.dumps(suggestions, ensure_ascii=False, indent=2))
         return 0
 
-    print('Рекомендуемые переменные для .env после install-tls:')
+    print('Рекомендуемые переменные для env/nginx.env после install-tls:')
     for key, value in suggestions.items():
         current = values.get(key, '').strip()
         marker = '  ' if current == value else ' *'
@@ -65,7 +63,7 @@ def cmd_suggest_env(args: argparse.Namespace) -> int:
 
 
 def cmd_status(args: argparse.Namespace) -> int:
-    values = _read_env(_env_path(args.root))
+    values = load_project_env(args.root)
     domains = resolve_domains(values)
     if args.domain:
         domains = [args.domain]

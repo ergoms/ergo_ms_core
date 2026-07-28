@@ -19,7 +19,13 @@ PROJECT_ROOT = _DEPLOYMENT_DIR.parent.parent
 if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 
-from env_resolvers import read_env_file  # noqa: E402
+from env_resolvers import load_merged_env  # noqa: E402
+from ergo_modes import (  # noqa: E402
+    effective_docker_profile_jupyter,
+    effective_docker_profile_postgres,
+    effective_nginx_enabled,
+    effective_redis_enabled,
+)
 
 LOCAL_DB_HOSTS = frozenset({'localhost', '127.0.0.1', '::1', ''})
 CELERY_DB_SECTIONS = ('default', 'celery', 'celery_worker', 'celery_beat')
@@ -66,6 +72,15 @@ def effective_db_host(raw_env: dict[str, str], yaml_host: str) -> str:
     return host or 'localhost'
 
 
+def effective_redis_compose_host(raw_env: dict[str, str], yaml_host: str) -> str:
+    """localhost в yaml → имя сервиса Redis в сети compose."""
+    service = _env(raw_env, 'DOCKER_SERVICE_REDIS', 'redis')
+    host = (yaml_host or '').strip()
+    if host.lower() in LOCAL_DB_HOSTS:
+        return service
+    return host or service
+
+
 def build_compose_databases(project_root: Path | None, raw_env: dict[str, str]) -> dict[str, Any]:
     sections = load_databases_config(project_root)
     if not sections:
@@ -76,6 +91,12 @@ def build_compose_databases(project_root: Path | None, raw_env: dict[str, str]) 
         if not isinstance(section, dict):
             continue
         section['host'] = effective_db_host(raw_env, str(section.get('host', '')))
+    redis_section = result.get('redis')
+    if isinstance(redis_section, dict):
+        redis_section['host'] = effective_redis_compose_host(
+            raw_env,
+            str(redis_section.get('host', '')),
+        )
     return result
 
 
@@ -147,9 +168,12 @@ def build_compose_env_overrides(raw_env: dict[str, str]) -> dict[str, str]:
     """Runtime-overrides для .compose.env (не дублирует порты — они уже в .env)."""
     overrides: dict[str, str] = {
         'DOCKER_ENABLED': 'true',
-        'REDIS_ENABLED': 'true',
+        'ERGO_RUNTIME': 'docker',
         'REDIS_HOST': _env(raw_env, 'DOCKER_SERVICE_REDIS', 'redis'),
     }
+    if effective_redis_enabled(raw_env) or _truthy(raw_env.get('REDIS_ENABLED'), default=True):
+        overrides['REDIS_ENABLED'] = 'true'
+        overrides['ERGO_BROKER'] = raw_env.get('ERGO_BROKER') or 'redis'
 
     service_api = _env(raw_env, 'DOCKER_SERVICE_API', 'api')
     service_media = _env(raw_env, 'DOCKER_SERVICE_MEDIA', 'media-api')
@@ -167,19 +191,16 @@ def build_compose_env_overrides(raw_env: dict[str, str]) -> dict[str, str]:
         browser_api_host = 'localhost'
     overrides['CLIENT_API_HOST'] = browser_api_host
 
-    if _truthy(raw_env.get('DOCKER_PROFILE_NGINX')):
+    if _truthy(raw_env.get('DOCKER_PROFILE_NGINX')) or effective_nginx_enabled(raw_env):
         overrides['NGINX_ENABLED'] = 'true'
+        overrides['ERGO_PROXY'] = 'nginx'
         overrides['CLIENT_USE_RELATIVE_API'] = 'true'
 
     mode = _env(raw_env, 'DOCKER_MODE', 'dev').lower()
     if mode == 'prod':
-        overrides.setdefault('API_DEPLOY_TYPE', 'production')
-        overrides.setdefault('CLIENT_DEPLOY_TYPE', 'production')
-        overrides.setdefault('MEDIA_API_DEPLOY_TYPE', 'production')
+        overrides.setdefault('ERGO_ENV', 'production')
     else:
-        overrides.setdefault('API_DEPLOY_TYPE', 'development')
-        overrides.setdefault('CLIENT_DEPLOY_TYPE', 'development')
-        overrides.setdefault('MEDIA_API_DEPLOY_TYPE', 'development')
+        overrides.setdefault('ERGO_ENV', 'development')
 
     # Для healthcheck / wait — явный хост БД
     default_db = load_databases_config().get('default') or {}
@@ -225,13 +246,12 @@ def docker_mode(raw_env: dict[str, str]) -> str:
 
 def compose_profiles(raw_env: dict[str, str]) -> list[str]:
     profiles: list[str] = []
-    if _truthy(raw_env.get('DOCKER_PROFILE_NGINX')):
+    if _truthy(raw_env.get('DOCKER_PROFILE_NGINX')) or effective_nginx_enabled(raw_env):
         profiles.append('nginx')
-    if _truthy(raw_env.get('DOCKER_PROFILE_JUPYTER')):
+    if effective_docker_profile_jupyter(raw_env):
         profiles.append('jupyter')
     db_mode = _env(raw_env, 'DOCKER_DATABASE', 'container').lower()
-    profile_postgres = raw_env.get('DOCKER_PROFILE_POSTGRES', '')
-    if db_mode == 'container' and _truthy(profile_postgres, default=True):
+    if db_mode == 'container' and effective_docker_profile_postgres(raw_env):
         profiles.append('postgres')
     return profiles
 
@@ -308,7 +328,7 @@ def resolve_volume_binds(project_root: Path, raw_env: dict[str, str]) -> dict[st
 
 def prepare_compose_artifacts(project_root: Path | None = None) -> dict[str, Path]:
     root = (project_root or PROJECT_ROOT).resolve()
-    raw = read_env_file(root / '.env')
+    raw = load_merged_env(root)
     compose_env_path = _DOCKER_DIR / '.compose.env'
     compose_db_path = _DOCKER_DIR / '.compose.databases.yaml'
 

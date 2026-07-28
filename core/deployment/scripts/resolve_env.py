@@ -16,7 +16,7 @@ PROJECT_ROOT = _DEPLOYMENT_DIR.parent.parent
 if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 
-from env_resolvers import read_env_file, resolve_jupyter_deployment_vars, resolve_nginx_vars  # noqa: E402
+from env_resolvers import load_merged_env, resolve_jupyter_deployment_vars, resolve_nginx_vars  # noqa: E402
 
 
 def main() -> int:
@@ -29,7 +29,7 @@ def main() -> int:
     parser.add_argument('--json', action='store_true', help='JSON object')
     args = parser.parse_args()
 
-    raw = read_env_file(args.root / '.env')
+    raw = load_merged_env(args.root)
     if args.scope == 'nginx':
         resolved = resolve_nginx_vars(raw)
     elif args.scope == 'jupyter':
