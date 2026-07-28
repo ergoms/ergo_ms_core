@@ -189,6 +189,8 @@ sections:
         summary: "Сбросить все кэши ядра"
       - name: invalidate-caches-warmup
         summary: "Сбросить кэши и прогреть заново"
+      - name: generate-secret
+        summary: "Сгенерировать секрет для .env (API_SECRET_KEY / API_JWT_SIGNING_KEY)"
       - name: geoip-download
         summary: "Скачать базу GeoIP (DB-IP City Lite)"
       - name: geoip-backfill
