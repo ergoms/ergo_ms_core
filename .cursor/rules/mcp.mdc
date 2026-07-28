@@ -25,16 +25,16 @@ MCP даёт агенту Cursor инструменты для работы с A
 | Manifest | `modules/<имя>/mcp/manifest.yaml` |
 | Сервер | `modules/<имя>/mcp/server.py` |
 | Имя в Cursor | `ergo-module-<kebab-case>` (уникально в проекте) |
-| Tools | `<module>_<action>` или устоявшиеся (`ollama_*`) |
+| Tools | `<module>_<action>` или устоявшиеся префиксы пакета модуля |
 | Секреты | из `.env` / `env/mcp.env` (`ADMIN_LOGIN`, `ADMIN_PASSWORD`), не в manifest и не в коде |
 
 ### manifest.yaml
 
 ```yaml
-module: video_analysis
+module: <name>
 server:
-  name: ergo-module-video-analysis
-  description: "MCP модуля video_analysis — кратко о назначении"
+  name: ergo-module-<kebab-name>
+  description: "MCP модуля <name> — кратко о назначении"
   script: mcp/server.py
 ```
 
@@ -71,9 +71,9 @@ server:
 
 | Что | Файл |
 |-----|------|
-| Рабочий модульный MCP | [`modules/ollama_framework/mcp/`](../../modules/ollama_framework/mcp/) |
-| Шаблон manifest | [`modules/module_template/mcp/manifest.yaml`](../../modules/module_template/mcp/manifest.yaml) |
-| Шаблон server | [`modules/module_template/mcp/server.py.example`](../../modules/module_template/mcp/server.py.example) |
+| Рабочий модульный MCP | `modules/<name>/mcp/` (manifest + server) |
+| Шаблон manifest | `modules/<name>/mcp/manifest.yaml` |
+| Шаблон server | `modules/<name>/mcp/server.py.example` |
 | Ядерный MCP | [`.cursor/mcp_api_server.py`](../../.cursor/mcp_api_server.py) |
 
 ## Связанные правила

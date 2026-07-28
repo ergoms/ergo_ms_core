@@ -33,7 +33,7 @@ from rest_framework import viewsets
 class CourseViewSet(AuditedModelMixin, SwaggerSafeMixin, viewsets.ModelViewSet):
     queryset = Course.objects.all()
     serializer_class = CourseSerializer
-    audit_module = 'lms'                 # опц.; по умолчанию app_label модели
+    audit_module = '<name>'              # опц.; по умолчанию app_label модели
     # audit_entity_type = 'course'       # опц.; по умолчанию имя модели
     # audit_action_map = {'create': 'course.created', ...}  # опц.
 ```
@@ -47,8 +47,8 @@ from src.core.integrations import bridge
 
 bridge.call(
     'audit.record',
-    action='lms.enrollment.cancelled',       # 'модуль.объект.действие'
-    source_module='lms',
+    action='<name>.enrollment.cancelled',    # 'модуль.объект.действие'
+    source_module='<name>',
     entity={'type': 'enrollment', 'ref': enr.public_id, 'label': str(enr)},
     changes=[{'field': 'status', 'label': 'Статус', 'old': 'active', 'new': 'cancelled'}],
     meta={'reason': reason},                 # конфиденциальные данные вырежутся автоматически
@@ -68,10 +68,10 @@ label, иконка (Lucide) и важность — задекларируй с
 ```python
 # modules/<m>/api/audit_catalog.py
 AUDIT_SECTION = {
-    'module': 'lms',
-    'module_label': 'Обучение (LMS)',
+    'module': '<name>',
+    'module_label': 'Мой модуль',
     'actions': [
-        {'action': 'lms.enrollment.cancelled', 'label': 'Зачисление отменено',
+        {'action': '<name>.enrollment.cancelled', 'label': 'Зачисление отменено',
          'icon': 'UserMinus', 'category': 'enrollment', 'category_label': 'Зачисления',
          'severity': 'info'},
     ],
@@ -80,12 +80,12 @@ AUDIT_SECTION = {
 # modules/<m>/api/integrations.py
 from src.core.integrations import bridge
 from .audit_catalog import AUDIT_SECTION
-bridge.provide_many('audit.action_definitions', key='lms', obj=AUDIT_SECTION)
+bridge.provide_many('audit.action_definitions', key='<name>', obj=AUDIT_SECTION)
 ```
 
 ### 4. Измерение аудита (scope) — расширяемый фильтр журнала
 
-Кроме организации/подразделения модуль может добавить **своё измерение** журнала
+Кроме scope parent/child модуль может добавить **своё измерение** журнала
 (например «Проект», «Курс»): по нему появятся фильтр в UI и колонка в `scope`.
 Ядро не знает конкретных измерений — собирает их из группы моста.
 
@@ -107,15 +107,15 @@ bridge.provide_many(AUDIT_SCOPE_DIMENSIONS_GROUP, 'project', {
 - Значения измерений складываются в `AuditEvent.scope` (JSONB) при записи события;
   фильтрация — через `scope__contains` (GIN-индекс `audit_scope_gin`). Отдельных
   колонок под конкретные измерения ядро **не** хранит.
-- `read_guard=True` (например у `organization` в модуле organizations) означает: не-админ
+- `read_guard=True` (например у scope-измерения в модуле-владельце scope) означает: не-админ
   видит журнал только в пределах своего значения этого измерения (резолвится из запроса),
   а право чтения проверяет провайдер события `audit.can_read` (scope передаётся ему как dict).
-- Платформенные `organization` / `department` регистрирует модуль organizations.
+- Платформенные измерения scope регистрирует модуль-владелец scope.
 - Список измерений для UI: `GET .../audit/dimensions/`.
 
 ## Правила именования действий
 
-- Формат `action`: `<модуль>.<объект>.<действие>`, например `tasks.task.status_changed`.
+- Формат `action`: `<модуль>.<объект>.<действие>`, например `<name>.item.status_changed`.
 - Глаголы CRUD по умолчанию: `created` / `updated` / `deleted`.
 - `severity='security'` — доступ, права, роли, аутентификация; `critical` — необратимое/массовое.
 

@@ -16,7 +16,7 @@ alwaysApply: false
 ## Кратко
 
 - Каталоги ядра клиента: [`core/client/src/i18n/locales/{ru,en,fr}/`](../../core/client/src/i18n/locales/)
-- Модули клиента: hook [`client/js/locales.js`](../../modules/module_template/client/js/locales.js) → `LocaleManager` merge
+- Модули клиента: hook `modules/<name>/client/js/locales.js` → `LocaleManager` merge
 - API: `gettext` / `gettext_lazy`, каталоги [`core/api/locale/`](../../core/api/locale/)
 - Язык по умолчанию (гость / новый профиль): `DEFAULT_LANGUAGE` в корневом `.env` (`ru`|`en`|`fr`)
 - Язык пользователя: Настройки → Система → «Язык интерфейса» → `UserProfile.language` + `localStorage['language']`
@@ -31,7 +31,7 @@ alwaysApply: false
 | Нужно | Как |
 |----|-----|
 | Строка в UI ядра | ключ в `locales/ru` + `locales/en`, в шаблоне `t('…')` / `$t`, в JS — `tGlobal` / `useAppI18n` |
-| Новый модуль с UI | `client/js/locales.js` с namespace = имя модуля (`my_module.*`) |
+| Новый модуль с UI | `client/js/locales.js` с namespace = имя модуля (`<name>.*`) |
 | Смена языка | SelectBox в SystemPanel → `uiSettings.language` → `setAppLocale` + PATCH профиля |
 | Даты / Intl | `getCurrentBcp47()` / `timeUtils.js`, не хардкод `'ru-RU'` |
 | Заголовок маршрута | `meta.titleKey` (ключ i18n); отображение через `resolveRouteTitle` |
@@ -40,9 +40,9 @@ alwaysApply: false
 ```js
 // modules/<name>/client/js/locales.js — ключи языков = SUPPORTED_LOCALES
 export default {
-  ru: { my_module: { title: '…' } },
-  en: { my_module: { title: '…' } },
-  fr: { my_module: { title: '…' } },
+  ru: { '<name>': { title: '…' } },
+  en: { '<name>': { title: '…' } },
+  fr: { '<name>': { title: '…' } },
 }
 ```
 
@@ -96,7 +96,7 @@ ergoms i18n-compilemessages
 | Prefs | [`uiSettings.js`](../../core/client/src/core/cms/js/uiSettings.js) |
 | Django settings | [`localization.py`](../../core/api/src/config/settings/localization.py) |
 | Profile locale MW | [`profile_locale_middleware.py`](../../core/api/src/core/utils/middleware/profile_locale_middleware.py) |
-| Модуль | [`modules/module_template/client/js/locales.js`](../../modules/module_template/client/js/locales.js) |
+| Модуль | `modules/<name>/client/js/locales.js` |
 
 ## Связанные правила
 

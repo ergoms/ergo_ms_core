@@ -41,7 +41,7 @@ alwaysApply: false
 
 В режиме `standalone` компонент телепортирует разметку в `body`, поэтому модалка оказывается **вне** `ModuleThemeScope` и теряет атрибут `data-ergo-module-theme` — цвета модуля к ней не применяются. В модуле с зарегистрированной темой рендери `ModalCenter` внутри области темы без `standalone` либо оборачивай содержимое модалки в `ModuleThemeScope`. Подробности — [`themes.mdc`](themes.mdc).
 
-Эталон multi-select picker (UI в ядре, домен в модуле): [`MemberPickerModal.vue`](../../core/client/src/components/MemberPickerModal.vue) + [`ProjectMemberPickerModal.vue`](../../modules/project_ed/client/components/ProjectMemberPickerModal.vue) — см. [`components.mdc`](components.mdc).
+Эталон multi-select picker (UI в ядре, домен в модуле): [`MemberPickerModal.vue`](../../core/client/src/components/MemberPickerModal.vue) + обёртка `modules/<name>/client/components/…MemberPickerModal.vue` — см. [`components.mdc`](components.mdc).
 
 ---
 
@@ -111,7 +111,7 @@ await runWithConfirm(
 
 ### Исключения (свой confirm-UI)
 
-- Спецмодалки с таблицами/предпросмотром (`learning_analytics`: `ConfirmModal`, `DeleteRecordModal`, …)
+- Спецмодалки с таблицами/предпросмотром (в модуле: свой `ConfirmModal`, `DeleteRecordModal`, …)
 - Inline-modal внутри сложного виджета (`MultiVideoUploader.vue`)
 - Локальный метод `confirm()` в composable — не путать с browser API; предпочитай `confirmAction`
 

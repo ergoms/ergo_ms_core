@@ -13,8 +13,8 @@ alwaysApply: false
 ```javascript
 export default [
   {
-    match: (to) => to.path?.startsWith('/my-module'),
-    module: 'my_module',
+    match: (to) => to.path?.startsWith('/<name-kebab>'),
+    module: '<name>',
     permissions: ['view_something'],
     title: 'Нет доступа',
     message: 'Обратитесь к администратору.',

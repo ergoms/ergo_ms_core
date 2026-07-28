@@ -26,8 +26,8 @@ Windows-тесты развёртывания (`core/deployment/windows/lib/test
 
 ```powershell
 # BAD — имя модуля в ядре тестов
-ergoms ollama_framework:stop-ollama
-ergoms ollama_framework:install-ollama-service
+ergoms <name>:stop-daemon
+ergoms <name>:install-daemon-service
 ```
 
 ```powershell
@@ -39,12 +39,12 @@ Invoke-ModuleHostInstallServiceCommands
 ## Схема
 
 ```yaml
-module: my_module
+module: <name>
 host:
   stop_commands:
-    - my_module:stop-daemon          # ergoms <команда>
+    - <name>:stop-daemon          # ergoms <команда>
   install_service_commands:
-    - my_module:install-daemon-service
+    - <name>:install-daemon-service
   service_units:
     - ergo-my-daemon                 # для справки; Stop-AllErgoms уже гасит ergo-*
 ```
@@ -59,7 +59,7 @@ CLI: `virtual_env/python/Scripts/python.exe core/deployment/scripts/host_lifecyc
 
 ## Эталон
 
-[`modules/ollama_framework/host_lifecycle.yaml`](../../modules/ollama_framework/host_lifecycle.yaml)
+`modules/<name>/host_lifecycle.yaml` (см. схему выше).
 
 ## Связанные правила
 

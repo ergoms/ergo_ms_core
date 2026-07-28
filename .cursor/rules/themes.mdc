@@ -32,7 +32,7 @@ alwaysApply: false
 | Страницы ядра (CMS, админка) | Глобальная тема, `useThemeMode` |
 | Шапка и боковое меню на страницах модуля | Всегда **глобальная** тема сайта, не модульная |
 
-Эталон модульной темы: [`modules/ai_assistant/client/js/theme-defaults.js`](../../modules/ai_assistant/client/js/theme-defaults.js), [`theme-bootstrap.scss`](../../modules/ai_assistant/client/styles/theme-bootstrap.scss).
+Эталон модульной темы: `modules/<name>/client/js/theme-defaults.js`, `modules/<name>/client/styles/theme-bootstrap.scss`.
 
 ---
 
@@ -105,8 +105,8 @@ import { useApexTheme, buildApexOptions } from '@/composables/useApexTheme.js'
 ```js
 /** modules/<имя>/client/js/theme-defaults.js */
 export default {
-  moduleKey: 'ai_assistant',
-  displayName: 'AI-ассистент',
+  moduleKey: '<name>',
+  displayName: 'Мой модуль',
   modulePair: 'default',
   baseTheme: 'dark',
   colors: {
@@ -120,8 +120,8 @@ export default {
     glowCyan: '0 0 20px rgba(58, 232, 255, 0.4)',
   },
   systemThemes: [
-    { name: 'Neural (AI-ассистент)', base_theme: 'dark', module_pair: 'default', is_default: true },
-    { name: 'Neural (AI-ассистент)', base_theme: 'light', module_pair: 'default', is_default: true, colors: { /* светлые */ } },
+    { name: 'Мой модуль', base_theme: 'dark', module_pair: 'default', is_default: true },
+    { name: 'Мой модуль', base_theme: 'light', module_pair: 'default', is_default: true, colors: { /* светлые */ } },
   ],
 }
 ```
@@ -129,27 +129,27 @@ export default {
 Ключ `modulePair` / `module_pair` в `systemThemes` связывает light и dark в одну активируемую пару.
 
 Ключи `colors` — те же 10 полей, что в [`theme-manager.js`](../../core/client/src/js/theme-manager.js) / [`bootstrap-variables.js`](../../core/client/src/js/bootstrap-variables.js).  
-`moduleTokens` → runtime CSS `--<module-key-kebab>-<token-kebab>` (например `neonCyan` → `--ai-assistant-neon-cyan`).
+`moduleTokens` → runtime CSS `--<module-key-kebab>-<token-kebab>` (например `neonCyan` при `moduleKey: '<name>'` → `--<name-kebab>-neon-cyan`).
 
 ### Hook `theme-bootstrap.scss`
 
 ```scss
 // modules/<имя>/client/styles/theme-bootstrap.scss
-[data-ergo-module-theme='ai_assistant'] {
-  --ai-accent: var(--color-accent);
-  --ai-bg-primary: var(--color-background);
-  --ai-neon-cyan: var(--ai-assistant-neon-cyan, #3ae8ff);
+[data-ergo-module-theme='<name>'] {
+  --mod-accent: var(--color-accent);
+  --mod-bg-primary: var(--color-background);
+  --mod-neon-cyan: var(--<name-kebab>-neon-cyan, #3ae8ff);
 }
 ```
 
-В компонентах модуля: `var(--ai-bg-primary)`, не `$dark-bg-primary` и не `#050508`.
+В компонентах модуля: `var(--mod-bg-primary)`, не `$dark-bg-primary` и не `#050508`.
 
 ### JavaScript внутри модуля с hook
 
 ```js
 import { useModuleThemeMode } from '@/composables/useModuleThemeMode.js'
 
-const { isDark, isLight, resolvedMode } = useModuleThemeMode('ai_assistant')
+const { isDark, isLight, resolvedMode } = useModuleThemeMode('<name>')
 ```
 
 Графики в модуле с отдельной палитрой — подписка на `ergo:module-theme-change` (см. [`module-theme-manager.js`](../../core/client/src/js/module-theme-manager.js)) в дополнение к `ergo:theme-change`, если виджет реагирует на оболочку.
@@ -163,8 +163,8 @@ $neon-cyan: #3ae8ff;
 
 /* GOOD — палитра из scope модульной темы */
 .panel {
-  background: var(--ai-bg-primary);
-  border: 1px solid var(--ai-neon-cyan);
+  background: var(--mod-bg-primary);
+  border: 1px solid var(--mod-neon-cyan);
 }
 ```
 
@@ -175,7 +175,7 @@ const { isDark } = useThemeMode()
 
 // GOOD
 import { useModuleThemeMode } from '@/composables/useModuleThemeMode.js'
-const { isDark } = useModuleThemeMode('ai_assistant')
+const { isDark } = useModuleThemeMode('<name>')
 ```
 
 ```vue

@@ -26,8 +26,8 @@ alwaysApply: false
 
 ```python
 # BAD — знание модуля в ядре
-if 'virtual_env/packages/ollama' in text or 'ollama' in text:
-    return 'ollama'
+if 'virtual_env/packages/mydaemon' in text or 'mydaemon' in text:
+    return 'mydaemon'
 ```
 
 ```yaml
@@ -55,7 +55,7 @@ roles:
         project_bound: true        # корень проекта в cmdline или cwd
       # опционально:
       # - cwd_contains_any:
-      #     - modules/my_module
+      #     - modules/<name>
 ```
 
 | Поле | Смысл |
@@ -70,24 +70,24 @@ roles:
 
 ## Эталон
 
-[`modules/ollama_framework/process_roles.yaml`](../../modules/ollama_framework/process_roles.yaml)
+`modules/<name>/process_roles.yaml`:
 
 ```yaml
-module: ollama_framework
+module: <name>
 roles:
-  - id: ollama
+  - id: mydaemon
     process_names:
-      - ollama
-      - ollama.exe
+      - mydaemon
+      - mydaemon.exe
     when:
       - cmdline_contains_any:
-          - virtual_env/packages/ollama
+          - virtual_env/packages/mydaemon
       - cmdline_contains_any:
-          - ollama
+          - mydaemon
         project_bound: true
 ```
 
-Проверка: `ergoms resource-usage` при запущенном `ergoms ollama_framework:start-ollama`.
+Проверка: `ergoms resource-usage` при запущенном демоне модуля (`ergoms <name>:start-…`).
 
 ## Связанные правила
 

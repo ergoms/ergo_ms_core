@@ -55,7 +55,7 @@ const searchQuery = ref('')
 
 ## Типичные сценарии
 
-### FiltersBar / organizations toolbar
+### FiltersBar / toolbar модуля
 
 ```vue
 <SearchInput

@@ -49,8 +49,8 @@ mod = importlib.import_module(f'{app_path}.permission_catalog')
 catalog = getattr(mod, 'PERMISSION_CATALOG', None)
 
 # BAD — ядро тянет доменную модель модуля в view или service
-from modules.organizations.api.models import Organization
-org = Organization.objects.get(pk=org_id)
+from modules.<name>.api.models import SomeEntity
+entity = SomeEntity.objects.get(pk=entity_id)
 ```
 
 ```javascript
@@ -58,13 +58,13 @@ org = Organization.objects.get(pk=org_id)
 import.meta.glob('../../../../../modules/*/client/js/routes.js')
 
 // BAD — прямой import компонента или API-модуля в бизнес-коде ядра
-import OrgList from '../../../../modules/organizations/client/pages/OrgList.vue'
+import EntityList from '../../../../modules/<name>/client/pages/EntityList.vue'
 ```
 
 **Запрещено в ядре:**
 
 - `from modules.<имя>.api...` models / views / serializers / services / tasks в бизнес-логике
-- **Hardcoded имена модулей** в runtime-коде (`'bi_analysis'`, `'lms'`, палитры модуля в Python и т.п.) — только generic hook discovery и ModuleBridge; проверка: `ergoms core-rules-check`
+- **Hardcoded имена модулей** в runtime-коде (`'<name>'`, палитры модуля в Python и т.п.) — только generic hook discovery и ModuleBridge; проверка: `ergoms core-rules-check`
 - Прямые static import из submodule в клиентских страницах и composables ядра (кроме инфраструктуры загрузки: `ModuleLoader`, glob в `LayoutMenu.vue`)
 - Обход ModuleBridge ради «удобного» доступа к данным или операциям модуля
 

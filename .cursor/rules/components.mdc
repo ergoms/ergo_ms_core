@@ -73,7 +73,7 @@ import { MoreHorizontal, Edit, Trash2 } from 'lucide-vue-next'
 </template>
 ```
 
-Эталон: [`TaskChecklistSection.vue`](../../modules/tasks/client/components/TaskChecklistSection.vue).
+Эталон: checklist/dropdown в модуле — `modules/<name>/client/components/…` с `DropDown` ядра.
 
 ## Multi-select выбор пользователей — MemberPickerModal
 
@@ -82,18 +82,17 @@ import { MoreHorizontal, Edit, Trash2 } from 'lucide-vue-next'
 ### Обязательно
 
 - Загрузка списка — через prop **`fetchUsers({ search, activeTab, roleGroupId })`**, не через API модулей в ядре.
-- В модуле с доменной логикой — обёртка с `fetchUsers` (эталон project_ed: [`ProjectMemberPickerModal.vue`](../../modules/project_ed/client/components/ProjectMemberPickerModal.vue)).
+- В модуле с доменной логикой — обёртка с `fetchUsers` (эталон: `modules/<name>/client/components/…MemberPickerModal.vue`).
 - Используй `ModalCenter` + `SearchInput` — не делай свой picker с нуля.
 
-**Не путать** с `modules/organizations/client/components/AddMemberModal.vue` — форма добавления участника организации (роль, подразделение, один пользователь).
+**Не путать** с формой добавления участника в домене модуля (`modules/<name>/client/components/AddMemberModal.vue` и аналоги) — роль, подразделение/scope, один пользователь.
 
 ### Запрещено
 
-- Прямые вызовы API модулей (`/organizations/...`, `endpoints.project_ed.*`) внутри `MemberPickerModal`.
-- Импорт `@/components/MemberPickerModal` из модуля с domain props (`organizationId`, `mode`) — только через модульную обёртку.
+- Прямые вызовы API модулей (`/<name>/...`, `endpoints.<name>.*`) внутри `MemberPickerModal`.
+- Импорт `@/components/MemberPickerModal` из модуля с domain props (`scopeId`, `mode`) — только через модульную обёртку.
 
-Эталон использования с доменом: [`ReviewExpertsPage.vue`](../../modules/project_ed/client/Technical/Projects/components/ReviewExpertsPage.vue) → `ProjectMemberPickerModal`.
-
+Эталон использования с доменом: страница модуля → модульная обёртка `*MemberPickerModal`.
 ## Аватар пользователя — UserAvatar
 
 Компонент: `@/components/UserAvatar.vue`.

@@ -14,11 +14,11 @@ bridge.call(
     recipient=user,
     title='Заголовок',
     body='Текст',
-    source_module='project_ed',
-    event_key='project.submitted_for_review',
-    route={'name': 'SomeRoute', 'params': {'projectRef': '<uuid>'}},
-    meta={'project_name': '…'},
-    idempotency_key='project_ed:submit:<uuid>',
+    source_module='<name>',
+    event_key='item.submitted_for_review',
+    route={'name': 'SomeRoute', 'params': {'itemRef': '<uuid>'}},
+    meta={'item_name': '…'},
+    idempotency_key='<name>:submit:<uuid>',
 )
 ```
 
@@ -30,8 +30,7 @@ bridge.call(
 2. Зарегистрировать в `api/integrations.py`: `bridge.provide_many('notifications.event_definitions', ...)`
 3. Вызов — в `notification_events.py`
 
-Эталон: `modules/project_ed/api/`. Пример операции моста: `modules/lms/api/INTEGRATIONS.md`.
-
+Эталон: `modules/<name>/api/` (`notification_catalog.py`, `notification_events.py`, `integrations.py`).
 ## Каналы
 
 - in_app — лента + realtime (`websocket` или `http_polling`, см. [`realtime.mdc`](realtime.mdc))

@@ -15,8 +15,8 @@ alwaysApply: false
 Примеры:
 
 ```bash
-ergoms api test modules.organizations.api
-ergoms api test modules.competence_core.api --full
+ergoms api test modules.<name>.api
+ergoms api test modules.<name>.api --full
 ```
 
 ## Связанные правила

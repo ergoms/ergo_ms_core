@@ -28,7 +28,7 @@ modules/<имя>/
 │   ├── styles/
 │   │   └── theme-bootstrap.scss  # обязателен вместе с theme-defaults.js
 │   ├── pages/ или components/
-│   └── ui/                  # общий UI-kit (по образцу competence_core, lms)
+│   └── ui/                  # общий UI-kit (по образцу других модулей с client/ui)
 ├── ergoms.conf              # команды модуля (необязательно)
 ├── ergoms.help.yaml         # справка для ergoms help module (если есть ergoms.conf)
 ├── process_roles.yaml       # роли процессов для ergoms resource-usage (если есть свой демон)
@@ -48,12 +48,12 @@ Stop/install модульного демона в Windows-тестах deploymen
 ```python
 # api/apps.py
 class MyModuleConfig(AppConfig):
-    name = 'modules.my_module.api'
+    name = 'modules.<name>.api'
     # Если ready()/import нужен bridge другого модуля — объяви зависимость
     # (имена папок modules/<name>). Discovery топологически упорядочит INSTALLED_APPS.
     # Только односторонние дуги: мягкий bridge.has в обе стороны не дублируй
-    # (иначе цикл competence_core↔vacancies_parser, org↔students/projects).
-    module_requires = ('tasks',)
+    # (иначе цикл <name_a>↔<name_b>).
+    module_requires = ('<provider>',)
 
     def ready(self):
         from . import integrations  # если есть мост
@@ -77,13 +77,13 @@ class MyModuleConfig(AppConfig):
 
 **LayoutPlugin и offcanvas** — регистрация в `client/js/integrations.js` через группу `layout.plugin_registry` (см. [`layoutPluginRegistry.js`](../../core/client/src/integrations/layoutPluginRegistry.js)). Ядро не хранит маппинг `route_name → module`.
 
-**Session-scoped модули** — группа моста `session_scope.module_context`. Регистрация в `client/js/integrations.js`: `bridge.provideMany(SESSION_SCOPED_MODULE_CONTEXT_GROUP, moduleKey, { pathPrefix, homeRoute, ... })` — **без import из organizations**. Хелперы — [`sessionScopedModuleContext.js`](../../core/client/src/integrations/sessionScopedModuleContext.js), session-scope guard — [`sessionScopeGuard.js`](../../core/client/src/js/session/sessionScopeGuard.js), активность scope — [`sessionScopeGating.js`](../../core/client/src/integrations/sessionScopeGating.js). Каталог контрактов — [`module-contracts.mdc`](module-contracts.mdc). Домен organizations (welcome API, store) — [`organizationGuard.js`](../../modules/organizations/client/js/organizationGuard.js).
+**Session-scoped модули** — группа моста `session_scope.module_context`. Регистрация в `client/js/integrations.js`: `bridge.provideMany(SESSION_SCOPED_MODULE_CONTEXT_GROUP, moduleKey, { pathPrefix, homeRoute, ... })` — **без import из модуля-владельца scope**. Хелперы — [`sessionScopedModuleContext.js`](../../core/client/src/integrations/sessionScopedModuleContext.js), session-scope guard — [`sessionScopeGuard.js`](../../core/client/src/js/session/sessionScopeGuard.js), активность scope — [`sessionScopeGating.js`](../../core/client/src/integrations/sessionScopeGating.js). Каталог контрактов — [`module-contracts.mdc`](module-contracts.mdc). Домен владельца scope (welcome API, store) — в `modules/<host_module>/client/js/` (свой `*Guard.js`), не в ядре.
 
 **Модульные темы** — только hook `client/js/theme-defaults.js` + `POST settings/themes/sync-module-defaults/`; в ядре **нет** builtin-палитр модулей.
 
-Пункты бокового меню — **миграция API** (`MenuMigrationHelper`, эталон `module_template/api/migrations/0004_add_menu.py`); маршруты — `client/js/routes.js`. Порядок и видимость — в CMS. Подробности: [`menu.mdc`](menu.mdc).
+Пункты бокового меню — **миграция API** (`MenuMigrationHelper`, эталон `modules/<name>/api/migrations/*_add_menu.py`); маршруты — `client/js/routes.js`. Порядок и видимость — в CMS. Подробности: [`menu.mdc`](menu.mdc).
 
-Пункты выпадающего меню пользователя в шапке (`UserMenu`) — через `bridge.provideMany` в группе `header.userMenu.items`. Эталон: [`organizations/client/js/headerUserMenu.js`](../../modules/organizations/client/js/headerUserMenu.js), подключается из `integrations.js`. Сбор в ядре — [`headerUserMenu.js`](../../core/client/src/integrations/headerUserMenu.js). Это **не** боковое меню: sidebar — миграции API, шапка — ModuleBridge.
+Пункты выпадающего меню пользователя в шапке (`UserMenu`) — через `bridge.provideMany` в группе `header.userMenu.items`. Эталон: `modules/<name>/client/js/headerUserMenu.js`, подключается из `integrations.js`. Сбор в ядре — [`headerUserMenu.js`](../../core/client/src/integrations/headerUserMenu.js). Это **не** боковое меню: sidebar — миграции API, шапка — ModuleBridge.
 
 ## Темы оформления модуля
 
@@ -102,7 +102,7 @@ class MyModuleConfig(AppConfig):
 4. Цвета в SCSS — `var(--color-*)` / `var(--<module>-*)`, не hex и не `$palette-*` для настраиваемых полей
 5. Правки палитры админом — только `/settings/themes` → область модуля, **не** UI в модуле
 
-Эталон: [`ai_assistant/client/js/theme-defaults.js`](../../modules/ai_assistant/client/js/theme-defaults.js), [`ai_assistant/client/styles/theme-bootstrap.scss`](../../modules/ai_assistant/client/styles/theme-bootstrap.scss).
+Эталон: `modules/<name>/client/js/theme-defaults.js`, `modules/<name>/client/styles/theme-bootstrap.scss`.
 
 `theme-defaults.js` подхватывает `ModuleLoader` (glob prebuild). Ядро не импортирует бизнес-код модуля — только hook, как `integrations.js` (см. [`struct.mdc`](struct.mdc)).
 
@@ -115,8 +115,8 @@ class MyModuleConfig(AppConfig):
 
 ## Имена
 
-- Папка модуля: `kebab-case` (`video-analysis`)
-- В Python: `snake_case` (`video_analysis`)
+- Папка модуля: `kebab-case` (`<name-kebab>`)
+- В Python: `snake_case` (`<name>`)
 
 ## Импорты
 
@@ -136,10 +136,10 @@ class MyModuleConfig(AppConfig):
 from src.core.integrations import bridge
 
 # вызов
-ids = bridge.call('organizations.get_user_department_ids', user=request.user, default=[])
+ids = bridge.call('<name>.get_user_entity_ids', user=request.user, default=[])
 
-# регистрация (в modules/<м>/api/integrations.py)
-@bridge.provide_op('organizations.get_user_department_ids')
+# регистрация (в modules/<name>/api/integrations.py)
+@bridge.provide_op('<name>.get_user_entity_ids')
 def _handler(user):
     ...
 ```
@@ -150,14 +150,14 @@ def _handler(user):
 
 ```python
 # BAD — class-base / Meta от результата bridge.call (на migrate bridge пуст → None.Meta)
-Base = bridge.call('tasks.get_stage_result_task_serializer_cls')
+Base = bridge.call('<provider>.get_base_serializer_cls')
 class MySerializer(Base):
     class Meta(Base.Meta):
         pass
 
-# GOOD — resolve в момент использования (после ready провайдера), см. project_ed get_stage_task_serializer_class
+# GOOD — resolve в момент использования (после ready провайдера)
 def get_my_serializer_class():
-    base = bridge.call('tasks.get_stage_result_task_serializer_cls')
+    base = bridge.call('<provider>.get_base_serializer_cls')
     ...
 ```
 

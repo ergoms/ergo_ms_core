@@ -31,7 +31,7 @@ Worker и Beat должны смотреть на **один** брокер. И�
 Пример маршрута:
 
 ```python
-'modules.my_module.api.tasks.*': {'queue': 'my_module'}
+'modules.<name>.api.tasks.*': {'queue': '<name>'}
 ```
 
 Регистрация вручную не нужна — подхватывает `CeleryModuleManager`.
@@ -43,7 +43,7 @@ Worker и Beat должны смотреть на **один** брокер. И�
 Кратко: задачи модулей → `celery_tasks.log` (`celery.module.<имя>`); Beat модулей → `celery_beat.log` (`celery.beat.module.<имя>`). Отдельные `logs/modules/` и `logs/celery/beat/` **не используются**.
 
 ```powershell
-ergoms logs celery-tasks bi_analysis 200
+ergoms logs celery-tasks <name> 200
 ergoms logs celery-beat notifications 200
 ```
 

@@ -64,7 +64,7 @@ const { isShellDesktop, isCompactLayout } = useBreakpoint()
 
 ```js
 // BAD — свой ключ localStorage для a11y в модуле
-localStorage.setItem('my_module_no_anim', '1')
+localStorage.setItem('<name>_no_anim', '1')
 
 // BAD — игнор reduced motion
 el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 400 })

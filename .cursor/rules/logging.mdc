@@ -52,7 +52,7 @@ PID и temp nginx/redis — в `virtual_env/packages/*/run|temp`, **не** в `l
 Пример:
 
 ```
-[INFO] 2026-07-13 11:00:00 celery.module.bi_analysis.tasks tasks Dataset sync started
+[INFO] 2026-07-13 11:00:00 celery.module.<name>.tasks tasks Dataset sync started
 ```
 
 Имя модуля Celery видно в **`logger.name`** — отдельные файлы по модулям не нужны.
@@ -89,7 +89,7 @@ logger.error(f'request.data={request.data}')
 
 ```python
 # BAD — свой FileHandler / RotatingFileHandler в модуле или CeleryModuleConfig
-handler = logging.FileHandler('logs/my_module.log')
+handler = logging.FileHandler('logs/<name>.log')
 logger.addHandler(handler)
 
 # BAD — print вместо logger в бизнес-коде
@@ -118,7 +118,7 @@ Handlers задаёт только `dictConfig`. Не дублируй наст�
 Просмотр:
 
 ```powershell
-ergoms logs celery-tasks bi_analysis 200
+ergoms logs celery-tasks <name> 200
 ergoms logs celery-beat notifications 200
 ergoms logs ergo-celery-worker
 ```

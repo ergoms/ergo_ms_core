@@ -29,7 +29,7 @@ apply_user_search(qs, search)
 
 Новые поля для поиска — добавляй в `user_search.py`, не в модулях.
 
-Эталоны: `views_roles.py` (ядро), `organizations/api/views/members.py`, `projects/api/views.py`.
+Эталоны: `views_roles.py` (ядро); в модулях — `modules/<name>/api/views/` с `apply_user_search`.
 
 ## Связанные правила
 

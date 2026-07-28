@@ -30,7 +30,7 @@ export default organizationGuard
 3. **Route guards модулей** (алфавит по имени модуля) — доменная логика (например `validateSession`)
 4. Permission rules и ADP access
 
-Модульный `routeGuard` **не обязан** повторно вызывать `runSessionScopeGuard`, если достаточно platform-проверки. Владелец scope (organizations) может добавить доменную валидацию в своём guard после шага 2.
+Модульный `routeGuard` **не обязан** повторно вызывать `runSessionScopeGuard`, если достаточно platform-проверки. Владелец scope может добавить доменную валидацию в своём guard после шага 2.
 
 При redirect guard возвращает объект маршрута через `next({ name: '...' })` — ядро перехватывает object-redirect и прерывает цепочку.
 

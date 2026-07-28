@@ -13,10 +13,10 @@ alwaysApply: false
 - Связь **модуль ↔ модуль** без участия ядра — **не** в каталоге и **не** в файлах `core/…/integrations/`; строка группы у хоста и у провайдера (дублирование допустимо)
 - Регистрация — `bridge.provide_many(group, key, obj)` / `bridge.subscribe_to(event)` / `bridge.provide_op(...)`
 - Hook discovery — фиксированные имена файлов; ядро сканирует, не импортирует домен
-- JWT session-claims (например `organization_id` / `department_id`) декларирует модуль через `session_context.claims`; session-scoped UI — `@/integrations/sessionScopedModuleContext.js`
+- JWT session-claims (например `<scope_claim>` / `<child_claim>`) декларирует модуль через `session_context.claims`; session-scoped UI — `@/integrations/sessionScopedModuleContext.js`
 - Session-scope guard — `@/js/session/sessionScopeGuard.js`; welcome/home — группа `session.scope_entry_routes`
 - Активность scope на клиенте гейтит модуль через `session.scope_gating_claim` (`@/integrations/sessionScopeGating.js`)
-- Полный список **platform**-контрактов — таблица ниже; эталон stub — [`module_template`](../../modules/module_template/)
+- Полный список **platform**-контрактов — таблица ниже; эталон stub — `modules/<name>/` (hook-файлы и пустые integrations)
 
 ## Что класть в каталог ядра
 
@@ -24,24 +24,24 @@ alwaysApply: false
 |--------|------------------------------------------|---------------|
 | Ядро читает группу/событие/op? | **Да** — константа + при необходимости generic-хелпер | `core/…/integrations/` |
 | Только модуль A собирает UI, модуль B регистрирует панель/виджет? | **Нет** | хост-модуль (константа + `bridge.all`); провайдер — та же строка локально |
-| Имя с доменом модуля (`organization_*`, `crm_*`)? | **Нет** в ядре | только в модулях |
+| Имя с доменом модуля (`scope_*`, `<host>_settings.*`)? | **Нет** в ядре | только в модулях |
 
 ```javascript
 // BAD — межмодульный UI-контракт в ядре (ядро группу не читает)
 // core/client/src/integrations/moduleContracts.js
-export const ORG_SETTINGS_ADDITIONAL_PANELS_GROUP = 'organization_settings.additional_panels'
+export const HOST_SETTINGS_ADDITIONAL_PANELS_GROUP = 'host_settings.additional_panels'
 
-// GOOD — хост (organizations) владеет группой и хелпером
-// modules/organizations/client/js/orgSettingsAdditionalPanels.js
-export const ORG_SETTINGS_ADDITIONAL_PANELS_GROUP = 'organization_settings.additional_panels'
+// GOOD — хост (<host_module>) владеет группой и хелпером
+// modules/<host_module>/client/js/settingsAdditionalPanels.js
+export const HOST_SETTINGS_ADDITIONAL_PANELS_GROUP = 'host_settings.additional_panels'
 
-// GOOD — провайдер (crm) дублирует строку, без import из organizations и без ядра
-// modules/crm_remastered/client/js/integrations.js
-const ORG_SETTINGS_ADDITIONAL_PANELS_GROUP = 'organization_settings.additional_panels'
-bridge.provideMany(ORG_SETTINGS_ADDITIONAL_PANELS_GROUP, 'crm_vacancies', { … })
+// GOOD — провайдер (<provider>) дублирует строку, без import из хоста и без ядра
+// modules/<provider>/client/js/integrations.js
+const HOST_SETTINGS_ADDITIONAL_PANELS_GROUP = 'host_settings.additional_panels'
+bridge.provideMany(HOST_SETTINGS_ADDITIONAL_PANELS_GROUP, '<provider>_panel', { … })
 ```
 
-Эталон межмодульного расширения настроек org: [`orgSettingsAdditionalPanels.js`](../../modules/organizations/client/js/orgSettingsAdditionalPanels.js) ← [`crm_remastered/…/integrations.js`](../../modules/crm_remastered/client/js/integrations.js).
+Эталон межмодульного расширения настроек хоста: `modules/<host_module>/client/js/…AdditionalPanels.js` ← `modules/<provider>/client/js/integrations.js`.
 
 ## Обязательно
 
@@ -57,8 +57,8 @@ bridge.provideMany(ORG_SETTINGS_ADDITIONAL_PANELS_GROUP, 'crm_vacancies', { … 
 - Прямой `import` из `modules/<другой>/` (API и клиент) — только ModuleBridge
 - Hardcoded строки **platform**-групп моста, если константа уже есть в каталоге ядра
 - Класть в каталог / `core/…/integrations/` группы и хелперы, которые ядро **не** потребляет (типичный антипаттерн: «удобный» re-export для связи двух модулей)
-- Именование конкретного домена (organization и т.п.) в ядре — session-scope и прочие слои ядра generic
-- Файлы вроде `orgSettings*.js` / `crm*.js` в `core/client/src/integrations/`
+- Именование конкретного домена (конкретный scope entity и т.п.) в ядре — session-scope и прочие слои ядра generic
+- Файлы вроде `*Settings*.js` / доменные хелперы межмодульных групп в `core/client/src/integrations/`
 
 ## Каталог контрактов (сервер)
 
@@ -66,8 +66,8 @@ bridge.provideMany(ORG_SETTINGS_ADDITIONAL_PANELS_GROUP, 'crm_vacancies', { … 
 |-----|-----|------------|-------------|
 | `session_context.claims` | group | Дескриптор session-claim: `{claim, request_attr?, entity_key?, resolve?, required_guard?}` | модуль-владелец scope |
 | `audit.action_definitions` | group | Секции журнала аудита | ядро + модули |
-| `audit.scope_dimensions` | group | Измерения журнала: `{key, label, resolve(request), filter_param?, indexed?, read_guard?}`; `read_guard=True` ограничивает чтение не-админам | модуль (organizations → `organization`, `department`) |
-| `audit.can_read` | event | Право читать аудит в scope-контексте (`scope=dict` из read_guard измерений) | модуль (organizations) |
+| `audit.scope_dimensions` | group | Измерения журнала: `{key, label, resolve(request), filter_param?, indexed?, read_guard?}`; `read_guard=True` ограничивает чтение не-админам | модуль-владелец scope (ключи измерений — домен модуля) |
+| `audit.can_read` | event | Право читать аудит в scope-контексте (`scope=dict` из read_guard измерений) | модуль-владелец scope |
 | `audit.record` | event | Запись события | ядро |
 | `notifications.event_definitions` | group | Каталог уведомлений | модули |
 | `notifications.email_context` | group | Контекст письма | модули |
@@ -76,7 +76,7 @@ bridge.provideMany(ORG_SETTINGS_ADDITIONAL_PANELS_GROUP, 'crm_vacancies', { … 
 | `menu.can_see_item` | event | Видимость пункта | модуль |
 | `core.user_delete` | event | Очистка при удалении user | подписчик в модуле |
 | `core.bulk_user_create` | event | Массовое создание users | подписчик в модуле |
-| `session.restore_claims` | op | Dict произвольных JWT session-claims при логине (или None/пусто). Ядро **не** знает ключи claims — только вкладывает dict в токен | модуль-владелец scope (эталон: organizations) |
+| `session.restore_claims` | op | Dict произвольных JWT session-claims при логине (или None/пусто). Ядро **не** знает ключи claims — только вкладывает dict в токен | модуль-владелец scope |
 
 JWT session claims **не зашиты в ядре** — их декларируют модули через `session_context.claims`. Ядро выводит из дескрипторов список claims, resolver'ы и request-атрибуты ([`session_context.py`](../../core/api/src/core/integrations/session_context.py)).
 
@@ -86,10 +86,10 @@ JWT session claims **не зашиты в ядре** — их деклариру
 
 | Имя | Тип | Назначение | Эталон |
 |-----|-----|------------|--------|
-| `session_scope.module_context` | group | `{ pathPrefix, homeRoute, overviewRoute?, ... }` | [`organizations/integrations.js`](../../modules/organizations/client/js/integrations.js) |
-| `session.scope_entry_routes` | group | `welcome`, `defaultHome` route names, `onboardingPath` (путь онбординга scope) | organizations |
-| `session.scope_gating_claim` | group | Имя JWT claim, гейтящего активный scope (`hasActiveSessionScope`) | organizations (`organization_id`) |
-| `core.auth.clear_legacy_storage` | event | После `tokenService.clear` — модули чистят свой browser storage | organizations |
+| `session_scope.module_context` | group | `{ pathPrefix, homeRoute, overviewRoute?, ... }` | модуль-владелец scope: `modules/<host_module>/client/js/integrations.js` |
+| `session.scope_entry_routes` | group | `welcome`, `defaultHome` route names, `onboardingPath` (путь онбординга scope) | модуль-владелец scope |
+| `session.scope_gating_claim` | group | Имя JWT claim, гейтящего активный scope (`hasActiveSessionScope`) | модуль-владелец scope (`<scope_claim>`) |
+| `core.auth.clear_legacy_storage` | event | После `tokenService.clear` — модули чистят свой browser storage | модуль-владелец scope |
 | `layout.plugin_registry` | group | LayoutPlugin / offcanvas | [`layoutPluginRegistry.js`](../../core/client/src/integrations/layoutPluginRegistry.js) |
 | `menu.removed_route_names` | group | Скрытые route names в меню | [`menuExtensions.js`](../../core/client/src/integrations/menuExtensions.js) |
 | `menu.scope_required_route_prefixes` | group | Префиксы route names, требующих активный scope | menuExtensions |
@@ -131,13 +131,13 @@ Prebuild [`generate-module-globs.js`](../../core/client/scripts/generate-module-
 ## Базовый пример (session-scoped модуль)
 
 ```javascript
-// modules/my_module/client/js/integrations.js
+// modules/<name>/client/js/integrations.js
 import bridge from '@/integrations/ModuleBridge.js'
 import { SESSION_SCOPED_MODULE_CONTEXT_GROUP } from '@/integrations/moduleContracts.js'
 import { SESSION_SCOPE_GATING_CLAIM_GROUP } from '@/integrations/sessionScopeGating.js'
 
-bridge.provideMany(SESSION_SCOPED_MODULE_CONTEXT_GROUP, 'my_module', {
-  pathPrefix: '/my-module',
+bridge.provideMany(SESSION_SCOPED_MODULE_CONTEXT_GROUP, '<name>', {
+  pathPrefix: '/<name-kebab>',
   homeRoute: 'MyModuleHome',
 })
 
@@ -146,18 +146,18 @@ bridge.provideMany(SESSION_SCOPE_GATING_CLAIM_GROUP, 'my_scope', 'my_scope_id')
 ```
 
 ```python
-# modules/my_module/api/integrations.py — session-claim через единый дескриптор
+# modules/<name>/api/integrations.py — session-claim через единый дескриптор
 from src.core.integrations import bridge
 from src.core.integrations.module_contracts import SESSION_CLAIMS_GROUP
 
-def _resolve_org(*, organization_id, **kwargs):
+def _resolve_scope(*, my_scope_id, **kwargs):
     ...
 
-bridge.provide_many(SESSION_CLAIMS_GROUP, 'organization', {
-    'claim': 'organization_id',      # ключ в payload JWT
-    'request_attr': 'organization_id',
-    'entity_key': 'organization',    # ленивое request.organization
-    'resolve': _resolve_org,
+bridge.provide_many(SESSION_CLAIMS_GROUP, 'my_scope', {
+    'claim': 'my_scope_id',      # ключ в payload JWT
+    'request_attr': 'my_scope_id',
+    'entity_key': 'my_scope',    # ленивое request.my_scope
+    'resolve': _resolve_scope,
     'required_guard': True,          # для SessionScopeRequiredMiddleware
 })
 ```

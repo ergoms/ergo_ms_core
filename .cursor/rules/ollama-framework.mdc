@@ -59,4 +59,4 @@ client.chat(messages, stream=True, stream_callback=cb, return_stats=True)
 | MCP Cursor | [`mcp.mdc`](mcp.mdc) |
 | Роли процессов | [`process-roles.mdc`](process-roles.mdc) |
 | Host lifecycle (тесты) | [`host-lifecycle.mdc`](host-lifecycle.mdc) |
-| ai_assistant (gateway) | [`modules/ai_assistant/api/ollama_gateway.py`](../../modules/ai_assistant/api/ollama_gateway.py) |
+| `<consumer>` (gateway) | `modules/<consumer>/api/…` — обёртка над transport/client `ollama_framework`, без прямого SDK |

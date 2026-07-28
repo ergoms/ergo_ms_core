@@ -22,7 +22,7 @@ Composable позиционирования: `@/composables/useFilterMenuFlyout.
 | Один выбор из списка (роль, статус, модуль) | `SelectBox` — [`select-box.mdc`](select-box.mdc) |
 | Несколько фильтров в одном меню (модуль + действие + даты) | `FilterMenu` |
 | Текстовый поиск | `SearchInput` рядом — [`search-input.mdc`](search-input.mdc) |
-| Multi-select теги + поиск (organizations) | `FiltersBar` модуля — без замены на FilterMenu |
+| Multi-select теги + поиск (toolbar модуля) | `FiltersBar` модуля — без замены на FilterMenu |
 
 **FilterMenu не заменяет `SelectBox`** для простого выбора. Не делай свой выпадающий список с подменю в модуле.
 

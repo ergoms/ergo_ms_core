@@ -25,7 +25,7 @@ alwaysApply: false
 ## Обязательно
 
 - Новые пункты sidebar модуля — **миграция API** с `MenuMigrationHelper` и `module_source='modules/<имя>'`
-- Эталон: [`modules/module_template/api/migrations/0004_add_menu.py`](../../modules/module_template/api/migrations/0004_add_menu.py)
+- Эталон: `modules/<name>/api/migrations/*_add_menu.py`
 - Ядро CMS: [`0007_populate_core_menu.py`](../../core/api/src/core/cms/adp/migrations/0007_populate_core_menu.py)
 - Каждый пункт меню ссылается на **`routeName`** из `routes.js` модуля
 - Подпись в UI — из `meta.titleKey` маршрута (`resolveMenuItemTitle`); в миграции имя на русском остаётся запасным вариантом в БД
@@ -38,7 +38,7 @@ alwaysApply: false
 
 ```vue
 <!-- BAD — свой sidebar в модуле -->
-<aside class="my-module-sidebar">...</aside>
+<aside class="module-sidebar">...</aside>
 
 <!-- BAD — числовой id в ссылке из пункта меню -->
 router.push(`/users/${user.id}`)
@@ -58,14 +58,14 @@ Composables layout: `useMenuWidth`, `useMenuNavigation`, `useMenuCollapsedPrefer
 ## Миграция меню — базовый пример
 
 ```python
-# modules/my_module/api/migrations/0002_menu_data.py
+# modules/<name>/api/migrations/0002_menu_data.py
 from django.db import migrations
 
 
 def populate_menu(apps, schema_editor):
     from src.core.cms.adp.menu.migration_utils import MenuMigrationHelper
 
-    helper = MenuMigrationHelper(apps, 'modules/my_module')
+    helper = MenuMigrationHelper(apps, 'modules/<name>')
     helper.clear_module_items()
     root = helper.create_group('Мой модуль', 'MyModuleHome', icon='LayoutGrid')
     helper.create_routes_batch([
@@ -75,7 +75,7 @@ def populate_menu(apps, schema_editor):
 
 def reverse_populate_menu(apps, schema_editor):
     from src.core.cms.adp.menu.migration_utils import MenuMigrationHelper
-    MenuMigrationHelper(apps, 'modules/my_module').clear_module_items()
+    MenuMigrationHelper(apps, 'modules/<name>').clear_module_items()
 
 
 class Migration(migrations.Migration):

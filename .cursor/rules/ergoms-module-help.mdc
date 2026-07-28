@@ -23,13 +23,13 @@ alwaysApply: false
 1. Создай или обнови **`ergoms.help.yaml`** в том же каталоге модуля.
 2. Для каждой команды conf добавь `commands.<имя>.summary` на русском.
 3. Поле `module` в yaml совпадает с именем каталога (`kebab-case`).
-4. Эталон — [`modules/module_template/ergoms.help.yaml`](../../modules/module_template/ergoms.help.yaml).
+4. Эталон — `modules/<name>/ergoms.help.yaml` рядом с `ergoms.conf`.
 
 ## Формат ergoms.help.yaml
 
 ```yaml
-module: video_analysis
-title: "Анализ видео"
+module: <name>
+title: "Мой модуль"
 summary: "Кратко о назначении модуля"
 
 commands:
@@ -37,7 +37,7 @@ commands:
     summary: "Установить все зависимости модуля"
 
 notes:
-  - "Вызов: ergoms video_analysis:<команда>"
+  - "Вызов: ergoms <name>:<команда>"
 ```
 
 | Поле | Назначение |
@@ -60,7 +60,7 @@ notes:
 |-----|------|
 | Рендер справки | [`core/deployment/scripts/ergoms_help.py`](../../core/deployment/scripts/ergoms_help.py) |
 | Справка ядра | [`core/deployment/help.manifest.yaml`](../../core/deployment/help.manifest.yaml) |
-| Эталон модуля | [`modules/module_template/ergoms.help.yaml`](../../modules/module_template/ergoms.help.yaml) |
+| Эталон модуля | `modules/<name>/ergoms.help.yaml` |
 
 ## Связанные правила
 

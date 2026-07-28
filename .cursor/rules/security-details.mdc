@@ -48,9 +48,9 @@ alwaysApply: false
 **Запрещено:**
 
 - `AllowAny` / отключение `permission_classes` без явной бизнес-причины (публичная тема, healthcheck)
-- Возвращать чужие данные без фильтра по `request.user` / организации / правам
+- Возвращать чужие данные без фильтра по `request.user` / scope / правам
 - Пропускать проверку прав «временно» или «только для админов в dev»
-- Доверять `organization_id`, `user_id`, ролям из тела запроса без верификации на сервере
+- Доверять `scope_id`, `user_id`, ролям из тела запроса без верификации на сервере
 - Обходить `PermissionService` / `bridge.call('adp.permission_check', ...)` локальными обходными проверками в модулях
 
 **Правильно:**
@@ -62,12 +62,12 @@ alwaysApply: false
 
 ```python
 # ❌ BAD — доверие client-side id
-org_id = request.data['organization_id']
-return Organization.objects.filter(id=org_id)
+scope_id = request.data['scope_id']
+return SomeEntity.objects.filter(id=scope_id)
 
 # ✅ GOOD — контекст из проверенного membership / JWT / bridge
-org = get_organization_for_user(request.user, org_id)
-if org is None:
+entity = get_entity_for_user(request.user, scope_id)
+if entity is None:
     raise PermissionDenied
 ```
 
@@ -79,44 +79,42 @@ if org is None:
 
 **Запрещено (клиент и публичный API):**
 
-- Маршруты вида `/entities/42`, `/settings/organization/departments/7`, query `?organization_id=5&department_id=12`
+- Маршруты вида `/entities/42`, `/settings/scope/children/7`, query `?scope_id=5&child_id=12`
 - `router.push({ params: { id: item.id } })`, `href`, `window.location` с числовым pk
-- `localStorage` / `sessionStorage` / `document.cookie` (кроме JWT в `tokenStorage.js`) с `*_id`, pk, «активная организация», «выбранный отдел» и т.п.
+- `localStorage` / `sessionStorage` / `document.cookie` (кроме JWT в `tokenStorage.js`) с `*_id`, pk, «активный scope», «выбранный дочерний объект» и т.п.
 - Отдавать в JSON для UI только `id`, если клиент строит из него URL или кладёт в storage — нужен **`public_id`** (UUID) или другая непредсказуемая непрозрачная ссылка
-- Новые cookie с идентификаторами организаций и сущностей (`org_id`, `dept_id`, `project_id`)
+- Новые cookie с идентификаторами scope и сущностей (`scope_id`, `child_id`, `item_id`)
 
 **Правильно:**
 
 - Поле **`public_id`** (`UUIDField`, unique, read-only в API) на сущностях, доступных по URL
 - Публичные URL и API lookup — по `public_id`; pk — только внутри сервера после resolve + проверки прав
-- Эталон модуля organizations:
-  - API: [`get_organization_by_ref`](../../modules/organizations/api/views/base.py)
-  - Client: [`getOrganizationPublicRef`](../../modules/organizations/client/js/organizationUtils.js), [`departmentDetailPath`](../../modules/organizations/client/js/organizationUtils.js)
+- Эталон модуля (resolve по `public_id`): хелперы вида `get_<entity>_by_ref` в `modules/<name>/api/…`, на клиенте — path-builders по `public_id` в `modules/<name>/client/js/`
 - Эталон пользователя (`auth.User`) — поле `public_id` есть на модели по умолчанию:
   - Поле `public_id`: колонка в `auth_user`, ORM — `ErgoUser` (`core/api/src/core/cms/adp/ergo_user.py`)
   - API: [`UserPublicInfoView`](../../core/api/src/core/cms/views.py) — lookup только по `users/by-ref/<uuid:ref>/public-info/` (числовой id в URL запрещён)
   - Client: `@/components/UserAvatar.vue` — проп `user-ref` (не `userId`), см. [`components.mdc`](components.mdc) → «Аватар пользователя»
   - Любой сериализатор/ответ, отдающий `user.id` для последующего показа аватара/публичных данных, должен рядом отдавать `public_id` (`SerializerMethodField`, `str(user.public_id) if getattr(user, 'public_id', None) else None`)
-- Контекст сессии (org/dept/user) — **из JWT** через `tokenStorage.js`, не дублировать pk в storage «для удобства»
+- Контекст сессии (scope/user) — **из JWT** через `tokenStorage.js`, не дублировать pk в storage «для удобства»
 
 ```js
 // ❌ BAD — pk в URL и storage
-router.push(`/projects/${project.id}`)
-localStorage.setItem('active_project_id', String(project.id))
-Cookies.set('org_id', organization.id)
+router.push(`/items/${item.id}`)
+localStorage.setItem('active_item_id', String(item.id))
+Cookies.set('scope_id', scope.id)
 
 // GOOD — непрозрачная ссылка в URL; контекст из JWT (имя claim — из контракта модуля)
-router.push(`/projects/${project.public_id}`)
-const scopeClaim = getSessionClaim('organization_id') // пример имени; не из localStorage
+router.push(`/items/${item.public_id}`)
+const scopeClaim = getSessionClaim('<scope_claim>') // пример имени; не из localStorage
 ```
 
 ```python
 # ❌ BAD — только pk в публичном эндпоинте
-# GET /api/organizations/42/
+# GET /api/<name>/42/
 
 # ✅ GOOD — lookup по public_id, pk после resolve
-org = get_organization_by_ref(kwargs['ref'])
-if org is None or not user_has_access(request.user, org):
+entity = get_entity_by_ref(kwargs['ref'])
+if entity is None or not user_has_access(request.user, entity):
     raise NotFound
 ```
 
@@ -129,7 +127,7 @@ if org is None or not user_has_access(request.user, org):
 **Запрещено** сохранять и читать из браузерных хранилищ:
 
 - JWT, refresh-токены, API-ключи, пароли, прочие конфиденциальные данные
-- `user_id`, `organization_id`, `department_id`, pk сущностей и прочие идентификаторы сессии/контекста доступа
+- `user_id`, `<scope_claim>`, pk сущностей и прочие идентификаторы сессии/контекста доступа
 - PII (email, телефон, паспорт и т.п.) «на будущее» или для «удобства»
 - полные объекты пользователя / профиля / прав
 
@@ -149,7 +147,7 @@ localStorage.setItem('menu-sidebar-collapsed', 'true')
 
 // ✅ GOOD — контекст из JWT (имя claim задаёт модуль через session_context.claims)
 import { getSessionClaim } from '@/core/cms/js/tokenStorage.js'
-const scopeId = getSessionClaim('organization_id')
+const scopeId = getSessionClaim('<scope_claim>')
 ```
 
 ---
