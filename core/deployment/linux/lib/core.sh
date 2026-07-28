@@ -7,6 +7,8 @@ SCRIPT_DIR_CORE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR_CORE/console_tags.sh"
 # shellcheck source=nginx_env.sh
 source "$SCRIPT_DIR_CORE/nginx_env.sh"
+# shellcheck source=portable_env.sh
+source "$SCRIPT_DIR_CORE/portable_env.sh"
 
 # Константы (базовые службы без воркеров)
 BASE_SERVICES="ergo-api-dev ergo-client-dev ergo-celery-beat"
@@ -154,9 +156,13 @@ get_celery_workers() {
 
 _postgres_portable_enabled() {
   local project_root="${1:-}"
+  local svc_name='ergo-postgres'
+  local from_env
   [[ -x "$project_root/virtual_env/packages/postgres/bin/postgres" ]] && return 0
   [[ -x "$project_root/virtual_env/packages/postgres/pgsql/bin/postgres" ]] && return 0
-  [[ -f /etc/systemd/system/ergo-postgres.service ]] && return 0
+  from_env="$(_ergo_env_value "$project_root" 'POSTGRES_SERVICE_LINUX' 2>/dev/null || true)"
+  [[ -n "${from_env:-}" ]] && svc_name="$from_env"
+  [[ -f "/etc/systemd/system/${svc_name}.service" ]] && return 0
   return 1
 }
 
@@ -164,6 +170,8 @@ _postgres_portable_enabled() {
 generate_units_list() {
   local project_root="${1:-}"
   local units="ergo-api-dev.service ergo-media-api.service ergo-celery-beat.service"
+  local postgres_svc='ergo-postgres'
+  local from_env
 
   if is_nginx_enabled "$project_root"; then
     units="$units ergo_ms_nginx.service"
@@ -172,7 +180,9 @@ generate_units_list() {
   fi
 
   if _postgres_portable_enabled "$project_root"; then
-    units="ergo-postgres.service $units"
+    from_env="$(_ergo_env_value "$project_root" 'POSTGRES_SERVICE_LINUX' 2>/dev/null || true)"
+    [[ -n "${from_env:-}" ]] && postgres_svc="$from_env"
+    units="${postgres_svc}.service $units"
   fi
   
   local workers

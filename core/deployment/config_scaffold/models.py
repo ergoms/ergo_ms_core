@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
-from .strategies import CopyStrategy, FullCopyStrategy
+from .strategies import CopyStrategy, DatabasesYamlCopyStrategy, FullCopyStrategy
 
 
 class ScaffoldAction(str, Enum):
@@ -50,11 +50,15 @@ class ConfigTemplate:
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
             self.strategy.copy(source, target)
+            detail = self.created_detail
+            last_detail = getattr(self.strategy, 'last_detail', '') or ''
+            if last_detail:
+                detail = last_detail
             return ScaffoldResult(
                 source_display,
                 target_display,
                 ScaffoldAction.CREATED,
-                self.created_detail,
+                detail,
             )
         except OSError as exc:
             return ScaffoldResult(
@@ -69,21 +73,22 @@ class ConfigTemplateRegistry:
     """Реестр шаблонов: корень проекта и модульные .env."""
 
     @staticmethod
-    def project_templates() -> list[ConfigTemplate]:
+    def project_templates(project_root: Path) -> list[ConfigTemplate]:
+        # .env раньше databases.yaml — чтобы ERGO_BROKER уже был на диске в том же прогоне.
         return [
+            ConfigTemplate(
+                '.env.example',
+                '.env',
+                FullCopyStrategy(),
+            ),
             ConfigTemplate(
                 'databases.yaml.example',
                 'databases.yaml',
-                FullCopyStrategy(),
+                DatabasesYamlCopyStrategy(project_root),
             ),
             ConfigTemplate(
                 'celery_workers.yaml.example',
                 'celery_workers.yaml',
-                FullCopyStrategy(),
-            ),
-            ConfigTemplate(
-                '.env.example',
-                '.env',
                 FullCopyStrategy(),
             ),
             ConfigTemplate(
@@ -136,6 +141,11 @@ class ConfigTemplateRegistry:
                 'env/celery.env',
                 FullCopyStrategy(),
             ),
+            ConfigTemplate(
+                'env/postgres.env.example',
+                'env/postgres.env',
+                FullCopyStrategy(),
+            ),
         ]
 
     @staticmethod
@@ -171,4 +181,4 @@ class ConfigTemplateRegistry:
 
     @classmethod
     def all_templates(cls, project_root: Path) -> list[ConfigTemplate]:
-        return cls.project_templates() + cls.module_env_templates(project_root)
+        return cls.project_templates(project_root) + cls.module_env_templates(project_root)

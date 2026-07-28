@@ -34,11 +34,89 @@ DEFAULT_DB_USER = 'postgres'
 DEFAULT_DB_PASSWORD = 'admin'
 OUR_SERVICE_WINDOWS = 'ergo_ms_postgres'
 OUR_SERVICE_LINUX = 'ergo-postgres'
+DEFAULT_SERVICE_DISPLAY_NAME = 'Ergo MS - PostgreSQL'
+DEFAULT_SERVICE_RESTART_DELAY_MS = 5000
+# Knobs postgresql.conf из env/postgres.env (POSTGRES_* → ключ conf).
+# Дефолт: 4 ядра / 8 потоков, 16 ГБ RAM, SSD.
+_CONF_SETTING_ENV_KEYS = (
+    ('POSTGRES_MAX_CONNECTIONS', 'max_connections'),
+    ('POSTGRES_SHARED_BUFFERS', 'shared_buffers'),
+    ('POSTGRES_WORK_MEM', 'work_mem'),
+    ('POSTGRES_MAINTENANCE_WORK_MEM', 'maintenance_work_mem'),
+    ('POSTGRES_EFFECTIVE_CACHE_SIZE', 'effective_cache_size'),
+    ('POSTGRES_RANDOM_PAGE_COST', 'random_page_cost'),
+    ('POSTGRES_EFFECTIVE_IO_CONCURRENCY', 'effective_io_concurrency'),
+    ('POSTGRES_MAX_WORKER_PROCESSES', 'max_worker_processes'),
+    ('POSTGRES_MAX_PARALLEL_WORKERS', 'max_parallel_workers'),
+    ('POSTGRES_MAX_PARALLEL_WORKERS_PER_GATHER', 'max_parallel_workers_per_gather'),
+    ('POSTGRES_MAX_PARALLEL_MAINTENANCE_WORKERS', 'max_parallel_maintenance_workers'),
+)
+_DEFAULT_CONF_SETTINGS = {
+    'max_connections': '100',
+    'shared_buffers': '4GB',
+    'work_mem': '32MB',
+    'maintenance_work_mem': '1GB',
+    'effective_cache_size': '12GB',
+    'random_page_cost': '1.1',
+    'effective_io_concurrency': '200',
+    'max_worker_processes': '8',
+    'max_parallel_workers': '8',
+    'max_parallel_workers_per_gather': '4',
+    'max_parallel_maintenance_workers': '4',
+}
 PG_FTP_SOURCE = 'https://ftp.postgresql.org/pub/source/'
 EDB_WINDOWS_URL = (
     'https://get.enterprisedb.com/postgresql/'
     'postgresql-{version}-1-windows-x64-binaries.zip'
 )
+
+
+def _read_postgres_env(name: str, default: str = '') -> str:
+    """POSTGRES_* из .env + env/*.env (в т.ч. env/postgres.env)."""
+    try:
+        from deployment_env import read_env  # noqa: WPS433
+    except ImportError:
+        return default
+    value = read_env(name, default)
+    return (value or default).strip() or default
+
+
+def our_service_windows(root: Path | None = None) -> str:
+    _ = root
+    return _read_postgres_env('POSTGRES_SERVICE_WINDOWS', OUR_SERVICE_WINDOWS)
+
+
+def our_service_linux(root: Path | None = None) -> str:
+    _ = root
+    return _read_postgres_env('POSTGRES_SERVICE_LINUX', OUR_SERVICE_LINUX)
+
+
+def service_display_name(root: Path | None = None) -> str:
+    _ = root
+    return _read_postgres_env('POSTGRES_SERVICE_DISPLAY_NAME', DEFAULT_SERVICE_DISPLAY_NAME)
+
+
+def service_restart_delay_ms(root: Path | None = None) -> int:
+    _ = root
+    raw = _read_postgres_env(
+        'POSTGRES_SERVICE_RESTART_DELAY_MS',
+        str(DEFAULT_SERVICE_RESTART_DELAY_MS),
+    )
+    try:
+        return int(raw)
+    except ValueError:
+        return DEFAULT_SERVICE_RESTART_DELAY_MS
+
+
+def load_portable_conf_settings(root: Path | None = None) -> dict[str, str]:
+    """Параметры нагрузки для postgresql.conf (env/postgres.env)."""
+    _ = root
+    settings = dict(_DEFAULT_CONF_SETTINGS)
+    for env_key, conf_key in _CONF_SETTING_ENV_KEYS:
+        value = _read_postgres_env(env_key, settings[conf_key])
+        if value:
+            settings[conf_key] = value
+    return settings
 
 
 def postgres_packages_dir(root: Path) -> Path:
@@ -234,6 +312,8 @@ def _ensure_layout(root: Path) -> dict[str, Path]:
 
 def has_system_postgresql_service() -> bool:
     system = platform.system().lower()
+    our_windows = our_service_windows()
+    our_linux = our_service_linux()
     if system == 'windows':
         try:
             result = subprocess.run(
@@ -241,7 +321,7 @@ def has_system_postgresql_service() -> bool:
                     'powershell.exe', '-NoProfile', '-Command',
                     "Get-Service -ErrorAction SilentlyContinue | "
                     "Where-Object { $_.Name -like 'postgresql*' "
-                    f"-and $_.Name -ne '{OUR_SERVICE_WINDOWS}' }} | "
+                    f"-and $_.Name -ne '{our_windows}' }} | "
                     "Select-Object -ExpandProperty Name",
                 ],
                 capture_output=True,
@@ -269,7 +349,7 @@ def has_system_postgresql_service() -> bool:
         if not unit.endswith('.service'):
             continue
         short = unit[:-8]
-        if short == OUR_SERVICE_LINUX or short.startswith(f'{OUR_SERVICE_LINUX}.'):
+        if short == our_linux or short.startswith(f'{our_linux}.'):
             continue
         if short.startswith('postgresql'):
             return True
@@ -369,16 +449,17 @@ def _patch_conf_file(path: Path, replacements: dict[str, str]) -> None:
 
 def _configure_cluster(root: Path, port: int, bind: str) -> None:
     data = postgres_data_dir(root)
-    _patch_conf_file(
-        data / 'postgresql.conf',
-        {
-            'listen_addresses': f"'{bind}'",
-            'port': str(port),
-            'logging_collector': 'on',
-            'log_directory': f"'{(postgres_packages_dir(root) / 'logs').as_posix()}'",
-            'log_filename': "'postgresql.log'",
-        },
-    )
+    replacements = {
+        'listen_addresses': f"'{bind}'",
+        'port': str(port),
+        'logging_collector': 'on',
+        'log_directory': f"'{(postgres_packages_dir(root) / 'logs').as_posix()}'",
+        'log_filename': "'postgresql.log'",
+    }
+    for conf_key, value in load_portable_conf_settings(root).items():
+        # Строковые размеры (128MB) — без кавычек; числа — как есть.
+        replacements[conf_key] = value
+    _patch_conf_file(data / 'postgresql.conf', replacements)
     write_portable_listen_port(root, port)
     hba = data / 'pg_hba.conf'
     if hba.is_file():

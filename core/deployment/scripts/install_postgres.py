@@ -224,7 +224,8 @@ def install_postgres(
     if alongside_system:
         print(format_console(
             'warning',
-            'POSTGRES_FORCE_INSTALL / --no-skip-system: portable при системной службе',
+            'POSTGRES_FORCE_INSTALL / --no-skip-system: portable при системной службе '
+            f'(порт {listen_port} из databases.yaml)',
         ))
 
     print(format_console(

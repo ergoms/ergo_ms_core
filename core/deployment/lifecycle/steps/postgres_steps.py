@@ -49,10 +49,15 @@ class EnsurePostgresStep(DeploymentStep):
             return StepResult()
 
         if force and has_system_postgresql_service():
+            from postgres_common import (  # noqa: WPS433
+                resolve_portable_listen_port,
+            )
+
+            listen_port = resolve_portable_listen_port(ctx.project_root)
             print(format_console(
                 'warning',
                 'POSTGRES_FORCE_INSTALL / --with-postgres: portable при системной службе '
-                '(portable всегда на порту 5433)',
+                f'(порт {listen_port} из databases.yaml default.port)',
             ))
 
         if is_installed(ctx.project_root) and not force:

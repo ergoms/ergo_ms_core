@@ -2,8 +2,32 @@
 # PostgreSQL management for Linux
 # Portable PostgreSQL в virtual_env/packages/postgres
 
-POSTGRES_SERVICE_NAME='ergo-postgres'
+SCRIPT_DIR_POSTGRES="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=portable_env.sh
+source "$SCRIPT_DIR_POSTGRES/portable_env.sh"
+
+POSTGRES_SERVICE_NAME_DEFAULT='ergo-postgres'
+POSTGRES_SERVICE_NAME="$POSTGRES_SERVICE_NAME_DEFAULT"
+POSTGRES_SERVICE_DISPLAY_NAME='Ergo MS - PostgreSQL'
 POSTGRES_UNIT_PATH="/etc/systemd/system/${POSTGRES_SERVICE_NAME}.service"
+
+_postgres_init_service_config() {
+  local root="$1"
+  local name display
+  name="$(_ergo_env_value "$root" 'POSTGRES_SERVICE_LINUX' 2>/dev/null || true)"
+  if [[ -n "${name:-}" ]]; then
+    POSTGRES_SERVICE_NAME="$name"
+  else
+    POSTGRES_SERVICE_NAME="$POSTGRES_SERVICE_NAME_DEFAULT"
+  fi
+  display="$(_ergo_env_value "$root" 'POSTGRES_SERVICE_DISPLAY_NAME' 2>/dev/null || true)"
+  if [[ -n "${display:-}" ]]; then
+    POSTGRES_SERVICE_DISPLAY_NAME="$display"
+  else
+    POSTGRES_SERVICE_DISPLAY_NAME='Ergo MS - PostgreSQL'
+  fi
+  POSTGRES_UNIT_PATH="/etc/systemd/system/${POSTGRES_SERVICE_NAME}.service"
+}
 
 _postgres_dir() {
   local root="$1"
@@ -180,11 +204,12 @@ _postgres_force_install() {
 _postgres_unit_content() {
   local root="$1"
   local postgres data
+  _postgres_init_service_config "$root"
   postgres="$(_postgres_bin "$root" postgres)"
   data="$(_postgres_data "$root")"
   cat <<UNIT
 [Unit]
-Description=Ergo MS PostgreSQL (portable packages)
+Description=${POSTGRES_SERVICE_DISPLAY_NAME}
 After=network.target
 
 [Service]
@@ -209,6 +234,8 @@ postgres_install() {
   local root="$1"
   local listen_port="${2:-}"
   local no_skip_system="${3:-false}"
+
+  _postgres_init_service_config "$root"
 
   echo ""
   echo "=== PostgreSQL: установка и запуск ==="
@@ -266,6 +293,7 @@ postgres_install() {
 
 postgres_install_service() {
   local root="$1"
+  _postgres_init_service_config "$root"
   if ! _postgres_is_installed "$root"; then
     echo "[ERROR] PostgreSQL не установлен. Выполните: ergoms install-postgres" >&2
     return 1
@@ -282,6 +310,7 @@ postgres_install_service() {
 
 postgres_start() {
   local root="$1"
+  _postgres_init_service_config "$root"
   if ! _postgres_is_installed "$root"; then
     echo "[ERROR] PostgreSQL не установлен. Выполните: ergoms install-postgres" >&2
     return 1
@@ -318,6 +347,7 @@ postgres_start() {
 postgres_stop() {
   local root="${1:-}"
   local quiet="${2:-}"
+  _postgres_init_service_config "$root"
 
   if systemctl is-active --quiet "$POSTGRES_SERVICE_NAME.service" 2>/dev/null; then
     [[ -z "$quiet" ]] && echo "-> Остановка службы PostgreSQL..."
@@ -344,6 +374,7 @@ postgres_stop() {
 
 postgres_restart() {
   local root="$1"
+  _postgres_init_service_config "$root"
   if systemctl is-active --quiet "$POSTGRES_SERVICE_NAME.service" 2>/dev/null \
     || [[ -f "$POSTGRES_UNIT_PATH" ]]; then
     if [[ $(id -u) -eq 0 ]]; then
@@ -361,6 +392,7 @@ postgres_restart() {
 postgres_status() {
   local root="$1"
   local dir
+  _postgres_init_service_config "$root"
   dir="$(_postgres_dir "$root")"
 
   if ! _postgres_is_installed "$root"; then
@@ -425,6 +457,7 @@ postgres_uninstall() {
   local root="$1"
   local purge="${2:-false}"
 
+  _postgres_init_service_config "$root"
   echo "=== PostgreSQL: удаление ==="
   postgres_stop "$root" quiet 2>/dev/null || true
 

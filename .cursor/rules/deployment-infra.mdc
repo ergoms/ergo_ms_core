@@ -13,9 +13,10 @@ alwaysApply: false
 
 ## Кратко
 
-- **Режимы** — `ERGO_RUNTIME` / `ERGO_PROXY` / `ERGO_BROKER` / `ERGO_DB` в [`.env.example`](../../.env.example); детали — `env/nginx.env`, `env/docker.env`
+- **Режимы** — `ERGO_RUNTIME` / `ERGO_PROXY` / `ERGO_BROKER` / `ERGO_DB` в [`.env.example`](../../.env.example); детали — `env/nginx.env`, `env/docker.env`, `env/postgres.env`
 - **Redis** — portable в `virtual_env/packages/redis/`; host/port/db — секция `redis` в `databases.yaml`; включение — `ERGO_BROKER=redis`
 - **nginx** — `virtual_env/packages/nginx/`; `ERGO_PROXY=nginx` + [`env/nginx.env.example`](../../env/nginx.env.example)
+- **Portable Postgres** — `virtual_env/packages/postgres/`; host/port — `databases.yaml`; служба и knobs — [`env/postgres.env.example`](../../env/postgres.env.example); см. [`postgres-portable.mdc`](postgres-portable.mdc)
 - **TLS** (Let's Encrypt) — только Linux: `ergoms install-tls`; ключи в `env/nginx.env`
 - Effective — **`ergo_modes`**, **`redis_runtime`**, **`nginx_runtime`**, **`tls_runtime`**; скрипты **не пишут** в `.env` — [`no-auto-env-write.mdc`](no-auto-env-write.mdc)
 

@@ -26,6 +26,7 @@ alwaysApply: false
 | [`env/realtime.env.example`](../../env/realtime.env.example) | `REALTIME_*`, channel layer |
 | [`env/cache.env.example`](../../env/cache.env.example) | `API_CACHE_*`, TTL меню/прав/уведомлений |
 | [`env/celery.env.example`](../../env/celery.env.example) | `CELERY_BROKER_*` |
+| [`env/postgres.env.example`](../../env/postgres.env.example) | служба portable Postgres, knobs `postgresql.conf` |
 | [`databases.yaml.example`](../../databases.yaml.example) | SQL + секция `redis` |
 
 - Загрузка: `.env` → `env/*.env` → `modules/**/.env` (модули перекрывают).
@@ -52,12 +53,14 @@ ERGO_ENV=development|production
 
 1. После добавления переменной обнови нужный example (корень или фрагмент).
 2. Connection Redis — только `databases.yaml` → `redis`, не дублируй `REDIS_HOST` в корневых шаблонах.
+3. Connection SQL (host/port/user/password) — только `databases.yaml`; служба и knobs portable Postgres — только `env/postgres.env` ([`postgres-portable.mdc`](postgres-portable.mdc)).
 
 ## Запрещено
 
 ```dotenv
 # BAD — снова завести полный .env.docker.example с копией всех ключей
 # BAD — REDIS_HOST=… в .env.example (должен быть в databases.yaml)
+# BAD — POSTGRES_HOST / POSTGRES_PORT в env/postgres.env (должны быть в databases.yaml)
 ```
 
 ```dotenv
@@ -65,9 +68,13 @@ ERGO_ENV=development|production
 # .env
 ERGO_PROXY=nginx
 ERGO_BROKER=redis
+ERGO_DB=portable_postgres
 
 # env/nginx.env
 NGINX_SERVER_NAME=app.example.com
+
+# env/postgres.env
+POSTGRES_MAX_CONNECTIONS=100
 ```
 
 ## Связанные правила

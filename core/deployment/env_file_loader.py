@@ -21,6 +21,7 @@ _FRAGMENT_PRIORITY = (
     'realtime.env',
     'cache.env',
     'celery.env',
+    'postgres.env',
 )
 
 

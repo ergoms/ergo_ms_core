@@ -409,8 +409,12 @@ main() {
       fi
 
       local valid=false
+      local postgres_svc='ergo-postgres'
+      local postgres_from_env
+      postgres_from_env="$(_ergo_env_value "$ERGO_ROOT" 'POSTGRES_SERVICE_LINUX' 2>/dev/null || true)"
+      [[ -n "${postgres_from_env:-}" ]] && postgres_svc="$postgres_from_env"
       case "$service_name" in
-        ergo_ms_nginx|ergo_ms_nginx.service|ergo-redis|ergo-redis.service|ergo_ms_redis|ergo-postgres|ergo-postgres.service)
+        ergo_ms_nginx|ergo_ms_nginx.service|ergo-redis|ergo-redis.service|ergo_ms_redis|"$postgres_svc"|"${postgres_svc}.service"|ergo-postgres|ergo-postgres.service)
           valid=true
           ;;
       esac
@@ -427,7 +431,7 @@ main() {
 
       if [[ "$valid" == false ]]; then
         write_ergoms_message 'unknown_service' red stderr "name=$service_name"
-        echo "Доступные службы: $(units_list "$ERGO_ROOT" | tr '\n' ' ') ergo_ms_nginx ergo-redis ergo-postgres celery-tasks celery-beat" >&2
+        echo "Доступные службы: $(units_list "$ERGO_ROOT" | tr '\n' ' ') ergo_ms_nginx ergo-redis $postgres_svc celery-tasks celery-beat" >&2
         exit 1
       fi
 

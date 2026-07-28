@@ -1,10 +1,35 @@
 ﻿# PostgreSQL management for Windows
 # Установка и управление portable PostgreSQL в virtual_env/packages/postgres
 
-$script:PostgresServiceName = 'ergo_ms_postgres'
+. (Join-Path $PSScriptRoot 'portable_env.ps1')
+
+$script:PostgresServiceNameDefault = 'ergo_ms_postgres'
+$script:PostgresServiceName = $script:PostgresServiceNameDefault
+$script:PostgresServiceDisplayName = 'Ergo MS - PostgreSQL'
+$script:PostgresServiceRestartDelayMs = '5000'
 # LocalSystem = admin → postgres отказывается стартовать; NetworkService — без elevated token.
 $script:PostgresServiceAccount = 'NT AUTHORITY\NetworkService'
 $script:PostgresServiceAccountSid = 'S-1-5-20'
+
+function Initialize-PostgresServiceConfig {
+    param([string]$Root)
+    if (-not $Root) { return }
+
+    $name = Get-ErgoEnvValue -Root $Root -Name 'POSTGRES_SERVICE_WINDOWS'
+    if ($name) { $script:PostgresServiceName = $name } else { $script:PostgresServiceName = $script:PostgresServiceNameDefault }
+
+    $display = Get-ErgoEnvValue -Root $Root -Name 'POSTGRES_SERVICE_DISPLAY_NAME'
+    if ($display) { $script:PostgresServiceDisplayName = $display } else { $script:PostgresServiceDisplayName = 'Ergo MS - PostgreSQL' }
+
+    $delay = Get-ErgoEnvValue -Root $Root -Name 'POSTGRES_SERVICE_RESTART_DELAY_MS'
+    if ($delay) { $script:PostgresServiceRestartDelayMs = $delay } else { $script:PostgresServiceRestartDelayMs = '5000' }
+}
+
+function Get-PostgresServiceName {
+    param([string]$Root)
+    Initialize-PostgresServiceConfig -Root $Root
+    return $script:PostgresServiceName
+}
 
 function Get-PostgresPackagesRelativePath {
     return Join-Path 'virtual_env' (Join-Path 'packages' 'postgres')
@@ -111,6 +136,7 @@ function Wait-PostgresServiceRemoved {
 
 function Test-PostgresPortablePresent {
     param([string]$Root)
+    Initialize-PostgresServiceConfig -Root $Root
     if (Test-PostgresInstalled -Root $Root) { return $true }
     $svc = Get-Service -Name $script:PostgresServiceName -ErrorAction SilentlyContinue
     return $null -ne $svc
@@ -162,6 +188,8 @@ function Install-Postgres {
         [string]$ListenPort = '',
         [switch]$NoSkipSystem
     )
+
+    Initialize-PostgresServiceConfig -Root $Root
 
     Write-ColorOutput '' White
     Write-ColorOutput '=== PostgreSQL: установка и запуск ===' Cyan
@@ -312,7 +340,7 @@ function Test-PostgresNssmServiceMatches {
         },
         @{
             Param = 'AppRestartDelay'
-            Expected = '5000'
+            Expected = $script:PostgresServiceRestartDelayMs
             Actual = Get-NssmParameterValue -NssmExe $NssmExe -ServiceName $name -Parameter 'AppRestartDelay'
         }
     )
@@ -359,6 +387,8 @@ function Start-PostgresServiceAndVerify {
 
 function Install-PostgresService {
     param([string]$Root)
+
+    Initialize-PostgresServiceConfig -Root $Root
 
     if (-not (Test-PostgresInstalled -Root $Root)) {
         Write-ColorOutput (Format-ErgoConsole -Level error -Message 'PostgreSQL не установлен. Выполните: ergoms install-postgres') Red
@@ -424,7 +454,7 @@ function Install-PostgresService {
     }
     & $nssmExe set $script:PostgresServiceName AppParameters "-D `"$dataDir`""
     & $nssmExe set $script:PostgresServiceName AppDirectory $pgDir
-    & $nssmExe set $script:PostgresServiceName DisplayName 'Ergo MS - PostgreSQL'
+    & $nssmExe set $script:PostgresServiceName DisplayName $script:PostgresServiceDisplayName
     & $nssmExe set $script:PostgresServiceName Description 'Ergo MS portable PostgreSQL'
     # LocalSystem запрещён для postmaster; пустой пароль — для встроенной учётки.
     & $nssmExe set $script:PostgresServiceName ObjectName $script:PostgresServiceAccount ''
@@ -435,7 +465,7 @@ function Install-PostgresService {
     & $nssmExe set $script:PostgresServiceName AppStderr $stderrLog
     & $nssmExe set $script:PostgresServiceName Start SERVICE_AUTO_START
     & $nssmExe set $script:PostgresServiceName AppExit Default Restart
-    & $nssmExe set $script:PostgresServiceName AppRestartDelay 5000
+    & $nssmExe set $script:PostgresServiceName AppRestartDelay $script:PostgresServiceRestartDelayMs
 
     Grant-PostgresServiceDirectoryAccess -PgDir $pgDir
     Start-PostgresServiceAndVerify -StderrLog $stderrLog -OkMessage 'Служба PostgreSQL установлена и запущена'
@@ -446,6 +476,8 @@ function Stop-PostgresProcess {
         [string]$Root = '',
         [switch]$Quiet
     )
+
+    Initialize-PostgresServiceConfig -Root $Root
 
     $service = Get-Service -Name $script:PostgresServiceName -ErrorAction SilentlyContinue
     if ($service -and $service.Status -eq 'Running') {
@@ -478,6 +510,8 @@ function Stop-PostgresProcess {
 function Start-PostgresProcess {
     param([string]$Root)
 
+    Initialize-PostgresServiceConfig -Root $Root
+
     if (-not (Test-PostgresInstalled -Root $Root)) {
         Write-ColorOutput '[ERROR] PostgreSQL не установлен. Выполните: ergoms install-postgres' Red
         return
@@ -508,6 +542,8 @@ function Start-PostgresProcess {
 
 function Restart-PostgresProcess {
     param([string]$Root)
+
+    Initialize-PostgresServiceConfig -Root $Root
 
     if (-not (Test-PostgresInstalled -Root $Root)) {
         Write-ColorOutput '[ERROR] PostgreSQL не установлен. Выполните: ergoms install-postgres' Red
@@ -648,6 +684,8 @@ function Write-PostgresYamlPortHint {
 function Show-PostgresStatus {
     param([string]$Root)
 
+    Initialize-PostgresServiceConfig -Root $Root
+
     $pgDir = Get-PostgresDir -Root $Root
     $installed = Test-PostgresInstalled -Root $Root
 
@@ -693,6 +731,8 @@ function Uninstall-Postgres {
         [string]$Root,
         [switch]$PurgeData
     )
+
+    Initialize-PostgresServiceConfig -Root $Root
 
     Write-ColorOutput '=== PostgreSQL: удаление ===' Cyan
     Stop-PostgresProcess -Root $Root -Quiet

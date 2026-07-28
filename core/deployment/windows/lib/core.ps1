@@ -2,7 +2,7 @@
 
 # Базовые утилиты для развертывания ErgoMS
 
-
+. (Join-Path $PSScriptRoot 'portable_env.ps1')
 
 # Константы (базовые службы)
 
@@ -498,7 +498,11 @@ function Test-PostgresPortableEnabled {
 
     if ((Test-Path $direct) -or (Test-Path $nested)) { return $true }
 
-    $svc = Get-Service -Name 'ergo_ms_postgres' -ErrorAction SilentlyContinue
+    $svcName = 'ergo_ms_postgres'
+    $fromEnv = Get-ErgoEnvValue -Root $ProjectRoot -Name 'POSTGRES_SERVICE_WINDOWS'
+    if ($fromEnv) { $svcName = $fromEnv }
+
+    $svc = Get-Service -Name $svcName -ErrorAction SilentlyContinue
 
     return $null -ne $svc
 
@@ -532,7 +536,11 @@ function Get-ServiceNames {
 
     if ($postgresEnabled) {
 
-        $services = @('ergo_ms_postgres') + $services
+        $postgresServiceName = 'ergo_ms_postgres'
+        $fromEnv = Get-ErgoEnvValue -Root $ProjectRoot -Name 'POSTGRES_SERVICE_WINDOWS'
+        if ($fromEnv) { $postgresServiceName = $fromEnv }
+
+        $services = @($postgresServiceName) + $services
 
     }
 

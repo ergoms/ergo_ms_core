@@ -1,4 +1,4 @@
-﻿# Чтение PORTABLE_*_ENABLED из .env (без Django).
+﻿# Чтение PORTABLE_*_ENABLED и прочих ключей из .env + env/*.env (без Django).
 
 function Get-ErgoEnvValue {
     param(
@@ -6,17 +6,31 @@ function Get-ErgoEnvValue {
         [Parameter(Mandatory = $true)][string]$Name
     )
 
-    $envFile = Join-Path $Root '.env'
-    if (-not (Test-Path -LiteralPath $envFile)) { return $null }
-
     $pattern = '^' + [regex]::Escape($Name) + '=(.*)$'
-    foreach ($line in Get-Content -Path $envFile -Encoding UTF8) {
-        if ($line -match '^\s*#' -or [string]::IsNullOrWhiteSpace($line)) { continue }
-        if ($line -match $pattern) {
-            return $Matches[1].Trim().Trim('"').Trim("'")
+    $found = $null
+
+    $files = @()
+    $rootEnv = Join-Path $Root '.env'
+    if (Test-Path -LiteralPath $rootEnv) {
+        $files += $rootEnv
+    }
+    $envDir = Join-Path $Root 'env'
+    if (Test-Path -LiteralPath $envDir) {
+        $files += @(Get-ChildItem -LiteralPath $envDir -Filter '*.env' -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -notlike '*.example' } |
+            Sort-Object Name |
+            ForEach-Object { $_.FullName })
+    }
+
+    foreach ($envFile in $files) {
+        foreach ($line in Get-Content -Path $envFile -Encoding UTF8) {
+            if ($line -match '^\s*#' -or [string]::IsNullOrWhiteSpace($line)) { continue }
+            if ($line -match $pattern) {
+                $found = $Matches[1].Trim().Trim('"').Trim("'")
+            }
         }
     }
-    return $null
+    return $found
 }
 
 function Test-ErgoEnvTruthy {
