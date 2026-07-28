@@ -12,7 +12,7 @@ alwaysApply: false
 
 Цель — быстрый первый экран на медленной сети (3G): меньше JS в оболочке и в чанке маршрута, меньше последовательных API-запросов. **Не** ломай видимый UI ради микрооптимизаций.
 
-Маршруты ядра уже code-split через строки в `routes.js` + `RouteManager` / `createDeferredComponentImport`. Узкие места — **shell**, **модалки/вкладки внутри страницы**, **waterfall API**.
+Маршруты ядра уже code-split через строки в `routes.js` + `RouteManager` / `createDeferredComponentImport`. Узкие места — **shell**, **модалки/вкладки внутри страницы**, **waterfall API**, **стартовый бандл** (i18n, Lucide).
 
 ## Кратко
 
@@ -20,7 +20,10 @@ alwaysApply: false
 - Оболочка (`LayoutMenu`, `MenuToolbar`) — **без** тяжёлых настроек/редакторов/crop до открытия
 - Модалки, вкладки, предпросмотры — `defineAsyncComponent` + `v-if` при открытии
 - Независимые запросы на mount — `Promise.all`, не цепочка `await`
-- Hover/focus пункта меню — `prefetchRouteByName` (`@/js/utils/prefetchRoute.js`)
+- Hover/focus пункта меню / breadcrumbs / auth-ссылок — `prefetchRouteByName` (`@/js/utils/prefetchRoute.js`)
+- i18n — только активный locale (+ fallback) на старте; остальные через `ensureLocaleLoaded` / `setAppLocale`
+- Иконки меню — per-icon через `lucideIconLoader` (не `import('lucide-vue-next')` barrel)
+- Post-boot (client_monitor, theme manifests, syncSiteTheme) — `requestIdleCallback` / idle после mount
 - Индикация загрузки списков — [`loading-content-area.mdc`](loading-content-area.mdc), не свой overlay
 
 ## Обязательно
@@ -29,16 +32,20 @@ alwaysApply: false
 |-------|-----|
 | Новая страница в `routes.js` | component — строка `@/...`, не sync import |
 | Модалка только по клику | `defineAsyncComponent(() => import(...))` и монтировать при открытии (`v-if` / «mounted once») |
-| Вкладки (`v-if` / query `tab`) | async-компонент на вкладку, не тянуть обе сразу |
+| Вкладки (`v-if` / query `tab`) | async-компонент на вкладку, не тянуть обе сразу; hover — prefetch соседнего чанка |
 | Независимые GET на mount | `Promise.all([...])` |
-| Prefetch из меню | уже в `MenuItem`; для своих списков ссылок — `prefetchRouteByName(router, name)` |
+| Prefetch из меню | уже в `MenuItem`; для своих списков ссылок / toolbar — `prefetchRouteByName(router, name)` |
 | Shell dropdown по режиму UI | `SidebarNotifications` / `AppsMenu` — async; `v-if` по `actionButton` недостаточен без async import |
 | Тяжёлая панель после access-check | async-компонент + `v-if="hasAdminAccess"` (не sync в странице-обёртке) |
+| Каталоги i18n | не sync-import `ru`+`en`+`fr` в entry; `ensureBootLocales` / `setAppLocale` |
+| Динамические иконки меню | `preloadLucideIconNames` / `getLucideIconAsync` — не полный barrel |
 
 Эталон оболочки: [`MenuToolbar.vue`](../../core/client/src/components/menu/MenuToolbar.vue) — `UserSettingsModal` после первого открытия; `SidebarNotifications` / `AppsMenu` — async по `actionButton`. `UserMenu` / `SettingsMenu` остаются sync (нужны сразу в toolbar).  
 Эталон вкладок настроек: [`userSettingsTabs.js`](../../core/client/src/core/cms/adp/user/account/component/userSettingsTabs.js).  
 Эталон admin после access-check: [`AuditLog.vue`](../../core/client/src/core/cms/adp/admin/AuditLog.vue) → async `AuditLogPanel`; детали события — async + `v-if` в [`AuditLogPanel.vue`](../../core/client/src/core/audit/components/AuditLogPanel.vue).  
-Эталон редактора тем: [`ParentLayout.vue`](../../core/client/src/core/cms/adp/settings/themeEditor/ParentLayout.vue) → async `ThemeEditor` (галерея) + async `ThemeEditorForm` (ColorPicker только при открытии формы).
+Эталон редактора тем: [`ParentLayout.vue`](../../core/client/src/core/cms/adp/settings/themeEditor/ParentLayout.vue) → async `ThemeEditor` (галерея) + async `ThemeEditorForm` (ColorPicker только при открытии формы).  
+Эталон boot: [`main.js`](../../core/client/src/js/main.js) — `bootLocalesPromise` при оценке i18n → App/toast → module locales → endpoints/router → mount; idle post-boot. На Vite **dev** + Slow 3G не раздувать sync-граф `main` (routers/App): иначе HTTP/1.1 очередь, locale через десятки секунд.  
+Эталон Lucide меню: [`lucideIconLoader.js`](../../core/client/src/js/lucideIconLoader.js) + `generate-lucide-icon-map.js`.
 
 ## Запрещено
 
@@ -57,6 +64,14 @@ import AuditLogPanel from '@/core/audit/components/AuditLogPanel.vue'
 // BAD — последовательные независимые запросы
 roles.value = await getRoles()
 roleGroups.value = await getRoleGroupOptions()
+
+// BAD — все locale packs в стартовом бандле
+import ru from './locales/ru/index.js'
+import en from './locales/en/index.js'
+import fr from './locales/fr/index.js'
+
+// BAD — весь Lucide при preload меню
+await import('lucide-vue-next')
 ```
 
 ```js
@@ -68,6 +83,13 @@ const AuditLogPanel = defineAsyncComponent(() =>
   import('@/core/audit/components/AuditLogPanel.vue'),
 )
 const [roles, roleGroups] = await Promise.all([getRoles(), getRoleGroupOptions()])
+
+// GOOD — i18n on-demand
+await ensureBootLocales()
+await setAppLocale('en')
+
+// GOOD — иконки меню по именам
+await preloadLucideIconNames(['Home', 'Settings'])
 ```
 
 ```vue
@@ -85,13 +107,15 @@ const [roles, roleGroups] = await Promise.all([getRoles(), getRoleGroupOptions()
 3. Неактивные вкладки и ветки `v-if` (action-button, tab) — async, не sync import
 4. Тяжёлая панель admin — после access-check (`v-if="hasAdminAccess"`)
 5. Mount: независимые API — параллельно; доступ (admin) может идти первым
-6. UI и a11y не деградировали (те же спиннеры / `LoadingContentArea`, без пустого layout)
+6. Внутренние переходы (toolbar, breadcrumbs, auth links) — hover/focus prefetch
+7. UI и a11y не деградировали (те же спиннеры / `LoadingContentArea`, без пустого layout)
 
 ## Связанные правила
 
 | Тема | Файл |
 |------|------|
 | Клиент Vue | [`client_code.mdc`](client_code.mdc) |
+| Локализация | [`i18n.mdc`](i18n.mdc) |
 | Загрузка списков | [`loading-content-area.mdc`](loading-content-area.mdc) |
 | Модалки | [`modal-center.mdc`](modal-center.mdc) |
 | Меню | [`menu.mdc`](menu.mdc) |

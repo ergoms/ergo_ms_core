@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 import sys
+import time
 from pathlib import Path
 
 _DEPLOYMENT_DIR = Path(__file__).resolve().parents[2]
@@ -12,6 +14,10 @@ if str(_DEPLOYMENT_DIR) not in sys.path:
 from lifecycle.context import DeploymentContext  # noqa: E402
 from lifecycle.host import ops as host_ops  # noqa: E402
 from lifecycle.steps.base import DeploymentStep, StepResult  # noqa: E402
+
+# Совпадает с core/api/.../startup_timing (без импорта API из deployment).
+_API_START_WALL_ENV = 'ERGO_API_START_WALL'
+_MEDIA_START_WALL_ENV = 'ERGO_MEDIA_API_START_WALL'
 
 _DEV_SCRIPTS = {
     'dev-api': [
@@ -43,6 +49,11 @@ class DevForegroundStep(DeploymentStep):
         scripts = _DEV_SCRIPTS.get(self._recipe_key, [])
         if not scripts:
             return StepResult(exit_code=1, message=f'Неизвестный dev-рецепт: {self._recipe_key}')
+        # Wall-clock до warmup/скрипта — итог включает всю цепочку рецепта.
+        if self._recipe_key == 'dev-api':
+            os.environ.setdefault(_API_START_WALL_ENV, str(time.time()))
+        elif self._recipe_key == 'dev-media':
+            os.environ.setdefault(_MEDIA_START_WALL_ENV, str(time.time()))
         code = 0
         for rel in scripts:
             code = host_ops.run_python_script(ctx, rel, prefer_venv=True)

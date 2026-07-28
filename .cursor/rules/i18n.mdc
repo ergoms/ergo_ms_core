@@ -16,7 +16,8 @@ alwaysApply: false
 ## Кратко
 
 - Каталоги ядра клиента: [`core/client/src/i18n/locales/{ru,en,fr}/`](../../core/client/src/i18n/locales/)
-- Модули клиента: hook `modules/<name>/client/js/locales.js` → `LocaleManager` merge
+- Runtime: on-demand — `ensureBootLocales` / `setAppLocale` грузят активный (+ fallback); не все 3 языка в entry
+- Модули клиента: hook `modules/<name>/client/js/locales.js` → `LocaleManager` merge (только нужные locale)
 - API: `gettext` / `gettext_lazy`, каталоги [`core/api/locale/`](../../core/api/locale/)
 - Язык по умолчанию (гость / новый профиль): `DEFAULT_LANGUAGE` в корневом `.env` (`ru`|`en`|`fr`)
 - Язык пользователя: Настройки → Система → «Язык интерфейса» → `UserProfile.language` + `localStorage['language']`
