@@ -63,6 +63,18 @@ class ModuleCatalog:
             return False
         return name not in _SKIPPED_MODULE_DIR_NAMES
 
+    @staticmethod
+    def is_populated_module_dir(path: Path) -> bool:
+        """
+        Есть содержимое модуля, а не пустой placeholder (неинициализированный submodule).
+
+        Как в client ``listEnabledModuleNames``: нужен ``api/`` и/или ``client/``.
+        Пустые каталоги не считаются установленными модулями и не попадают в каталоги UI.
+        """
+        if not path.is_dir():
+            return False
+        return (path / 'api').is_dir() or (path / 'client').is_dir()
+
     def enabled_names(self) -> list[str]:
         return self.list_module_names(include_disabled=False)
 
@@ -73,6 +85,8 @@ class ModuleCatalog:
         names: list[str] = []
         for entry in self._modules_dir.iterdir():
             if not entry.is_dir() or not self.is_valid_module_dir_name(entry.name):
+                continue
+            if not self.is_populated_module_dir(entry):
                 continue
             if not include_disabled and entry.name in self._disabled:
                 continue

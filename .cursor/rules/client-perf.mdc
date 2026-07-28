@@ -37,7 +37,8 @@ alwaysApply: false
 
 Эталон оболочки: [`MenuToolbar.vue`](../../core/client/src/components/menu/MenuToolbar.vue) — `UserSettingsModal` после первого открытия; `SidebarNotifications` / `AppsMenu` — async по `actionButton`. `UserMenu` / `SettingsMenu` остаются sync (нужны сразу в toolbar).  
 Эталон вкладок настроек: [`userSettingsTabs.js`](../../core/client/src/core/cms/adp/user/account/component/userSettingsTabs.js).  
-Эталон admin после access-check: [`AuditLog.vue`](../../core/client/src/core/cms/adp/admin/AuditLog.vue) → async `AuditLogPanel`; детали события — async + `v-if` в [`AuditLogPanel.vue`](../../core/client/src/core/audit/components/AuditLogPanel.vue).
+Эталон admin после access-check: [`AuditLog.vue`](../../core/client/src/core/cms/adp/admin/AuditLog.vue) → async `AuditLogPanel`; детали события — async + `v-if` в [`AuditLogPanel.vue`](../../core/client/src/core/audit/components/AuditLogPanel.vue).  
+Эталон редактора тем: [`ParentLayout.vue`](../../core/client/src/core/cms/adp/settings/themeEditor/ParentLayout.vue) → async `ThemeEditor` (галерея) + async `ThemeEditorForm` (ColorPicker только при открытии формы).
 
 ## Запрещено
 

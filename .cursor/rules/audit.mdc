@@ -145,6 +145,7 @@ bridge.provide_many(AUDIT_SCOPE_DIMENSIONS_GROUP, 'project', {
 | Контекст (actor/ip/scope) | `core/api/src/core/audit/context.py` (middleware) |
 | Файл `logs/audit.log` | `core/api/src/core/audit/service.py` → `log_audit_event` |
 | UI (только ядро) | `core/client/src/core/cms/adp/admin/AuditLog.vue` |
+| Фильтр инициаторов | `GET .../audit/events/actors/` (отдельно от catalog — для 3G) |
 
 ## Связанные правила
 
