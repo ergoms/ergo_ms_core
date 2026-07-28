@@ -1,13 +1,12 @@
-"""Разбор module_source пунктов меню (modules/foo/bar → foo)."""
+"""Разбор module_source пунктов меню (modules/<name>/… → <name>)."""
 
 
 def top_level_from_module_source(module_source: str) -> str | None:
     """
     Верхний уровень модуля из module_source.
 
-    modules/bi_analysis → bi_analysis
-    modules/lms/mct → lms
-    core/cms → None
+    ``modules/<name>`` и ``modules/<name>/…`` → ``<name>``;
+    пути вне ``modules/`` (например ``core/cms``) → ``None``.
     """
     if not module_source:
         return None
