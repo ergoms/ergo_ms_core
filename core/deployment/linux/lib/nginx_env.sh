@@ -19,7 +19,8 @@ is_nginx_enabled() {
     value="${BASH_REMATCH[1]}"
     value="${value//\"/}"
     value="${value//\'/}"
-    value="$(echo "$value" | tr '[:upper:]' '[:lower:]' | xargs)"
+    value="$(_ergoms_trim "$value")"
+    value="$(printf '%s' "$value" | tr '[:upper:]' '[:lower:]')"
     case "$value" in
       1|true|yes) return 0 ;;
     esac

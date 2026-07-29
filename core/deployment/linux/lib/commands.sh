@@ -47,8 +47,8 @@ load_custom_commands() {
       [[ -z "$key" ]] && continue
       
       # Remove leading/trailing whitespace
-      key=$(echo "$key" | xargs)
-      value=$(echo "$value" | xargs)
+      key="$(_ergoms_trim "$key")"
+      value="$(_ergoms_trim "$value")"
       
       if [[ -n "$key" && -n "$value" ]]; then
         CUSTOM_COMMANDS["$key"]="$value"
@@ -72,8 +72,8 @@ load_custom_commands() {
             [[ -z "$key" ]] && continue
             
             # Remove leading/trailing whitespace
-            key=$(echo "$key" | xargs)
-            value=$(echo "$value" | xargs)
+            key="$(_ergoms_trim "$key")"
+            value="$(_ergoms_trim "$value")"
             
             if [[ -n "$key" && -n "$value" ]]; then
               # Add module prefix to command name
@@ -232,7 +232,7 @@ invoke_custom_command() {
     IFS='|' read -ra sub_cmds <<< "${command_def// && /|}"
     
     for sub_cmd in "${sub_cmds[@]}"; do
-      sub_cmd=$(echo "$sub_cmd" | xargs)  # Trim whitespace
+      sub_cmd="$(_ergoms_trim "$sub_cmd")"
       if ! _should_run_on_this_platform "$sub_cmd"; then
         continue
       fi

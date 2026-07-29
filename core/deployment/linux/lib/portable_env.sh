@@ -25,7 +25,7 @@ _ergo_env_value() {
       value="${value%\"}"
       value="${value#\'}"
       value="${value%\'}"
-      value="$(echo "$value" | xargs)"
+      value="$(_ergoms_trim "$value")"
       found="$value"
     done < "$env_file"
   done

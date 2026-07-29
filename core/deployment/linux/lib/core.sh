@@ -3,6 +3,16 @@
 # Базовые утилиты для развертывания ErgoMS
 
 SCRIPT_DIR_CORE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Trim leading/trailing whitespace without xargs (xargs treats quotes specially).
+_ergoms_trim() {
+  local s="${1-}"
+  s="${s#"${s%%[![:space:]]*}"}"
+  s="${s%"${s##*[![:space:]]}"}"
+  printf '%s' "$s"
+}
+export -f _ergoms_trim
+
 # shellcheck source=console_tags.sh
 source "$SCRIPT_DIR_CORE/console_tags.sh"
 # shellcheck source=nginx_env.sh
