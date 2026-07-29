@@ -39,10 +39,10 @@ function Stop-BlockingProcessesForClean {
 
     Write-ColorOutput "  Останавливаю процессы, которые могут блокировать файлы проекта..." Gray
 
-    # ergo-* — службы приложения; ergo_ms_* — portable nginx/redis/postgres (NSSM)
+    # Все OS-службы проекта — ergo_ms_*; ergo-* оставляем для legacy до переустановки
     $services = @(
-        Get-Service -Name 'ergo-*' -ErrorAction SilentlyContinue
         Get-Service -Name 'ergo_ms_*' -ErrorAction SilentlyContinue
+        Get-Service -Name 'ergo-*' -ErrorAction SilentlyContinue
     ) | Where-Object { $_ -and $_.Status -ne 'Stopped' } | Sort-Object -Property Name -Unique
 
     foreach ($svc in $services) {

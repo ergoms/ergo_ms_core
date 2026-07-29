@@ -40,7 +40,7 @@ ergoms test-redis
 
 В `.env`: `ERGO_BROKER=redis`. При уже включённом режиме `setup-full` сам вызывает `install-redis`. Перезапустите API. Проверка: `ergoms test-redis` → `PONG`.
 
-Служба: `ergoms install-redis-service` (Windows: `ergo_ms_redis`, Linux: `ergo-redis`). Логи — `logs/redis.log`.
+Служба: `ergoms install-redis-service` (Windows и Linux: `ergo_ms_redis`). Логи — `logs/redis.log`.
 
 ### `redis_runtime`
 

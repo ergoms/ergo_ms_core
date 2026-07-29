@@ -21,7 +21,7 @@ alwaysApply: true
 
 | Что | Зачем |
 |---|---|
-| NSSM `install` / SCM `ergo-*` | автозапуск; бинарь NSSM в `virtual_env/packages/nssm` |
+| NSSM `install` / SCM `ergo_ms_*` | автозапуск; бинарь NSSM в `virtual_env/packages/nssm` |
 | `systemctl link` | unit остаётся в `wrappers/systemd/` |
 | Docker entrypoint в `/usr/local/lib/ergo-ms` | вне bind-mount `/app` (CRLF); CLI — из `/app/core/deployment/bin` |
 

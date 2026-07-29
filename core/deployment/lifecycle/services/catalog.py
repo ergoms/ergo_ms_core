@@ -2,9 +2,21 @@
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+
+_SCRIPTS_DIR = Path(__file__).resolve().parents[2] / 'scripts'
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
+
+from service_names import (  # noqa: E402
+    API_DEV,
+    CELERY_BEAT,
+    CLIENT_DEV,
+    MEDIA_API,
+    celery_worker,
+)
 
 CORE_SERVICE_IDS = ('api', 'client', 'media', 'beat')
 
@@ -20,7 +32,7 @@ class ServiceEntry:
 def _load_workers(project_root: Path) -> list[ServiceEntry]:
     path = project_root / 'celery_workers.yaml'
     if not path.is_file():
-        return [ServiceEntry('worker-all', 'ergo-celery-worker-all', 'install-workers')]
+        return [ServiceEntry('worker-all', celery_worker('all'), 'install-workers')]
     try:
         import yaml  # noqa: WPS433
 
@@ -31,21 +43,21 @@ def _load_workers(project_root: Path) -> list[ServiceEntry]:
             entries.append(
                 ServiceEntry(
                     f'worker-{key}',
-                    f'ergo-celery-worker-{key}',
+                    celery_worker(str(key)),
                     'install-workers',
                 )
             )
-        return entries or [ServiceEntry('worker-all', 'ergo-celery-worker-all', 'install-workers')]
+        return entries or [ServiceEntry('worker-all', celery_worker('all'), 'install-workers')]
     except Exception:
-        return [ServiceEntry('worker-all', 'ergo-celery-worker-all', 'install-workers')]
+        return [ServiceEntry('worker-all', celery_worker('all'), 'install-workers')]
 
 
 def list_core_services() -> list[ServiceEntry]:
     return [
-        ServiceEntry('api', 'ergo-api-dev', 'install-api'),
-        ServiceEntry('client', 'ergo-client-dev', 'install-client', optional=True),
-        ServiceEntry('media', 'ergo-media-api', 'install-media'),
-        ServiceEntry('beat', 'ergo-celery-beat', 'install-beat'),
+        ServiceEntry('api', API_DEV, 'install-api'),
+        ServiceEntry('client', CLIENT_DEV, 'install-client', optional=True),
+        ServiceEntry('media', MEDIA_API, 'install-media'),
+        ServiceEntry('beat', CELERY_BEAT, 'install-beat'),
     ]
 
 

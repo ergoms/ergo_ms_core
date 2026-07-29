@@ -1,5 +1,5 @@
 """
-Единый каталог модулей: FS + DISABLED_MODULES.
+Единый каталог модулей: FS + DISABLED_MODULES + фильтр процесса (microservice).
 
 Используется в deployment lifecycle и через фасад module_registry в API.
 """
@@ -13,13 +13,43 @@ from typing import FrozenSet
 
 _SKIPPED_MODULE_DIR_NAMES = frozenset({'__pycache__'})
 
+# Роли HTTP API, для которых в MODULE_RUNTIME=microservice исключаются MICROSERVICE_MODULES.
+_CORE_API_PROCESS_ROLES = frozenset({'api', 'core-api'})
 
-def parse_disabled_modules_raw(raw: str = '') -> frozenset[str]:
+# Каноническое значение + устаревший алиас ``split``.
+_RUNTIME_MICROSERVICE = frozenset({'microservice', 'split'})
+
+
+def parse_csv_modules(raw: str = '') -> frozenset[str]:
     return frozenset(m.strip() for m in raw.split(',') if m.strip())
 
 
+def parse_disabled_modules_raw(raw: str = '') -> frozenset[str]:
+    return parse_csv_modules(raw)
+
+
+def parse_module_runtime(raw: str = '') -> str:
+    """``monolith`` или ``microservice`` (алиас ``split`` → microservice)."""
+    value = (raw or 'monolith').strip().lower()
+    if value in _RUNTIME_MICROSERVICE:
+        return 'microservice'
+    if value == 'monolith':
+        return 'monolith'
+    return 'monolith'
+
+
+def parse_process_role(raw: str = '') -> str:
+    return (raw or '').strip().lower()
+
+
+def parse_microservice_modules(environ: Mapping[str, str]) -> frozenset[str]:
+    """MICROSERVICE_MODULES; запасной ключ SPLIT_MODULES."""
+    raw = environ.get('MICROSERVICE_MODULES', '') or environ.get('SPLIT_MODULES', '')
+    return parse_csv_modules(raw)
+
+
 class ModuleCatalog:
-    """Реестр модулей на диске с учётом DISABLED_MODULES."""
+    """Реестр модулей на диске с учётом DISABLED_MODULES и роли процесса."""
 
     def __init__(
         self,
@@ -27,10 +57,22 @@ class ModuleCatalog:
         *,
         disabled: FrozenSet[str] | None = None,
         modules_dir_name: str = 'modules',
+        module_runtime: str = 'monolith',
+        process_role: str = '',
+        microservice_modules: FrozenSet[str] | None = None,
+        process_modules: FrozenSet[str] | None = None,
+        process_modules_explicit: bool = False,
     ) -> None:
         self._project_root = project_root.resolve()
         self._modules_dir = self._project_root / modules_dir_name
         self._disabled = disabled if disabled is not None else frozenset()
+        self._module_runtime = parse_module_runtime(module_runtime)
+        self._process_role = parse_process_role(process_role)
+        self._microservice_modules = (
+            microservice_modules if microservice_modules is not None else frozenset()
+        )
+        self._process_modules = process_modules if process_modules is not None else frozenset()
+        self._process_modules_explicit = process_modules_explicit
 
     @classmethod
     def from_env(
@@ -39,8 +81,16 @@ class ModuleCatalog:
         environ: Mapping[str, str] | None = None,
     ) -> ModuleCatalog:
         env = environ if environ is not None else os.environ
-        raw = env.get('DISABLED_MODULES', '')
-        return cls(project_root, disabled=parse_disabled_modules_raw(raw))
+        process_modules_raw = env.get('PROCESS_MODULES', '')
+        return cls(
+            project_root,
+            disabled=parse_disabled_modules_raw(env.get('DISABLED_MODULES', '')),
+            module_runtime=env.get('MODULE_RUNTIME', 'monolith'),
+            process_role=env.get('ERGO_PROCESS_ROLE', ''),
+            microservice_modules=parse_microservice_modules(env),
+            process_modules=parse_csv_modules(process_modules_raw),
+            process_modules_explicit=bool(process_modules_raw.strip()),
+        )
 
     @property
     def project_root(self) -> Path:
@@ -54,8 +104,93 @@ class ModuleCatalog:
     def disabled(self) -> FrozenSet[str]:
         return self._disabled
 
+    @property
+    def module_runtime(self) -> str:
+        return self._module_runtime
+
+    @property
+    def process_role(self) -> str:
+        return self._process_role
+
+    @property
+    def microservice_modules(self) -> FrozenSet[str]:
+        return self._microservice_modules
+
+    @property
+    def split_modules(self) -> FrozenSet[str]:
+        """Устаревший алиас ``microservice_modules``."""
+        return self._microservice_modules
+
+    @property
+    def process_modules(self) -> FrozenSet[str]:
+        return self._process_modules
+
+    @property
+    def process_modules_explicit(self) -> bool:
+        return self._process_modules_explicit
+
     def is_disabled(self, module_name: str) -> bool:
         return module_name in self._disabled
+
+    def is_microservice_mode(self) -> bool:
+        return self._module_runtime == 'microservice'
+
+    def is_split_mode(self) -> bool:
+        """Устаревший алиас ``is_microservice_mode``."""
+        return self.is_microservice_mode()
+
+    def module_process_name(self) -> str | None:
+        """Имя модуля для роли ``module:<name>``, иначе None."""
+        role = self._process_role
+        if role.startswith('module:'):
+            name = role.split(':', 1)[1].strip()
+            return name or None
+        return None
+
+    def is_core_api_process(self) -> bool:
+        """
+        HTTP-процесс ядра (start_api): в microservice исключает MICROSERVICE_MODULES.
+
+        Worker/beat и роли без явного ``api`` грузят все non-disabled.
+        ``start_api`` обязан выставлять ``ERGO_PROCESS_ROLE=api``.
+        """
+        return self._process_role in _CORE_API_PROCESS_ROLES
+
+    def is_loadable_in_process(self, module_name: str) -> bool:
+        """Модуль должен попасть в INSTALLED_APPS / URL discovery этого процесса."""
+        if not module_name or module_name in self._disabled:
+            return False
+
+        if self._process_modules_explicit:
+            return module_name in self._process_modules
+
+        module_only = self.module_process_name()
+        if module_only is not None:
+            return module_name == module_only
+
+        if self.is_microservice_mode() and self.is_core_api_process():
+            if module_name in self._microservice_modules:
+                return False
+
+        return True
+
+    def process_filter_fingerprint(self) -> str:
+        """Строка для инвалидации кэша discovered_apps при смене роли/режима."""
+        allow = ','.join(sorted(self._process_modules)) if self._process_modules_explicit else ''
+        ms = ','.join(sorted(self._microservice_modules))
+        return (
+            f'runtime={self._module_runtime};'
+            f'role={self._process_role};'
+            f'microservice={ms};'
+            f'process={allow};'
+            f'explicit={int(self._process_modules_explicit)}'
+        )
+
+    def cache_key_suffix(self) -> str:
+        """Суффикс файла кэша, чтобы разные роли не перезаписывали друг друга."""
+        role = self._process_role or 'api'
+        safe = ''.join(c if c.isalnum() or c in '-_' else '_' for c in role)
+        return safe or 'api'
 
     @staticmethod
     def is_valid_module_dir_name(name: str) -> bool:
@@ -92,6 +227,10 @@ class ModuleCatalog:
                 continue
             names.append(entry.name)
         return sorted(names)
+
+    def list_loadable_module_names(self) -> list[str]:
+        """Имена модулей, загружаемых в текущем процессе (disabled + process filter)."""
+        return [n for n in self.list_module_names(include_disabled=False) if self.is_loadable_in_process(n)]
 
     def iter_module_dirs(self, *, include_disabled: bool = False) -> Iterator[Path]:
         for name in self.list_module_names(include_disabled=include_disabled):

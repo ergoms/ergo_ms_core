@@ -46,7 +46,7 @@ host:
   install_service_commands:
     - <name>:install-daemon-service
   service_units:
-    - ergo-my-daemon                 # для справки; Stop-AllErgoms уже гасит ergo-*
+    - ergo_ms_my_daemon              # для справки; Stop-AllErgoms уже гасит ergo_ms_*
 ```
 
 | Поле | Смысл |

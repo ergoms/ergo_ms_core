@@ -34,23 +34,23 @@ CLI лежит в `core/deployment/bin` (репозиторий). Команда
 
 | Служба systemd | Компонент |
 |----------------|-----------|
-| `ergo-api-dev` | Django API |
-| `ergo-client-dev` | Vue-клиент (режим разработки) |
-| `ergo-celery-worker-all` | Celery worker |
-| `ergo-celery-beat` | Celery beat |
-| `ergo-media-api` | Media API |
-| `ergo-redis` | Redis (Linux, после `install-redis-service`) |
+| `ergo_ms_api_dev` | Django API |
+| `ergo_ms_client_dev` | Vue-клиент (режим разработки) |
+| `ergo_ms_celery_worker_all` | Celery worker |
+| `ergo_ms_celery_beat` | Celery beat |
+| `ergo_ms_media_api` | Media API |
+| `ergo_ms_redis` | Redis (Linux, после `install-redis-service`) |
 | `ergo_ms_nginx` | nginx (Linux и Windows, после `install-nginx-service`) |
 
-### Windows (те же имена приложения, кроме Redis)
+### Windows (те же имена `ergo_ms_*`)
 
 | Служба Windows | Компонент |
 |----------------|-----------|
-| `ergo-api-dev` | Django API |
-| `ergo-client-dev` | Vue-клиент |
-| `ergo-celery-worker-all` | Celery worker |
-| `ergo-celery-beat` | Celery beat |
-| `ergo-media-api` | Media API |
+| `ergo_ms_api_dev` | Django API |
+| `ergo_ms_client_dev` | Vue-клиент |
+| `ergo_ms_celery_worker_all` | Celery worker |
+| `ergo_ms_celery_beat` | Celery beat |
+| `ergo_ms_media_api` | Media API |
 | `ergo_ms_redis` | Redis (после `install-redis-service`) |
 | `ergo_ms_nginx` | nginx (после `install-nginx-service`) |
 
@@ -61,20 +61,20 @@ CLI лежит в `core/deployment/bin` (репозиторий). Команда
 Через systemd:
 
 ```bash
-journalctl -u ergo-api-dev -n 500 -f
+journalctl -u ergo_ms_api_dev -n 500 -f
 ```
 
 Через ergoms, если утилита установлена:
 
 ```bash
-ergoms logs ergo-api-dev
+ergoms logs ergo_ms_api_dev
 ```
 
 Дополнительно файловые журналы пишутся в каталог **`logs/`** в корне проекта — см. [development.md](development.md).
 
 ## Windows
 
-Аналогичные сценарии для Windows — **`core/deployment/windows/ergo_ms.ps1`**: установка служб (`install`), управление через `ergoms start` / `stop` / `status`. Имена служб Windows: `ergo-api-dev`, `ergo-client-dev`, `ergo-celery-worker-all`, `ergo-celery-beat`, `ergo-media-api`, при необходимости `ergo_ms_redis`, `ergo_ms_nginx`.
+Аналогичные сценарии для Windows — **`core/deployment/windows/ergo_ms.ps1`**: установка служб (`install`), управление через `ergoms start` / `stop` / `status`. Имена служб Windows: `ergo_ms_api_dev`, `ergo_ms_client_dev`, `ergo_ms_celery_worker_all`, `ergo_ms_celery_beat`, `ergo_ms_media_api`, при необходимости `ergo_ms_redis`, `ergo_ms_nginx`.
 
 Сначала выполните полную первичную настройку (`setup-full`) или установку служб (`install`), затем управляйте ими через ergoms. Опциональные nginx и Redis — [cli.md](cli.md#nginx-опционально), [configuration.md](configuration.md#redis-и-несколько-процессов).
 

@@ -99,8 +99,8 @@ get_base_unit_definitions() {
   API_UNIT=$(cat <<'UNIT'
 [Unit]
 Description=Ergo API (mode from API_DEPLOY_TYPE)
-After=network.target ergo-redis.service
-Wants=ergo-redis.service
+After=network.target ergo_ms_redis.service
+Wants=ergo_ms_redis.service
 
 [Service]
 Type=simple
@@ -111,7 +111,7 @@ RestartSec=5
 Environment=PYTHONUNBUFFERED=1
 Environment=ERGO_LOG_CONSOLE=false
 StandardOutput=null
-StandardError=append:${ERGO_ROOT}/logs/ergo-api-dev.stderr.log
+StandardError=append:${ERGO_ROOT}/logs/ergo_ms_api_dev.stderr.log
 
 [Install]
 WantedBy=multi-user.target
@@ -142,7 +142,7 @@ UNIT
 [Unit]
 Description=Ergo Celery Beat
 After=network.target
-Requires=ergo-api-dev.service
+Requires=ergo_ms_api_dev.service
 
 [Service]
 Type=simple
@@ -153,7 +153,7 @@ RestartSec=5
 Environment=PYTHONUNBUFFERED=1
 Environment=ERGO_LOG_CONSOLE=false
 StandardOutput=null
-StandardError=append:${ERGO_ROOT}/logs/ergo-celery-beat.stderr.log
+StandardError=append:${ERGO_ROOT}/logs/ergo_ms_celery_beat.stderr.log
 
 [Install]
 WantedBy=multi-user.target
@@ -174,7 +174,7 @@ ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT" && . "$ERGO_ROOT/virtual_env/python/bin
 Restart=always
 RestartSec=5
 StandardOutput=null
-StandardError=append:${ERGO_ROOT}/logs/ergo-media-api.stderr.log
+StandardError=append:${ERGO_ROOT}/logs/ergo_ms_media_api.stderr.log
 
 [Install]
 WantedBy=multi-user.target
@@ -195,7 +195,7 @@ generate_worker_unit() {
 [Unit]
 Description=Ergo Celery Worker ($worker_name)
 After=network.target
-Requires=ergo-api-dev.service
+Requires=ergo_ms_api_dev.service
 
 [Service]
 Type=simple
@@ -206,7 +206,7 @@ RestartSec=5
 Environment=PYTHONUNBUFFERED=1
 Environment=ERGO_LOG_CONSOLE=false
 StandardOutput=null
-StandardError=append:\${ERGO_ROOT}/logs/ergo-celery-worker-${worker_name}.stderr.log
+StandardError=append:\${ERGO_ROOT}/logs/ergo_ms_celery_worker_${worker_name}.stderr.log
 
 [Install]
 WantedBy=multi-user.target
@@ -219,7 +219,7 @@ generate_default_worker_unit() {
 [Unit]
 Description=Ergo Celery Worker
 After=network.target
-Requires=ergo-api-dev.service
+Requires=ergo_ms_api_dev.service
 
 [Service]
 Type=simple
@@ -230,7 +230,7 @@ RestartSec=5
 Environment=PYTHONUNBUFFERED=1
 Environment=ERGO_LOG_CONSOLE=false
 StandardOutput=null
-StandardError=append:${ERGO_ROOT}/logs/ergo-celery-worker.stderr.log
+StandardError=append:${ERGO_ROOT}/logs/ergo_ms_celery_worker.stderr.log
 
 [Install]
 WantedBy=multi-user.target
@@ -248,13 +248,13 @@ install_worker_units() {
     for worker in $workers; do
       local unit_content
       unit_content="$(generate_worker_unit "$worker")"
-      install_unit "ergo-celery-worker-${worker}" "$unit_content" "$root"
+      install_unit "ergo_ms_celery_worker_${worker}" "$unit_content" "$root"
     done
   else
     echo "Конфиг celery_workers.yaml не найден, устанавливаем один общий воркер"
     local unit_content
     unit_content="$(generate_default_worker_unit)"
-    install_unit "ergo-celery-worker" "$unit_content" "$root"
+    install_unit "ergo_ms_celery_worker" "$unit_content" "$root"
   fi
 }
 
@@ -266,10 +266,10 @@ enable_and_start_workers() {
   
   if [[ -n "$workers" ]]; then
     for worker in $workers; do
-      enable_and_start "ergo-celery-worker-${worker}.service"
+      enable_and_start "ergo_ms_celery_worker_${worker}.service"
     done
   else
-    enable_and_start "ergo-celery-worker.service"
+    enable_and_start "ergo_ms_celery_worker.service"
   fi
 }
 

@@ -37,6 +37,7 @@ services:
     environment:
       ERGO_DOCKER_SERVICE_NAME: api
       ERGO_DOCKER_REQUIRES_SETUP: "0"
+      ERGO_PROCESS_ROLE: api
     volumes: *python_volumes
     ports:
       - "${API_PORT:-8000}:${API_PORT:-8000}"

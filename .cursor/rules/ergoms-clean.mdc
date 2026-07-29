@@ -14,8 +14,8 @@ alwaysApply: false
 
 ## Кратко
 
-- Службы приложения — `ergo-*`; portable nginx/redis/postgres на Windows — **`ergo_ms_*`** (NSSM). Только `ergo-*` **недостаточно**.
-- На Linux unit nginx — `ergo_ms_nginx`; Redis/Postgres — `ergo-redis` / `ergo-postgres`. Паттерн остановки: `ergo-|ergo_ms_`.
+- Все OS-службы проекта — **`ergo_ms_*`** (API, Celery, nginx, Redis, Postgres).
+- При clean также останавливай legacy `ergo-*` (старые имена до унификации префикса).
 - Процессы могут работать **без** службы (dev / foreground). Их exe — под `virtual_env/packages/{nginx,redis,postgres}/`.
 - Сначала останови службы (NSSM иначе перезапустит процесс), затем заверши процессы из `packages`.
 - Не полагайся только на остановку `virtual_env/python` и `node` — они packages не освобождают.
@@ -24,14 +24,14 @@ alwaysApply: false
 
 | Что | Как |
 |-----|-----|
-| Правка clean | Сохрани остановку `ergo-*` **и** `ergo_ms_*` + процессов с путём/`CommandLine` в `virtual_env/packages` |
+| Правка clean | Сохрани остановку `ergo_ms_*` (+ legacy `ergo-*`) и процессов с путём/`CommandLine` в `virtual_env/packages` |
 | Linux | Вызови `nginx_stop_service` / `redis_stop` / `postgres_stop` (quiet), затем systemctl/`fuser`/`pkill` по packages |
 | Новый portable в packages | Добавь его в ту же остановку clean (служба + path match), иначе `ergoms clean` снова упрётся в блокировку файлов |
 
 ## Запрещено
 
 ```powershell
-# BAD — только ergo-*, без ergo_ms_* и без packages
+# BAD — без ergo_ms_* и без packages
 Get-Service -Name 'ergo-*' | Stop-Service -Force
 # nginx/redis продолжают держать virtual_env/packages
 ```
@@ -54,7 +54,7 @@ pkill -f "$root/virtual_env/python"
 ## Связанные правила
 
 | Тема | Файл |
-|------|------|
+|---|---|
 | packages, пути | [`project-root-artifacts.mdc`](project-root-artifacts.mdc) |
 | Redis, nginx | [`deployment-infra.mdc`](deployment-infra.mdc) |
 | Portable PostgreSQL | [`postgres-portable.mdc`](postgres-portable.mdc) |

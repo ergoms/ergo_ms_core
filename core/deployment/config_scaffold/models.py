@@ -146,6 +146,11 @@ class ConfigTemplateRegistry:
                 'env/postgres.env',
                 FullCopyStrategy(),
             ),
+            ConfigTemplate(
+                'env/modules.env.example',
+                'env/modules.env',
+                FullCopyStrategy(),
+            ),
         ]
 
     @staticmethod

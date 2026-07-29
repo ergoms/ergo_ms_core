@@ -163,7 +163,10 @@ function Stop-AllErgoms {
     Log "Stopping all ergoms processes and services..."
     Set-Location $RootDir
     Stop-StaleCeleryBeatProcessesForTests
-    $services = Get-Service -Name "ergo-*" -ErrorAction SilentlyContinue
+    $services = Get-Service -Name "ergo_ms_*" -ErrorAction SilentlyContinue
+    if (-not $services) {
+        $services = Get-Service -Name "ergo-*" -ErrorAction SilentlyContinue
+    }
     foreach ($svc in $services) {
         try { Set-Service -Name $svc.Name -StartupType Disabled -ErrorAction Stop } catch { }
         if ($svc.Status -ne 'Stopped') {
@@ -186,7 +189,10 @@ function Stop-ProjectProcessesForClean {
 }
 
 function Enable-ErgoServicesForStart {
-    $services = Get-Service -Name "ergo-*" -ErrorAction SilentlyContinue
+    $services = Get-Service -Name "ergo_ms_*" -ErrorAction SilentlyContinue
+    if (-not $services) {
+        $services = Get-Service -Name "ergo-*" -ErrorAction SilentlyContinue
+    }
     foreach ($svc in $services) {
         try { Set-Service -Name $svc.Name -StartupType Automatic -ErrorAction Stop } catch { }
     }
@@ -204,7 +210,7 @@ function Require-InstallReadyForLaunch {
 function Test-ServiceAction {
     param([string]$Action, [string]$ServiceName)
     if ($Action -eq "start") {
-        if ($ServiceName -eq "ergo-celery-beat") {
+        if ($ServiceName -eq "ergo_ms_celery_beat") {
             Stop-StaleCeleryBeatProcessesForTests
             Start-Sleep -Seconds 1
         }

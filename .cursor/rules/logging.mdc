@@ -120,7 +120,7 @@ Handlers задаёт только `dictConfig`. Не дублируй наст�
 ```powershell
 ergoms logs celery-tasks <name> 200
 ergoms logs celery-beat notifications 200
-ergoms logs ergo-celery-worker
+ergoms logs ergo_ms_celery_worker
 ```
 
 Подробности запуска — [`celery.mdc`](celery.mdc).
@@ -173,11 +173,11 @@ ergoms logs ergo-celery-worker
 Маппинг служб — [`logs_paths.py`](../../core/deployment/scripts/logs_paths.py):
 
 ```text
-ergoms logs ergo-api-dev
-ergoms logs ergo-media-api
-ergoms logs ergo-celery-beat
+ergoms logs ergo_ms_api_dev
+ergoms logs ergo_ms_media_api
+ergoms logs ergo_ms_celery_beat
 ergoms logs ergo_ms_nginx
-ergoms logs ergo-redis
+ergoms logs ergo_ms_redis
 ergoms logs celery-tasks [module] [lines]
 ergoms logs celery-beat [module] [lines]
 ```

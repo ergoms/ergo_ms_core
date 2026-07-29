@@ -40,7 +40,7 @@ ERGO MS — модульный фреймворк для корпоративн�
 
 Основная БД задаётся в [`databases.yaml`](databases.yaml.example) (`default.host` / `default.port`). Portable PostgreSQL кладётся в `virtual_env/packages/postgres/` и по умолчанию слушает порт **5433**; типичный системный Postgres — **5432**. Скрипты **не** пишут host/port в `.env` — правит человек в yaml.
 
-Детект «уже есть Postgres» идёт по **системной службе** с именем `postgresql*` (не по TCP и не по содержимому yaml). Службы проекта `ergo_ms_postgres` (Windows) и `ergo-postgres` (Linux) системными **не** считаются.
+Детект «уже есть Postgres» идёт по **системной службе** с именем `postgresql*` (не по TCP и не по содержимому yaml). Служба проекта `ergo_ms_postgres` (Windows и Linux) системной **не** считается.
 
 | Сценарий | Поведение | Что проверить в `databases.yaml` |
 |----------|-----------|----------------------------------|

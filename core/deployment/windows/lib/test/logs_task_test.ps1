@@ -75,7 +75,7 @@ function Test-VsCodeTaskLogsAllServices {
     }
 
     foreach ($w in $workers) {
-        $name = ("ergo-celery-worker-" + $w)
+        $name = ("ergo_ms_celery_worker_" + $w)
         Log ("VSCode task Logs: команда: ergoms logs " + $name + " 50")
         if (-not (Test-ErgomsLogs -ServiceName $name -Lines 50)) {
             $allOk = $false

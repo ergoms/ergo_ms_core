@@ -11,6 +11,8 @@ upstream ergo_media {
     keepalive 8;
 }
 
+${ERGO_MODULE_UPSTREAMS}
+
 server {
     listen ${NGINX_LISTEN_PORT};
     server_name ${NGINX_SERVER_NAME};
@@ -33,6 +35,7 @@ server {
         try_files $uri $uri/ /index.html;
     }
 
+${ERGO_MODULE_LOCATIONS}
     location /api/ {
         proxy_pass http://ergo_api;
         proxy_http_version 1.1;

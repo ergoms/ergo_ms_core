@@ -193,8 +193,8 @@ show_service_logs() {
     return 0
   fi
 
-  if [[ "$service_name" == "ergo-redis" || "$service_name" == "ergo-redis.service" || "$service_name" == "ergo_ms_redis" ]]; then
-    service_name="ergo-redis"
+  if [[ "$service_name" == "ergo_ms_redis" || "$service_name" == "ergo_ms_redis.service" || "$service_name" == "ergo-redis" || "$service_name" == "ergo-redis.service" ]]; then
+    service_name="ergo_ms_redis"
   fi
 
   local -a log_files=()
@@ -212,11 +212,11 @@ show_service_logs() {
   for file in "${log_files[@]}"; do
     echo "   $file"
   done
-  if [[ "$service_name" == ergo-celery-worker* ]]; then
+  if [[ "$service_name" == ergo_ms_celery_worker* ]]; then
     echo "   Логи задач модулей: $(resolve_ergo_logs_dir "$root")/celery_tasks.log"
     echo "   Фильтр: ergoms logs celery-tasks [module] [lines]"
   fi
-  if [[ "$service_name" == "ergo-celery-beat" || "$service_name" == "ergo-celery-beat.service" ]]; then
+  if [[ "$service_name" == "ergo_ms_celery_beat" || "$service_name" == "ergo_ms_celery_beat.service" ]]; then
     echo "   Логи beat модулей: $(resolve_ergo_logs_dir "$root")/celery_beat.log"
     echo "   Фильтр: ergoms logs celery-beat [module] [lines]"
   fi
@@ -241,6 +241,42 @@ uninstall_all() {
       echo "Удалён /etc/systemd/system/$u"
     fi
   done
+
+  # Legacy unit-имена (до префикса ergo_ms_)
+  local legacy
+  for legacy in \
+    ergo-api-dev.service \
+    ergo-client-dev.service \
+    ergo-media-api.service \
+    ergo-celery-beat.service \
+    ergo-celery-worker.service \
+    ergo-redis.service \
+    ergo-postgres.service
+  do
+    systemctl_do disable "$legacy" 2>/dev/null || true
+    systemctl_do stop "$legacy" 2>/dev/null || true
+    if [[ -f "/etc/systemd/system/$legacy" ]] || [[ -L "/etc/systemd/system/$legacy" ]]; then
+      if [[ $(id -u) -eq 0 ]]; then
+        rm -f "/etc/systemd/system/$legacy"
+      else
+        sudo rm -f "/etc/systemd/system/$legacy"
+      fi
+      echo "Удалён legacy /etc/systemd/system/$legacy"
+    fi
+  done
+  while IFS= read -r legacy; do
+    [[ -z "$legacy" ]] && continue
+    systemctl_do disable "$legacy" 2>/dev/null || true
+    systemctl_do stop "$legacy" 2>/dev/null || true
+    if [[ -f "/etc/systemd/system/$legacy" ]] || [[ -L "/etc/systemd/system/$legacy" ]]; then
+      if [[ $(id -u) -eq 0 ]]; then
+        rm -f "/etc/systemd/system/$legacy"
+      else
+        sudo rm -f "/etc/systemd/system/$legacy"
+      fi
+      echo "Удалён legacy /etc/systemd/system/$legacy"
+    fi
+  done < <(systemctl list-unit-files --type=service --no-legend 2>/dev/null | awk '/^ergo-celery-worker-/ {print $1}')
   
   daemon_reload
   if [[ "$purge" == "true" ]]; then
@@ -260,8 +296,8 @@ disable_client_service_if_nginx() {
   if ! is_nginx_enabled "$root"; then
     return 0
   fi
-  systemctl_do disable ergo-client-dev.service 2>/dev/null || true
-  systemctl_do stop ergo-client-dev.service 2>/dev/null || true
+  systemctl_do disable ergo_ms_client_dev.service 2>/dev/null || true
+  systemctl_do stop ergo_ms_client_dev.service 2>/dev/null || true
   nginx_skip_client_message "$root"
 }
 
@@ -285,14 +321,14 @@ install_services() {
   get_base_unit_definitions "$root"
   
   # Устанавливаем базовые службы
-  install_unit "ergo-api-dev"        "$API_UNIT" "$root"
+  install_unit "ergo_ms_api_dev"        "$API_UNIT" "$root"
   if (( skip_client == 0 )); then
-    install_unit "ergo-client-dev"     "$CLIENT_UNIT" "$root"
+    install_unit "ergo_ms_client_dev"     "$CLIENT_UNIT" "$root"
   else
     disable_client_service_if_nginx "$root"
   fi
-  install_unit "ergo-media-api"      "$MEDIA_API_UNIT" "$root"
-  install_unit "ergo-celery-beat"    "$CELERY_BEAT_UNIT" "$root"
+  install_unit "ergo_ms_media_api"      "$MEDIA_API_UNIT" "$root"
+  install_unit "ergo_ms_celery_beat"    "$CELERY_BEAT_UNIT" "$root"
   
   # Устанавливаем воркеры из конфигурации
   install_worker_units "$root"
@@ -300,12 +336,12 @@ install_services() {
   daemon_reload
 
   # Включаем и запускаем базовые службы
-  enable_and_start ergo-api-dev.service
+  enable_and_start ergo_ms_api_dev.service
   if (( skip_client == 0 )); then
-    enable_and_start ergo-client-dev.service
+    enable_and_start ergo_ms_client_dev.service
   fi
-  enable_and_start ergo-media-api.service
-  enable_and_start ergo-celery-beat.service
+  enable_and_start ergo_ms_media_api.service
+  enable_and_start ergo_ms_celery_beat.service
   
   # Включаем и запускаем воркеры
   enable_and_start_workers "$root"
@@ -340,7 +376,7 @@ install_single_service() {
   
   case "$service_name" in
     "api")
-      unit_name="ergo-api-dev"
+      unit_name="ergo_ms_api_dev"
       install_unit "$unit_name" "$API_UNIT" "$root"
       ;;
     "client")
@@ -348,7 +384,7 @@ install_single_service() {
         disable_client_service_if_nginx "$root"
         return 0
       fi
-      unit_name="ergo-client-dev"
+      unit_name="ergo_ms_client_dev"
       install_unit "$unit_name" "$CLIENT_UNIT" "$root"
       ;;
     "worker")
@@ -365,11 +401,11 @@ install_single_service() {
       return
       ;;
     "beat")
-      unit_name="ergo-celery-beat"
+      unit_name="ergo_ms_celery_beat"
       install_unit "$unit_name" "$CELERY_BEAT_UNIT" "$root"
       ;;
     "media")
-      unit_name="ergo-media-api"
+      unit_name="ergo_ms_media_api"
       install_unit "$unit_name" "$MEDIA_API_UNIT" "$root"
       ;;
     *)

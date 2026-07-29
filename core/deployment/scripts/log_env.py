@@ -262,17 +262,23 @@ def infra_rotation_settings(project_root: Path | None = None) -> dict[str, int |
 
 def service_log_map(project_root: Path | None = None) -> dict[str, list[str]]:
     return {
+        'ergo_ms_api_dev': [log_basename('API', project_root)],
+        'ergo_ms_media_api': [log_basename('MEDIA_API', project_root)],
+        'ergo_ms_celery_beat': [log_basename('CELERY_BEAT', project_root)],
+        'ergo_ms_celery_worker': [log_basename('CELERY_WORKER', project_root)],
+        'ergo_ms_client_dev': [log_basename('CLIENT_DEV', project_root)],
+        'ergo_ms_nginx': [
+            log_basename('NGINX_ERROR', project_root),
+            log_basename('NGINX_ACCESS', project_root),
+        ],
+        'ergo_ms_redis': [log_basename('REDIS', project_root)],
+        # legacy имена до унификации префикса ergo_ms_
         'ergo-api-dev': [log_basename('API', project_root)],
         'ergo-media-api': [log_basename('MEDIA_API', project_root)],
         'ergo-celery-beat': [log_basename('CELERY_BEAT', project_root)],
         'ergo-celery-worker': [log_basename('CELERY_WORKER', project_root)],
         'ergo-client-dev': [log_basename('CLIENT_DEV', project_root)],
-        'ergo_ms_nginx': [
-            log_basename('NGINX_ERROR', project_root),
-            log_basename('NGINX_ACCESS', project_root),
-        ],
         'ergo-redis': [log_basename('REDIS', project_root)],
-        'ergo_ms_redis': [log_basename('REDIS', project_root)],
     }
 
 

@@ -45,22 +45,22 @@ Stop-AllErgoms
 Enable-ErgoServicesForStart
 
 Step "3.1. API: старт -> статус -> стоп"
-Test-ServiceAction -Action "start" -ServiceName "ergo-api-dev"
+Test-ServiceAction -Action "start" -ServiceName "ergo_ms_api_dev"
 Start-Sleep -Seconds 3
-Test-ServiceAction -Action "status" -ServiceName "ergo-api-dev"
-Test-ServiceAction -Action "stop" -ServiceName "ergo-api-dev"
+Test-ServiceAction -Action "status" -ServiceName "ergo_ms_api_dev"
+Test-ServiceAction -Action "stop" -ServiceName "ergo_ms_api_dev"
 
 Step "3.2. Media API: старт -> статус -> стоп"
-Test-ServiceAction -Action "start" -ServiceName "ergo-media-api"
+Test-ServiceAction -Action "start" -ServiceName "ergo_ms_media_api"
 Start-Sleep -Seconds 3
-Test-ServiceAction -Action "status" -ServiceName "ergo-media-api"
-Test-ServiceAction -Action "stop" -ServiceName "ergo-media-api"
+Test-ServiceAction -Action "status" -ServiceName "ergo_ms_media_api"
+Test-ServiceAction -Action "stop" -ServiceName "ergo_ms_media_api"
 
 Step "3.3. Client: старт -> статус -> стоп"
-Test-ServiceAction -Action "start" -ServiceName "ergo-client-dev"
+Test-ServiceAction -Action "start" -ServiceName "ergo_ms_client_dev"
 Start-Sleep -Seconds 3
-Test-ServiceAction -Action "status" -ServiceName "ergo-client-dev"
-Test-ServiceAction -Action "stop" -ServiceName "ergo-client-dev"
+Test-ServiceAction -Action "status" -ServiceName "ergo_ms_client_dev"
+Test-ServiceAction -Action "stop" -ServiceName "ergo_ms_client_dev"
 
 Step "3.4. Celery: beat + workers (yaml сценарии + worker через задачу)"
 $CeleryTest = Join-Path $ScriptDir "celery_test.ps1"

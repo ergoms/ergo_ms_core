@@ -2,7 +2,7 @@
 # Redis management for Linux
 # Portable Redis в virtual_env/packages/redis (сборка из исходников)
 
-REDIS_SERVICE_NAME='ergo-redis'
+REDIS_SERVICE_NAME='ergo_ms_redis'
 REDIS_UNIT_PATH="/etc/systemd/system/${REDIS_SERVICE_NAME}.service"
 
 _redis_dir() {

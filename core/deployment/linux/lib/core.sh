@@ -21,7 +21,7 @@ source "$SCRIPT_DIR_CORE/nginx_env.sh"
 source "$SCRIPT_DIR_CORE/portable_env.sh"
 
 # Константы (базовые службы без воркеров)
-BASE_SERVICES="ergo-api-dev ergo-client-dev ergo-celery-beat"
+BASE_SERVICES="ergo_ms_api_dev ergo_ms_client_dev ergo_ms_celery_beat"
 CLI_NAME="ergoms"
 
 # Глобальная переменная для кэширования списка служб
@@ -166,7 +166,7 @@ get_celery_workers() {
 
 _postgres_portable_enabled() {
   local project_root="${1:-}"
-  local svc_name='ergo-postgres'
+  local svc_name='ergo_ms_postgres'
   local from_env
   [[ -x "$project_root/virtual_env/packages/postgres/bin/postgres" ]] && return 0
   [[ -x "$project_root/virtual_env/packages/postgres/pgsql/bin/postgres" ]] && return 0
@@ -179,14 +179,14 @@ _postgres_portable_enabled() {
 # Генерация списка служб на основе конфигурации воркеров
 generate_units_list() {
   local project_root="${1:-}"
-  local units="ergo-api-dev.service ergo-media-api.service ergo-celery-beat.service"
-  local postgres_svc='ergo-postgres'
+  local units="ergo_ms_api_dev.service ergo_ms_media_api.service ergo_ms_celery_beat.service"
+  local postgres_svc='ergo_ms_postgres'
   local from_env
 
   if is_nginx_enabled "$project_root"; then
     units="$units ergo_ms_nginx.service"
   else
-    units="ergo-api-dev.service ergo-client-dev.service ergo-media-api.service ergo-celery-beat.service"
+    units="ergo_ms_api_dev.service ergo_ms_client_dev.service ergo_ms_media_api.service ergo_ms_celery_beat.service"
   fi
 
   if _postgres_portable_enabled "$project_root"; then
@@ -201,11 +201,11 @@ generate_units_list() {
   if [[ -n "$workers" ]]; then
     # Добавляем службы для каждого воркера из конфига
     for worker in $workers; do
-      units="$units ergo-celery-worker-${worker}.service"
+      units="$units ergo_ms_celery_worker_${worker}.service"
     done
   else
     # Если конфиг не найден, используем один общий воркер
-    units="$units ergo-celery-worker.service"
+    units="$units ergo_ms_celery_worker.service"
   fi
   
   echo "$units"
@@ -221,10 +221,10 @@ get_worker_service_names() {
   
   if [[ -n "$workers" ]]; then
     for worker in $workers; do
-      services="$services ergo-celery-worker-${worker}"
+      services="$services ergo_ms_celery_worker_${worker}"
     done
   else
-    services="ergo-celery-worker"
+    services="ergo_ms_celery_worker"
   fi
   
   echo "$services"

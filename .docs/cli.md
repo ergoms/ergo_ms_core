@@ -252,7 +252,7 @@ ergoms start
 ergoms stop
 ergoms restart
 ergoms status
-ergoms logs ergo-api-dev
+ergoms logs ergo_ms_api_dev
 ```
 
 Подробнее — в [deployment.md](deployment.md) (Linux systemd и Windows services). Для обычной разработки службы не нужны: достаточно `ergoms dev` и `ergoms start-client`.

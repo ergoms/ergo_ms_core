@@ -86,7 +86,7 @@ git submodule update --init --recursive
 
 1. Установите и запустите: `ergoms install-redis` или `ergoms start-redis`.
 2. Проверьте `REDIS_HOST`, `REDIS_PORT` в `.env`.
-3. Журнал: `logs/redis.log` или `ergoms logs ergo-redis`.
+3. Журнал: `logs/redis.log` или `ergoms logs ergo_ms_redis`.
 
 ## SSE обрывается за nginx
 

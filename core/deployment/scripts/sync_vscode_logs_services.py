@@ -34,15 +34,15 @@ def _service_block(name: str, description: str) -> str:
 
 def build_logs_yaml() -> str:
     lines = [LOGS_HEADER.rstrip(), '', 'services:']
-    lines.append(_service_block('ergo-api-dev', 'Django API server').rstrip())
+    lines.append(_service_block('ergo_ms_api_dev', 'Django API server').rstrip())
     if is_nginx_enabled():
         lines.append(_service_block('ergo_ms_nginx', 'Nginx reverse proxy').rstrip())
     else:
-        lines.append(_service_block('ergo-client-dev', 'Vue.js client dev server').rstrip())
-    lines.append(_service_block('ergo-media-api', 'Media API (CDN / file server)').rstrip())
-    lines.append(_service_block('ergo-celery-beat', 'Celery Beat scheduler').rstrip())
+        lines.append(_service_block('ergo_ms_client_dev', 'Vue.js client dev server').rstrip())
+    lines.append(_service_block('ergo_ms_media_api', 'Media API (CDN / file server)').rstrip())
+    lines.append(_service_block('ergo_ms_celery_beat', 'Celery Beat scheduler').rstrip())
     if is_redis_enabled():
-        lines.append(_service_block('ergo-redis', 'Redis').rstrip())
+        lines.append(_service_block('ergo_ms_redis', 'Redis').rstrip())
     return '\n'.join(lines) + '\n'
 
 

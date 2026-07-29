@@ -18,7 +18,71 @@ const __dirname = dirname(__filename);
 
 const projectRoot = join(__dirname, '..');
 const extensionsDir = join(projectRoot, 'local-extensions');
+const sourceExtensionsDir = join(projectRoot, 'extensions');
 const tempRoot = join(projectRoot, '.temp-extract');
+
+async function installFromSourceDir(sourceExtensionDir, homeDir) {
+  const packageJsonPath = join(sourceExtensionDir, 'package.json');
+  if (!existsSync(packageJsonPath)) {
+    return false;
+  }
+
+  const packageJson = JSON.parse(await (await import('fs/promises')).readFile(packageJsonPath, 'utf-8'));
+  const { publisher, name, version } = packageJson;
+  if (!publisher || !name || !version) {
+    return false;
+  }
+
+  const osAbstractionPath = join(projectRoot, 'lib', 'os-abstraction.cjs');
+  if (existsSync(osAbstractionPath)) {
+    const extLibDir = join(sourceExtensionDir, 'lib');
+    await mkdir(extLibDir, { recursive: true });
+    await (await import('fs/promises')).copyFile(
+      osAbstractionPath,
+      join(extLibDir, 'os-abstraction.cjs'),
+    );
+  }
+
+  const extensionDirName = `${publisher}.${name}-${version}`;
+  const extensionIdPrefix = `${publisher}.${name}-`;
+  let installed = false;
+
+  for (const installDir of [
+    ...[
+      osAbstraction.getLocalExtensionsDir(homeDir, false),
+      osAbstraction.getLocalExtensionsDir(homeDir, true),
+    ],
+    ...osAbstraction.getRemoteExtensionsDirs(homeDir),
+  ]) {
+    try {
+      await mkdir(installDir, { recursive: true });
+
+      if (existsSync(installDir)) {
+        for (const entry of await readdir(installDir, { withFileTypes: true })) {
+          if (!entry.isDirectory() || !entry.name.startsWith(extensionIdPrefix)) {
+            continue;
+          }
+          if (entry.name === extensionDirName) {
+            continue;
+          }
+          await rm(join(installDir, entry.name), { recursive: true, force: true }).catch(() => {});
+        }
+      }
+
+      const targetDir = join(installDir, extensionDirName);
+      if (existsSync(targetDir)) {
+        await rm(targetDir, { recursive: true, force: true });
+      }
+      await copyDirectory(sourceExtensionDir, targetDir);
+      installed = true;
+      console.log(`  [OK] Установлено из исходников: ${extensionDirName} -> ${installDir}`);
+    } catch (error) {
+      console.log(`  [WARNING] Не удалось установить в ${installDir}: ${error.message}`);
+    }
+  }
+
+  return installed;
+}
 
 async function installUserConfigToRemote() {
   if (!osAbstraction.supportsRemoteInstall()) {
@@ -28,7 +92,7 @@ async function installUserConfigToRemote() {
   try {
     const sourceExtensionDir = join(projectRoot, 'extensions', 'user-config');
     if (!existsSync(sourceExtensionDir)) {
-      console.log('  ℹ️  Исходная директория расширения не найдена, пропускаем установку на удаленный сервер');
+      console.log('  [INFO] Исходная директория расширения не найдена, пропускаем установку на удаленный сервер');
       return false;
     }
 
@@ -50,27 +114,53 @@ async function installUserConfigToRemote() {
         }
 
         await copyDirectory(sourceExtensionDir, targetDir);
-        console.log(`  ✅ Установлено на удаленный сервер: ${remoteDir}`);
+        console.log(`  [OK] Установлено на удаленный сервер: ${remoteDir}`);
         installed = true;
       } catch {
-        console.log(`  ℹ️  Директория недоступна: ${remoteDir}`);
+        console.log(`  [INFO] Директория недоступна: ${remoteDir}`);
       }
     }
 
     return installed;
   } catch (error) {
-    console.error(`  ⚠️  Ошибка при установке на удаленный сервер: ${error.message}`);
+    console.error(`  [WARNING] Ошибка при установке на удаленный сервер: ${error.message}`);
     return false;
   }
 }
 
 async function installExtensions() {
   try {
-    const files = await readdir(extensionsDir);
-    const vsixFiles = files.filter(file => file.endsWith('.vsix'));
+    const homeDir = os.homedir();
+    let vsixFiles = [];
+
+    if (existsSync(extensionsDir)) {
+      const files = await readdir(extensionsDir);
+      vsixFiles = files.filter((file) => file.endsWith('.vsix'));
+    }
 
     if (vsixFiles.length === 0) {
-      console.log('❌ VSIX файлы не найдены в папке local-extensions');
+      console.log('[INFO] VSIX в local-extensions нет — устанавливаем из .vscode/extensions/');
+      if (!existsSync(sourceExtensionsDir)) {
+        console.error('[ERROR] Нет ни VSIX, ни исходников расширений');
+        process.exit(1);
+      }
+
+      const entries = await readdir(sourceExtensionsDir, { withFileTypes: true });
+      const dirs = entries.filter((e) => e.isDirectory()).map((e) => e.name);
+      let any = false;
+      for (const dirName of dirs) {
+        console.log(`\n-> Установка из исходников: ${dirName}`);
+        const ok = await installFromSourceDir(join(sourceExtensionsDir, dirName), homeDir);
+        if (ok) {
+          any = true;
+        }
+      }
+      if (!any) {
+        console.error('[ERROR] Не удалось установить ни одного расширения из исходников');
+        process.exit(1);
+      }
+      console.log('\n[OK] Установка расширений завершена.');
+      console.log('Перезапустите IDE (Developer: Reload Window) для применения изменений.\n');
       return;
     }
 
@@ -79,83 +169,61 @@ async function installExtensions() {
       existsSync(join(os.homedir(), '.cursor-server'));
 
     if (isRemote) {
-      console.log('\n⚠️  ВНИМАНИЕ: Скрипт запущен на удаленном сервере или VS Code подключен к Remote.');
+      console.log('\n[WARNING] Скрипт запущен на удаленном сервере или VS Code подключен к Remote.');
       console.log('   Расширения будут установлены на удаленный сервер.');
-      console.log('   Для локальной установки запустите эту команду на ЛОКАЛЬНОЙ машине');
-      console.log('   (отключите Remote SSH перед запуском или запустите в отдельном терминале).\n');
+      console.log('   Для локальной установки запустите эту команду на локальной машине.\n');
     }
 
-    console.log(`📦 Найдено ${vsixFiles.length} расширений для установки:`);
-    const homeDir = os.homedir();
+    console.log(`[INFO] Найдено ${vsixFiles.length} расширений для установки:`);
 
     for (const file of vsixFiles) {
       const filePath = join(extensionsDir, file);
       const isUserConfig = file.includes('user-config');
 
-      console.log(`\n🔧 Установка: ${file}`);
-      console.log('  📍 Установка через распаковку VSIX...');
+      console.log(`\n-> Установка: ${file}`);
 
       let installed = false;
       try {
         installed = await installExtensionFromVsix(filePath, homeDir, tempRoot);
       } catch (error) {
-        console.log(`  ⚠️  Не удалось установить через распаковку: ${error.message}`);
+        console.log(`  [WARNING] Не удалось установить через распаковку: ${error.message}`);
       }
 
       if (installed) {
-        console.log(`  ✅ Успешно установлено: ${file}`);
+        console.log(`  [OK] Успешно установлено: ${file}`);
       } else {
-        console.log('  ⚠️  Прямая установка не удалась, пробуем code CLI...');
+        console.log('  [WARNING] Прямая установка не удалась, пробуем code CLI...');
         try {
           runCodeCli(`code --install-extension "${filePath}" --force`, { cwd: projectRoot });
-          console.log(`  ✅ Успешно установлено через code CLI: ${file}`);
+          console.log(`  [OK] Успешно установлено через code CLI: ${file}`);
           installed = true;
         } catch (error) {
-          console.log(`  ⚠️  Не удалось установить через code: ${error.message}`);
+          console.log(`  [WARNING] Не удалось установить через code: ${error.message}`);
         }
       }
 
       if (!installed) {
-        console.log(`\n  📝 Для ручной установки на локальной машине:`);
-        console.log(`     cd ${projectRoot}`);
-        console.log(`     npm run install-extensions`);
-        console.log(`     или вручную:`);
-        console.log(`     code --install-extension "${filePath}" --force`);
+        console.log(`\n  [INFO] Для ручной установки: code --install-extension "${filePath}" --force`);
       }
 
       if (isUserConfig) {
-        console.log(`\n🌐 Установка на удаленный сервер (копирование файлов): ${file}`);
+        console.log(`\n-> Установка на удаленный сервер: ${file}`);
         const remoteInstalled = await installUserConfigToRemote();
         if (remoteInstalled) {
-          console.log(`✅ Успешно установлено на удаленный сервер: ${file}`);
+          console.log(`[OK] Успешно установлено на удаленный сервер: ${file}`);
         } else {
-          console.log(`ℹ️  Удаленный сервер не найден или недоступен: ${file}`);
+          console.log(`[INFO] Удаленный сервер не найден или недоступен: ${file}`);
         }
       }
     }
 
-    if (isRemote) {
-      console.log('\n📋 Инструкции для локальной установки:');
-      console.log('   Для установки расширений на локальную машину выполните на локальной машине:');
-      console.log(`   cd ${projectRoot}`);
-      console.log('   npm run install-extensions');
-      console.log('\n   Или установите вручную через Command Palette:');
-      console.log('   1. Нажмите Ctrl+Shift+P');
-      console.log('   2. Выберите "Extensions: Install from VSIX..."');
-      console.log('   3. Выберите файлы из папки local-extensions/');
-    }
-
-    console.log('\n✨ Установка расширений завершена!');
-    console.log('\n' + '='.repeat(50));
-    console.log('УСТАНОВКА ЗАВЕРШЕНА');
-    console.log('='.repeat(50));
-    console.log('\n⚠️  Пожалуйста, ПЕРЕЗАПУСТИТЕ IDE для применения изменений.');
-    console.log('='.repeat(50) + '\n');
+    console.log('\n[OK] Установка расширений завершена.');
+    console.log('Перезапустите IDE (Developer: Reload Window) для применения изменений.\n');
   } catch (error) {
     if (error.code === 'ENOENT') {
-      console.error('❌ Папка local-extensions не найдена');
+      console.error('[ERROR] Папка local-extensions не найдена');
     } else {
-      console.error('❌ Ошибка:', error.message);
+      console.error('[ERROR]', error.message);
     }
     process.exit(1);
   }

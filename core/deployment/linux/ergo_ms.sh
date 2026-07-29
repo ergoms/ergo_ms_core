@@ -396,25 +396,25 @@ main() {
         exit 0
       fi
       
-      [[ "$service_name" == "media_api" ]] && service_name="ergo-media-api"
+      [[ "$service_name" == "media_api" ]] && service_name="ergo_ms_media_api"
 
       set_service_project_root "$ERGO_ROOT"
 
       # При NGINX_ENABLED Vite-служба не ставится — не открываем её логи с ошибкой
-      if [[ "$service_name" == "ergo-client-dev" || "$service_name" == "ergo-client-dev.service" ]]; then
+      if [[ "$service_name" == "ergo_ms_client_dev" || "$service_name" == "ergo_ms_client_dev.service" ]]; then
         if is_nginx_enabled "$ERGO_ROOT"; then
-          echo "$(format_ergo_console skip 'ergo-client-dev не используется (NGINX_ENABLED=true, клиент через nginx)')"
+          echo "$(format_ergo_console skip 'ergo_ms_client_dev не используется (NGINX_ENABLED=true, клиент через nginx)')"
           exit 0
         fi
       fi
 
       local valid=false
-      local postgres_svc='ergo-postgres'
+      local postgres_svc='ergo_ms_postgres'
       local postgres_from_env
       postgres_from_env="$(_ergo_env_value "$ERGO_ROOT" 'POSTGRES_SERVICE_LINUX' 2>/dev/null || true)"
       [[ -n "${postgres_from_env:-}" ]] && postgres_svc="$postgres_from_env"
       case "$service_name" in
-        ergo_ms_nginx|ergo_ms_nginx.service|ergo-redis|ergo-redis.service|ergo_ms_redis|"$postgres_svc"|"${postgres_svc}.service"|ergo-postgres|ergo-postgres.service)
+        ergo_ms_nginx|ergo_ms_nginx.service|ergo_ms_redis|ergo_ms_redis.service|ergo_ms_redis|"$postgres_svc"|"${postgres_svc}.service"|ergo_ms_postgres|ergo_ms_postgres.service)
           valid=true
           ;;
       esac
@@ -431,7 +431,7 @@ main() {
 
       if [[ "$valid" == false ]]; then
         write_ergoms_message 'unknown_service' red stderr "name=$service_name"
-        echo "Доступные службы: $(units_list "$ERGO_ROOT" | tr '\n' ' ') ergo_ms_nginx ergo-redis $postgres_svc celery-tasks celery-beat" >&2
+        echo "Доступные службы: $(units_list "$ERGO_ROOT" | tr '\n' ' ') ergo_ms_nginx ergo_ms_redis $postgres_svc celery-tasks celery-beat" >&2
         exit 1
       fi
 

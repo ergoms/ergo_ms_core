@@ -178,7 +178,7 @@ function ensureLogsServicesRuntime(workspaceRoot) {
 
 /**
  * Исключает службы, несовместимые с NGINX_ENABLED / REDIS_ENABLED.
- * При nginx не открываем терминал логов ergo-client-dev (Vite не ставится).
+ * При nginx не открываем терминал логов ergo_ms_client_dev (Vite не ставится).
  */
 function filterServiceKeys(workspaceRoot, items, sourceFile) {
     const file = String(sourceFile || '').replace(/\\/g, '/');
@@ -187,13 +187,13 @@ function filterServiceKeys(workspaceRoot, items, sourceFile) {
 
     return items.filter((key) => {
         if (file.includes('logs-services')) {
-            if (key === 'ergo-client-dev' && nginx) {
+            if (key === 'ergo_ms_client_dev' && nginx) {
                 return false;
             }
             if (key === 'ergo_ms_nginx' && !nginx) {
                 return false;
             }
-            if (key === 'ergo-redis' && !redis) {
+            if (key === 'ergo_ms_redis' && !redis) {
                 return false;
             }
             return true;

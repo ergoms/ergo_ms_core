@@ -6,7 +6,7 @@ SCRIPT_DIR_POSTGRES="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=portable_env.sh
 source "$SCRIPT_DIR_POSTGRES/portable_env.sh"
 
-POSTGRES_SERVICE_NAME_DEFAULT='ergo-postgres'
+POSTGRES_SERVICE_NAME_DEFAULT='ergo_ms_postgres'
 POSTGRES_SERVICE_NAME="$POSTGRES_SERVICE_NAME_DEFAULT"
 POSTGRES_SERVICE_DISPLAY_NAME='Ergo MS - PostgreSQL'
 POSTGRES_UNIT_PATH="/etc/systemd/system/${POSTGRES_SERVICE_NAME}.service"

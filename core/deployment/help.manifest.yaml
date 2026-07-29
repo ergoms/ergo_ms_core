@@ -60,6 +60,9 @@ sections:
         summary: "API, клиент, Media API, worker и beat (без служб ОС)"
       - name: start-api
         summary: "Только API"
+      - name: start-module
+        invoke: "ergoms start-module --module=<name>"
+        summary: "HTTP API одного модуля (MODULE_RUNTIME=microservice)"
       - name: start-client
         summary: "Клиент (Vite или nginx при NGINX_ENABLED=true)"
       - name: start-media
@@ -119,6 +122,8 @@ sections:
         summary: "Интерактивная shell в контейнере api"
       - name: docker-gen-workers
         summary: "Перегенерировать compose из celery_workers.yaml"
+      - name: docker-gen-modules
+        summary: "Перегенерировать compose из MICROSERVICE_MODULES (MODULE_RUNTIME=microservice)"
 
   - id: dependencies
     title: "Зависимости и база данных"
@@ -220,7 +225,7 @@ sections:
       - name: safe-drop-app
         summary: "Безопасно удалить Django-приложение"
       - name: core-rules-check
-        summary: "Проверка ядра: изоляция модулей, console.error, native select, импорты modules.*, mid-indent/ast.parse, BOM/LF в deployment-скриптах"
+        summary: "Проверка ядра: изоляция модулей, схемы контрактов моста, console.error, native select, импорты modules.*, mid-indent/ast.parse, BOM/LF в deployment-скриптах"
       - name: ps1-encoding-check
         invoke: "ergoms ps1-encoding-check [--fix]"
         summary: "Проверка UTF-8 BOM в .ps1 deployment с кириллицей (Windows PowerShell 5.1)"

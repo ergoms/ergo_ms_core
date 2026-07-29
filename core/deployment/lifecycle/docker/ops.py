@@ -17,6 +17,9 @@ if str(DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(DEPLOYMENT_DIR))
 if str(DOCKER_DIR) not in sys.path:
     sys.path.insert(0, str(DOCKER_DIR))
+_NGINX_DIR = DEPLOYMENT_DIR / 'nginx'
+if str(_NGINX_DIR) not in sys.path:
+    sys.path.insert(0, str(_NGINX_DIR))
 
 from console_tags import format_console  # noqa: E402
 from env_resolvers import load_merged_env  # noqa: E402
@@ -40,6 +43,7 @@ COMPOSE_ARTIFACT_PATHS = (
     DOCKER_DIR / '.compose.env',
     DOCKER_DIR / '.compose.databases.yaml',
     DOCKER_DIR / 'docker-compose.workers.generated.yml',
+    DOCKER_DIR / 'docker-compose.modules.generated.yml',
     DOCKER_DIR / 'docker-compose.build.generated.yml',
     DOCKER_DIR / 'init' / 'postgres' / '02-celery-databases.sql',
     DOCKER_DIR / 'nginx' / 'ergo_ms.conf.rendered',
@@ -83,6 +87,10 @@ def compose_file_list(mode: str, raw_env: dict[str, str]) -> list[Path]:
     workers = DOCKER_DIR / 'docker-compose.workers.generated.yml'
     if workers.is_file():
         files.append(workers)
+    modules = DOCKER_DIR / 'docker-compose.modules.generated.yml'
+    runtime = (raw_env.get('MODULE_RUNTIME') or 'monolith').strip().lower()
+    if runtime in ('microservice', 'split') and modules.is_file():
+        files.append(modules)
     return files
 
 
@@ -100,6 +108,9 @@ def compose_file_list_full() -> list[Path]:
     workers = DOCKER_DIR / 'docker-compose.workers.generated.yml'
     if workers.is_file():
         files.append(workers)
+    modules = DOCKER_DIR / 'docker-compose.modules.generated.yml'
+    if modules.is_file():
+        files.append(modules)
     return files
 
 
@@ -151,6 +162,8 @@ def bootstrap_service_names(raw_env: dict[str, str]) -> list[str]:
 
 
 def render_nginx_docker_config(raw_env: dict[str, str]) -> Path:
+    from module_nginx import render_module_locations_docker, render_module_upstreams_docker
+
     template = DOCKER_DIR / 'nginx' / 'ergo_ms.docker.conf.template'
     output = DOCKER_DIR / 'nginx' / 'ergo_ms.conf.rendered'
     content = template.read_text(encoding='utf-8')
@@ -162,6 +175,8 @@ def render_nginx_docker_config(raw_env: dict[str, str]) -> Path:
         '${NGINX_LISTEN_PORT}': raw_env.get('NGINX_LISTEN_PORT', '80'),
         '${NGINX_SERVER_NAME}': raw_env.get('NGINX_SERVER_NAME', 'localhost'),
         '${API_JUPYTER_BIND_PORT}': raw_env.get('API_JUPYTER_BIND_PORT', '8002'),
+        '${ERGO_MODULE_UPSTREAMS}': render_module_upstreams_docker(raw_env),
+        '${ERGO_MODULE_LOCATIONS}': render_module_locations_docker(raw_env),
     }
     for key, value in replacements.items():
         content = content.replace(key, value)
@@ -201,6 +216,14 @@ def run_generate_workers(*, quiet: bool = False) -> int:
     return subprocess.call(cmd, cwd=str(DOCKER_DIR))
 
 
+def run_generate_modules(*, quiet: bool = False, env: dict[str, str] | None = None) -> int:
+    script = DOCKER_DIR / 'generate_modules_compose.py'
+    cmd = [sys.executable, str(script)]
+    if quiet:
+        cmd.append('--quiet')
+    return subprocess.call(cmd, cwd=str(DOCKER_DIR), env=env)
+
+
 def build_compose_cmd(
     action: str,
     *,
@@ -228,6 +251,9 @@ def build_compose_cmd(
             run_generate_workers(quiet=True)
     elif not workers_file.is_file():
         run_generate_workers()
+
+    modules_env = {**os.environ, **{k: str(v) for k, v in raw.items()}}
+    run_generate_modules(quiet=True, env=modules_env)
 
     if for_clean or _truthy(raw, 'DOCKER_PROFILE_NGINX'):
         render_nginx_docker_config(raw)

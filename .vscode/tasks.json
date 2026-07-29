@@ -1030,7 +1030,7 @@
                 {
                     "file": "celery_workers.yaml",
                     "path": "workers",
-                    "commandTemplate": "ergoms logs ergo-celery-worker-${key} 500",
+                    "commandTemplate": "ergoms logs ergo_ms_celery_worker_${key} 500",
                     "nameTemplate": "Logs: Celery Worker-${key}"
                 }
             ],

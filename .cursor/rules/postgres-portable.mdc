@@ -22,7 +22,7 @@ alwaysApply: false
 
 - Каталог: `virtual_env/packages/postgres/` (`bin/`, `data/`, маркер `VERSION`)
 - Детект «уже есть Postgres» — **по системной службе** `postgresql*`, не по подключению из `databases.yaml`
-- Наши службы **не** считаются системными: имена из `env/postgres.env` (`POSTGRES_SERVICE_WINDOWS` / `POSTGRES_SERVICE_LINUX`, по умолчанию `ergo_ms_postgres` / `ergo-postgres`)
+- Наши службы **не** считаются системными: имена из `env/postgres.env` (`POSTGRES_SERVICE_WINDOWS` / `POSTGRES_SERVICE_LINUX`, по умолчанию `ergo_ms_postgres` на Windows и Linux)
 - Нет системной службы → latest stable → initdb → БД `ergo_ms` → OS-служба на **5433** → дальше `MigrateStep`
 - Есть системная служба → `[SKIP]` portable (если не force)
 - Режим: `ERGO_DB=portable_postgres` в `.env`; force — legacy `POSTGRES_FORCE_INSTALL=true` или `ergoms setup-full --with-postgres` — portable на **5433**
@@ -83,7 +83,7 @@ ergoms uninstall-postgres
 - `setup-full --with-postgres` — то же, что force для одного прогона
 - Алиасы рецептов: `postgres-install`, … → builtin / `internal_dispatch` category `postgres`
 
-Службы по умолчанию: Windows NSSM **`ergo_ms_postgres`**, Linux systemd **`ergo-postgres`** (переопределяются в `env/postgres.env`).
+Службы по умолчанию: Windows NSSM и Linux systemd — **`ergo_ms_postgres`** (переопределяются в `env/postgres.env`).
 
 ## Обязательно
 

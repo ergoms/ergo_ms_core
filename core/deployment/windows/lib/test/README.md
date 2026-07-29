@@ -35,7 +35,7 @@ ergoms test_system
 
 ### commands_test
 
-Проверяет отдельные команды: миграции (`ergoms db-makemigrations`, `ergoms db-migrate`), `ergoms clean`, просмотр журналов (`ergoms logs ergo-api-dev 10`).
+Проверяет отдельные команды: миграции (`ergoms db-makemigrations`, `ergoms db-migrate`), `ergoms clean`, просмотр журналов (`ergoms logs ergo_ms_api_dev 10`).
 
 ### test (`test.sh` / `test.ps1`)
 

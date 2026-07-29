@@ -1,13 +1,13 @@
 # Шаблон базовых сервисов для справки.
 # Рабочий список для VS Code tasks — .vscode/logs-services.runtime.yaml
-# (генерирует ergoms sync-logs-services: при NGINX_ENABLED — nginx вместо ergo-client-dev).
+# (генерирует ergoms sync-logs-services: при NGINX_ENABLED — nginx вместо ergo_ms_client_dev).
 # Воркеры берутся из celery_workers.yaml.
 
 services:
-  ergo-api-dev:
+  ergo_ms_api_dev:
     description: "Django API server"
-  # ergo-client-dev или ergo_ms_nginx — только в runtime.yaml по NGINX_ENABLED
-  ergo-media-api:
+  # ergo_ms_client_dev или ergo_ms_nginx — только в runtime.yaml по NGINX_ENABLED
+  ergo_ms_media_api:
     description: "Media API (CDN / file server)"
-  ergo-celery-beat:
+  ergo_ms_celery_beat:
     description: "Celery Beat scheduler"

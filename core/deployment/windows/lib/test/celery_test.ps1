@@ -96,8 +96,8 @@ function Assert-WorkersServicesMatchConfig {
         return $false
     }
 
-    $expected = $keys | ForEach-Object { "ergo-celery-worker-$($_)" } | Sort-Object
-    $actual = (Get-Service -Name "ergo-celery-worker-*" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name) | Sort-Object
+    $expected = $keys | ForEach-Object { "ergo_ms_celery_worker_$($_)" } | Sort-Object
+    $actual = (Get-Service -Name "ergo_ms_celery_worker_*" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name) | Sort-Object
 
     Log ("Workers в celery_workers.yaml: " + ($keys -join ", "))
     Log ("Ожидаемые службы: " + ($expected -join ", "))
@@ -112,9 +112,9 @@ function Assert-WorkersServicesMatchConfig {
 }
 
 function Start-AndCheckWorkerServices {
-    $workers = Get-Service -Name "ergo-celery-worker-*" -ErrorAction SilentlyContinue
+    $workers = Get-Service -Name "ergo_ms_celery_worker_*" -ErrorAction SilentlyContinue
     if (-not $workers) {
-        Log "[WARNING] Не найдено ни одной службы ergo-celery-worker-*"
+        Log "[WARNING] Не найдено ни одной службы ergo_ms_celery_worker_*"
         return $false
     }
 
@@ -331,11 +331,11 @@ PeriodicTask.objects.filter(name='$periodicName').delete()
 Step "Celery: подготовка (стоп) и запуск API + beat"
 Stop-AllErgoms
 Enable-ErgoServicesForStart
-Test-ServiceAction -Action "start" -ServiceName "ergo-api-dev"
+Test-ServiceAction -Action "start" -ServiceName "ergo_ms_api_dev"
 Start-Sleep -Seconds 4
-Test-ServiceAction -Action "start" -ServiceName "ergo-celery-beat"
+Test-ServiceAction -Action "start" -ServiceName "ergo_ms_celery_beat"
 Start-Sleep -Seconds 3
-Test-ServiceAction -Action "status" -ServiceName "ergo-celery-beat"
+Test-ServiceAction -Action "status" -ServiceName "ergo_ms_celery_beat"
 
 Step "Celery Beat: show_next_tasks (расписание)"
 if (Run-CeleryBeatShowNextTasks) { Log "show_next_tasks: OK" } else { Log "[WARNING] show_next_tasks: FAILED" }
@@ -368,14 +368,14 @@ try {
     if ($yamlState) { Restore-WorkersYaml -State $yamlState }
 }
 
-Step "Celery Workers: запуск служб (все ergo-celery-worker-*)"
+Step "Celery Workers: запуск служб (все ergo_ms_celery_worker_*)"
 if (Start-AndCheckWorkerServices) { Log "worker services: OK" } else { Log "[WARNING] worker services: FAILED" }
 
 Step "Celery Worker: проверка через задачу (send_task -> result.get)"
 if (Run-CeleryWorkerTaskTest) { Log "worker task execution: OK" } else { Log "[WARNING] worker task execution: FAILED" }
 
 Step "Celery: стоп"
-try { Stop-Service -Name "ergo-celery-beat" -Force -ErrorAction SilentlyContinue } catch { }
-try { Stop-Service -Name "ergo-api-dev" -Force -ErrorAction SilentlyContinue } catch { }
+try { Stop-Service -Name "ergo_ms_celery_beat" -Force -ErrorAction SilentlyContinue } catch { }
+try { Stop-Service -Name "ergo_ms_api_dev" -Force -ErrorAction SilentlyContinue } catch { }
 Stop-AllErgoms
 

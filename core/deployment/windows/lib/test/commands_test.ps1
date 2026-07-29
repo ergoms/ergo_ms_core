@@ -36,15 +36,15 @@ try {
 }
 
 Step "3. Проверка команды логов (logs)"
-Log "Выполнение ergoms logs ergo-api-dev 10"
+Log "Выполнение ergoms logs ergo_ms_api_dev 10"
 try {
-    if (Test-ErgomsLogs -ServiceName "ergo-api-dev" -Lines 10) {
-        Log "logs ergo-api-dev: OK"
+    if (Test-ErgomsLogs -ServiceName "ergo_ms_api_dev" -Lines 10) {
+        Log "logs ergo_ms_api_dev: OK"
     } else {
-        Log "[WARNING] logs ergo-api-dev завершился с ошибкой или таймаутом"
+        Log "[WARNING] logs ergo_ms_api_dev завершился с ошибкой или таймаутом"
     }
 } catch {
-    Log "[WARNING] logs ergo-api-dev завершился с ошибкой"
+    Log "[WARNING] logs ergo_ms_api_dev завершился с ошибкой"
 }
 
 Step "3.1. Run Task: Logs: All Services (multi-terminal)"

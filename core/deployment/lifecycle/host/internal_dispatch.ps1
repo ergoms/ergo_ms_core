@@ -19,35 +19,35 @@ switch ($Category) {
         . (Join-Path $LibPath 'services.ps1')
         switch ($Operation) {
             'install-all' { Install-AllServices -Root $Root; Start-AllServices -ProjectRoot $Root }
-            'install-api' { Install-SingleService -ServiceName 'ergo-api-dev' -Root $Root; Start-Service -Name 'ergo-api-dev' }
-            'install-client' { Install-SingleService -ServiceName 'ergo-client-dev' -Root $Root; Start-Service -Name 'ergo-client-dev' }
-            'install-media' { Install-SingleService -ServiceName 'ergo-media-api' -Root $Root; Start-Service -Name 'ergo-media-api' }
-            'install-beat' { Install-SingleService -ServiceName 'ergo-celery-beat' -Root $Root; Start-Service -Name 'ergo-celery-beat' }
+            'install-api' { Install-SingleService -ServiceName 'ergo_ms_api_dev' -Root $Root; Start-Service -Name 'ergo_ms_api_dev' }
+            'install-client' { Install-SingleService -ServiceName 'ergo_ms_client_dev' -Root $Root; Start-Service -Name 'ergo_ms_client_dev' }
+            'install-media' { Install-SingleService -ServiceName 'ergo_ms_media_api' -Root $Root; Start-Service -Name 'ergo_ms_media_api' }
+            'install-beat' { Install-SingleService -ServiceName 'ergo_ms_celery_beat' -Root $Root; Start-Service -Name 'ergo_ms_celery_beat' }
             'install-workers' { Install-WorkerServices -Root $Root; Start-WorkerServices -ProjectRoot $Root }
             'start-all' { Start-AllServices -ProjectRoot $Root }
-            'start-api' { Start-Service -Name 'ergo-api-dev' -ErrorAction SilentlyContinue; net start ergo-api-dev 2>$null }
-            'start-client' { Start-Service -Name 'ergo-client-dev' -ErrorAction SilentlyContinue; net start ergo-client-dev 2>$null }
-            'start-media' { Start-Service -Name 'ergo-media-api' -ErrorAction SilentlyContinue; net start ergo-media-api 2>$null }
-            'start-beat' { Start-Service -Name 'ergo-celery-beat' -ErrorAction SilentlyContinue; net start ergo-celery-beat 2>$null }
+            'start-api' { Start-Service -Name 'ergo_ms_api_dev' -ErrorAction SilentlyContinue; net start ergo_ms_api_dev 2>$null }
+            'start-client' { Start-Service -Name 'ergo_ms_client_dev' -ErrorAction SilentlyContinue; net start ergo_ms_client_dev 2>$null }
+            'start-media' { Start-Service -Name 'ergo_ms_media_api' -ErrorAction SilentlyContinue; net start ergo_ms_media_api 2>$null }
+            'start-beat' { Start-Service -Name 'ergo_ms_celery_beat' -ErrorAction SilentlyContinue; net start ergo_ms_celery_beat 2>$null }
             'start-workers' { Start-WorkerServices -ProjectRoot $Root }
             'stop-all' { Stop-AllServices -ProjectRoot $Root }
-            'stop-api' { net stop ergo-api-dev 2>$null }
-            'stop-client' { net stop ergo-client-dev 2>$null }
-            'stop-media' { net stop ergo-media-api 2>$null }
-            'stop-beat' { net stop ergo-celery-beat 2>$null }
-            'stop-workers' { Get-Service -Name 'ergo-celery-worker*' -ErrorAction SilentlyContinue | ForEach-Object { net stop $_.Name 2>$null } }
+            'stop-api' { net stop ergo_ms_api_dev 2>$null }
+            'stop-client' { net stop ergo_ms_client_dev 2>$null }
+            'stop-media' { net stop ergo_ms_media_api 2>$null }
+            'stop-beat' { net stop ergo_ms_celery_beat 2>$null }
+            'stop-workers' { Get-Service -Name 'ergo_ms_celery_worker*' -ErrorAction SilentlyContinue | ForEach-Object { net stop $_.Name 2>$null } }
             'restart-all' { Restart-AllServices -ProjectRoot $Root }
-            'restart-api' { net stop ergo-api-dev 2>$null; net start ergo-api-dev 2>$null }
-            'restart-client' { net stop ergo-client-dev 2>$null; net start ergo-client-dev 2>$null }
-            'restart-media' { net stop ergo-media-api 2>$null; net start ergo-media-api 2>$null }
-            'restart-beat' { net stop ergo-celery-beat 2>$null; net start ergo-celery-beat 2>$null }
+            'restart-api' { net stop ergo_ms_api_dev 2>$null; net start ergo_ms_api_dev 2>$null }
+            'restart-client' { net stop ergo_ms_client_dev 2>$null; net start ergo_ms_client_dev 2>$null }
+            'restart-media' { net stop ergo_ms_media_api 2>$null; net start ergo_ms_media_api 2>$null }
+            'restart-beat' { net stop ergo_ms_celery_beat 2>$null; net start ergo_ms_celery_beat 2>$null }
             'restart-workers' { Stop-WorkerServices -ProjectRoot $Root; Start-WorkerServices -ProjectRoot $Root }
             'status-all' { Show-ServicesStatus -ProjectRoot $Root }
-            'status-api' { sc query ergo-api-dev }
-            'status-client' { sc query ergo-client-dev }
-            'status-media' { sc query ergo-media-api }
-            'status-beat' { sc query ergo-celery-beat }
-            'status-workers' { Get-Service -Name 'ergo-celery-worker*' -ErrorAction SilentlyContinue | ForEach-Object { sc query $_.Name } }
+            'status-api' { sc query ergo_ms_api_dev }
+            'status-client' { sc query ergo_ms_client_dev }
+            'status-media' { sc query ergo_ms_media_api }
+            'status-beat' { sc query ergo_ms_celery_beat }
+            'status-workers' { Get-Service -Name 'ergo_ms_celery_worker*' -ErrorAction SilentlyContinue | ForEach-Object { sc query $_.Name } }
             'uninstall-all' {
                 $purge = $Extra -contains '--purge'
                 Uninstall-AllServices -PurgeData:$purge -ProjectRoot $Root

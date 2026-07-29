@@ -7,6 +7,7 @@
 Включает:
 - validate_module_isolation --scope=core --fail-on-warning (ядро)
 - validate_module_isolation --scope=all (отчёт по modules/, без падения CI)
+- validate_bridge_contracts --fail-on-warning (схемы дескрипторов моста)
 - запрет hardcoded имён модулей в runtime-коде ядра
 - запрет console.error в прикладном коде клиента (кроме logError.js / logger.js)
 - запрет нативного <select> / b-form-select в .vue ядра
@@ -62,6 +63,7 @@ MODULES_IMPORT_RE = re.compile(r'^\s*(from\s+modules\.|import\s+modules\.)')
 HARDCODED_MODULE_ALLOWLIST_SUFFIXES = (
     'validate_core_rules.py',
     'validate_module_isolation.py',
+    'validate_bridge_contracts.py',
     'module_deps.py',
     'sharedGlobs.generated.js',
 )
@@ -133,6 +135,34 @@ def run_module_isolation_check(*, scope: str, fail_on_error: bool) -> list[str]:
         print(output.rstrip())
     if result.returncode != 0 and fail_on_error:
         errors.append(f'validate_module_isolation --scope={scope}: обнаружены нарушения изоляции')
+    return errors
+
+
+def run_bridge_contracts_check() -> list[str]:
+    """Запускает Django management command validate_bridge_contracts."""
+    errors: list[str] = []
+    python = _python_executable()
+    cmd = [
+        str(python),
+        '-m',
+        'commands',
+        'validate_bridge_contracts',
+        '--fail-on-warning',
+    ]
+    result = subprocess.run(
+        cmd,
+        cwd=str(API_DIR),
+        env={**os.environ, 'PYTHONIOENCODING': 'utf-8', 'PYTHONUTF8': '1'},
+        capture_output=True,
+        text=True,
+        encoding='utf-8',
+        errors='replace',
+    )
+    output = (result.stdout or '') + (result.stderr or '')
+    if output.strip():
+        print(output.rstrip())
+    if result.returncode != 0:
+        errors.append('validate_bridge_contracts: обнаружены нарушения схем контрактов моста')
     return errors
 
 
@@ -449,6 +479,9 @@ def main() -> int:
 
     print('\n=== Отчёт изоляции modules/ (validate_module_isolation --scope=all) ===')
     run_module_isolation_check(scope='all', fail_on_error=False)
+
+    print('\n=== Проверка схем контрактов моста (validate_bridge_contracts) ===')
+    all_errors.extend(run_bridge_contracts_check())
 
     print('\n=== Проверка ядра: hardcoded имена модулей ===')
     hardcoded_violations = check_hardcoded_module_names()

@@ -32,7 +32,10 @@ def resolve_service_log_files(service_name: str, project_root: Path | None = Non
     logs_dir = resolve_logs_dir(project_root)
     mapping = service_log_map(project_root)
 
-    if base.startswith('ergo-celery-worker-'):
+    if (
+        base.startswith('ergo_ms_celery_worker_')
+        or base.startswith('ergo-celery-worker-')
+    ):
         return [logs_dir / log_basename('CELERY_WORKER', project_root)]
 
     names = mapping.get(base)

@@ -99,7 +99,7 @@
 | Конфиг | `virtual_env/packages/redis/conf/redis.conf` |
 | Скрипты | `core/deployment/scripts/install_redis.py`, `resolve_env.py` |
 | Windows | `core/deployment/windows/lib/redis.ps1`, служба `ergo_ms_redis` (NSSM) |
-| Linux | `core/deployment/linux/lib/redis.sh`, unit `ergo-redis.service` |
+| Linux | `core/deployment/linux/lib/redis.sh`, unit `ergo_ms_redis.service` |
 
 ### Команды
 

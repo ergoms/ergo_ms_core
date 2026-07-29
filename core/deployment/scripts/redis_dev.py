@@ -35,7 +35,7 @@ from install_redis import (  # noqa: E402
 from nginx_foreground import _configure_stdio_utf8  # noqa: E402
 
 REDIS_WINDOWS_SERVICE = 'ergo_ms_redis'
-REDIS_LINUX_SERVICE = 'ergo-redis.service'
+REDIS_LINUX_SERVICE = 'ergo_ms_redis.service'
 DEV_SESSION_MARKER_NAME = 'dev-session.json'
 
 

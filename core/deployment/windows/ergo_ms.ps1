@@ -624,14 +624,14 @@ function Main {
 
             $serviceName = switch ($serviceName) {
 
-                'media_api' { 'ergo-media-api' }
+                'media_api' { 'ergo_ms_media_api' }
 
                 default { $serviceName }
 
             }
 
-            if ($serviceName -eq 'ergo-client-dev' -and (Test-NginxEnabled -ProjectRoot $projectRoot)) {
-                Write-ColorOutput (Format-ErgoConsole -Level skip -Message 'ergo-client-dev не используется (NGINX_ENABLED=true, клиент через nginx)') Gray
+            if ($serviceName -eq 'ergo_ms_client_dev' -and (Test-NginxEnabled -ProjectRoot $projectRoot)) {
+                Write-ColorOutput (Format-ErgoConsole -Level skip -Message 'ergo_ms_client_dev не используется (NGINX_ENABLED=true, клиент через nginx)') Gray
                 exit 0
             }
 

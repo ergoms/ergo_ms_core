@@ -224,6 +224,35 @@ def build_compose_env_overrides(raw_env: dict[str, str]) -> dict[str, str]:
     overrides.setdefault('PIP_DEFAULT_TIMEOUT', '300')
     overrides.setdefault('PIP_RETRIES', '10')
 
+    # Module microservices (MODULE_RUNTIME=microservice): URL-карта для HttpTransport.
+    runtime = _env(raw_env, 'MODULE_RUNTIME', 'monolith').lower()
+    if runtime in ('microservice', 'split'):
+        api_port = _env(raw_env, 'API_PORT', '8000')
+        overrides.setdefault(
+            'BRIDGE_CORE_URL',
+            f'http://{service_api}:{api_port}',
+        )
+        if not _env(raw_env, 'BRIDGE_SERVICE_URLS', ''):
+            modules_raw = (
+                _env(raw_env, 'MICROSERVICE_MODULES', '')
+                or _env(raw_env, 'SPLIT_MODULES', '')
+            )
+            ms_modules = [m.strip() for m in modules_raw.split(',') if m.strip()]
+            parts: list[str] = []
+            for name in ms_modules:
+                key = name.upper().replace('-', '_')
+                port = _env(raw_env, f'{key}_PORT', '')
+                if not port:
+                    port = str(8100 + (sum(ord(c) for c in name) % 500))
+                parts.append(f'{name}=http://{name}:{port}')
+            if parts:
+                overrides['BRIDGE_SERVICE_URLS'] = ','.join(parts)
+        # В Docker microservice HTTP/Redis — иначе модули не видят друг друга.
+        transport = _env(raw_env, 'BRIDGE_TRANSPORT', 'http')
+        overrides['BRIDGE_TRANSPORT'] = transport if transport != 'local' else 'http'
+        event_bus = _env(raw_env, 'BRIDGE_EVENT_BUS', 'redis')
+        overrides['BRIDGE_EVENT_BUS'] = event_bus if event_bus != 'local' else 'redis'
+
     return overrides
 
 

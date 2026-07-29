@@ -185,6 +185,7 @@ def main() -> int:
         ('init', cmd_init),
         ('migrate', cmd_migrate),
         ('gen-workers', lambda a: docker_ops.run_generate_workers()),
+        ('gen-modules', lambda a: docker_ops.run_generate_modules()),
         ('shell-api', cmd_exec_api_shell),
     ):
         p = sub.add_parser(name)

@@ -33,7 +33,7 @@ DEFAULT_DB_NAME = 'ergo_ms'
 DEFAULT_DB_USER = 'postgres'
 DEFAULT_DB_PASSWORD = 'admin'
 OUR_SERVICE_WINDOWS = 'ergo_ms_postgres'
-OUR_SERVICE_LINUX = 'ergo-postgres'
+OUR_SERVICE_LINUX = 'ergo_ms_postgres'
 DEFAULT_SERVICE_DISPLAY_NAME = 'Ergo MS - PostgreSQL'
 DEFAULT_SERVICE_RESTART_DELAY_MS = 5000
 # Knobs postgresql.conf из env/postgres.env (POSTGRES_* → ключ conf).

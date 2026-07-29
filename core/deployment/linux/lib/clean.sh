@@ -9,7 +9,7 @@ stop_blocking_processes_for_clean() {
 
   echo "  Останавливаю процессы, которые могут блокировать файлы проекта..."
 
-  # ergo-* — приложение; ergo_ms_* — portable nginx (и аналоги)
+  # Все OS-службы проекта — ergo_ms_*; ergo-* — legacy до переустановки
   if command -v systemctl >/dev/null 2>&1; then
     while IFS= read -r unit; do
       [[ -z "$unit" ]] && continue
@@ -21,7 +21,7 @@ stop_blocking_processes_for_clean() {
           echo "  [WARNING] Не удалось остановить службу $unit (может потребоваться root)" >&2
         fi
       fi
-    done < <(systemctl list-units --type=service --all --no-legend 2>/dev/null | awk '/ergo-|ergo_ms_/ {print $1}')
+    done < <(systemctl list-units --type=service --all --no-legend 2>/dev/null | awk '/ergo_ms_|ergo-/ {print $1}')
   fi
 
   if command -v fuser >/dev/null 2>&1; then

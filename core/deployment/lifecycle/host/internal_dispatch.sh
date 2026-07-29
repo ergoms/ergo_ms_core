@@ -37,49 +37,49 @@ case "$category" in
   service)
     case "$operation" in
       install-all) install_services "$root"; start_all ;;
-      install-api) install_single_service "api" "$root"; systemctl_do start ergo-api-dev.service ;;
-      install-client) install_single_service "client" "$root"; systemctl_do start ergo-client-dev.service 2>/dev/null || true ;;
-      install-media) install_single_service "media" "$root"; systemctl_do start ergo-media-api.service ;;
-      install-beat) install_single_service "beat" "$root"; systemctl_do start ergo-celery-beat.service ;;
+      install-api) install_single_service "api" "$root"; systemctl_do start ergo_ms_api_dev.service ;;
+      install-client) install_single_service "client" "$root"; systemctl_do start ergo_ms_client_dev.service 2>/dev/null || true ;;
+      install-media) install_single_service "media" "$root"; systemctl_do start ergo_ms_media_api.service ;;
+      install-beat) install_single_service "beat" "$root"; systemctl_do start ergo_ms_celery_beat.service ;;
       install-workers) install_single_service "worker" "$root" ;;
       start-all) start_all ;;
-      start-api) systemctl_do start ergo-api-dev.service ;;
-      start-client) systemctl_do start ergo-client-dev.service ;;
-      start-media) systemctl_do start ergo-media-api.service ;;
-      start-beat) systemctl_do start ergo-celery-beat.service ;;
+      start-api) systemctl_do start ergo_ms_api_dev.service ;;
+      start-client) systemctl_do start ergo_ms_client_dev.service ;;
+      start-media) systemctl_do start ergo_ms_media_api.service ;;
+      start-beat) systemctl_do start ergo_ms_celery_beat.service ;;
       start-workers)
         for u in $(units_list "$root"); do
-          [[ "$u" == ergo-celery-worker* ]] && systemctl_do start "$u"
+          [[ "$u" == ergo_ms_celery_worker* ]] && systemctl_do start "$u"
         done
         ;;
       stop-all) stop_all ;;
-      stop-api) systemctl_do stop ergo-api-dev.service ;;
-      stop-client) systemctl_do stop ergo-client-dev.service ;;
-      stop-media) systemctl_do stop ergo-media-api.service ;;
-      stop-beat) systemctl_do stop ergo-celery-beat.service ;;
+      stop-api) systemctl_do stop ergo_ms_api_dev.service ;;
+      stop-client) systemctl_do stop ergo_ms_client_dev.service ;;
+      stop-media) systemctl_do stop ergo_ms_media_api.service ;;
+      stop-beat) systemctl_do stop ergo_ms_celery_beat.service ;;
       stop-workers)
         for u in $(units_list "$root"); do
-          [[ "$u" == ergo-celery-worker* ]] && systemctl_do stop "$u"
+          [[ "$u" == ergo_ms_celery_worker* ]] && systemctl_do stop "$u"
         done
         ;;
       restart-all) restart_all ;;
-      restart-api) systemctl_do restart ergo-api-dev.service ;;
-      restart-client) systemctl_do restart ergo-client-dev.service ;;
-      restart-media) systemctl_do restart ergo-media-api.service ;;
-      restart-beat) systemctl_do restart ergo-celery-beat.service ;;
+      restart-api) systemctl_do restart ergo_ms_api_dev.service ;;
+      restart-client) systemctl_do restart ergo_ms_client_dev.service ;;
+      restart-media) systemctl_do restart ergo_ms_media_api.service ;;
+      restart-beat) systemctl_do restart ergo_ms_celery_beat.service ;;
       restart-workers)
         for u in $(units_list "$root"); do
-          [[ "$u" == ergo-celery-worker* ]] && systemctl_do restart "$u"
+          [[ "$u" == ergo_ms_celery_worker* ]] && systemctl_do restart "$u"
         done
         ;;
       status-all) status_all ;;
-      status-api) systemctl_do status ergo-api-dev.service ;;
-      status-client) systemctl_do status ergo-client-dev.service ;;
-      status-media) systemctl_do status ergo-media-api.service ;;
-      status-beat) systemctl_do status ergo-celery-beat.service ;;
+      status-api) systemctl_do status ergo_ms_api_dev.service ;;
+      status-client) systemctl_do status ergo_ms_client_dev.service ;;
+      status-media) systemctl_do status ergo_ms_media_api.service ;;
+      status-beat) systemctl_do status ergo_ms_celery_beat.service ;;
       status-workers)
         for u in $(units_list "$root"); do
-          [[ "$u" == ergo-celery-worker* ]] && systemctl_do status "$u"
+          [[ "$u" == ergo_ms_celery_worker* ]] && systemctl_do status "$u"
         done
         ;;
       uninstall-all)

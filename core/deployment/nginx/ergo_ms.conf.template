@@ -29,6 +29,7 @@ upstream ergo_media {
     server 127.0.0.1:8003;
 }
 
+${ERGO_MODULE_UPSTREAMS}
 ${ERGO_JUPYTER_UPSTREAM}
 
 ${ERGO_HOST_POLICY_BLOCKS}
@@ -124,6 +125,7 @@ ${ERGO_MAINTENANCE_SNIPPET}
         proxy_send_timeout 3600s;
     }
 
+${ERGO_MODULE_LOCATIONS}
     location /api/ {
         if ($maintenance = 1) { return 503; }
         limit_req zone=ergo_api burst=50 nodelay;

@@ -74,7 +74,7 @@ function Install-Service {
 
 
 
-    if ($ServiceName -eq 'ergo-celery-beat') {
+    if ($ServiceName -eq 'ergo_ms_celery_beat') {
 
         # Используем общий скрипт запуска Beat, чтобы логика кэшей и логирование
 
@@ -88,7 +88,7 @@ function Install-Service {
 
     }
 
-    elseif ($ServiceName -eq 'ergo-client-dev') {
+    elseif ($ServiceName -eq 'ergo_ms_client_dev') {
 
         $useDirectPython = $true
 
@@ -98,7 +98,7 @@ function Install-Service {
 
     }
 
-    elseif ($ServiceName -match '^ergo-celery-worker-(.+)$') {
+    elseif ($ServiceName -match '^ergo_ms_celery_worker_(.+)$') {
 
         $useDirectPython = $true
 
@@ -132,7 +132,7 @@ function Install-Service {
 
     & $NssmExe set $ServiceName Description "Ergo Management System - $ServiceName"
 
-    if ($ServiceName -eq 'ergo-client-dev') {
+    if ($ServiceName -eq 'ergo_ms_client_dev') {
 
         & $NssmExe set $ServiceName AppDirectory $Root
 
@@ -194,11 +194,11 @@ function Disable-ClientServiceIfNginx {
 
 
 
-    $service = Get-Service -Name 'ergo-client-dev' -ErrorAction SilentlyContinue
+    $service = Get-Service -Name 'ergo_ms_client_dev' -ErrorAction SilentlyContinue
 
     if ($service -and $service.Status -ne 'Stopped') {
 
-        Stop-Service -Name 'ergo-client-dev' -Force -ErrorAction SilentlyContinue
+        Stop-Service -Name 'ergo_ms_client_dev' -Force -ErrorAction SilentlyContinue
 
     }
 
@@ -280,7 +280,7 @@ function Install-SingleService {
 
 
 
-    if ($ServiceName -eq 'ergo-client-dev' -and (Test-NginxEnabled -ProjectRoot $Root)) {
+    if ($ServiceName -eq 'ergo_ms_client_dev' -and (Test-NginxEnabled -ProjectRoot $Root)) {
 
         Disable-ClientServiceIfNginx -ProjectRoot $Root
 
@@ -872,7 +872,28 @@ function Uninstall-AllServices {
 
     }
 
-
+    # Удалить legacy-имена (до префикса ergo_ms_)
+    $legacy = Get-Service -Name 'ergo-*' -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -notlike 'ergo_ms_*' }
+    foreach ($svc in $legacy) {
+        try {
+            if ($svc.Status -ne 'Stopped') {
+                Stop-Service -Name $svc.Name -Force -ErrorAction SilentlyContinue
+                Wait-ServiceStopped -ServiceName $svc.Name -TimeoutSeconds 15 | Out-Null
+            }
+            Write-ColorOutput "  Удаление legacy-службы: $($svc.Name)" Gray
+            if (Test-Path $nssmExe) {
+                & $nssmExe remove $svc.Name confirm 2>&1 | Out-Null
+            }
+            if (Get-Service -Name $svc.Name -ErrorAction SilentlyContinue) {
+                sc.exe delete $svc.Name 2>$null
+            }
+            Write-ColorOutput "[OK] Удалена legacy: $($svc.Name)" Green
+        }
+        catch {
+            Write-ColorOutput "[WARNING] Не удалось удалить legacy $($svc.Name): $($_.Exception.Message)" Yellow
+        }
+    }
 
     if ($PurgeData) {
 

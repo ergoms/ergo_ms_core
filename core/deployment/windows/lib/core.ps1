@@ -3,18 +3,19 @@
 # Базовые утилиты для развертывания ErgoMS
 
 . (Join-Path $PSScriptRoot 'portable_env.ps1')
+. (Join-Path $PSScriptRoot 'nginx_env.ps1')
 
 # Константы (базовые службы)
 
 $script:BaseServices = @(
 
-    'ergo-api-dev',
+    'ergo_ms_api_dev',
 
-    'ergo-client-dev',
+    'ergo_ms_client_dev',
 
-    'ergo-media-api',
+    'ergo_ms_media_api',
 
-    'ergo-celery-beat'
+    'ergo_ms_celery_beat'
 
 )
 
@@ -548,7 +549,7 @@ function Get-ServiceNames {
 
     if ($nginxEnabled) {
 
-        $services = $services | Where-Object { $_ -ne 'ergo-client-dev' }
+        $services = $services | Where-Object { $_ -ne 'ergo_ms_client_dev' }
 
     }
 
@@ -564,7 +565,7 @@ function Get-ServiceNames {
 
         foreach ($worker in $workers) {
 
-            $services += "ergo-celery-worker-$worker"
+            $services += "ergo_ms_celery_worker_$worker"
 
         }
 
@@ -574,7 +575,7 @@ function Get-ServiceNames {
 
         # Если конфиг не найден, используем один общий воркер
 
-        $services += "ergo-celery-worker"
+        $services += "ergo_ms_celery_worker"
 
     }
 
@@ -618,7 +619,7 @@ function Get-WorkerServiceNames {
 
         foreach ($worker in $workers) {
 
-            $services += "ergo-celery-worker-$worker"
+            $services += "ergo_ms_celery_worker_$worker"
 
         }
 
@@ -626,7 +627,7 @@ function Get-WorkerServiceNames {
 
     else {
 
-        $services += "ergo-celery-worker"
+        $services += "ergo_ms_celery_worker"
 
     }
 

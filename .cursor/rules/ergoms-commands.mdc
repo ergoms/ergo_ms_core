@@ -25,7 +25,7 @@ alwaysApply: false
 - Python `core/deployment/scripts/` (кроме docstring и argparse для CI)
 - `Write-ColorOutput`, `Write-ErgomsMessage`, `echo`, `print`, `Read-Host`, `read -rp`
 
-**Допустимый английский:** имена команд (`ergoms setup`), путей, служб (`ergo-api-dev`), флагов CLI, устоявшихся имён инструментов (nginx, Redis, Poetry, Celery).
+**Допустимый английский:** имена команд (`ergoms setup`), путей, служб (`ergo_ms_api_dev`), флагов CLI, устоявшихся имён инструментов (nginx, Redis, Poetry, Celery).
 
 **Обязательно:**
 
