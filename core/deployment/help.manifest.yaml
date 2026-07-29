@@ -156,6 +156,12 @@ sections:
         summary: "Собрать клиент (npm run build)"
       - name: client-build-analyze
         summary: "Собрать клиент с отчётом rollup-plugin-visualizer (dist/stats.html)"
+      - name: client-build-remote
+        summary: "Собрать federated remote модуля (--module=name → virtual_env/client-remotes/)"
+      - name: client-build-standalone
+        summary: "Собрать standalone SPA модуля (--module=name → virtual_env/client-standalone/)"
+      - name: client-shell-pack
+        summary: "Упаковать @ergo-ms/client-shell (virtual_env/client-shell/)"
       - name: client-check
         summary: "Полная проверка клиента (lint, i18n, build, a11y); логи в logs/client-check/"
       - name: client-preview

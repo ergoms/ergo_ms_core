@@ -41,7 +41,7 @@ def _env_module_host_port(
     values: Mapping[str, str],
     module_name: str,
 ) -> tuple[str, int] | None:
-    """``MODULE_TEMPLATE_HOST`` / ``MODULE_TEMPLATE_PORT`` или из BRIDGE_SERVICE_URLS."""
+    """``<NAME>_HOST`` / ``<NAME>_PORT`` или из BRIDGE_SERVICE_URLS."""
     key = module_name.upper().replace('-', '_')
     host = (values.get(f'{key}_HOST') or '').strip()
     port_raw = (values.get(f'{key}_PORT') or '').strip()

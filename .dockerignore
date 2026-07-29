@@ -12,5 +12,8 @@ media
 virtual_env/python
 virtual_env/cache
 virtual_env/packages
+virtual_env/client-remotes
+virtual_env/client-standalone
+virtual_env/client-shell
 .env
 .env.*

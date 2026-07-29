@@ -56,6 +56,13 @@ __pycache__/
 /virtual_env/docker-cache/*
 !/virtual_env/docker-cache/.gitkeep
 
+/virtual_env/client-remotes/*
+!/virtual_env/client-remotes/.gitkeep
+/virtual_env/client-standalone/*
+!/virtual_env/client-standalone/.gitkeep
+/virtual_env/client-shell/*
+!/virtual_env/client-shell/.gitkeep
+
 /logs/*
 !/logs/.gitkeep
 !/logs/docker/
