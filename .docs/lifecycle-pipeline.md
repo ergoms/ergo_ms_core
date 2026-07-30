@@ -30,7 +30,7 @@ ergoms docker-up
 
 Задачи VS Code (**Setup Full System**, **Start All Services**, nginx/redis) тоже вызывают только **`ergoms …`**, без прямого запуска `ergo_ms.ps1` или `sudo bash ergo_ms.sh`.
 
-На Linux команды infra (nginx, redis, TLS, службы), которым нужны права root, запрашивают **`sudo` внутри pipeline** — не нужно оборачивать задачу редактора в `sudo bash …`.
+На Linux команды установки nginx, Redis, TLS и системных служб, которым нужны права root, запрашивают **`sudo` внутри pipeline** — не нужно оборачивать задачу редактора в `sudo bash …`.
 
 ## Цепочка выполнения
 
@@ -53,7 +53,7 @@ py -3.12 core/deployment/lifecycle/runner.py --list
 py -3.12 core\deployment\lifecycle\runner.py --list
 ```
 
-Колонки: имя рецепта, группа (`deployment`, `service`, `infra`, `compose`, `foreground`), краткое описание.
+Колонки: имя рецепта, группа (`deployment`, `service`, `infra` — nginx/Redis/TLS, `compose`, `foreground`), краткое описание.
 
 ## Группы рецептов
 
@@ -61,7 +61,7 @@ py -3.12 core\deployment\lifecycle\runner.py --list
 |--------|---------------|----------------|
 | Установка и deploy | venv, зависимости, миграции, сборка | `setup`, `install-deps`, `deploy-all`, `build-all` |
 | Службы ОС | install/start/stop/status через NSSM или systemd | `install-services`, `start`, `stop`, `status` |
-| Инфраструктура | portable nginx, redis, TLS (Linux) | `install-nginx`, `start-redis`, `install-tls` |
+| Инфраструктура (`infra`) | portable nginx, Redis, TLS (Linux) — обратный прокси, кэш/брокер, сертификаты | `install-nginx`, `start-redis`, `install-tls` |
 | Docker Compose | up/down/build/migrate в контейнерах | `docker-init`, `docker-up`, `docker-migrate` |
 | Разработка (foreground) | процессы в терминале | `dev`, `start-client`, `start-worker`, `warmup-caches-if-needed` |
 

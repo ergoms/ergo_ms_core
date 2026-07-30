@@ -1,12 +1,11 @@
 # ERGO MS
 
-ERGO MS — модульный фреймворк для корпоративных веб-приложений. Ядро даёт общую инфраструктуру (аутентификация и профиль, роли и права, меню и оболочка клиента, управление контентом, уведомления, журнал действий, файлы, мост между модулями, фоновые задачи, ergoms), а расширять логику работы системы можно с помощью модулей в папке `modules/`.
+ERGO MS — модульный фреймворк для корпоративных веб-приложений. Ядро даёт общую инфраструктуру (аутентификация и профиль, роли и права, меню и оболочка клиента, управление контентом, уведомления, журнал действий, файлы, мост между модулями, фоновые задачи, утилита ergoms для управления системой), а расширять логику работы системы можно с помощью модулей в папке `modules/`.
 
 Стек: Django 5 и DRF на сервере, Vue 3 и Vite на клиенте, PostgreSQL (или SQLite/MySQL) как основная БД, Celery (worker и beat) для фоновых, отложенных и периодических вычислительных операций, Poetry и npm. Опционально — portable **Redis** (кэш, channel layer, брокер Celery) и **nginx** (запуск как на сервере).
 
 ## Документация
 
-- [Сценарии установки Python, Node.js и PostgreSQL](#сценарии-установки-python-nodejs-и-postgresql) — системные интерпретаторы и СУБД vs portable в `virtual_env`
 - [Архитектура](.docs/architecture.md) — ядро, модули, интеграции
 - [Структура проекта](.docs/structure.md) — каталоги и конфигурация
 - [Настройка .env и БД](.docs/configuration.md) — первичная конфигурация
@@ -19,62 +18,18 @@ ERGO MS — модульный фреймворк для корпоративн�
 - [Развёртывание ergoms](core/deployment/logic.md) — commands.conf, GeoIP, Redis, nginx, TLS, Docker, realtime за reverse proxy
 - [Ядро API](core/api/README.md) · [Клиент](core/client/README.md) · [Media API](core/media_api/README.md)
 
-## Сценарии установки Python, Node.js и PostgreSQL
-
-Перед клонированием репозитория на компьютере должен быть установлен **Git**. Python, Node.js и PostgreSQL можно взять из системы **или** поставить как portable-копии внутрь проекта (`virtual_env/packages/`) — оба варианта поддерживаются. Выбор влияет на то, что нужно подготовить **до** `setup-full`, и на значения в `.env` / `databases.yaml`.
-
-### Python и Node.js
-
-Интерпретаторы нужны для виртуального окружения Python (`virtual_env/python/`) и npm-workspace клиента (`virtual_env/npm/`). Режим задаётся в `.env` флагами `PORTABLE_PYTHON_ENABLED` и `PORTABLE_NODEJS_ENABLED` (в шаблоне [`.env.example`](.env.example) по умолчанию оба `false`).
-
-| Сценарий | Что сделать | Когда уместен |
-|----------|-------------|---------------|
-| **Системные** интерпретаторы | Заранее установить Python **3.12** и Node.js **18+**. В `.env` оставить `PORTABLE_PYTHON_ENABLED=false` и `PORTABLE_NODEJS_ENABLED=false`. `setup-full` создаст venv из системного Python и будет использовать системный Node/npm. | На машине уже есть нужные версии; корпоративная политика запрещает скачивать runtime в каталог проекта. |
-| **Portable** в проекте | В `.env` выставить `PORTABLE_PYTHON_ENABLED=true` и/или `PORTABLE_NODEJS_ENABLED=true` **до** полной настройки (или поправить `.env` и повторить `setup-full`). Скрипты скачают CPython 3.12 в `virtual_env/packages/python/` и Node.js LTS в `virtual_env/packages/nodejs/`, затем создадут venv и npm-workspace из них. | Чистая машина без Python/Node; нужна изолированная копия runtime только для этого репозитория. |
-
-Явные команды работают **независимо** от флагов: `ergoms install-python` и `ergoms install-nodejs` всегда ставят (или обновляют) portable-копии. После них для зависимостей проекта: `ergoms python-install` и `ergoms npm run install:all` (или снова `ergoms setup` / `install-deps`).
-
-Не создавайте вручную `.venv` / `venv` и не вызывайте `pip` / `npm` мимо `ergoms` — окружение проекта живёт только в `virtual_env/`.
-
-### PostgreSQL
-
-Основная БД задаётся в [`databases.yaml`](databases.yaml.example) (`default.host` / `default.port`). Portable PostgreSQL кладётся в `virtual_env/packages/postgres/` и по умолчанию слушает порт **5433**; типичный системный Postgres — **5432**. Скрипты **не** пишут host/port в `.env` — правит человек в yaml.
-
-Детект «уже есть Postgres» идёт по **системной службе** с именем `postgresql*` (не по TCP и не по содержимому yaml). Служба проекта `ergo_ms_postgres` (Windows и Linux) системной **не** считается.
-
-| Сценарий | Поведение | Что проверить в `databases.yaml` |
-|----------|-----------|----------------------------------|
-| **Системный** PostgreSQL 14+ | Если служба `postgresql*` уже есть, `setup-full` **пропускает** portable (`[SKIP]`), пока не включён force. Используйте уже установленный сервер. | `host` / `port` вашей установки (часто `127.0.0.1` и `5432`), имя БД, пользователь и пароль. База `ergo_ms` должна существовать или быть создана вами. |
-| **Portable** (авто) | Нет системной службы `postgresql*` → `setup-full` ставит portable, инициализирует кластер, создаёт БД `ergo_ms`, регистрирует службу на **5433**. | В примере уже `port: 5433`. После установки при необходимости поправьте пароль и снова выполните `ergoms migrate-all`. |
-| **Force portable** | В `.env`: `ERGO_DB=portable_postgres` (или legacy `POSTGRES_FORCE_INSTALL=true`), либо один прогон `ergoms setup-full --with-postgres`. Portable ставится на **5433** даже при наличии системного Postgres. | Обязательно укажите `port: 5433` (или другой свободный порт portable), иначе API останется на системном `5432`. |
-
-Отдельно, без полной настройки:
-
-```cmd
-ergoms install-postgres
-ergoms start-postgres
-ergoms status-postgres
-ergoms test-postgres
-ergoms uninstall-postgres
-```
-
-Флаг `--purge` / `-Purge` у `uninstall-postgres` удаляет и каталог `virtual_env/packages/postgres`.
-
-В Docker PostgreSQL может идти контейнером (`DOCKER_PROFILE_POSTGRES`) — см. [docker.md](.docs/docker.md). Не держите одновременно portable на хосте и контейнерный Postgres на одном и том же порту без смены порта у одной из сторон.
-
 ## Быстрый старт
 
 Путь к проекту на диске должен содержать только латиницу, цифры, дефис и подчёркивание — без кириллицы и пробелов. Например: `C:\projects\ergo_ms\`.
 
-Заранее нужен **Git**. Python 3.12, Node.js 18+ и PostgreSQL 14+ — либо уже установлены в системе, либо будут поставлены как portable при `setup-full` (см. [сценарии выше](#сценарии-установки-python-nodejs-и-postgresql)). Шаблон `.env.example` рассчитан на **системные** Python/Node (`PORTABLE_*=false`) и авто-portable Postgres при отсутствии системной службы.
+Заранее нужен **Git**. Python 3.12, Node.js LTS и PostgreSQL при `setup-full` по умолчанию ставятся как portable в `virtual_env/packages/` — в шаблоне [`.env.example`](.env.example) уже `PORTABLE_PYTHON_ENABLED=true`, `PORTABLE_NODEJS_ENABLED=true` и `ERGO_DB=portable_postgres`. Portable Postgres слушает порт **5433** (параметры — в [`databases.yaml`](databases.yaml.example)). Если нужны уже установленные на компьютере Python, Node.js или PostgreSQL — см. [ниже](#системные-python-nodejs-и-postgresql).
+
+Чтобы склонировать репозиторий, выполните в терминале:
 
 ```cmd
 git clone https://github.com/SKB-AI/ergo_ms_core ergo_ms
 cd ergo_ms
-git submodule update --init --recursive
 ```
-
-Ядро (`core/api`, `core/client`, `core/media_api`) и модули в `modules/` — отдельные git-репозитории (submodule). Без `submodule update` каталоги могут оказаться пустыми.
 
 Откройте каталог **`ergo_ms`** в **Cursor** или **VS Code** — в проекте уже настроены задачи (`.vscode/tasks.json`), через них проще всего установить окружение и запустить сервисы.
 
@@ -83,7 +38,7 @@ git submodule update --init --recursive
 1. Меню **Terminal → Run Task…** (или **Терминал → Выполнить задачу…**).
 2. Выберите **`Setup Full System`**.
 
-Задача выполнит полную настройку (`setup-full`): виртуальное окружение, зависимости Python и npm, проверку локальной утилиты `ergoms` в корне проекта, расширения редактора. На Windows политика выполнения скриптов обходится автоматически. На Linux для части infra-команд (nginx, службы) runner при необходимости запросит `sudo`.
+Задача выполнит полную настройку (`setup-full`): виртуальное окружение, зависимости Python и npm, проверку локальной утилиты `ergoms` в корне проекта, расширения редактора. На Windows политика выполнения скриптов обходится автоматически. На Linux для команд установки nginx и системных служб runner при необходимости запросит `sudo`.
 
 После установки появятся файлы `.env`, `databases.yaml` и `celery_workers.yaml` (из примеров, если их ещё не было). Проверьте их и при необходимости отредактируйте под свою среду — см. [configuration.md](.docs/configuration.md). Если параметры БД отличались от примера и миграции не применились, поправьте `databases.yaml` и снова выполните задачу **`Setup Full System`** или в терминале: `ergoms migrate-all`.
 
@@ -110,7 +65,7 @@ Linux:
 bash core/deployment/linux/ergo_ms.sh setup-full
 ```
 
-На Linux для infra-команд (nginx, службы) runner при необходимости запросит `sudo` сам — отдельно оборачивать в `sudo bash …` не нужно.
+На Linux для команд установки nginx и системных служб runner при необходимости запросит `sudo` сам — отдельно оборачивать в `sudo bash …` не нужно.
 
 ### 2. Запуск для разработки
 
@@ -134,4 +89,12 @@ ergoms install-redis
 
 Затем вручную в `.env`: `ERGO_BROKER=redis` (параметры — секция `redis` в `databases.yaml`), перезапустите API. Проверка: `ergoms test-redis` → `PONG`. Подробнее — [configuration.md](.docs/configuration.md#redis-и-несколько-процессов) и [`core/deployment/logic.md`](core/deployment/logic.md#redis-optional-portable-packages).
 
-Запуск как на сервере (обратный прокси, один origin для клиента и API): `ERGO_PROXY=nginx` и [`env/nginx.env.example`](env/nginx.env.example), команды — `ergoms install-nginx`, см. [cli.md](.docs/cli.md#nginx-опционально).
+Запуск как на сервере (обратный прокси nginx: клиент и API открываются с одного адреса в браузере, без разных портов): `ERGO_PROXY=nginx` и [`env/nginx.env.example`](env/nginx.env.example), команды — `ergoms install-nginx`, см. [cli.md](.docs/cli.md#nginx-опционально).
+
+## Системные Python, Node.js и PostgreSQL
+
+Этот раздел нужен только если **не** используете portable из быстрого старта. Окружение проекта всё равно живёт в `virtual_env/` — не создавайте вручную `.venv` / `venv` и не вызывайте `pip` / `npm` мимо `ergoms`.
+
+**Python и Node.js.** Заранее установите Python **3.12** и Node.js **18+**. В `.env` **до** `setup-full` выставьте `PORTABLE_PYTHON_ENABLED=false` и `PORTABLE_NODEJS_ENABLED=false` (или поправьте `.env` и повторите `setup-full`). Тогда venv и npm-workspace соберутся из системных интерпретаторов. Явные `ergoms install-python` и `ergoms install-nodejs` всегда ставят portable в `virtual_env/packages/`, независимо от этих флагов.
+
+**PostgreSQL.** В `.env` задайте `ERGO_DB=postgres`, в [`databases.yaml`](databases.yaml.example) — `host` / `port` вашей установки (часто `127.0.0.1` и **5432**), имя БД, пользователь и пароль. Базу `ergo_ms` создайте сами, если её ещё нет. Host и port скрипты в `.env` не пишут — только в yaml. Управление portable Postgres без полной настройки: `ergoms install-postgres`, `start-postgres`, `status-postgres`, `test-postgres`, `uninstall-postgres` (`--purge` / `-Purge` удаляет и каталог `virtual_env/packages/postgres`). Не держите одновременно portable на хосте и контейнерный Postgres на одном порту — см. [docker.md](.docs/docker.md).
