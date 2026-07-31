@@ -1,0 +1,8 @@
+When Cursor auto-generates a Git commit message for this repository:
+
+- Always write the commit message in Russian (subject and body).
+- Use Conventional Commits prefixes in English: feat, fix, docs, chore, refactor, test, perf, ci, build, style.
+- Format: `<type>: <краткое описание на русском>`.
+- Keep the subject to a single concise line (preferably under ~72 characters).
+- Only add a short body if the change is non-obvious; never restate the diff line by line.
+- Prefer the style of recent commits in this repository.
