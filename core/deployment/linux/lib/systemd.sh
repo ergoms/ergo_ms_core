@@ -7,7 +7,7 @@ write_env_file() {
   local env_file="$root/core/deployment/wrappers/ergo_ms.env"
   local legacy="/etc/default/ergo_ms"
 
-  mkdir -p "$(dirname "$env_file")"
+  mkdir -p "$(dirname "$env_file")" "$root/logs"
   cat >"$env_file" <<EOF
 # Environment for ergo_ms services (внутри корня проекта)
 ERGO_ROOT="$root"
@@ -43,7 +43,7 @@ install_unit() {
   content="${content//EnvironmentFile=-\/etc\/default\/ergo_ms/EnvironmentFile=-$env_file}"
   content="${content//EnvironmentFile=\/etc\/default\/ergo_ms/EnvironmentFile=$env_file}"
 
-  mkdir -p "$units_dir"
+  mkdir -p "$units_dir" "$root/logs"
   printf "%s" "$content" > "$unit_path"
   chmod 0644 "$unit_path" 2>/dev/null || true
 
@@ -80,13 +80,18 @@ enable_and_start() {
 get_base_unit_definitions() {
   local root="${1:-}"
   local client_log client_stdout client_stderr
+  local logs_dir="${root}/logs"
+  # systemd требует абсолютный путь в StandardError/StandardOutput — ${ERGO_ROOT} не раскрывается.
+  local api_stderr="${logs_dir}/ergo_ms_api_dev.stderr.log"
+  local beat_stderr="${logs_dir}/ergo_ms_celery_beat.stderr.log"
+  local media_stderr="${logs_dir}/ergo_ms_media_api.stderr.log"
   local _log_env_py="$root/virtual_env/python/bin/python"
   local _log_env_script="$root/core/deployment/scripts/log_env.py"
 
   if [[ -x "$_log_env_py" && -f "$_log_env_script" && -n "$root" ]]; then
     client_log="$("$_log_env_py" "$_log_env_script" path CLIENT_DEV "$root" 2>/dev/null || true)"
   fi
-  [[ -z "$client_log" ]] && client_log='${ERGO_ROOT}/logs/client-dev.log'
+  [[ -z "$client_log" ]] && client_log="${logs_dir}/client-dev.log"
   if [[ -x "$_log_env_py" && -f "$_log_env_script" && -n "$root" ]] \
     && [[ "$("$_log_env_py" "$_log_env_script" client-dev-enabled "$root" 2>/dev/null || true)" == "false" ]]; then
     client_stdout=null
@@ -96,7 +101,7 @@ get_base_unit_definitions() {
     client_stderr="append:${client_log}"
   fi
 
-  API_UNIT=$(cat <<'UNIT'
+  API_UNIT=$(cat <<UNIT
 [Unit]
 Description=Ergo API (mode from API_DEPLOY_TYPE)
 After=network.target ergo_ms_redis.service
@@ -105,13 +110,13 @@ Wants=ergo_ms_redis.service
 [Service]
 Type=simple
 EnvironmentFile=__ERGO_MS_ENV__
-ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && python core/api/scripts/start_api.py'
+ExecStart=/bin/bash -lc 'cd "\$ERGO_ROOT" && . "\$ERGO_ROOT/virtual_env/python/bin/activate" && python core/api/scripts/start_api.py'
 Restart=always
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1
 Environment=ERGO_LOG_CONSOLE=false
 StandardOutput=null
-StandardError=append:${ERGO_ROOT}/logs/ergo_ms_api_dev.stderr.log
+StandardError=append:${api_stderr}
 
 [Install]
 WantedBy=multi-user.target
@@ -138,7 +143,7 @@ WantedBy=multi-user.target
 UNIT
 )
 
-  CELERY_BEAT_UNIT=$(cat <<'UNIT'
+  CELERY_BEAT_UNIT=$(cat <<UNIT
 [Unit]
 Description=Ergo Celery Beat
 After=network.target
@@ -147,20 +152,20 @@ Requires=ergo_ms_api_dev.service
 [Service]
 Type=simple
 EnvironmentFile=__ERGO_MS_ENV__
-ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && python api/scripts/start_celery_beat.py'
+ExecStart=/bin/bash -lc 'cd "\$ERGO_ROOT/core" && . "\$ERGO_ROOT/virtual_env/python/bin/activate" && python api/scripts/start_celery_beat.py'
 Restart=always
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1
 Environment=ERGO_LOG_CONSOLE=false
 StandardOutput=null
-StandardError=append:${ERGO_ROOT}/logs/ergo_ms_celery_beat.stderr.log
+StandardError=append:${beat_stderr}
 
 [Install]
 WantedBy=multi-user.target
 UNIT
 )
 
-  MEDIA_API_UNIT=$(cat <<'UNIT'
+  MEDIA_API_UNIT=$(cat <<UNIT
 [Unit]
 Description=Ergo Media API (CDN / file server)
 After=network.target
@@ -170,11 +175,11 @@ Type=simple
 EnvironmentFile=__ERGO_MS_ENV__
 Environment=PYTHONUNBUFFERED=1
 Environment=ERGO_LOG_CONSOLE=false
-ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && python core/api/scripts/start_media_api.py'
+ExecStart=/bin/bash -lc 'cd "\$ERGO_ROOT" && . "\$ERGO_ROOT/virtual_env/python/bin/activate" && python core/api/scripts/start_media_api.py'
 Restart=always
 RestartSec=5
 StandardOutput=null
-StandardError=append:${ERGO_ROOT}/logs/ergo_ms_media_api.stderr.log
+StandardError=append:${media_stderr}
 
 [Install]
 WantedBy=multi-user.target
@@ -190,7 +195,9 @@ UNIT
 # Генерация unit для конкретного Celery worker'а
 generate_worker_unit() {
   local worker_name="$1"
-  
+  local root="${2:-}"
+  local worker_stderr="${root}/logs/ergo_ms_celery_worker_${worker_name}.stderr.log"
+
   cat <<UNIT
 [Unit]
 Description=Ergo Celery Worker ($worker_name)
@@ -206,7 +213,7 @@ RestartSec=5
 Environment=PYTHONUNBUFFERED=1
 Environment=ERGO_LOG_CONSOLE=false
 StandardOutput=null
-StandardError=append:\${ERGO_ROOT}/logs/ergo_ms_celery_worker_${worker_name}.stderr.log
+StandardError=append:${worker_stderr}
 
 [Install]
 WantedBy=multi-user.target
@@ -215,7 +222,10 @@ UNIT
 
 # Генерация unit для единственного worker'а (без конфига)
 generate_default_worker_unit() {
-  cat <<'UNIT'
+  local root="${1:-}"
+  local worker_stderr="${root}/logs/ergo_ms_celery_worker.stderr.log"
+
+  cat <<UNIT
 [Unit]
 Description=Ergo Celery Worker
 After=network.target
@@ -224,13 +234,13 @@ Requires=ergo_ms_api_dev.service
 [Service]
 Type=simple
 EnvironmentFile=__ERGO_MS_ENV__
-ExecStart=/bin/bash -lc 'cd "$ERGO_ROOT/core" && . "$ERGO_ROOT/virtual_env/python/bin/activate" && python api/scripts/start_celery_worker.py'
+ExecStart=/bin/bash -lc 'cd "\$ERGO_ROOT/core" && . "\$ERGO_ROOT/virtual_env/python/bin/activate" && python api/scripts/start_celery_worker.py'
 Restart=always
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1
 Environment=ERGO_LOG_CONSOLE=false
 StandardOutput=null
-StandardError=append:${ERGO_ROOT}/logs/ergo_ms_celery_worker.stderr.log
+StandardError=append:${worker_stderr}
 
 [Install]
 WantedBy=multi-user.target
@@ -247,13 +257,13 @@ install_worker_units() {
     echo "Найдены воркеры в celery_workers.yaml: $workers"
     for worker in $workers; do
       local unit_content
-      unit_content="$(generate_worker_unit "$worker")"
+      unit_content="$(generate_worker_unit "$worker" "$root")"
       install_unit "ergo_ms_celery_worker_${worker}" "$unit_content" "$root"
     done
   else
     echo "Конфиг celery_workers.yaml не найден, устанавливаем один общий воркер"
     local unit_content
-    unit_content="$(generate_default_worker_unit)"
+    unit_content="$(generate_default_worker_unit "$root")"
     install_unit "ergo_ms_celery_worker" "$unit_content" "$root"
   fi
 }

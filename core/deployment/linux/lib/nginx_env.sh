@@ -49,7 +49,8 @@ nginx_skip_client_message() {
   local public_host='<NGINX_PUBLIC_HOST>'
 
   if [[ -f "$root/.env" ]]; then
-    public_host="$(grep -E '^NGINX_PUBLIC_HOST=' "$root/.env" 2>/dev/null | head -1 | cut -d= -f2-)"
+    # set -o pipefail: пустой grep не должен ронять install-services
+    public_host="$(grep -E '^NGINX_PUBLIC_HOST=' "$root/.env" 2>/dev/null | head -1 | cut -d= -f2- || true)"
     public_host="${public_host#"${public_host%%[![:space:]]*}"}"
     public_host="${public_host%"${public_host##*[![:space:]]}"}"
     public_host="${public_host#\"}"
