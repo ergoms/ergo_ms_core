@@ -111,6 +111,40 @@ import SelectBox from '@/components/SelectBox.vue'
 
 В комментариях к примерам — **кратко по-русски**, почему плохо. Метки `BAD` / `GOOD` в комментариях к коду допустимы (их видит и агент, и человек).
 
+### Правила модуля (`modules/<name>/`)
+
+Доменные инструкции модуля живут **в репозитории модуля**, не в корневом `.cursor/rules/`:
+
+```text
+modules/<name>/
+  .cursor/rules/
+    <topic>.mdc
+  AGENTS.md                 # короткий fallback без расширения
+```
+
+| Что | Где |
+|-----|-----|
+| Platform (isolation, ergoms, security, ModuleBridge) | корневой `.cursor/rules/` |
+| Домен модуля | `modules/<name>/.cursor/rules/*.mdc` |
+| Fallback без Cursor plugins API | `modules/<name>/AGENTS.md` |
+
+Frontmatter модульного `.mdc`:
+
+```yaml
+---
+description: <name> — тема и ключевые сущности
+globs:
+  - "modules/<name>/**"
+alwaysApply: false
+---
+```
+
+**Обязательно:** globs от **корня workspace** (`modules/<name>/**`). В теле правила модуля реальные пути и имя модуля допустимы (это правило привязано к модулю).
+
+**Запрещено:** `alwaysApply: true` на модульных правилах — иначе при многих модулях раздувается контекст каждого чата.
+
+Подхват `.mdc` в Cursor — расширение [`.vscode/extensions/module-rules/`](../../.vscode/extensions/module-rules/) (`ergoms install-extensions`, команда **ERGO MS: Sync Module Cursor Rules**). Staging: `virtual_env/cache/cursor-module-plugins/`. MCP — отдельное расширение [`.vscode/extensions/module-mcp/`](../../.vscode/extensions/module-mcp/) ([`mcp.mdc`](mcp.mdc)). Подробности: [`module-cursor-rules.mdc`](module-cursor-rules.mdc), [`modules.mdc`](modules.mdc).
+
 ---
 
 ## Пользовательская документация

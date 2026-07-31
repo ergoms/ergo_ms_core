@@ -2,68 +2,22 @@ const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
 const osAbstraction = require('./lib/os-abstraction.cjs');
+const {
+    MODULE_TASKS_FILENAME,
+    ERGO_MODULE_TASK_TYPE,
+    ERGO_MODULE_TASK_SOURCE,
+    parseYaml,
+    discoverModuleTaskDefs: discoverModuleTaskDefsFromFs
+} = require('./lib/module-tasks.cjs');
 
 // Хранилище запущенных задач по группам
 const taskGroups = new Map();
 
-/**
- * Простой парсер YAML (без зависимостей)
- */
-function parseYaml(content) {
-    const lines = content.split('\n');
-    const result = {};
-    const stack = [{ obj: result, indent: -1 }];
-    
-    for (let line of lines) {
-        if (line.trim().startsWith('#') || line.trim() === '') continue;
-        
-        const indent = line.search(/\S/);
-        if (indent === -1) continue;
-        
-        line = line.trimEnd();
-        
-        while (stack.length > 1 && stack[stack.length - 1].indent >= indent) {
-            stack.pop();
-        }
-        
-        const current = stack[stack.length - 1].obj;
-        const trimmed = line.trim();
-        
-        if (trimmed.startsWith('- ')) {
-            const value = trimmed.substring(2).trim();
-            if (!Array.isArray(current)) {
-                const parentInfo = stack[stack.length - 2];
-                if (parentInfo) {
-                    const keys = Object.keys(parentInfo.obj);
-                    const lastKey = keys[keys.length - 1];
-                    parentInfo.obj[lastKey] = [];
-                    stack[stack.length - 1].obj = parentInfo.obj[lastKey];
-                }
-            }
-            const arr = stack[stack.length - 1].obj;
-            if (Array.isArray(arr)) {
-                arr.push(value.replace(/^["']|["']$/g, ''));
-            }
-            continue;
-        }
-        
-        const colonIndex = trimmed.indexOf(':');
-        if (colonIndex > 0) {
-            const key = trimmed.substring(0, colonIndex).trim();
-            let value = trimmed.substring(colonIndex + 1).trim();
-            value = value.replace(/^["']|["']$/g, '');
-            
-            if (value === '' || value === '|' || value === '>') {
-                current[key] = {};
-                stack.push({ obj: current[key], indent: indent });
-            } else {
-                current[key] = value;
-            }
-        }
-    }
-    
-    return result;
-}
+/** @type {vscode.OutputChannel|null} */
+let moduleTasksLog = null;
+
+/** @type {Array<object>|null} */
+let moduleTasksCache = null;
 
 /**
  * Получает значение по пути в объекте
@@ -613,6 +567,135 @@ function stopAllTasks() {
     }
 }
 
+function getModuleTasksLog() {
+    if (!moduleTasksLog) {
+        moduleTasksLog = vscode.window.createOutputChannel('ERGO MS Module Tasks');
+    }
+    return moduleTasksLog;
+}
+
+function logModuleTasksWarn(message) {
+    const text = `[WARNING] ${message}`;
+    console.warn(`ERGO MS Module Tasks: ${message}`);
+    getModuleTasksLog().appendLine(text);
+}
+
+function invalidateModuleTasksCache() {
+    moduleTasksCache = null;
+}
+
+/**
+ * PATH с core/deployment/bin — как в .vscode/tasks.json.
+ */
+function buildErgomsEnv(workspaceRoot) {
+    const bin = path.join(workspaceRoot, 'core', 'deployment', 'bin');
+    const sep = process.platform === 'win32' ? ';' : ':';
+    return {
+        ...process.env,
+        PATH: `${bin}${sep}${process.env.PATH || ''}`,
+        PYTHONIOENCODING: process.env.PYTHONIOENCODING || 'utf-8',
+        PYTHONUTF8: process.env.PYTHONUTF8 || '1'
+    };
+}
+
+/**
+ * Читает modules/<name>/vscode.tasks.yaml (с кэшем).
+ */
+function discoverModuleTaskDefs(workspaceRoot) {
+    if (moduleTasksCache) {
+        return moduleTasksCache;
+    }
+    const env = readMergedEnv(workspaceRoot);
+    moduleTasksCache = discoverModuleTaskDefsFromFs(
+        workspaceRoot,
+        (key) => env[key],
+        logModuleTasksWarn
+    );
+    return moduleTasksCache;
+}
+
+/**
+ * Собирает vscode.Task из декларации ergo-module.
+ */
+function buildErgoModuleTask(definition, workspaceRoot) {
+    const env = buildErgomsEnv(workspaceRoot);
+    const { executable, args, options } = osAbstraction.getProcessExecution(
+        definition.command,
+        workspaceRoot,
+        env
+    );
+    const processExecution = new vscode.ProcessExecution(executable, args, options);
+    const task = new vscode.Task(
+        {
+            type: ERGO_MODULE_TASK_TYPE,
+            label: definition.label,
+            detail: definition.detail,
+            command: definition.command,
+            module: definition.module || '',
+            panel: definition.panel || 'shared'
+        },
+        vscode.TaskScope.Workspace,
+        definition.label,
+        ERGO_MODULE_TASK_SOURCE,
+        processExecution,
+        []
+    );
+    task.detail = definition.detail;
+    task.presentationOptions = {
+        reveal: vscode.TaskRevealKind.Always,
+        panel: definition.panel === 'new'
+            ? vscode.TaskPanelKind.New
+            : vscode.TaskPanelKind.Shared,
+        focus: false,
+        echo: true,
+        showReuseMessage: false,
+        clear: false
+    };
+    return task;
+}
+
+/**
+ * Провайдер модульных задач из modules/<name>/vscode.tasks.yaml
+ */
+class ErgoModuleTaskProvider {
+    provideTasks() {
+        const workspaceRoot = getWorkspaceRoot();
+        if (!workspaceRoot) {
+            return [];
+        }
+        return discoverModuleTaskDefs(workspaceRoot).map((def) =>
+            buildErgoModuleTask(def, workspaceRoot)
+        );
+    }
+
+    resolveTask(task) {
+        const definition = task.definition;
+        if (definition.type !== ERGO_MODULE_TASK_TYPE) {
+            return undefined;
+        }
+        const workspaceRoot = getWorkspaceRoot();
+        if (!workspaceRoot) {
+            return undefined;
+        }
+        if (!definition.command || !definition.label || !definition.detail) {
+            return undefined;
+        }
+        if (!/^ergoms(\s|$)/.test(String(definition.command).trim())) {
+            return undefined;
+        }
+        return buildErgoModuleTask(
+            {
+                label: definition.label,
+                detail: definition.detail,
+                command: definition.command,
+                module: definition.module || '',
+                panel: definition.panel || 'shared'
+            },
+            workspaceRoot
+        );
+    }
+}
+
 /**
  * Провайдер задач multi-terminal
  */
@@ -681,7 +764,7 @@ class MultiTerminalTaskTerminal {
         const hideControl = this.task.definition.hideControlTerminal;
         
         if (!hideControl) {
-        this.writeEmitter.fire('ERGO MS Multi-Terminal: Запуск задач...\r\n\r\n');
+        this.writeEmitter.fire('ERGO MS Tasks: Запуск multi-terminal...\r\n\r\n');
         }
         
         try {
@@ -706,23 +789,22 @@ class MultiTerminalTaskTerminal {
  * Активация расширения
  */
 function activate(context) {
-    console.log('ERGO MS Multi-Terminal extension is now active');
-    
-    // Регистрируем провайдер задач
+    console.log('ERGO MS Tasks extension is now active');
+
     const taskProvider = vscode.tasks.registerTaskProvider(
         'multi-terminal',
         new MultiTerminalTaskProvider()
     );
-    
-    // Команда остановки всех задач
+    const moduleTaskProvider = vscode.tasks.registerTaskProvider(
+        ERGO_MODULE_TASK_TYPE,
+        new ErgoModuleTaskProvider()
+    );
+
     const stopAllCmd = vscode.commands.registerCommand(
-        'ergo-ms-multi-terminal.stopAll',
+        'ergo-ms-tasks.stopAll',
         stopAllTasks
     );
-    
-    // Отслеживаем завершение задач (закрытие терминала / terminate).
-    // На Windows atexit в Python при Kill Terminal часто не успевает —
-    // stop-*-dev должен вызваться отсюда.
+
     const onTaskProcessEnd = (execution) => {
         releaseTrackedTask(findTrackedTask(execution));
     };
@@ -733,17 +815,30 @@ function activate(context) {
     const taskEndListener2 = vscode.tasks.onDidEndTask((e) => {
         onTaskProcessEnd(e.execution);
     });
-    // Backup: trash-иконка терминала в Cursor иногда не даёт TaskEnd с нужной ссылкой.
     const terminalCloseListener = vscode.window.onDidCloseTerminal((terminal) => {
         releaseTrackedTask(findTrackedTaskByTerminalName(terminal && terminal.name));
     });
-    
+
+    const watchers = [
+        vscode.workspace.createFileSystemWatcher(`**/modules/*/${MODULE_TASKS_FILENAME}`),
+        vscode.workspace.createFileSystemWatcher('**/.env'),
+        vscode.workspace.createFileSystemWatcher('**/env/*.env')
+    ];
+    for (const watcher of watchers) {
+        watcher.onDidCreate(invalidateModuleTasksCache);
+        watcher.onDidChange(invalidateModuleTasksCache);
+        watcher.onDidDelete(invalidateModuleTasksCache);
+    }
+
     context.subscriptions.push(
         taskProvider,
+        moduleTaskProvider,
         stopAllCmd,
         taskEndListener,
         taskEndListener2,
-        terminalCloseListener
+        terminalCloseListener,
+        getModuleTasksLog(),
+        ...watchers
     );
 }
 
@@ -755,6 +850,8 @@ function deactivate() {
         }
     }
     taskGroups.clear();
+    invalidateModuleTasksCache();
+    moduleTasksLog = null;
 }
 
 module.exports = { activate, deactivate };

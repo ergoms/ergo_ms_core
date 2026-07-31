@@ -68,5 +68,5 @@ CLI: `virtual_env/python/Scripts/python.exe core/deployment/scripts/host_lifecyc
 | Роли процессов | [`process-roles.mdc`](process-roles.mdc) |
 | Модули | [`modules.mdc`](modules.mdc) |
 | Hook discovery | [`struct.mdc`](struct.mdc) |
-| Ollama | [`ollama-framework.mdc`](ollama-framework.mdc) |
+| Ollama | [`modules/ollama_framework/.cursor/rules/ollama-framework.mdc`](../../modules/ollama_framework/.cursor/rules/ollama-framework.mdc) |
 | UTF-8 BOM в .ps1 | [`ps1-encoding.mdc`](ps1-encoding.mdc) |

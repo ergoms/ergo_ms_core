@@ -103,6 +103,34 @@ export async function readVsixPackageJson(vsixPath, tempRoot) {
   return packageJson;
 }
 
+/** Прежние id/папки после переименования расширения. */
+const LEGACY_EXTENSION_CLEANUP = {
+  'ergo-ms-tasks': {
+    exactNames: ['multi-terminal', 'tasks'],
+    namePrefixes: ['ergo-ms.ergo-ms-multi-terminal-'],
+  },
+};
+
+export async function removeLegacyExtensionDirs(installDir, extensionName) {
+  const legacy = LEGACY_EXTENSION_CLEANUP[extensionName];
+  if (!legacy || !existsSync(installDir)) {
+    return;
+  }
+  for (const exact of legacy.exactNames || []) {
+    await rm(join(installDir, exact), { recursive: true, force: true }).catch(() => {});
+  }
+  for (const entry of await readdirAsync(installDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+    for (const prefix of legacy.namePrefixes || []) {
+      if (entry.name.startsWith(prefix)) {
+        await rm(join(installDir, entry.name), { recursive: true, force: true }).catch(() => {});
+      }
+    }
+  }
+}
+
 export async function installExtensionFromVsix(vsixPath, homeDir, tempRoot) {
   const extensionId = vsixPath.split(/[/\\]/).pop().replace(/\.vsix$/, '');
   const tempDir = join(tempRoot, extensionId);
@@ -148,6 +176,8 @@ export async function installExtensionFromVsix(vsixPath, homeDir, tempRoot) {
           await rm(join(installDir, entry.name), { recursive: true, force: true }).catch(() => {});
         }
       }
+
+      await removeLegacyExtensionDirs(installDir, name);
 
       if (existsSync(targetDir)) {
         await rm(targetDir, { recursive: true, force: true });

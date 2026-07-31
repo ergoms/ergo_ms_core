@@ -29,18 +29,26 @@ modules/<имя>/
 │   │   └── theme-bootstrap.scss  # обязателен вместе с theme-defaults.js
 │   ├── pages/ или components/
 │   └── ui/                  # общий UI-kit (по образцу других модулей с client/ui)
+├── .cursor/rules/           # правила Cursor модуля (*.mdc; необязательно)
+├── AGENTS.md                # короткий fallback для агента (необязательно)
 ├── ergoms.conf              # команды модуля (необязательно)
 ├── ergoms.help.yaml         # справка для ergoms help module (если есть ergoms.conf)
 ├── process_roles.yaml       # роли процессов для ergoms resource-usage (если есть свой демон)
 ├── host_lifecycle.yaml      # stop/install демона в тестах deployment (если есть служба/процесс)
+├── vscode.tasks.yaml        # задачи Run Task (тип ergo-module; необязательно)
 └── README.md
 ```
 
 Папка клиента: `client/js/`, **не** `client/src/js/`.
 
+Правила агента Cursor для модуля — в `.cursor/rules/*.mdc` (globs `modules/<имя>/**`) и кратко в `AGENTS.md`. Подхват `.mdc` в Cursor: расширение **ERGO MS Module Cursor Rules** из [`.vscode/extensions/module-rules/`](../../.vscode/extensions/module-rules/) (`ergoms install-extensions`). Платформенные правила остаются в корневом `.cursor/rules/`. Подробности: [`module-cursor-rules.mdc`](module-cursor-rules.mdc), [`writing-docs-and-rules.mdc`](writing-docs-and-rules.mdc).
+
 Учёт модульного процесса в `ergoms resource-usage` — только через `process_roles.yaml` ([`process-roles.mdc`](process-roles.mdc)); не правь классификатор ядра ради одного модуля.
 
 Stop/install модульного демона в Windows-тестах deployment — только через `host_lifecycle.yaml` ([`host-lifecycle.mdc`](host-lifecycle.mdc)).
+
+Задачи VS Code / Cursor (Run Task) — только через `vscode.tasks.yaml`: это hook модульности (как `ergoms.conf` / `process_roles.yaml`), не правка монолита ядра. Подробности — [`module-vscode-tasks.mdc`](module-vscode-tasks.mdc); формат shell-задач ядра — [`vscode-tasks.mdc`](vscode-tasks.mdc).
+
 Вложенные подприложения (`client/<раздел>/js/routes.js`) подхватываются для маршрутов и `integrations.js`. Файлы `endpoints.js`, `permission-rules.js` — только из `client/js/` (или re-export оттуда).
 
 ## Регистрация на сервере
@@ -205,4 +213,8 @@ def get_my_serializer_class():
 | Справка ergoms модуля | [`ergoms-module-help.mdc`](ergoms-module-help.mdc) |
 | Роли процессов (resource-usage) | [`process-roles.mdc`](process-roles.mdc) |
 | Host lifecycle (тесты deployment) | [`host-lifecycle.mdc`](host-lifecycle.mdc) |
+| Модульные задачи Run Task | [`module-vscode-tasks.mdc`](module-vscode-tasks.mdc) |
+| Формат задач ядра (tasks.json) | [`vscode-tasks.mdc`](vscode-tasks.mdc) |
+| Правила Cursor модуля | [`module-cursor-rules.mdc`](module-cursor-rules.mdc) |
+| Стиль правил и docs | [`writing-docs-and-rules.mdc`](writing-docs-and-rules.mdc) |
 | Redis, nginx (prod) | [`deployment-infra.mdc`](deployment-infra.mdc) |

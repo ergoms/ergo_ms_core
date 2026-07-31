@@ -63,6 +63,9 @@ function Install-Extension {
                 New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
                 Copy-Item (Join-Path $ScriptDir "package.json") -Destination $targetDir
                 Copy-Item (Join-Path $ScriptDir "extension.js") -Destination $targetDir
+                if (Test-Path (Join-Path $ScriptDir "icon.png")) {
+                    Copy-Item (Join-Path $ScriptDir "icon.png") -Destination $targetDir
+                }
                 
                 Write-Host "[OK] Installed to: $targetDir" -ForegroundColor Green
             }
@@ -94,6 +97,9 @@ function Install-Extension {
     # Copy extension files
     Copy-Item (Join-Path $ScriptDir "package.json") -Destination $targetDir
     Copy-Item (Join-Path $ScriptDir "extension.js") -Destination $targetDir
+    if (Test-Path (Join-Path $ScriptDir "icon.png")) {
+        Copy-Item (Join-Path $ScriptDir "icon.png") -Destination $targetDir
+    }
     
     Write-Host "[OK] Extension installed to: $targetDir" -ForegroundColor Green
     Write-Host ""

@@ -1,0 +1,61 @@
+---
+description: Правила Cursor в modules/ — .cursor/rules, AGENTS.md, расширение module-rules, sync staging
+alwaysApply: false
+---
+
+# Правила Cursor из модулей
+
+Доменные инструкции модуля хранятся в submodule и подхватываются расширением **ERGO MS Module Cursor Rules**.
+
+MCP — отдельное расширение [`.vscode/extensions/module-mcp/`](../../.vscode/extensions/module-mcp/) ([`mcp.mdc`](mcp.mdc)).
+
+## Кратко
+
+- Источник: `modules/<name>/.cursor/rules/*.mdc`
+- Fallback: `modules/<name>/AGENTS.md` (native nested AGENTS.md)
+- Расширение: [`.vscode/extensions/module-rules/`](../../.vscode/extensions/module-rules/)
+- Установка: `ergoms install-extensions`, затем Reload Window
+- Sync: команда **ERGO MS: Sync Module Cursor Rules** или watcher на `.cursor/rules/**`
+- Staging: `virtual_env/cache/cursor-module-plugins/` (не в git)
+- Платформа — только корневой `.cursor/rules/`
+
+## Обязательно
+
+```yaml
+---
+description: <name> — тема
+globs:
+  - "modules/<name>/**"
+alwaysApply: false
+---
+```
+
+- Globs от корня workspace
+- Одно правило — одна тема; короткий чеклист + эталоны в модуле
+- После правки `.mdc` дождись sync (Output → **ERGO MS Module Rules**) или вызови Sync вручную
+
+## Запрещено
+
+- `alwaysApply: true` в модульных `.mdc`
+- Класть домен модуля только в корневой `.cursor/rules/` (кроме уже существующих legacy; новые — в модуле)
+- Симлинки staging вручную — расширение копирует файлы само
+
+## Проверка
+
+1. В модуле есть хотя бы один `.mdc` в `.cursor/rules/`
+2. `ergoms install-extensions` → установлен `ergo-ms.ergo-ms-module-rules-*`
+3. Reload Window → в Output канала расширения: модуль в списке, `addPlugin` ok
+4. Открыт файл под `modules/<name>/` — правило модуля в контексте агента
+5. Если `vscode.cursor.plugins` недоступен — warning; остаётся `AGENTS.md`
+
+Эталон: [`modules/module_template/.cursor/rules/`](../../modules/module_template/.cursor/rules/), [`AGENTS.md`](../../modules/module_template/AGENTS.md).
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Структура модуля | [`modules.mdc`](modules.mdc) |
+| MCP модулей | [`mcp.mdc`](mcp.mdc) |
+| Стиль `.mdc` | [`writing-docs-and-rules.mdc`](writing-docs-and-rules.mdc) |
+| Изоляция ядра | [`core-module-isolation.mdc`](core-module-isolation.mdc) |
+| Расширения / ergoms | [`npm-workspace.mdc`](npm-workspace.mdc) → `install-extensions` |

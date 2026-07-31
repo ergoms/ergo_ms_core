@@ -1,0 +1,28 @@
+{
+  "name": "ergo-ms-module-rules",
+  "displayName": "ERGO MS Module Cursor Rules",
+  "description": "Подхватывает .cursor/rules/*.mdc из modules/ через Cursor plugins API",
+  "version": "1.1.0",
+  "publisher": "ergo-ms",
+  "icon": "icon.png",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "extensionKind": ["workspace"],
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "workspaceContains:modules"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ergo-ms-module-rules.sync",
+        "title": "ERGO MS: Sync Module Cursor Rules"
+      }
+    ]
+  }
+}

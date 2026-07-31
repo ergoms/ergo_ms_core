@@ -5,7 +5,8 @@
             "args": [
                 ".cursor/mcp_launcher.js",
                 ".cursor/mcp_api_server.py"
-            ]
+            ],
+            "disabled": true
         },
         "ergo-database-default": {
             "command": "node",
@@ -13,7 +14,8 @@
                 ".cursor/mcp_launcher.js",
                 ".cursor/mcp_database_wrapper.py",
                 "default"
-            ]
+            ],
+            "disabled": true
         },
         "ergo-filesystem": {
             "command": "npx",
@@ -21,14 +23,24 @@
                 "-y",
                 "@modelcontextprotocol/server-filesystem",
                 "."
-            ]
+            ],
+            "disabled": true
         },
         "ergo-media-api": {
             "command": "node",
             "args": [
                 ".cursor/mcp_launcher.js",
                 ".cursor/mcp_media_api_server.py"
-            ]
+            ],
+            "disabled": true
+        },
+        "ergo-module-ollama-framework": {
+            "command": "node",
+            "args": [
+                ".cursor/mcp_launcher.js",
+                "modules/ollama_framework/mcp/server.py"
+            ],
+            "disabled": true
         }
     }
 }

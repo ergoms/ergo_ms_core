@@ -1,8 +1,13 @@
 """
-Сборка .cursor/mcp.json из ядерного реестра и manifest модулей.
+Сборка списка MCP-серверов из ядерного реестра и manifest модулей.
 
-  ergoms mcp-list   — список всех MCP (ядро + модули)
-  ergoms mcp-sync   — пересобрать mcp.json
+Внутренняя библиотека для расширения ERGO MS Module Cursor MCP
+(.vscode/extensions/module-mcp). Пользовательских команд ergoms нет —
+регистрация через vscode.cursor.mcp.registerServer или fallback-запись .cursor/mcp.json.
+
+  python .cursor/mcp_sync.py list          — текстовый список
+  python .cursor/mcp_sync.py list --json   — JSON для расширения
+  python .cursor/mcp_sync.py sync          — записать .cursor/mcp.json (fallback)
 """
 
 from __future__ import annotations
@@ -11,11 +16,19 @@ import argparse
 import json
 import re
 import sys
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+# Windows: stdout часто cp1252 — русские description в JSON ломают list --json
+# (расширение module-mcp тогда пишет пустой mcp.json).
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding='utf-8')
+    except (AttributeError, OSError, ValueError):
+        pass
 
 _CURSOR_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = _CURSOR_DIR.parent
@@ -260,15 +273,45 @@ def collect_entries() -> list[McpServerEntry]:
     return entries
 
 
-def build_mcp_json(entries: list[McpServerEntry]) -> dict[str, Any]:
+def build_mcp_json(
+    entries: list[McpServerEntry],
+    *,
+    disabled_by_default: bool = True,
+) -> dict[str, Any]:
+    """Собирает mcp.json. По умолчанию каждый сервер с disabled: true (установлен, выключен)."""
+    existing: dict[str, Any] = {}
+    if MCP_JSON_PATH.is_file():
+        try:
+            data = json.loads(MCP_JSON_PATH.read_text(encoding='utf-8'))
+            if isinstance(data, dict) and isinstance(data.get('mcpServers'), dict):
+                existing = data['mcpServers']
+        except Exception:
+            existing = {}
+
     servers: dict[str, Any] = {}
     for entry in sorted(entries, key=lambda e: e.name):
-        servers[entry.name] = entry.config
+        prev = existing.get(entry.name)
+        if isinstance(prev, dict) and isinstance(prev.get('disabled'), bool):
+            disabled = prev['disabled']
+        else:
+            disabled = disabled_by_default
+        servers[entry.name] = {
+            **entry.config,
+            'disabled': disabled,
+        }
     return {'mcpServers': servers}
 
 
-def cmd_list() -> int:
+def entries_as_jsonable(entries: list[McpServerEntry]) -> list[dict[str, Any]]:
+    return [asdict(e) for e in sorted(entries, key=lambda e: e.name)]
+
+
+def cmd_list(*, as_json: bool = False) -> int:
     entries = collect_entries()
+    if as_json:
+        print(json.dumps(entries_as_jsonable(entries), ensure_ascii=False))
+        return 0
+
     if not entries:
         print('[INFO] MCP-серверы не найдены')
         return 0
@@ -277,31 +320,44 @@ def cmd_list() -> int:
     print('-' * 90)
     for entry in entries:
         print(f'{entry.name:<36} {entry.source:<24} {entry.script}')
-    print(f'\n[INFO] Total: {len(entries)}. Enable in Cursor: Settings -> Tools & MCP')
+    print(f'\n[INFO] Всего: {len(entries)}. Регистрация — расширение Module Cursor MCP')
     return 0
 
 
 def cmd_sync() -> int:
+    """Записывает все серверы в mcp.json с disabled: true для новых (merge сохраняет флаги)."""
     entries = collect_entries()
-    payload = build_mcp_json(entries)
+    payload = build_mcp_json(entries, disabled_by_default=True)
     MCP_JSON_PATH.write_text(
         json.dumps(payload, ensure_ascii=False, indent=4) + '\n',
         encoding='utf-8',
     )
-    print(f'[OK] Written {MCP_JSON_PATH.relative_to(PROJECT_ROOT)} ({len(entries)} servers)')
-    print('[INFO] Reload MCP in Cursor: Settings -> Tools & MCP -> Reload')
+    enabled = sum(1 for s in payload['mcpServers'].values() if s.get('disabled') is False)
+    total = len(payload['mcpServers'])
+    print(
+        f'[OK] Записан {MCP_JSON_PATH.relative_to(PROJECT_ROOT)} '
+        f'({total} установлено, {enabled} включено, {total - enabled} выключено)'
+    )
+    print('[INFO] По умолчанию disabled: true. Включение — Settings → Tools & MCP или Enable MCP Servers')
     return 0
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description='Сборка MCP-конфигурации Cursor')
+    parser = argparse.ArgumentParser(
+        description='Внутренняя сборка MCP для расширения module-mcp (не ergoms)',
+    )
     sub = parser.add_subparsers(dest='command', required=True)
-    sub.add_parser('list', help='Список всех MCP-серверов')
-    sub.add_parser('sync', help='Пересобрать .cursor/mcp.json')
+    list_parser = sub.add_parser('list', help='Список всех MCP-серверов')
+    list_parser.add_argument(
+        '--json',
+        action='store_true',
+        help='Вывести JSON-массив для расширения',
+    )
+    sub.add_parser('sync', help='Записать .cursor/mcp.json (fallback расширения)')
     args = parser.parse_args()
 
     if args.command == 'list':
-        return cmd_list()
+        return cmd_list(as_json=bool(getattr(args, 'json', False)))
     if args.command == 'sync':
         return cmd_sync()
     return 1

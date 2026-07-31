@@ -1,9 +1,10 @@
 {
-  "name": "ergo-ms-multi-terminal",
-  "displayName": "ERGO MS Multi-Terminal",
-  "description": "Запуск нескольких терминалов из одной задачи. Поддерживает статические списки и динамическое чтение из YAML/JSON.",
-  "version": "1.2.6",
+  "name": "ergo-ms-tasks",
+  "displayName": "ERGO MS Tasks",
+  "description": "Задачи VS Code/Cursor: multi-terminal и модульные задачи Run Task (modules/<name>/vscode.tasks.yaml).",
+  "version": "1.4.1",
   "publisher": "ergo-ms",
+  "icon": "icon.png",
   "engines": {
     "vscode": "^1.75.0"
   },
@@ -12,21 +13,22 @@
   ],
   "activationEvents": [
     "onStartupFinished",
-    "onTaskType:multi-terminal"
+    "onTaskType:multi-terminal",
+    "onTaskType:ergo-module"
   ],
   "main": "./extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "ergo-ms-multi-terminal.run",
+        "command": "ergo-ms-tasks.run",
         "title": "ERGO MS: Run Multi-Terminal"
       },
       {
-        "command": "ergo-ms-multi-terminal.runFromFile",
+        "command": "ergo-ms-tasks.runFromFile",
         "title": "ERGO MS: Run Multi-Terminal from File"
       },
       {
-        "command": "ergo-ms-multi-terminal.stopAll",
+        "command": "ergo-ms-tasks.stopAll",
         "title": "ERGO MS: Stop All Terminals"
       }
     ],
@@ -120,6 +122,41 @@
             "type": "boolean",
             "description": "Скрыть управляющий терминал после запуска дочерних терминалов",
             "default": false
+          }
+        }
+      },
+      {
+        "type": "ergo-module",
+        "required": [
+          "label",
+          "detail",
+          "command"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": "Имя задачи в Run Task"
+          },
+          "detail": {
+            "type": "string",
+            "description": "Краткое описание на русском"
+          },
+          "command": {
+            "type": "string",
+            "description": "Команда ergoms …"
+          },
+          "module": {
+            "type": "string",
+            "description": "Имя каталога модуля"
+          },
+          "panel": {
+            "type": "string",
+            "description": "Панель терминала: shared или new",
+            "enum": [
+              "shared",
+              "new"
+            ],
+            "default": "shared"
           }
         }
       }

@@ -66,6 +66,7 @@ install_extension_all() {
             mkdir -p "$target"
             cp "$source_dir/package.json" "$target/" 2>/dev/null || true
             cp "$source_dir/extension.js" "$target/" 2>/dev/null || true
+            cp "$source_dir/icon.png" "$target/" 2>/dev/null || true
             if [[ -f "$target/package.json" ]]; then
                 echo "[OK] Installed to: $ext_dir (copied)"
                 ((installed++))

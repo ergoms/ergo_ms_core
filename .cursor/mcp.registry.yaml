@@ -1,6 +1,7 @@
 # Реестр ядерных MCP-серверов ERGO MS.
 # Модульные серверы — modules/<имя>/mcp/manifest.yaml (discovery в mcp_sync.py).
-# Сборка: ergoms mcp-sync → .cursor/mcp.json
+# Подхват в Cursor — расширение ERGO MS Module Cursor MCP (module-mcp).
+# По умолчанию серверы выключены; включение: ERGO MS: Enable MCP Servers.
 
 servers:
   - name: ergo-filesystem

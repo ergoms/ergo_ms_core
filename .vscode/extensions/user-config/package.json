@@ -4,6 +4,7 @@
   "description": "Applies project-specific settings and keybindings from user_settings.json and user_keybindings.json",
   "version": "1.2.1",
   "publisher": "ergo-ms",
+  "icon": "icon.png",
   "engines": {
     "vscode": "^1.74.0"
   },

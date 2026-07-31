@@ -1,13 +1,16 @@
 ---
-description: VS Code tasks.json — ergoms, PATH, detail по-русски, hide для внутренних задач
+description: VS Code tasks.json ядра — ergoms, PATH, detail по-русски, hide, multi-terminal
 globs:
   - "**/.vscode/tasks.json"
 alwaysApply: false
 ---
 
-# Задачи VS Code / Cursor (`.vscode/tasks.json`)
+# Задачи VS Code / Cursor
 
-Задачи запускают **только** команды `ergoms`. Эталон — существующие задачи в [`.vscode/tasks.json`](../../.vscode/tasks.json).
+Задачи запускают **только** команды `ergoms`.
+
+- **Ядро** — [`.vscode/tasks.json`](../../.vscode/tasks.json).
+- **Модули** — hook `modules/<name>/vscode.tasks.yaml` (тип `ergo-module`). Часть модульности системы: не раздувай монолит ядра — [`module-vscode-tasks.mdc`](module-vscode-tasks.mdc).
 
 Расширения VS Code — тоже команда ergoms: `ergoms install-extensions`, а не `node .vscode/scripts/install-extensions.js` и не `npm run install-extensions` ([`npm-workspace.mdc`](npm-workspace.mdc)). В существующих задачах ещё встречается прямой вызов `node` — при следующей правке файла приводи такие строки к команде ergoms.
 
@@ -15,10 +18,11 @@ alwaysApply: false
 
 - Команда — `ergoms …`, не `python manage.py`, не прямой `pip` / `poetry`.
 - В `PATH` всегда есть `core/deployment/bin` (Windows и Linux).
-- У **каждой** задачи (shell, multi-terminal, композиция с `dependsOn`) есть `detail` на русском.
+- У **каждой** задачи (shell, multi-terminal, композиция с `dependsOn`, ergo-module) есть `detail` на русском.
 - `label` — короткий стабильный идентификатор (как у соседей: `Docker: Up`, `Nginx: Stop`).
 - Внутренние шаги композиции — `"hide": true`; в Run Task видна только точка входа.
 - `cwd`: `${workspaceFolder}`; `problemMatcher`: `[]`.
+- Модульные задачи — только в `vscode.tasks.yaml` модуля ([`module-vscode-tasks.mdc`](module-vscode-tasks.mdc)), не в корневом `tasks.json`.
 
 ## Обязательные поля любой задачи
 
@@ -131,7 +135,9 @@ alwaysApply: false
 
 | Тема | Файл |
 |------|------|
+| Модульные задачи (hook модульности) | [`module-vscode-tasks.mdc`](module-vscode-tasks.mdc) |
 | Только ergoms | [`no-direct-manage-py.mdc`](no-direct-manage-py.mdc) |
+| Структура модулей | [`modules.mdc`](modules.mdc) |
 | Справочник команд | [`.docs/cli.md`](../../.docs/cli.md) |
 | Docker-задачи | [`docker.mdc`](docker.mdc) |
 | Redis / nginx | [`deployment-infra.mdc`](deployment-infra.mdc) |

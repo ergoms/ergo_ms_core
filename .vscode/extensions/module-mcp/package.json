@@ -1,0 +1,37 @@
+{
+  "name": "ergo-ms-module-mcp",
+  "displayName": "ERGO MS Module Cursor MCP",
+  "description": "Устанавливает MCP ядра и modules/*/mcp в mcp.json; по умолчанию disabled: true",
+  "version": "1.1.2",
+  "publisher": "ergo-ms",
+  "icon": "icon.png",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "extensionKind": ["workspace"],
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "workspaceContains:.cursor/mcp.registry.yaml",
+    "workspaceContains:modules"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ergo-ms-module-mcp.sync",
+        "title": "ERGO MS: Sync Module Cursor MCP"
+      },
+      {
+        "command": "ergo-ms-module-mcp.enable",
+        "title": "ERGO MS: Enable MCP Servers"
+      },
+      {
+        "command": "ergo-ms-module-mcp.disable",
+        "title": "ERGO MS: Disable MCP Servers"
+      }
+    ]
+  }
+}

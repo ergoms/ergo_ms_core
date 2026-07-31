@@ -1,4 +1,4 @@
-import { readdir, mkdir, rm } from 'fs/promises';
+import { readdir, mkdir, rm, readFile } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import os from 'os';
@@ -6,6 +6,7 @@ import { existsSync } from 'fs';
 import {
   copyDirectory,
   installExtensionFromVsix,
+  removeLegacyExtensionDirs,
   runCodeCli,
 } from '../lib/extension-cli.js';
 import { createRequire } from 'module';
@@ -68,6 +69,8 @@ async function installFromSourceDir(sourceExtensionDir, homeDir) {
           await rm(join(installDir, entry.name), { recursive: true, force: true }).catch(() => {});
         }
       }
+
+      await removeLegacyExtensionDirs(installDir, name);
 
       const targetDir = join(installDir, extensionDirName);
       if (existsSync(targetDir)) {
@@ -214,6 +217,36 @@ async function installExtensions() {
         } else {
           console.log(`[INFO] Удаленный сервер не найден или недоступен: ${file}`);
         }
+      }
+    }
+
+    // Исходники без соответствующего VSIX (например только что добавленный module-mcp)
+    if (existsSync(sourceExtensionsDir)) {
+      const vsixNames = new Set(
+        vsixFiles.map((f) => f.replace(/-\d+\.\d+\.\d+\.vsix$/i, '')),
+      );
+      const entries = await readdir(sourceExtensionsDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory()) {
+          continue;
+        }
+        const sourceDir = join(sourceExtensionsDir, entry.name);
+        const packageJsonPath = join(sourceDir, 'package.json');
+        if (!existsSync(packageJsonPath)) {
+          continue;
+        }
+        let pkgName = '';
+        try {
+          const pkg = JSON.parse(await readFile(packageJsonPath, 'utf-8'));
+          pkgName = String(pkg.name || '');
+        } catch {
+          continue;
+        }
+        if (!pkgName || vsixNames.has(pkgName)) {
+          continue;
+        }
+        console.log(`\n-> VSIX для ${pkgName} нет — установка из исходников: ${entry.name}`);
+        await installFromSourceDir(sourceDir, homeDir);
       }
     }
 

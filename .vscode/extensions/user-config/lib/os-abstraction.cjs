@@ -35,21 +35,22 @@ function createWindowsImpl() {
     },
     getRemoteExtensionsDirs: () => [],
     supportsRemoteInstall: () => false,
-    getProcessExecution: (command, cwd) => {
+    getProcessExecution: (command, cwd, env) => {
       const usePowerShell =
         (command.includes('.ps1') && command.includes('powershell')) ||
         (command.startsWith('powershell') && command.includes('.ps1'));
+      const options = env ? { cwd, env } : { cwd };
       if (usePowerShell) {
         return {
           executable: 'powershell.exe',
           args: ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', command],
-          options: { cwd }
+          options
         };
       }
       return {
         executable: 'cmd.exe',
         args: ['/d', '/c', command],
-        options: { cwd }
+        options
       };
     }
   };
@@ -86,10 +87,10 @@ function createUnixImpl() {
       return dirs;
     },
     supportsRemoteInstall: () => true,
-    getProcessExecution: (command, cwd) => ({
+    getProcessExecution: (command, cwd, env) => ({
       executable: '/bin/bash',
       args: ['-l', '-c', command],
-      options: { cwd }
+      options: env ? { cwd, env } : { cwd }
     })
   };
 }
@@ -118,8 +119,8 @@ function supportsRemoteInstall() {
   return getImpl().supportsRemoteInstall();
 }
 
-function getProcessExecution(command, cwd) {
-  return getImpl().getProcessExecution(command, cwd);
+function getProcessExecution(command, cwd, env) {
+  return getImpl().getProcessExecution(command, cwd, env);
 }
 
 module.exports = {

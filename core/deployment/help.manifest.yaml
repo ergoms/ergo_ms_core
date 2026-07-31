@@ -400,13 +400,8 @@ sections:
 
   - id: mcp_cursor
     title: "MCP (Cursor)"
-    note: "Серверы регистрируются в .cursor/mcp.json; включение — в Cursor: Settings → Tools & MCP."
-    commands:
-      - name: mcp-list
-        summary: "Список MCP-серверов (ядро + модули с mcp/manifest.yaml)"
-      - name: mcp-sync
-        summary: "Пересобрать .cursor/mcp.json после добавления MCP в модуль"
-
+    note: "Подхват MCP — расширение ERGO MS Module Cursor MCP после ergoms install-extensions. Серверы ставятся в mcp.json с disabled: true; включение — Settings → Tools & MCP или ERGO MS: Enable MCP Servers."
+    commands: []
 platform_sections:
   windows:
     - id: nginx_service

@@ -1,0 +1,84 @@
+---
+description: vscode.tasks.yaml — модульные задачи Run Task как hook модульности; не раздувать корневой tasks.json
+globs:
+  - "**/vscode.tasks.yaml"
+alwaysApply: false
+---
+
+# Модульные задачи VS Code / Cursor
+
+Задачи IDE для **ядра** живут в [`.vscode/tasks.json`](../../.vscode/tasks.json). Задачи **модуля** модуль объявляет сам — ядро и корневой `tasks.json` не знают имён модулей. Это тот же паттерн декомпозиции, что `ergoms.conf`, `process_roles.yaml`, `host_lifecycle.yaml`: декларативный hook + discovery, без правок монолита ради одного модуля.
+
+Формат полей и shell-задач ядра — [`vscode-tasks.mdc`](vscode-tasks.mdc).
+
+## Кратко
+
+- Hook: `modules/<name>/vscode.tasks.yaml`
+- Discovery: расширение [`ergo-ms-tasks`](../../.vscode/extensions/tasks) (`provideTasks`, тип `ergo-module`)
+- Учитываются только включённые модули (есть `api/` или `client/`; нет в `DISABLED_MODULES`)
+- Команда задачи — только `ergoms …` (обычно `ergoms <name>:<команда>`)
+- Корневой `.vscode/tasks.json` — **только** инфраструктура ядра (API, Redis, Docker, Start All…); не модульные команды
+
+## Обязательно
+
+- Нужна точка в Run Task для сценария модуля — добавь `vscode.tasks.yaml`, не правь `.vscode/tasks.json`
+- У каждой задачи: уникальный `label`, `detail` на русском, `command` с `ergoms`
+- Поле `module` = имя каталога модуля
+
+## Запрещено
+
+```json
+// BAD — знание модуля в монолите ядра
+{
+  "label": "My Module: Parse",
+  "type": "shell",
+  "command": "ergoms <name>:parse"
+}
+```
+
+```yaml
+# GOOD — hook в модуле
+# modules/<name>/vscode.tasks.yaml
+module: <name>
+tasks:
+  - label: "My Module: Parse"
+    detail: "Запустить разбор данных модуля"
+    command: "ergoms <name>:parse"
+```
+
+Не врезай модульные сервисы в compound `Start All Services` / `Logs` ядра без отдельного согласованного агрегирующего hook (как у `host_lifecycle` для stop/install).
+
+## Схема
+
+```yaml
+module: <name>
+tasks:
+  - label: "<Name>: Action"
+    detail: "Кратко по-русски, что делает задача"
+    command: "ergoms <name>:<команда>"
+    # panel: shared   # или new
+    # hide: false
+```
+
+| Поле | Смысл |
+|------|--------|
+| `module` | Имя каталога; при несовпадении задачи модуля пропускаются |
+| `label` | Уникален в workspace; коллизия — первое объявление |
+| `detail` | Подпись в Run Task |
+| `command` | Только `ergoms …` |
+| `hide` | `true` — не показывать в Run Task |
+
+Эталон: `modules/<name>/vscode.tasks.yaml` рядом с `ergoms.conf` (шаблон модуля в репозитории).
+
+Установка расширения: `ergoms install-extensions`, затем Reload Window.
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Формат задач ядра / detail / PATH | [`vscode-tasks.mdc`](vscode-tasks.mdc) |
+| Структура модулей | [`modules.mdc`](modules.mdc) |
+| Discovery hook’ов в архитектуре | [`struct.mdc`](struct.mdc) |
+| Команды модуля | [`ergoms-module-help.mdc`](ergoms-module-help.mdc) |
+| Роли процессов | [`process-roles.mdc`](process-roles.mdc) |
+| Host lifecycle | [`host-lifecycle.mdc`](host-lifecycle.mdc) |

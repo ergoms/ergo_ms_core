@@ -638,9 +638,16 @@ async function installExtensionLocally(context) {
         // Read extension files from workspace
         const packageJsonUri = vscode.Uri.joinPath(workspaceFolderUri, '.vscode', 'extensions', 'user-config', 'package.json');
         const extensionJsUri = vscode.Uri.joinPath(workspaceFolderUri, '.vscode', 'extensions', 'user-config', 'extension.js');
+        const iconUri = vscode.Uri.joinPath(workspaceFolderUri, '.vscode', 'extensions', 'user-config', 'icon.png');
         
         const packageJsonContent = await vscode.workspace.fs.readFile(packageJsonUri);
         const extensionJsContent = await vscode.workspace.fs.readFile(extensionJsUri);
+        let iconContent = null;
+        try {
+            iconContent = await vscode.workspace.fs.readFile(iconUri);
+        } catch (_) {
+            // icon optional for older checkouts
+        }
         
         // Get local extensions directory
         const localExtDir = getLocalExtensionsDir();
@@ -654,6 +661,9 @@ async function installExtensionLocally(context) {
         // Write files
         fs.writeFileSync(path.join(targetDir, 'package.json'), packageJsonContent);
         fs.writeFileSync(path.join(targetDir, 'extension.js'), extensionJsContent);
+        if (iconContent) {
+            fs.writeFileSync(path.join(targetDir, 'icon.png'), iconContent);
+        }
         
         console.log(`Extension installed to: ${targetDir}`);
         return { success: true, path: targetDir };
