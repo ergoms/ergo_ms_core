@@ -35,12 +35,12 @@ alwaysApply: false
 | Вкладки (`v-if` / query `tab`) | async-компонент на вкладку, не тянуть обе сразу; hover — prefetch соседнего чанка |
 | Независимые GET на mount | `Promise.all([...])` |
 | Prefetch из меню | уже в `MenuItem`; для своих списков ссылок / toolbar — `prefetchRouteByName(router, name)` |
-| Shell dropdown по режиму UI | `SidebarNotifications` / `AppsMenu` — async; `v-if` по `actionButton` недостаточен без async import |
+| Shell dropdown toolbar | `SidebarNotifications` / `AppsMenu` — async import (оба в toolbar) |
 | Тяжёлая панель после access-check | async-компонент + `v-if="hasAdminAccess"` (не sync в странице-обёртке) |
 | Каталоги i18n | не sync-import `ru`+`en`+`fr` в entry; `ensureBootLocales` / `setAppLocale` |
 | Динамические иконки меню | `preloadLucideIconNames` / `getLucideIconAsync` — не полный barrel |
 
-Эталон оболочки: [`MenuToolbar.vue`](../../core/client/src/components/menu/MenuToolbar.vue) — `UserSettingsModal` после первого открытия; `SidebarNotifications` / `AppsMenu` — async по `actionButton`. `UserMenu` / `SettingsMenu` остаются sync (нужны сразу в toolbar).  
+Эталон оболочки: [`MenuToolbar.vue`](../../core/client/src/components/menu/MenuToolbar.vue) — `UserSettingsModal` после первого открытия; `SidebarNotifications` / `AppsMenu` — async (оба в toolbar). `UserMenu` / `SettingsMenu` остаются sync (нужны сразу в toolbar).  
 Эталон вкладок настроек: [`userSettingsTabs.js`](../../core/client/src/core/cms/adp/user/account/component/userSettingsTabs.js).  
 Эталон admin после access-check: [`AuditLog.vue`](../../core/client/src/core/cms/adp/admin/AuditLog.vue) → async `AuditLogPanel`; детали события — async + `v-if` в [`AuditLogPanel.vue`](../../core/client/src/core/audit/components/AuditLogPanel.vue).  
 Эталон редактора тем: [`ParentLayout.vue`](../../core/client/src/core/cms/adp/settings/themeEditor/ParentLayout.vue) → async `ThemeEditor` (галерея) + async `ThemeEditorForm` (ColorPicker только при открытии формы).  
@@ -104,7 +104,7 @@ await preloadLucideIconNames(['Home', 'Settings'])
 
 1. Страница не импортируется sync в `routes.js` / layout shell
 2. Модалки create/edit/settings/crop — async + монтирование при открытии
-3. Неактивные вкладки и ветки `v-if` (action-button, tab) — async, не sync import
+3. Неактивные вкладки и ветки `v-if` (tab и т.п.) — async, не sync import
 4. Тяжёлая панель admin — после access-check (`v-if="hasAdminAccess"`)
 5. Mount: независимые API — параллельно; доступ (admin) может идти первым
 6. Внутренние переходы (toolbar, breadcrumbs, auth links) — hover/focus prefetch

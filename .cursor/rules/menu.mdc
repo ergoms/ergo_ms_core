@@ -99,7 +99,7 @@ class Migration(migrations.Migration):
 
 ## Меню приложений (AppsMenu)
 
-Не путать с боковым меню. Сетка приложений в toolbar — ModuleBridge-группа `apps.menu.items` ([`appsMenu.js`](../../core/client/src/integrations/appsMenu.js)). Модули регистрируют пункты из `client/js/integrations.js`. По умолчанию в toolbar показывается Apps (`actionButton=apps`), не уведомления.
+Не путать с боковым меню. Сетка приложений в toolbar — ModuleBridge-группа `apps.menu.items` ([`appsMenu.js`](../../core/client/src/integrations/appsMenu.js)). Модули регистрируют пункты из `client/js/integrations.js` (`route` и/или `onClick`, например offcanvas). В toolbar всегда рядом: AppsMenu и уведомления (`SidebarNotifications`).
 
 ## Админка меню
 
