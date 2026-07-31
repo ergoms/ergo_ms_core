@@ -99,7 +99,7 @@ class Migration(migrations.Migration):
 
 ## Меню приложений (AppsMenu)
 
-Не путать с боковым меню. Сетка приложений в toolbar — ModuleBridge-группа `apps.menu.items` ([`appsMenu.js`](../../core/client/src/integrations/appsMenu.js)). Модули регистрируют пункты из `client/js/integrations.js` (`route` и/или `onClick`, например offcanvas). В toolbar всегда рядом: AppsMenu и уведомления (`SidebarNotifications`).
+Не путать с боковым меню. Сетка приложений в toolbar — ModuleBridge-группа `apps.menu.items` ([`appsMenu.js`](../../core/client/src/integrations/appsMenu.js)). Плавающие виджеты (мини-чат) — отдельно: `shell.floating_widgets` + [`FloatingWidgetsHost`](../../core/client/src/components/FloatingWidgetsHost.vue), не через LayoutPlugin/offcanvas. В toolbar всегда рядом: AppsMenu и уведомления.
 
 ## Админка меню
 

@@ -98,6 +98,8 @@ class MyModuleConfig(AppConfig):
 
 Пункты меню приложений (`AppsMenu` в toolbar) — через `bridge.provideMany` в группе `apps.menu.items`. Эталон: `modules/<name>/client/js/appsMenu.js`, подключается из `integrations.js`. Сбор в ядре — [`appsMenu.js`](../../core/client/src/integrations/appsMenu.js). В toolbar AppsMenu и уведомления показываются одновременно.
 
+Плавающие виджеты оболочки (мини-чат и т.п.) — группа `shell.floating_widgets` (`{ id, component, order? }`), хост [`FloatingWidgetsHost.vue`](../../core/client/src/components/FloatingWidgetsHost.vue) в `LayoutMenu`. Не использовать `LayoutPlugin` ради плавающего UI.
+
 ## Темы оформления модуля
 
 Подробности — [`themes.mdc`](themes.mdc). Кратко:
