@@ -3,7 +3,7 @@
 *.jpg
 *.jpeg
 *.gif
-#*.svg
+*.svg
 *.ico
 *.webp
 *.avif
