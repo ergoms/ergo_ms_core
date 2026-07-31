@@ -1,0 +1,10 @@
+{
+  "extension.displayName": "ERGO MS User Config",
+  "extension.description": "Applies project-specific settings and keybindings from user_settings.json and user_keybindings.json",
+  "command.applySettings.title": "ERGO MS: Apply User Settings",
+  "command.applyKeybindings.title": "ERGO MS: Apply User Keybindings",
+  "command.applyAll.title": "ERGO MS: Apply All User Config",
+  "command.removeKeybindings.title": "ERGO MS: Remove User Keybindings",
+  "command.removeSettings.title": "ERGO MS: Remove User Settings",
+  "command.installLocal.title": "ERGO MS: Install Extension Locally (for Remote mode)"
+}

@@ -1,8 +1,8 @@
 {
   "name": "ergo-ms-user-config",
-  "displayName": "ERGO MS User Config",
-  "description": "Applies project-specific settings and keybindings from user_settings.json and user_keybindings.json",
-  "version": "1.2.1",
+  "displayName": "%extension.displayName%",
+  "description": "%extension.description%",
+  "version": "1.2.2",
   "publisher": "ergo-ms",
   "icon": "icon.png",
   "engines": {
@@ -22,29 +22,28 @@
     "commands": [
       {
         "command": "ergo-ms-user-config.applySettings",
-        "title": "ERGO MS: Apply User Settings"
+        "title": "%command.applySettings.title%"
       },
       {
         "command": "ergo-ms-user-config.applyKeybindings",
-        "title": "ERGO MS: Apply User Keybindings"
+        "title": "%command.applyKeybindings.title%"
       },
       {
         "command": "ergo-ms-user-config.applyAll",
-        "title": "ERGO MS: Apply All User Config"
+        "title": "%command.applyAll.title%"
       },
       {
         "command": "ergo-ms-user-config.removeKeybindings",
-        "title": "ERGO MS: Remove User Keybindings"
+        "title": "%command.removeKeybindings.title%"
       },
       {
         "command": "ergo-ms-user-config.removeSettings",
-        "title": "ERGO MS: Remove User Settings"
+        "title": "%command.removeSettings.title%"
       },
       {
         "command": "ergo-ms-user-config.installLocal",
-        "title": "ERGO MS: Install Extension Locally (for Remote mode)"
+        "title": "%command.installLocal.title%"
       }
     ]
   }
 }
-

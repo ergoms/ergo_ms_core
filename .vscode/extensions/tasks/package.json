@@ -1,8 +1,8 @@
 {
   "name": "ergo-ms-tasks",
-  "displayName": "ERGO MS Tasks",
-  "description": "Задачи VS Code/Cursor: multi-terminal и модульные задачи Run Task (modules/<name>/vscode.tasks.yaml).",
-  "version": "1.4.1",
+  "displayName": "%extension.displayName%",
+  "description": "%extension.description%",
+  "version": "1.4.2",
   "publisher": "ergo-ms",
   "icon": "icon.png",
   "engines": {
@@ -21,15 +21,15 @@
     "commands": [
       {
         "command": "ergo-ms-tasks.run",
-        "title": "ERGO MS: Run Multi-Terminal"
+        "title": "%command.run.title%"
       },
       {
         "command": "ergo-ms-tasks.runFromFile",
-        "title": "ERGO MS: Run Multi-Terminal from File"
+        "title": "%command.runFromFile.title%"
       },
       {
         "command": "ergo-ms-tasks.stopAll",
-        "title": "ERGO MS: Stop All Terminals"
+        "title": "%command.stopAll.title%"
       }
     ],
     "taskDefinitions": [
@@ -39,88 +39,88 @@
         "properties": {
           "terminals": {
             "type": "array",
-            "description": "Список терминалов для запуска",
+            "description": "%task.multiTerminal.terminals%",
             "items": {
               "type": "object",
               "properties": {
                 "name": {
                   "type": "string",
-                  "description": "Имя терминала"
+                  "description": "%task.multiTerminal.terminals.name%"
                 },
                 "command": {
                   "type": "string",
-                  "description": "Команда для выполнения"
+                  "description": "%task.multiTerminal.terminals.command%"
                 },
                 "cwd": {
                   "type": "string",
-                  "description": "Рабочая директория"
+                  "description": "%task.multiTerminal.terminals.cwd%"
                 }
               }
             }
           },
           "source": {
             "type": "object",
-            "description": "Источник данных (файл yaml/json) - один источник",
+            "description": "%task.multiTerminal.source%",
             "properties": {
               "file": {
                 "type": "string",
-                "description": "Путь к файлу"
+                "description": "%task.multiTerminal.source.file%"
               },
               "path": {
                 "type": "string",
-                "description": "Путь к списку в файле (например: workers)"
+                "description": "%task.multiTerminal.source.path%"
               }
             }
           },
           "sources": {
             "type": "array",
-            "description": "Несколько источников данных с разными шаблонами",
+            "description": "%task.multiTerminal.sources%",
             "items": {
               "type": "object",
               "properties": {
                 "file": {
                   "type": "string",
-                  "description": "Путь к файлу"
+                  "description": "%task.multiTerminal.sources.file%"
                 },
                 "path": {
                   "type": "string",
-                  "description": "Путь к списку в файле"
+                  "description": "%task.multiTerminal.sources.path%"
                 },
                 "commandTemplate": {
                   "type": "string",
-                  "description": "Шаблон команды для этого источника"
+                  "description": "%task.multiTerminal.sources.commandTemplate%"
                 },
                 "nameTemplate": {
                   "type": "string",
-                  "description": "Шаблон имени для этого источника"
+                  "description": "%task.multiTerminal.sources.nameTemplate%"
                 }
               }
             }
           },
           "commandTemplate": {
             "type": "string",
-            "description": "Шаблон команды (${key} заменяется на ключ из source)"
+            "description": "%task.multiTerminal.commandTemplate%"
           },
           "stopCommandTemplate": {
             "type": "string",
-            "description": "Шаблон команды остановки при закрытии терминала (${key})"
+            "description": "%task.multiTerminal.stopCommandTemplate%"
           },
           "nameTemplate": {
             "type": "string",
-            "description": "Шаблон имени терминала"
+            "description": "%task.multiTerminal.nameTemplate%"
           },
           "group": {
             "type": "string",
-            "description": "Группа терминалов для управления"
+            "description": "%task.multiTerminal.group%"
           },
           "delay": {
             "type": "number",
-            "description": "Задержка между запусками (мс)",
+            "description": "%task.multiTerminal.delay%",
             "default": 300
           },
           "hideControlTerminal": {
             "type": "boolean",
-            "description": "Скрыть управляющий терминал после запуска дочерних терминалов",
+            "description": "%task.multiTerminal.hideControlTerminal%",
             "default": false
           }
         }
@@ -135,23 +135,23 @@
         "properties": {
           "label": {
             "type": "string",
-            "description": "Имя задачи в Run Task"
+            "description": "%task.ergoModule.label%"
           },
           "detail": {
             "type": "string",
-            "description": "Краткое описание на русском"
+            "description": "%task.ergoModule.detail%"
           },
           "command": {
             "type": "string",
-            "description": "Команда ergoms …"
+            "description": "%task.ergoModule.command%"
           },
           "module": {
             "type": "string",
-            "description": "Имя каталога модуля"
+            "description": "%task.ergoModule.module%"
           },
           "panel": {
             "type": "string",
-            "description": "Панель терминала: shared или new",
+            "description": "%task.ergoModule.panel%",
             "enum": [
               "shared",
               "new"

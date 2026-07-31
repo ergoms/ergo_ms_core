@@ -70,6 +70,8 @@ Docker volume → /app/virtual_env/npm/node_modules
 
 Из-за этого **не** предлагай `ergoms npm run install-extensions`: префикс `npm:` выполняет команды в `virtual_env/npm`, где скрипта расширений нет. В задачах VS Code и в документации пиши `ergoms install-extensions`.
 
+Описания и `contributes` расширений — мультиязычные (`ru` / `en` / `fr`) через `package.nls*.json`: см. [`i18n.mdc`](i18n.mdc) → «Расширения VS Code / Cursor».
+
 Префикс `npm:` в ergoms всегда выполняет команды в **`virtual_env/npm`**.
 
 ## Vite и запуск клиента

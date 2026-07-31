@@ -1,8 +1,8 @@
 {
   "name": "ergo-ms-module-rules",
-  "displayName": "ERGO MS Module Cursor Rules",
-  "description": "Подхватывает .cursor/rules/*.mdc из modules/ через Cursor plugins API",
-  "version": "1.1.0",
+  "displayName": "%extension.displayName%",
+  "description": "%extension.description%",
+  "version": "1.1.1",
   "publisher": "ergo-ms",
   "icon": "icon.png",
   "engines": {
@@ -21,7 +21,7 @@
     "commands": [
       {
         "command": "ergo-ms-module-rules.sync",
-        "title": "ERGO MS: Sync Module Cursor Rules"
+        "title": "%command.sync.title%"
       }
     ]
   }
