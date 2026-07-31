@@ -232,6 +232,9 @@ sections:
         summary: "Безопасно удалить Django-приложение"
       - name: core-rules-check
         summary: "Проверка ядра: изоляция модулей, схемы контрактов моста, console.error, native select, импорты modules.*, mid-indent/ast.parse, BOM/LF в deployment-скриптах"
+      - name: deployment-test
+        invoke: "ergoms deployment-test"
+        summary: "Unit-тесты deployment (docker_runtime, ergo_modes, env_resolvers, recipes, nginx render) без Docker daemon"
       - name: ps1-encoding-check
         invoke: "ergoms ps1-encoding-check [--fix]"
         summary: "Проверка UTF-8 BOM в .ps1 deployment с кириллицей (Windows PowerShell 5.1)"

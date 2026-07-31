@@ -33,7 +33,7 @@ def _runtime_is_microservice(values: Mapping[str, str]) -> bool:
 
 
 def _microservice_module_names(values: Mapping[str, str]) -> list[str]:
-    raw = values.get('MICROSERVICE_MODULES', '') or values.get('SPLIT_MODULES', '')
+    raw = values.get('MICROSERVICE_MODULES', '')
     return parse_csv(raw)
 
 

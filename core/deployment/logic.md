@@ -7,8 +7,9 @@
 ## Предварительные условия
 
 - Репозиторий клонирован; путь к проекту содержит только латиницу, цифры, дефис и подчёркивание.
-- На компьютере **установлены** Python 3.12, Node.js 18+, PostgreSQL 14+ и Git — см. [README.md](../../README.md#быстрый-старт).
-- Python-окружение проекта живёт в **`virtual_env/python/`** — каталог уже есть в дереве репозитория, его **не пересоздают** при установке.
+- **Portable Python 3.12** и **Node.js LTS** ставятся в `virtual_env/packages/` командами `ergoms setup` / `ergoms install-python` / `ergoms install-nodejs` (см. [`.docs/cli.md`](../../.docs/cli.md)).
+- Python venv проекта — **`virtual_env/python/`** (создаётся из portable при setup).
+- PostgreSQL 14+ — на компьютере или в Docker; параметры — в `.env` / `databases.yaml`.
 - В пользовательской документации все команды выполняют через **`ergoms`**, а не через `python manage.py` напрямую.
 
 ## Кроссплатформенность
@@ -28,7 +29,7 @@
 
 `core/deployment/commands.conf` — реестр команд ядра: строки вида `имя-команды=тип:действие`. Модули добавляют свои команды в `modules/<имя>/ergoms.conf`.
 
-Часть команд **не** в `commands.conf`, а встроена в `ergo_ms.ps1` / `ergo_ms.sh`: **install-cli**, **help**, маршрутизация. Составные сценарии (setup, deploy, службы, nginx/redis/TLS, Docker compose, dev) проходят через единый pipeline — [`lifecycle/runner.py`](lifecycle/runner.py). Описания — в `help.manifest.yaml`; правила — [`.cursor/rules/deployment-infra.mdc`](../../.cursor/rules/deployment-infra.mdc).
+Часть команд **не** в `commands.conf`, а встроена в `ergo_ms.ps1` / `ergo_ms.sh`: **install-cli**, **help**, маршрутизация. Составные сценарии маршрутизируются префиксом **`lifecycle:`** в `commands.conf` (вызов `Invoke-LifecycleRunner` / `invoke_lifecycle_runner`) или встроены в shell-обёртки. Примитивы (`api:`, `npm:`) остаются в `commands.conf`.
 
 ## Единый lifecycle-pipeline
 
@@ -43,7 +44,7 @@
 | [`lifecycle/host/ops.py`](lifecycle/host/ops.py) | venv, `run_api_command`, npm, foreground-скрипты |
 | [`lifecycle/host/privilege.py`](lifecycle/host/privilege.py) | Linux: re-exec через `sudo` для infra-рецептов |
 | [`lifecycle/steps/`](lifecycle/steps/) | Общие (`common_steps`), host, service, infra, compose, dev |
-| [`lifecycle/services/`](lifecycle/services/) | Каталог служб; backends через `internal_dispatch` → `services.ps1` / `services.sh` |
+| [`lifecycle/services/`](lifecycle/services/) | Каталог служб; Python backends (`backends/nginx_backend.py`, `redis_backend.py`) + `internal_dispatch` → shell для install/NSSM/systemd |
 | [`docker_cli.py`](docker/docker_cli.py) | Тонкий argparse → `run_recipe('docker-*')` |
 
 Низкоуровневые примитивы (`api:migrate`, `npm:run build`, прямой вызов `start_*.py`) остаются в `commands.conf` для разработки; **составные** цепочки — только через runner.

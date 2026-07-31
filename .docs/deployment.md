@@ -1,6 +1,6 @@
 # Развёртывание системных служб (Linux / Windows)
 
-На Linux ERGO MS можно зарегистрировать как набор служб **systemd**, чтобы API, клиент, Celery и media_api запускались при старте сервера и перезапускались после сбоев. Для этого используется скрипт **`core/deployment/linux/ergo_ms.sh`**. На Windows — **`core/deployment/windows/ergo_ms.ps1`** (службы через NSSM).
+На Linux ERGO MS можно зарегистрировать как набор служб **systemd**, чтобы API, клиент, Celery и media_api запускались при старте сервера и перезапускались после сбоев. На Windows — через NSSM. **Основной способ управления — `ergoms`**, а не прямой вызов скриптов развёртывания.
 
 Альтернатива изолированному стеку в контейнерах — **Docker Compose** (`ergoms docker-*`). См. [docker.md](docker.md).
 
@@ -8,28 +8,33 @@
 
 ## Установка и управление службами
 
-Из корня репозитория (или с указанием `--root`) выполните нужную команду:
+Из корня репозитория выполните нужную команду через **ergoms**:
 
 ```bash
-sudo bash core/deployment/linux/ergo_ms.sh install [--root /var/www/ergo_ms]
-sudo bash core/deployment/linux/ergo_ms.sh start
-sudo bash core/deployment/linux/ergo_ms.sh stop
-sudo bash core/deployment/linux/ergo_ms.sh restart
-sudo bash core/deployment/linux/ergo_ms.sh status
-sudo bash core/deployment/linux/ergo_ms.sh uninstall-services [--purge]
+ergoms install-services
+ergoms start
+ergoms stop
+ergoms restart
+ergoms status
+ergoms uninstall-services --purge
 ```
 
-Команда **`install`** создаёт unit-файлы systemd и подготавливает окружение. **`uninstall-services`** снимает службы; с **`--purge`** удаляются и связанные данные конфигурации — используйте её только если уверены, что конфигурацию можно удалить.
+Команда **`install-services`** создаёт unit-файлы systemd (Linux) или службы Windows и подготавливает окружение. **`uninstall-services --purge`** снимает службы и связанные данные конфигурации — используйте только если уверены, что конфигурацию можно удалить.
 
-Чтобы вызывать **`ergoms`** из каталога проекта (локальные файлы в `core/deployment/bin/`, без `/usr/local/bin`):
+Для первичной настройки CLI в PATH:
 
 ```bash
 cd /path/to/ergo_ms
-./core/deployment/bin/ergoms start
-./core/deployment/bin/ergoms status
+ergoms install-cli
+ergoms start
+ergoms status
 ```
 
-CLI лежит в `core/deployment/bin` (репозиторий). Команда `uninstall-cli` файлы не удаляет — только напоминает об этом.
+CLI лежит в `core/deployment/bin`. Команда `uninstall-cli` напоминает удалить симлинки вручную — см. [cli.md](cli.md).
+
+### Низкоуровневые скрипты (редко)
+
+При отладке развёртывания допустим прямой вызов `core/deployment/linux/ergo_ms.sh` или `core/deployment/windows/ergo_ms.ps1` с правами администратора. В повседневной работе и в `.vscode/tasks.json` используйте только **`ergoms …`**.
 ## Имена служб
 
 | Служба systemd | Компонент |

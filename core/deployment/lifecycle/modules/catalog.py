@@ -43,8 +43,8 @@ def parse_process_role(raw: str = '') -> str:
 
 
 def parse_microservice_modules(environ: Mapping[str, str]) -> frozenset[str]:
-    """MICROSERVICE_MODULES; запасной ключ SPLIT_MODULES."""
-    raw = environ.get('MICROSERVICE_MODULES', '') or environ.get('SPLIT_MODULES', '')
+    """MICROSERVICE_MODULES из окружения."""
+    raw = environ.get('MICROSERVICE_MODULES', '')
     return parse_csv_modules(raw)
 
 

@@ -1,10 +1,22 @@
-# Тестирование развёртывания (Linux и Windows)
+# Тестирование развёртывания (Windows)
 
-Набор скриптов проверяет установку, запуск и базовые команды ERGO MS на обеих ОС. Структура на Linux (`.sh`) и Windows (`.ps1`) **одинакова по смыслу** — отличаются только оболочка и вызовы служб.
+Набор скриптов проверяет установку, запуск и базовые команды ERGO MS на Windows. **Симметричного каталога `linux/lib/test/` пока нет** — интеграционные shell-тесты для Linux планируются отдельно.
+
+Для **быстрых unit-тестов** Python-модулей deployment (без Docker daemon) используйте:
+
+```cmd
+ergoms deployment-test
+```
+
+Альтернатива:
+
+```cmd
+virtual_env\python\Scripts\python.exe -m unittest discover -s core/deployment/tests -p "test_*.py" -q
+```
 
 Документ для разработчиков deployment; конечному пользователю достаточно [`.docs/troubleshooting.md`](../../../../.docs/troubleshooting.md).
 
-## Быстрый запуск
+## Быстрый запуск (интеграционные тесты Windows)
 
 Рекомендуемый способ — одна команда ergoms:
 
@@ -12,9 +24,8 @@
 ergoms test_system
 ```
 
-Альтернатива — запуск оркестратора напрямую:
+Альтернатива — запуск оркестратора напрямую (только Windows):
 
-- **Linux:** `bash core/deployment/linux/lib/test/test.sh`
 - **Windows** (из корня репозитория): `.\core\deployment\windows\lib\test\test.ps1` — нужен префикс `.\`, иначе PowerShell не выполнит скрипт по относительному пути.
 
 Весь вывод дублируется в **`logs/test.log`** в корне проекта.

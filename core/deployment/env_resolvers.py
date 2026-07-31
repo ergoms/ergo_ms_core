@@ -32,14 +32,10 @@ def load_merged_env(root: Path) -> dict[str, str]:
     return load_project_env(root)
 
 
-def _truthy(value: str) -> bool:
-    return value.strip().lower() in ('1', 'true', 'yes')
-
-
 def _use_https(values: dict[str, str]) -> bool:
-    if _truthy(values.get('NGINX_USE_HTTPS', '')):
-        return True
-    return values.get('NGINX_LISTEN_PORT', '').strip() == '443'
+    from render_common import use_https
+
+    return use_https(values)
 
 
 def resolve_nginx_vars(values: dict[str, str]) -> dict[str, str]:

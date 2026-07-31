@@ -23,7 +23,7 @@ if str(_NGINX_DIR) not in sys.path:
 
 from console_tags import format_console  # noqa: E402
 from env_resolvers import load_merged_env  # noqa: E402
-
+from ergo_modes import effective_docker_enabled, effective_nginx_enabled, env_bool_key  # noqa: E402
 from docker_runtime import (  # noqa: E402
     BUILD_CACHE_OUTPUT,
     compose_profiles,
@@ -32,6 +32,7 @@ from docker_runtime import (  # noqa: E402
     postgres_container_env,
     prepare_compose_artifacts,
 )
+from render_common import render_docker_nginx_config  # noqa: E402
 
 SETUP_MARKER_REL = Path('logs/.ergo-docker-setup-ok')
 DOCKER_PYTHON_INSTALL_LOG = 'logs/docker/python-install.log'
@@ -49,13 +50,6 @@ COMPOSE_ARTIFACT_PATHS = (
     DOCKER_DIR / 'nginx' / 'ergo_ms.conf.rendered',
     *DOCKERIGNORE_ARTIFACT_PATHS,
 )
-
-
-def _truthy(raw: dict[str, str], name: str, default: bool = False) -> bool:
-    value = raw.get(name, '')
-    if value is None or str(value).strip() == '':
-        return default
-    return str(value).strip().lower() in ('1', 'true', 'yes', 'on')
 
 
 def find_docker_compose() -> list[str]:
@@ -80,9 +74,9 @@ def compose_file_list(mode: str, raw_env: dict[str, str]) -> list[Path]:
         files.append(BUILD_CACHE_OUTPUT)
     if _env_db_container(raw_env):
         files.append(DOCKER_DIR / 'docker-compose.postgres.yml')
-    if _truthy(raw_env, 'DOCKER_PROFILE_NGINX'):
+    if env_bool_key(raw_env, 'DOCKER_PROFILE_NGINX'):
         files.append(DOCKER_DIR / 'docker-compose.nginx.yml')
-    if _truthy(raw_env, 'DOCKER_PROFILE_JUPYTER'):
+    if env_bool_key(raw_env, 'DOCKER_PROFILE_JUPYTER'):
         files.append(DOCKER_DIR / 'docker-compose.jupyter.yml')
     workers = DOCKER_DIR / 'docker-compose.workers.generated.yml'
     if workers.is_file():
@@ -151,7 +145,7 @@ def _env_db_container(raw_env: dict[str, str]) -> bool:
     mode = raw_env.get('DOCKER_DATABASE', 'container').strip().lower()
     if mode != 'container':
         return False
-    return _truthy(raw_env, 'DOCKER_PROFILE_POSTGRES', default=True)
+    return env_bool_key(raw_env, 'DOCKER_PROFILE_POSTGRES', default=True)
 
 
 def bootstrap_service_names(raw_env: dict[str, str]) -> list[str]:
@@ -162,32 +156,19 @@ def bootstrap_service_names(raw_env: dict[str, str]) -> list[str]:
 
 
 def render_nginx_docker_config(raw_env: dict[str, str]) -> Path:
-    from module_nginx import render_module_locations_docker, render_module_upstreams_docker
-
     template = DOCKER_DIR / 'nginx' / 'ergo_ms.docker.conf.template'
     output = DOCKER_DIR / 'nginx' / 'ergo_ms.conf.rendered'
-    content = template.read_text(encoding='utf-8')
-    replacements = {
-        '${ERGO_DOCKER_SERVICE_API}': raw_env.get('DOCKER_SERVICE_API', 'api'),
-        '${ERGO_DOCKER_SERVICE_MEDIA}': raw_env.get('DOCKER_SERVICE_MEDIA', 'media-api'),
-        '${API_PORT}': raw_env.get('API_PORT', '8000'),
-        '${MEDIA_API_BIND_PORT}': raw_env.get('MEDIA_API_BIND_PORT', '8003'),
-        '${NGINX_LISTEN_PORT}': raw_env.get('NGINX_LISTEN_PORT', '80'),
-        '${NGINX_SERVER_NAME}': raw_env.get('NGINX_SERVER_NAME', 'localhost'),
-        '${API_JUPYTER_BIND_PORT}': raw_env.get('API_JUPYTER_BIND_PORT', '8002'),
-        '${ERGO_MODULE_UPSTREAMS}': render_module_upstreams_docker(raw_env),
-        '${ERGO_MODULE_LOCATIONS}': render_module_locations_docker(raw_env),
-    }
-    for key, value in replacements.items():
-        content = content.replace(key, value)
-    output.write_text(content, encoding='utf-8')
-    return output
+    return render_docker_nginx_config(
+        raw_env,
+        template_path=template,
+        output_path=output,
+    )
 
 
 def warn_conflicts(raw_env: dict[str, str]) -> None:
     from ergo_modes import effective_docker_enabled, effective_nginx_enabled, effective_redis_enabled
 
-    if not effective_docker_enabled(raw_env) and not _truthy(raw_env, 'DOCKER_ENABLED'):
+    if not effective_docker_enabled(raw_env) and not env_bool_key(raw_env, 'DOCKER_ENABLED'):
         return
     if effective_redis_enabled(raw_env) and raw_env.get('REDIS_HOST', '127.0.0.1') not in (
         'redis',
@@ -199,7 +180,7 @@ def warn_conflicts(raw_env: dict[str, str]) -> None:
             'warning',
             'REDIS_HOST / redis.host указывает на внешний хост — в Docker host remapped на сервис redis',
         ))
-    if effective_nginx_enabled(raw_env) and not _truthy(raw_env, 'DOCKER_PROFILE_NGINX'):
+    if effective_nginx_enabled(raw_env) and not env_bool_key(raw_env, 'DOCKER_PROFILE_NGINX'):
         print(
             format_console(
                 'warning',
@@ -255,7 +236,7 @@ def build_compose_cmd(
     modules_env = {**os.environ, **{k: str(v) for k, v in raw.items()}}
     run_generate_modules(quiet=True, env=modules_env)
 
-    if for_clean or _truthy(raw, 'DOCKER_PROFILE_NGINX'):
+    if for_clean or env_bool_key(raw, 'DOCKER_PROFILE_NGINX'):
         render_nginx_docker_config(raw)
 
     if not for_clean:

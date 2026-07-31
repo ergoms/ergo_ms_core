@@ -17,7 +17,7 @@ export { organizationGuard as routeGuard }
 export default organizationGuard
 ```
 
-Экспорт: named `routeGuard` или `default` — **async-функция** `(to, from, next)` в стиле Vue Router.
+Экспорт: named `routeGuard` или `default` — **async-функция** `(to, from, next)` в стиле Vue Router. Опционально числовой `order` или `routeGuardOrder` (по умолчанию 100) задаёт порядок в цепочке beforeEach.
 
 Подхват — [`RouteGuardsManager.js`](../../core/client/src/modules/routing/RouteGuardsManager.js) через [`ModuleLoader.js`](../../core/client/src/modules/core/ModuleLoader.js). Применение — `beforeEach` в [`routers.js`](../../core/client/src/js/routers.js).
 
@@ -27,7 +27,7 @@ export default organizationGuard
 
 1. Проверка токена / auth
 2. **Platform session-scope** — `runSessionScopeGuard` в [`routers.js`](../../core/client/src/js/routers.js) для `meta.requiresSessionScope` / `requiresActiveSessionScope` (welcome/home из `session.scope_entry_routes`)
-3. **Route guards модулей** (алфавит по имени модуля) — доменная логика (например `validateSession`)
+3. **Route guards модулей** (по `order` / `routeGuardOrder` по возрастанию, затем по имени модуля) — доменная логика (например `validateSession`)
 4. Permission rules и ADP access
 
 Модульный `routeGuard` **не обязан** повторно вызывать `runSessionScopeGuard`, если достаточно platform-проверки. Владелец scope может добавить доменную валидацию в своём guard после шага 2.

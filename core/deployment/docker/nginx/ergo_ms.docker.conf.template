@@ -1,15 +1,9 @@
 # ERGO MS — reverse proxy для Docker Compose
-# Рендер: ergoms docker-up (docker_cli.render_nginx_docker_config)
+# Рендер: ergoms docker-up (render_docker_nginx_config)
 
-upstream ergo_api {
-    server ${ERGO_DOCKER_SERVICE_API}:${API_PORT};
-    keepalive 32;
-}
+${ERGO_API_UPSTREAM_BLOCK}
 
-upstream ergo_media {
-    server ${ERGO_DOCKER_SERVICE_MEDIA}:${MEDIA_API_BIND_PORT};
-    keepalive 8;
-}
+${ERGO_MEDIA_UPSTREAM_BLOCK}
 
 ${ERGO_MODULE_UPSTREAMS}
 
@@ -36,44 +30,11 @@ server {
     }
 
 ${ERGO_MODULE_LOCATIONS}
-    location /api/ {
-        proxy_pass http://ergo_api;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    location /ws/ {
-        proxy_pass http://ergo_api;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_read_timeout 86400s;
-    }
+${ERGO_CORE_PROXY_LOCATIONS}
 
     location /static/ {
         alias /usr/share/nginx/static/;
         expires 30d;
-        access_log off;
-    }
-
-    location /serve/ {
-        proxy_pass http://ergo_media;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-
-    location /upload/ {
-        proxy_pass http://ergo_media;
-        proxy_set_header Host $host;
-        client_max_body_size 610m;
-    }
-
-    location /health/ {
-        proxy_pass http://ergo_media;
         access_log off;
     }
 

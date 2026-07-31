@@ -6,16 +6,11 @@ Dev-lifecycle nginx: marker сессии, foreground-запуск, остано�
 
 from __future__ import annotations
 
-import atexit
-import json
 import os
-import signal
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
 _DEPLOYMENT_DIR = SCRIPTS_DIR.parent
@@ -26,6 +21,14 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 from console_tags import format_console  # noqa: E402
 from deployment_env import PROJECT_ROOT, resolve_public_host  # noqa: E402
+from dev_session import (  # noqa: E402
+    clear_dev_session_marker as _clear_marker,
+    dev_session_marker_path as _marker_path,
+    is_managed_service,
+    read_dev_session_marker as _read_marker,
+    run_foreground_with_session,
+    write_dev_session_marker as _write_marker,
+)
 from nginx_foreground import (  # noqa: E402
     _configure_stdio_utf8,
     _print_client_hint,
@@ -37,64 +40,33 @@ from nginx_foreground import (  # noqa: E402
 
 NGINX_WINDOWS_SERVICE = 'ergo_ms_nginx'
 NGINX_LINUX_SERVICE = 'ergo_ms_nginx.service'
-DEV_SESSION_MARKER_NAME = 'dev-session.json'
+
+
+def nginx_run_dir(root: Path) -> Path:
+    nginx_dir, _, _ = nginx_paths()
+    _ = root
+    return nginx_dir / 'run'
 
 
 def dev_session_marker_path(root: Path) -> Path:
-    nginx_dir, _, _ = nginx_paths()
-    return nginx_dir / 'run' / DEV_SESSION_MARKER_NAME
+    return _marker_path(nginx_run_dir(root))
 
 
-def read_dev_session_marker(root: Path) -> dict[str, Any] | None:
-    path = dev_session_marker_path(root)
-    if not path.is_file():
-        return None
-    try:
-        data = json.loads(path.read_text(encoding='utf-8'))
-    except (OSError, json.JSONDecodeError):
-        return None
-    return data if isinstance(data, dict) else None
+def read_dev_session_marker(root: Path):
+    return _read_marker(nginx_run_dir(root))
 
 
 def write_dev_session_marker(root: Path, *, pid: int | None, source: str) -> None:
-    marker_dir = dev_session_marker_path(root).parent
-    marker_dir.mkdir(parents=True, exist_ok=True)
-    payload = {
-        'pid': pid,
-        'source': source,
-        'started_at': datetime.now(timezone.utc).isoformat(),
-    }
-    dev_session_marker_path(root).write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2),
-        encoding='utf-8',
-    )
+    _write_marker(nginx_run_dir(root), pid=pid, source=source)
 
 
 def clear_dev_session_marker(root: Path) -> None:
-    dev_session_marker_path(root).unlink(missing_ok=True)
+    _clear_marker(nginx_run_dir(root))
 
 
 def is_nginx_managed_service(root: Path) -> bool:
-    """True, если nginx управляется службой ОС (не portable dev-процессом)."""
-    if os.name == 'nt':
-        result = subprocess.run(
-            ['sc', 'query', NGINX_WINDOWS_SERVICE],
-            capture_output=True,
-            text=True,
-            encoding='utf-8',
-            errors='replace',
-            check=False,
-        )
-        if result.returncode != 0:
-            return False
-        output = (result.stdout or '').upper()
-        return 'RUNNING' in output
-
-    active = subprocess.run(
-        ['systemctl', 'is-active', '--quiet', NGINX_LINUX_SERVICE],
-        check=False,
-    )
-    return active.returncode == 0
+    _ = root
+    return is_managed_service(windows_name=NGINX_WINDOWS_SERVICE, linux_name=NGINX_LINUX_SERVICE)
 
 
 def _remove_stale_pidfile(nginx_dir: Path) -> None:
@@ -173,53 +145,6 @@ def stop_nginx_for_dev(root: Path, *, quiet: bool = False) -> bool:
     return not still_running
 
 
-def _run_nginx_process(nginx_dir: Path, exe: Path, main_conf: Path) -> int:
-    process: subprocess.Popen[bytes] | None = None
-    session_owned = False
-
-    def _cleanup() -> None:
-        nonlocal session_owned
-        if not session_owned:
-            return
-        if process is not None and process.poll() is None:
-            process.terminate()
-            try:
-                process.wait(timeout=3)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait(timeout=3)
-        stop_nginx_for_dev(PROJECT_ROOT, quiet=True)
-        clear_dev_session_marker(PROJECT_ROOT)
-        session_owned = False
-
-    def _handle_signal(signum: int, _frame: object) -> None:
-        _cleanup()
-        raise SystemExit(128 + signum if signum else 0)
-
-    if hasattr(signal, 'SIGTERM'):
-        signal.signal(signal.SIGTERM, _handle_signal)
-    signal.signal(signal.SIGINT, _handle_signal)
-    atexit.register(_cleanup)
-
-    main_conf_arg = str(main_conf).replace('\\', '/') if os.name == 'nt' else str(main_conf)
-    try:
-        write_dev_session_marker(PROJECT_ROOT, pid=None, source='foreground')
-        session_owned = True
-
-        process = subprocess.Popen(
-            [str(exe), '-c', main_conf_arg, '-g', 'daemon off;'],
-            cwd=str(nginx_dir),
-        )
-        write_dev_session_marker(PROJECT_ROOT, pid=process.pid, source='foreground')
-
-        return process.wait()
-    except KeyboardInterrupt:
-        return 0
-    finally:
-        atexit.unregister(_cleanup)
-        _cleanup()
-
-
 def run_nginx_foreground() -> int:
     _configure_stdio_utf8()
     nginx_dir, exe, main_conf = nginx_paths()
@@ -279,4 +204,18 @@ def run_nginx_foreground() -> int:
         'Запуск nginx (Ctrl+C или закрытие терминала останавливает nginx)...',
     ))
     _print_client_hint(url)
-    return _run_nginx_process(nginx_dir, exe, main_conf)
+
+    main_conf_arg = str(main_conf).replace('\\', '/') if os.name == 'nt' else str(main_conf)
+    run_dir = nginx_run_dir(PROJECT_ROOT)
+
+    def _launch() -> subprocess.Popen[bytes]:
+        return subprocess.Popen(
+            [str(exe), '-c', main_conf_arg, '-g', 'daemon off;'],
+            cwd=str(nginx_dir),
+        )
+
+    return run_foreground_with_session(
+        run_dir=run_dir,
+        stop_quiet=lambda: stop_nginx_for_dev(PROJECT_ROOT, quiet=True),
+        launch=_launch,
+    )

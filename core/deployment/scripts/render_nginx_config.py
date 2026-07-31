@@ -25,17 +25,11 @@ from module_nginx import (  # noqa: E402
     render_module_locations_host,
     render_module_upstreams_host,
 )
+from render_common import (  # noqa: E402
+    apply_template_replacements,
+    build_host_nginx_shared_replacements,
+)
 from tls_config import webroot_path  # noqa: E402
-
-
-def _truthy(value: str) -> bool:
-    return value.strip().lower() in ('1', 'true', 'yes')
-
-
-def _use_https(values: dict[str, str], listen_port: str) -> bool:
-    if _truthy(values.get('NGINX_USE_HTTPS', '')):
-        return True
-    return listen_port == '443'
 
 
 def render_template(
@@ -96,6 +90,7 @@ def render_template(
         '${ERGO_MODULE_UPSTREAMS}': module_upstreams,
         '${ERGO_MODULE_LOCATIONS}': module_locations,
     }
+    replacements.update(build_host_nginx_shared_replacements(values))
 
     content = re.sub(
         r'^\$\{ERGO_HOST_POLICY_BLOCKS\}\s*$',
@@ -103,11 +98,7 @@ def render_template(
         content,
         flags=re.MULTILINE,
     )
-    for needle, value in replacements.items():
-        if needle == '${ERGO_HOST_POLICY_BLOCKS}':
-            continue
-        content = content.replace(needle, value)
-    return content
+    return apply_template_replacements(content, replacements)
 
 
 def main() -> int:

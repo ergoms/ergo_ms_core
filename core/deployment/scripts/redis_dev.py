@@ -6,16 +6,11 @@ Dev-lifecycle Redis: marker сессии, foreground-запуск, остано�
 
 from __future__ import annotations
 
-import atexit
-import json
 import os
-import signal
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
 _DEPLOYMENT_DIR = SCRIPTS_DIR.parent
@@ -25,6 +20,14 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from console_tags import format_console  # noqa: E402
+from dev_session import (  # noqa: E402
+    clear_dev_session_marker as _clear_marker,
+    dev_session_marker_path as _marker_path,
+    is_managed_service,
+    read_dev_session_marker as _read_marker,
+    run_foreground_with_session,
+    write_dev_session_marker as _write_marker,
+)
 from install_redis import (  # noqa: E402
     ping_redis,
     redis_cli_path,
@@ -36,11 +39,10 @@ from nginx_foreground import _configure_stdio_utf8  # noqa: E402
 
 REDIS_WINDOWS_SERVICE = 'ergo_ms_redis'
 REDIS_LINUX_SERVICE = 'ergo_ms_redis.service'
-DEV_SESSION_MARKER_NAME = 'dev-session.json'
 
 
-def dev_session_marker_path(root: Path) -> Path:
-    return redis_packages_dir(root) / 'run' / DEV_SESSION_MARKER_NAME
+def redis_run_dir(root: Path) -> Path:
+    return redis_packages_dir(root) / 'run'
 
 
 def redis_pidfile_path(root: Path) -> Path:
@@ -57,56 +59,9 @@ def read_redis_pid(root: Path) -> int | None:
         return None
 
 
-def read_dev_session_marker(root: Path) -> dict[str, Any] | None:
-    path = dev_session_marker_path(root)
-    if not path.is_file():
-        return None
-    try:
-        data = json.loads(path.read_text(encoding='utf-8'))
-    except (OSError, json.JSONDecodeError):
-        return None
-    return data if isinstance(data, dict) else None
-
-
-def write_dev_session_marker(root: Path, *, pid: int | None, source: str) -> None:
-    marker_dir = dev_session_marker_path(root).parent
-    marker_dir.mkdir(parents=True, exist_ok=True)
-    payload = {
-        'pid': pid,
-        'source': source,
-        'started_at': datetime.now(timezone.utc).isoformat(),
-    }
-    dev_session_marker_path(root).write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2),
-        encoding='utf-8',
-    )
-
-
-def clear_dev_session_marker(root: Path) -> None:
-    dev_session_marker_path(root).unlink(missing_ok=True)
-
-
 def is_redis_managed_service(root: Path) -> bool:
-    """True, если Redis управляется службой ОС (не portable dev-процессом)."""
-    if os.name == 'nt':
-        result = subprocess.run(
-            ['sc', 'query', REDIS_WINDOWS_SERVICE],
-            capture_output=True,
-            text=True,
-            encoding='utf-8',
-            errors='replace',
-            check=False,
-        )
-        if result.returncode != 0:
-            return False
-        output = (result.stdout or '').upper()
-        return 'RUNNING' in output
-
-    active = subprocess.run(
-        ['systemctl', 'is-active', '--quiet', REDIS_LINUX_SERVICE],
-        check=False,
-    )
-    return active.returncode == 0
+    _ = root
+    return is_managed_service(windows_name=REDIS_WINDOWS_SERVICE, linux_name=REDIS_LINUX_SERVICE)
 
 
 def _redis_cli_endpoint(root: Path) -> tuple[str, str]:
@@ -165,8 +120,7 @@ def stop_redis_for_dev(root: Path, *, quiet: bool = False) -> bool:
 
 
 def _remove_stale_pidfile(root: Path) -> None:
-    pidfile = redis_pidfile_path(root)
-    pidfile.unlink(missing_ok=True)
+    redis_pidfile_path(root).unlink(missing_ok=True)
 
 
 def _force_stop_redis_process(root: Path) -> None:
@@ -193,6 +147,7 @@ def run_redis_foreground(root: Path) -> int:
     server = redis_server_path(root)
     conf = redis_conf_path(root)
     redis_dir = redis_packages_dir(root)
+    run_dir = redis_run_dir(root)
 
     if not server.is_file() or not conf.is_file():
         print(format_console('error', 'Redis не установлен. Выполните: ergoms install-redis'))
@@ -213,48 +168,32 @@ def run_redis_foreground(root: Path) -> int:
         'Запуск Redis (Ctrl+C или закрытие терминала останавливает Redis)...',
     ))
 
-    process: subprocess.Popen[bytes] | None = None
-    session_owned = False
-
-    def _cleanup() -> None:
-        nonlocal session_owned
-        if not session_owned:
-            return
-        if process is not None and process.poll() is None:
-            process.terminate()
-            try:
-                process.wait(timeout=3)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait(timeout=3)
-        stop_redis_for_dev(root, quiet=True)
-        clear_dev_session_marker(root)
-        session_owned = False
-
-    def _handle_signal(signum: int, _frame: object) -> None:
-        _cleanup()
-        raise SystemExit(128 + signum if signum else 0)
-
-    if hasattr(signal, 'SIGTERM'):
-        signal.signal(signal.SIGTERM, _handle_signal)
-    signal.signal(signal.SIGINT, _handle_signal)
-    atexit.register(_cleanup)
-
     conf_arg = 'conf/redis.conf' if os.name != 'nt' else 'conf\\redis.conf'
-    try:
-        write_dev_session_marker(root, pid=None, source='foreground')
-        session_owned = True
 
-        process = subprocess.Popen(
+    def _launch() -> subprocess.Popen[bytes]:
+        return subprocess.Popen(
             [str(server), conf_arg, '--daemonize', 'no'],
             cwd=str(redis_dir),
         )
-        write_dev_session_marker(root, pid=process.pid, source='foreground')
 
-        exit_code = process.wait()
-        return exit_code
-    except KeyboardInterrupt:
-        return 0
-    finally:
-        atexit.unregister(_cleanup)
-        _cleanup()
+    return run_foreground_with_session(
+        run_dir=run_dir,
+        stop_quiet=lambda: stop_redis_for_dev(root, quiet=True),
+        launch=_launch,
+    )
+
+
+def dev_session_marker_path(root: Path) -> Path:
+    return _marker_path(redis_run_dir(root))
+
+
+def read_dev_session_marker(root: Path):
+    return _read_marker(redis_run_dir(root))
+
+
+def write_dev_session_marker(root: Path, *, pid: int | None, source: str) -> None:
+    _write_marker(redis_run_dir(root), pid=pid, source=source)
+
+
+def clear_dev_session_marker(root: Path) -> None:
+    _clear_marker(redis_run_dir(root))

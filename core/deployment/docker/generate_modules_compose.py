@@ -56,7 +56,7 @@ def _is_microservice(runtime: str) -> bool:
 
 
 def _modules_from_env(environ: dict[str, str]) -> list[str]:
-    raw = environ.get('MICROSERVICE_MODULES', '') or environ.get('SPLIT_MODULES', '')
+    raw = environ.get('MICROSERVICE_MODULES', '')
     return parse_modules(raw)
 
 

@@ -30,8 +30,28 @@ source "$LIB_DIR/tls.sh"
 source "$LIB_DIR/portable_python.sh"
 # shellcheck source=../../linux/lib/portable_nodejs.sh
 source "$LIB_DIR/portable_nodejs.sh"
+# shellcheck source=../../linux/lib/lifecycle.sh
+source "$LIB_DIR/lifecycle.sh"
 
 set_service_project_root "$root"
+
+_invoke_infra_backend() {
+  local service="$1"
+  local operation="$2"
+  local backend="$root/core/deployment/lifecycle/services/backends/${service}_backend.py"
+  if [[ ! -f "$backend" ]]; then
+    echo "[ERROR] Backend не найден: $backend" >&2
+    exit 1
+  fi
+  local py
+  if py="$(lifecycle_python_exe "$root")"; then
+    "$py" "$backend" "$operation" --root "$root"
+  elif command -v python3.12 >/dev/null 2>&1; then
+    python3.12 "$backend" "$operation" --root "$root"
+  else
+    python3 "$backend" "$operation" --root "$root"
+  fi
+}
 
 case "$category" in
   service)
@@ -108,9 +128,9 @@ case "$category" in
       start) nginx_start_service "$root" ;;
       stop) nginx_stop_service "$root" ;;
       restart) nginx_stop_service "$root"; nginx_start_service "$root" ;;
-      reload) nginx_reload_service "$root" ;;
-      status) nginx_status_service "$root" ;;
-      test) nginx_test_config "$root" ;;
+      reload) _invoke_infra_backend nginx reload ;;
+      status) _invoke_infra_backend nginx status ;;
+      test) _invoke_infra_backend nginx test ;;
       *) echo "[ERROR] Неизвестная операция nginx: $operation" >&2; exit 1 ;;
     esac
     ;;
@@ -139,8 +159,8 @@ case "$category" in
       start) redis_start "$root" ;;
       stop) redis_stop "$root" ;;
       restart) redis_restart "$root" ;;
-      status) redis_status "$root" ;;
-      test) redis_test "$root" ;;
+      status) _invoke_infra_backend redis status ;;
+      test) _invoke_infra_backend redis test ;;
       *) echo "[ERROR] Неизвестная операция redis: $operation" >&2; exit 1 ;;
     esac
     ;;

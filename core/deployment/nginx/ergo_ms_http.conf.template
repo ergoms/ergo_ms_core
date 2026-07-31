@@ -15,15 +15,9 @@ include ${ERGO_NGINX_SNIPPETS}/http_hardening.conf;
 include ${ERGO_NGINX_SNIPPETS}/compression.conf;
 include ${ERGO_NGINX_SNIPPETS}/rate_limit.conf;
 
-upstream ergo_api {
-    # No upstream keepalive: on Windows, nginx->Daphne idle keepalive
-    # pools cause intermittent /api hangs (infinite SPA boot loader).
-    server 127.0.0.1:8000;
-}
+${ERGO_API_UPSTREAM_BLOCK}
 
-upstream ergo_media {
-    server 127.0.0.1:8003;
-}
+${ERGO_MEDIA_UPSTREAM_BLOCK}
 
 ${ERGO_JUPYTER_UPSTREAM}
 
@@ -89,35 +83,9 @@ ${ERGO_MAINTENANCE_SNIPPET}
         try_files $uri $uri/ /index.html;
     }
 
-    # --- Django API ---
-    location /api/realtime/stream/ {
-        if ($maintenance = 1) { return 503; }
-        limit_conn ergo_conn 20;
-        proxy_pass http://ergo_api;
-        proxy_buffering off;
-        proxy_cache off;
-        chunked_transfer_encoding on;
-        proxy_read_timeout 3600s;
-        proxy_send_timeout 3600s;
-    }
-
-    location /api/ {
-        if ($maintenance = 1) { return 503; }
-        limit_req zone=ergo_api burst=50 nodelay;
-        limit_conn ergo_conn 50;
-        proxy_pass http://ergo_api;
-    }
-
-    # --- WebSocket ---
-    location /ws/ {
-        if ($maintenance = 1) { return 503; }
-        limit_conn ergo_conn 20;
-        proxy_pass http://ergo_api;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_read_timeout 86400s;
-        proxy_send_timeout 86400s;
-    }
+${ERGO_REALTIME_STREAM_LOCATION}
+${ERGO_MODULE_LOCATIONS}
+${ERGO_HOST_API_WS_PROXY}
 
     # --- Django collectstatic ---
     location /static/ {
@@ -128,30 +96,7 @@ ${ERGO_MAINTENANCE_SNIPPET}
         access_log off;
     }
 
-    # --- Media API ---
-    location /serve/ {
-        if ($maintenance = 1) { return 503; }
-        limit_req zone=ergo_serve burst=40 nodelay;
-        limit_conn ergo_conn 30;
-        proxy_pass http://ergo_media;
-    }
-
-    location /upload/ {
-        if ($maintenance = 1) { return 503; }
-        limit_req zone=ergo_upload burst=10 nodelay;
-        limit_conn ergo_conn 10;
-        proxy_pass http://ergo_media;
-        client_max_body_size 610m;
-    }
-
-    location /health/ {
-        allow 127.0.0.1;
-        allow ::1;
-        deny all;
-        limit_req zone=ergo_api burst=5 nodelay;
-        proxy_pass http://ergo_media;
-        access_log off;
-    }
+${ERGO_HOST_MEDIA_PROXY}
 
 ${ERGO_JUPYTER_LOCATION}
 }

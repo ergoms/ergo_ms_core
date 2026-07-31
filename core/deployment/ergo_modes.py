@@ -45,8 +45,15 @@ def _get(values: Mapping[str, str], key: str, default: str = '') -> str:
     return str(raw).strip()
 
 
-def _truthy(raw: str) -> bool:
-    return raw.strip().lower() in ('1', 'true', 'yes', 'on')
+def env_bool(value: str | None, *, default: bool = False) -> bool:
+    """Истина для 1/true/yes/on; пустое значение → default."""
+    if value is None or str(value).strip() == '':
+        return default
+    return str(value).strip().lower() in ('1', 'true', 'yes', 'on')
+
+
+def env_bool_key(values: Mapping[str, str], key: str, *, default: bool = False) -> bool:
+    return env_bool(values.get(key), default=default)
 
 
 def _has_explicit(values: Mapping[str, str], key: str) -> bool:
@@ -120,25 +127,25 @@ def effective_deploy_type(
 
 def effective_docker_enabled(values: Mapping[str, str]) -> bool:
     if _has_explicit(values, 'DOCKER_ENABLED'):
-        return _truthy(_get(values, 'DOCKER_ENABLED'))
+        return env_bool(_get(values, 'DOCKER_ENABLED'))
     return ergo_runtime(values) == 'docker'
 
 
 def effective_nginx_enabled(values: Mapping[str, str]) -> bool:
     if _has_explicit(values, 'NGINX_ENABLED'):
-        return _truthy(_get(values, 'NGINX_ENABLED'))
+        return env_bool(_get(values, 'NGINX_ENABLED'))
     return ergo_proxy(values) == 'nginx'
 
 
 def effective_redis_enabled(values: Mapping[str, str]) -> bool:
     if _has_explicit(values, 'REDIS_ENABLED'):
-        return _truthy(_get(values, 'REDIS_ENABLED'))
+        return env_bool(_get(values, 'REDIS_ENABLED'))
     return ergo_broker(values) == 'redis'
 
 
 def effective_postgres_force_install(values: Mapping[str, str]) -> bool:
     if _has_explicit(values, 'POSTGRES_FORCE_INSTALL'):
-        return _truthy(_get(values, 'POSTGRES_FORCE_INSTALL'))
+        return env_bool(_get(values, 'POSTGRES_FORCE_INSTALL'))
     return ergo_db(values) == 'portable_postgres'
 
 
@@ -147,7 +154,7 @@ def should_install_portable_postgres(values: Mapping[str, str]) -> bool:
     db = ergo_db(values)
     if db == 'portable_postgres':
         return True
-    if _has_explicit(values, 'POSTGRES_FORCE_INSTALL') and _truthy(
+    if _has_explicit(values, 'POSTGRES_FORCE_INSTALL') and env_bool(
         _get(values, 'POSTGRES_FORCE_INSTALL')
     ):
         return True
@@ -178,7 +185,7 @@ def apply_ergo_db_engine(db_config: dict, values: Mapping[str, str]) -> dict:
 
 def effective_docker_profile_postgres(values: Mapping[str, str]) -> bool:
     if _has_explicit(values, 'DOCKER_PROFILE_POSTGRES'):
-        return _truthy(_get(values, 'DOCKER_PROFILE_POSTGRES'))
+        return env_bool(_get(values, 'DOCKER_PROFILE_POSTGRES'))
     db = ergo_db(values)
     return db in ('postgres', 'portable_postgres')
 
@@ -203,7 +210,7 @@ def effective_jupyter_access_mode(values: Mapping[str, str]) -> str | None:
 
 def effective_email_enabled(values: Mapping[str, str]) -> bool:
     if _has_explicit(values, 'EMAIL_ENABLED'):
-        return _truthy(_get(values, 'EMAIL_ENABLED'))
+        return env_bool(_get(values, 'EMAIL_ENABLED'))
     return ergo_email(values) == 'smtp'
 
 
@@ -235,5 +242,5 @@ def effective_realtime_transport(values: Mapping[str, str]) -> str:
 
 def effective_docker_profile_jupyter(values: Mapping[str, str]) -> bool:
     if _has_explicit(values, 'DOCKER_PROFILE_JUPYTER'):
-        return _truthy(_get(values, 'DOCKER_PROFILE_JUPYTER'))
+        return env_bool(_get(values, 'DOCKER_PROFILE_JUPYTER'))
     return effective_jupyter_enabled(values)

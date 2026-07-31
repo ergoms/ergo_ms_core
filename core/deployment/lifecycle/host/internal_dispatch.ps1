@@ -13,6 +13,34 @@ $LibPath = (Resolve-Path (Join-Path $PSScriptRoot '..\..\windows\lib')).Path
 . (Join-Path $LibPath 'core.ps1')
 Initialize-ErgomsConsoleEncoding
 
+function Invoke-InfraBackend {
+    param(
+        [Parameter(Mandatory = $true)][string]$Root,
+        [Parameter(Mandatory = $true)][string]$Service,
+        [Parameter(Mandatory = $true)][string]$Operation
+    )
+    . (Join-Path $LibPath 'lifecycle.ps1')
+    $backend = Join-Path $Root "core\deployment\lifecycle\services\backends\${Service}_backend.py"
+    if (-not (Test-Path -LiteralPath $backend)) {
+        Write-ColorOutput "[ERROR] Backend не найден: $backend" Red
+        exit 1
+    }
+    $argv = @($backend, $Operation, '--root', $Root)
+    $pyExe = Get-LifecyclePythonExe -Root $Root
+    if ($pyExe) {
+        & $pyExe @argv
+    }
+    elseif (Get-Command py -ErrorAction SilentlyContinue) {
+        & py -3.12 @argv
+    }
+    else {
+        & python @argv
+    }
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+}
+
 switch ($Category) {
     'service' {
         . (Join-Path $LibPath 'nssm.ps1')
@@ -71,9 +99,9 @@ switch ($Category) {
             'start' { Start-NginxProcess -Root $Root }
             'stop' { Stop-NginxProcess -Root $Root }
             'restart' { Restart-NginxProcess -Root $Root }
-            'reload' { Invoke-NginxReload -Root $Root }
-            'status' { Show-NginxStatus -Root $Root }
-            'test' { Test-NginxConfig -Root $Root }
+            'reload' { Invoke-InfraBackend -Root $Root -Service 'nginx' -Operation 'reload' }
+            'status' { Invoke-InfraBackend -Root $Root -Service 'nginx' -Operation 'status' }
+            'test' { Invoke-InfraBackend -Root $Root -Service 'nginx' -Operation 'test' }
             default { throw "Неизвестная операция nginx: $Operation" }
         }
     }
@@ -91,8 +119,8 @@ switch ($Category) {
             'start' { Start-RedisProcess -Root $Root }
             'stop' { Stop-RedisProcess -Root $Root }
             'restart' { Restart-RedisProcess -Root $Root }
-            'status' { Show-RedisStatus -Root $Root }
-            'test' { Test-RedisPing -Root $Root }
+            'status' { Invoke-InfraBackend -Root $Root -Service 'redis' -Operation 'status' }
+            'test' { Invoke-InfraBackend -Root $Root -Service 'redis' -Operation 'test' }
             default { throw "Неизвестная операция redis: $Operation" }
         }
     }

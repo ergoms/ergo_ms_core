@@ -109,8 +109,8 @@ function Execute-CommandString {
     # Mark as internal so wrappers in init_terminal.ps1 pass through
     $env:ERGOMS_INTERNAL = '1'
     
-    # Parse command type (poetry:, api:, media_api:, npm:, shell:, win:, linux:)
-    if ($CommandString -match '^(poetry|api|media_api|npm|shell|win|linux):(.+)$') {
+    # Parse command type (poetry:, api:, media_api:, npm:, shell:, win:, linux:, lifecycle:)
+    if ($CommandString -match '^(poetry|api|media_api|npm|shell|win|linux|lifecycle):(.+)$') {
         $cmdType = $matches[1]
         $cmdArgs = $matches[2].Trim()
         
@@ -236,6 +236,16 @@ function Execute-CommandString {
                 }
                 finally {
                     Pop-Location
+                }
+            }
+            'lifecycle' {
+                . (Join-Path $PSScriptRoot 'lifecycle.ps1')
+                $recipe = $cmdArgs
+                if ($UserArgs.Count -gt 0) {
+                    Invoke-LifecycleRunner -Root $ProjectRoot -Recipe $recipe -ExtraArgs $UserArgs
+                }
+                else {
+                    Invoke-LifecycleRunner -Root $ProjectRoot -Recipe $recipe
                 }
             }
         }

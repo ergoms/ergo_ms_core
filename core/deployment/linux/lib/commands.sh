@@ -96,8 +96,8 @@ execute_command_string() {
   # Mark as internal so wrappers in init_terminal.sh pass through
   export ERGOMS_INTERNAL=1
   
-  # Parse command type (poetry:, api:, media_api:, npm:, shell:, win:, linux:)
-  if [[ "$cmd_string" =~ ^(poetry|api|media_api|npm|shell|win|linux):(.+)$ ]]; then
+  # Parse command type (poetry:, api:, media_api:, npm:, shell:, win:, linux:, lifecycle:)
+  if [[ "$cmd_string" =~ ^(poetry|api|media_api|npm|shell|win|linux|lifecycle):(.+)$ ]]; then
     local cmd_type="${BASH_REMATCH[1]}"
     local cmd_args="${BASH_REMATCH[2]}"
     
@@ -161,6 +161,11 @@ execute_command_string() {
         fi
         # shellcheck disable=SC2086
         exec bash -c "$full_command"
+        ;;
+      lifecycle)
+        # shellcheck source=lifecycle.sh
+        source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lifecycle.sh"
+        invoke_lifecycle_runner "$root" $cmd_args "${user_args[@]}"
         ;;
     esac
   else

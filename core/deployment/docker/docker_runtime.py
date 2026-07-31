@@ -25,6 +25,7 @@ from ergo_modes import (  # noqa: E402
     effective_docker_profile_postgres,
     effective_nginx_enabled,
     effective_redis_enabled,
+    env_bool,
 )
 
 LOCAL_DB_HOSTS = frozenset({'localhost', '127.0.0.1', '::1', ''})
@@ -38,12 +39,6 @@ def _yaml():
     import yaml  # noqa: WPS433
 
     return yaml
-
-
-def _truthy(value: str | None, default: bool = False) -> bool:
-    if value is None or str(value).strip() == '':
-        return default
-    return str(value).strip().lower() in ('1', 'true', 'yes', 'on')
 
 
 def _env(raw: dict[str, str], name: str, default: str = '') -> str:
@@ -171,7 +166,7 @@ def build_compose_env_overrides(raw_env: dict[str, str]) -> dict[str, str]:
         'ERGO_RUNTIME': 'docker',
         'REDIS_HOST': _env(raw_env, 'DOCKER_SERVICE_REDIS', 'redis'),
     }
-    if effective_redis_enabled(raw_env) or _truthy(raw_env.get('REDIS_ENABLED'), default=True):
+    if effective_redis_enabled(raw_env) or env_bool(raw_env.get('REDIS_ENABLED'), default=True):
         overrides['REDIS_ENABLED'] = 'true'
         overrides['ERGO_BROKER'] = raw_env.get('ERGO_BROKER') or 'redis'
 
@@ -191,7 +186,7 @@ def build_compose_env_overrides(raw_env: dict[str, str]) -> dict[str, str]:
         browser_api_host = 'localhost'
     overrides['CLIENT_API_HOST'] = browser_api_host
 
-    if _truthy(raw_env.get('DOCKER_PROFILE_NGINX')) or effective_nginx_enabled(raw_env):
+    if env_bool(raw_env.get('DOCKER_PROFILE_NGINX')) or effective_nginx_enabled(raw_env):
         overrides['NGINX_ENABLED'] = 'true'
         overrides['ERGO_PROXY'] = 'nginx'
         overrides['CLIENT_USE_RELATIVE_API'] = 'true'
@@ -212,9 +207,9 @@ def build_compose_env_overrides(raw_env: dict[str, str]) -> dict[str, str]:
     media_volume = _env(raw_env, 'DOCKER_VOLUME_MEDIA', 'bind').lower()
     overrides.setdefault('MEDIA_STORAGE_PATH', '/app/media')
 
-    overrides.setdefault('DOCKER_BUILD_CACHE', 'true' if _truthy(raw_env.get('DOCKER_BUILD_CACHE'), default=True) else 'false')
+    overrides.setdefault('DOCKER_BUILD_CACHE', 'true' if env_bool(raw_env.get('DOCKER_BUILD_CACHE'), default=True) else 'false')
     deps_cache = effective_docker_deps_cache(raw_env)
-    if not _truthy(raw_env.get('DOCKER_BUILD_CACHE'), default=True):
+    if not env_bool(raw_env.get('DOCKER_BUILD_CACHE'), default=True):
         deps_cache = 'off'
     overrides.setdefault('DOCKER_DEPS_CACHE', deps_cache)
     overrides.setdefault('DOCKER_BUILD_POLICY', effective_docker_build_policy(raw_env))
@@ -235,7 +230,6 @@ def build_compose_env_overrides(raw_env: dict[str, str]) -> dict[str, str]:
         if not _env(raw_env, 'BRIDGE_SERVICE_URLS', ''):
             modules_raw = (
                 _env(raw_env, 'MICROSERVICE_MODULES', '')
-                or _env(raw_env, 'SPLIT_MODULES', '')
             )
             ms_modules = [m.strip() for m in modules_raw.split(',') if m.strip()]
             parts: list[str] = []
@@ -275,7 +269,7 @@ def docker_mode(raw_env: dict[str, str]) -> str:
 
 def compose_profiles(raw_env: dict[str, str]) -> list[str]:
     profiles: list[str] = []
-    if _truthy(raw_env.get('DOCKER_PROFILE_NGINX')) or effective_nginx_enabled(raw_env):
+    if env_bool(raw_env.get('DOCKER_PROFILE_NGINX')) or effective_nginx_enabled(raw_env):
         profiles.append('nginx')
     if effective_docker_profile_jupyter(raw_env):
         profiles.append('jupyter')
