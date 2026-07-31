@@ -1,5 +1,5 @@
 ---
-description: Как писать документацию и правила Cursor — стиль, структура, язык, примеры; понятно агенту и человеку
+description: Как писать документацию и правила Cursor — стиль, структура, язык, .cursorrules для commit message на русском; понятно агенту и человеку
 globs:
   - "**/*.md"
   - "**/*.mdc"
@@ -11,7 +11,8 @@ alwaysApply: false
 
 Это правило задаёт **как** писать:
 - пользовательскую документацию (README, INSTALL, руководства в репозитории);
-- правила Cursor (`.cursor/rules/*.mdc`).
+- правила Cursor (`.cursor/rules/*.mdc`);
+- корневой [`.cursorrules`](../../.cursorrules) — только для генерации commit message в Source Control (см. ниже).
 
 Цель — текст, который **одинаково хорошо** работает для агента (поиск, выбор фрагмента, следование инструкции) и для **человека**, который читает его как связное техническое руководство.
 
@@ -144,6 +145,21 @@ alwaysApply: false
 **Запрещено:** `alwaysApply: true` на модульных правилах — иначе при многих модулях раздувается контекст каждого чата.
 
 Подхват `.mdc` в Cursor — расширение [`.vscode/extensions/module-rules/`](../../.vscode/extensions/module-rules/) (`ergoms install-extensions`, команда **ERGO MS: Sync Module Cursor Rules**). Staging: `virtual_env/cache/cursor-module-plugins/`. MCP — отдельное расширение [`.vscode/extensions/module-mcp/`](../../.vscode/extensions/module-mcp/) ([`mcp.mdc`](mcp.mdc)). Подробности: [`module-cursor-rules.mdc`](module-cursor-rules.mdc), [`modules.mdc`](modules.mdc).
+
+### Корневой `.cursorrules` (commit message на русском)
+
+Кнопка **Generate commit message** (✨) в панели Source Control **не** читает User Rules и `.cursor/rules/*.mdc`. Для неё Cursor подхватывает только legacy-файл [`.cursorrules`](../../.cursorrules) в корне репозитория-обёртки.
+
+| | |
+|---|---|
+| Назначение | Сообщения коммитов на **русском**, префиксы Conventional Commits (`feat:`, `fix:`, `docs:`, …) — как в истории репозитория |
+| Где лежит | Корень `ergo_ms` — [`.cursorrules`](../../.cursorrules) |
+| В git | **Обязательно в репозитории** — файл общий для всей команды; не добавляй в `.gitignore` и не держи только в `.git/info/exclude` |
+| Не путать | Это **не** замена `.cursor/rules/*.mdc` для чата и Agent; доменные и platform-правила по-прежнему только в `.mdc` |
+
+**Запрещено:** удалять `.cursorrules` «как устаревший»; переносить его текст в `.mdc` в расчёте, что ✨ начнёт его читать — не начнёт.
+
+При правке стиля автогенерации коммитов меняй **только** корневой `.cursorrules`, сохраняя требование русского языка и формата `<type>: <описание на русском>`.
 
 ---
 
@@ -278,6 +294,7 @@ alwaysApply: false
 - [ ] Есть пример с путём ядра или кодом проекта; имена модулей — только плейсхолдеры `<name>` / `modules/<name>/…`
 - [ ] Разделы короткие и с говорящими заголовками
 - [ ] Нет дублирования другого правила — есть ссылка
+- [ ] Стиль автогенерации коммитов — только в корневом `.cursorrules`, не в `.mdc`
 
 **Документация для людей:**
 - [ ] Создана только по запросу пользователя

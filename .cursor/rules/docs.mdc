@@ -22,6 +22,7 @@ alwaysApply: true
 |-----------|---------|
 | Люди | [`.docs/`](../../.docs/) — оглавление в [README.md](../../README.md#документация) |
 | Агент Cursor | [`.cursor/rules/`](.) — см. [`writing-docs-and-rules.mdc`](writing-docs-and-rules.mdc) |
+| Generate commit message (✨) | [`.cursorrules`](../../.cursorrules) в корне — commit на русском; не путать с `.mdc` |
 | Развёртывание | [`core/deployment/logic.md`](../../core/deployment/logic.md) |
 
 ## Как писать
