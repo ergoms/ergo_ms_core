@@ -13,6 +13,7 @@ _DEPLOYMENT_DIR = Path(__file__).resolve().parents[2]
 if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 
+from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402
 from project_layout import (  # noqa: E402
     nodejs_bin_dir,
@@ -124,7 +125,7 @@ def api_cwd(ctx: DeploymentContext) -> Path:
 
 def run_api_command(ctx: DeploymentContext, *args: str) -> int:
     if not venv_exists(ctx.project_root, ctx.platform):
-        print(format_console('error', 'Виртуальное окружение не найдено'), file=sys.stderr)
+        print(format_console('error', t('venv_not_found_msg')), file=sys.stderr)
         return 1
     py = venv_python_exe(ctx.project_root, ctx.platform)
     cmd = [str(py), '-m', 'commands', *args]
@@ -150,7 +151,7 @@ def run_npm(ctx: DeploymentContext, script: str, extra_args: Sequence[str] = ())
         print(
             format_console(
                 'error',
-                'npm не найден. Выполните ergoms install-nodejs или ergoms setup',
+                t('npm_not_found'),
             ),
             file=sys.stderr,
         )
@@ -159,7 +160,7 @@ def run_npm(ctx: DeploymentContext, script: str, extra_args: Sequence[str] = ())
     pkg = npm_root / 'package.json'
     if not pkg.is_file():
         print(
-            format_console('error', 'package.json не найден в virtual_env/npm'),
+            format_console('error', t('package_json_not_found_npm')),
             file=sys.stderr,
         )
         return 1
@@ -180,7 +181,7 @@ def run_python_script(
     py_argv = pick_python_for_ctx(ctx, prefer_venv=prefer_venv)
     script = ctx.project_root / script_rel
     if not script.is_file():
-        print(format_console('error', f'Скрипт не найден: {script_rel}'), file=sys.stderr)
+        print(format_console('error', t('script_not_found', script_rel=script_rel)), file=sys.stderr)
         return 1
     env = api_env(ctx) if prefer_venv else os.environ.copy()
     return subprocess.call([*py_argv, str(script)], cwd=str(cwd or ctx.project_root), env=env)
@@ -206,12 +207,12 @@ def invoke_runtime_install(ctx: DeploymentContext, kind: str, *, force: bool = F
 def upgrade_pip_in_venv(ctx: DeploymentContext) -> int:
     py = venv_python_exe(ctx.project_root, ctx.platform)
     if not py.is_file():
-        print(format_console('error', 'Виртуальное окружение не найдено'), file=sys.stderr)
+        print(format_console('error', t('venv_not_found_msg')), file=sys.stderr)
         return 1
     env = api_env(ctx)
     code = subprocess.call([str(py), '-m', 'pip', 'install', '--upgrade', 'pip'], cwd=str(ctx.project_root), env=env)
     if code == 0:
-        print(format_console('ok', 'pip обновлён до крайней версии'))
+        print(format_console('ok', t('pip_upgraded')))
     return code
 
 
@@ -234,7 +235,7 @@ def create_or_validate_venv(ctx: DeploymentContext, *, recreate: bool = False) -
             print(
                 format_console(
                     'error',
-                    'Portable Python не найден. Выполните ergoms install-python или ergoms setup',
+                    t('portable_python_not_found'),
                 ),
                 file=sys.stderr,
             )
@@ -243,7 +244,7 @@ def create_or_validate_venv(ctx: DeploymentContext, *, recreate: bool = False) -
         print(
             format_console(
                 'info',
-                'PORTABLE_PYTHON_ENABLED=false — venv создаётся из системного Python',
+                t('venv_from_system_python'),
             )
         )
 
@@ -268,17 +269,17 @@ def create_or_validate_venv(ctx: DeploymentContext, *, recreate: bool = False) -
         argv = [*base_argv, '-m', 'venv', str(vpath)]
         code = subprocess.call(argv, cwd=str(root))
         if code != 0:
-            print(format_console('error', 'Не удалось создать виртуальное окружение'), file=sys.stderr)
+            print(format_console('error', t('venv_create_failed')), file=sys.stderr)
             return code
-        print(format_console('ok', 'Виртуальное окружение создано'))
+        print(format_console('ok', t('venv_created')))
     else:
-        print(format_console('info', 'Виртуальное окружение уже существует'))
+        print(format_console('info', t('venv_already_exists')))
 
     if not pip_exe.is_file():
         # ensurepip может отсутствовать в свежем venv — попробуем через python -m ensurepip
         ensure = subprocess.call([str(py_exe), '-m', 'ensurepip', '--upgrade'], cwd=str(root))
         if ensure != 0 or not pip_exe.is_file():
-            print(format_console('error', 'pip не найден в виртуальном окружении'), file=sys.stderr)
+            print(format_console('error', t('pip_not_in_venv')), file=sys.stderr)
             return 1
 
     pip_code = upgrade_pip_in_venv(ctx)
@@ -290,7 +291,7 @@ def create_or_validate_venv(ctx: DeploymentContext, *, recreate: bool = False) -
 def install_poetry_in_venv(ctx: DeploymentContext) -> int:
     py = venv_python_exe(ctx.project_root, ctx.platform)
     if not py.is_file():
-        print(format_console('error', 'Виртуальное окружение не найдено'), file=sys.stderr)
+        print(format_console('error', t('venv_not_found_msg')), file=sys.stderr)
         return 1
     if ctx.platform == HostPlatform.WIN32:
         pip = venv_dir(ctx.project_root) / 'Scripts' / 'pip.exe'
@@ -299,5 +300,5 @@ def install_poetry_in_venv(ctx: DeploymentContext) -> int:
         cmd = [str(py), '-m', 'pip', 'install', '--upgrade', '--force-reinstall', 'poetry']
     code = subprocess.call(cmd, cwd=str(ctx.project_root), env=api_env(ctx))
     if code == 0:
-        print(format_console('ok', 'Poetry установлен'))
+        print(format_console('ok', t('poetry_installed')))
     return code

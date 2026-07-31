@@ -14,6 +14,11 @@ def packages_dir(root: Path) -> Path:
     return virtual_env_dir(root) / 'packages'
 
 
+def package_dir(root: Path, name: str) -> Path:
+    """Каталог одного portable-пакета: virtual_env/packages/<name>."""
+    return packages_dir(root) / name
+
+
 def cache_dir(root: Path) -> Path:
     return virtual_env_dir(root) / 'cache'
 

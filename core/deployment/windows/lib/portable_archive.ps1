@@ -10,8 +10,13 @@ function Test-CachedRuntimeArchive {
 function Save-RuntimeArchiveDownload {
     param(
         [Parameter(Mandatory = $true)][string]$Url,
-        [Parameter(Mandatory = $true)][string]$DestPath
+        [Parameter(Mandatory = $true)][string]$DestPath,
+        [string]$Root = ''
     )
+
+    if ($Root) {
+        $script:ErgomsProjectRoot = $Root
+    }
 
     $parent = Split-Path -Parent $DestPath
     New-Item -ItemType Directory -Path $parent -Force | Out-Null
@@ -24,14 +29,18 @@ function Save-RuntimeArchiveDownload {
     $curlDl = Get-Command curl.exe -ErrorAction SilentlyContinue
     if ($curlDl) {
         & curl.exe -fL --retry 3 --connect-timeout 15 --max-time 600 -A 'ergoms/1.0' -o $partial $Url
-        if ($LASTEXITCODE -ne 0) { throw "curl: не удалось скачать архив (код $LASTEXITCODE)" }
+        if ($LASTEXITCODE -ne 0) {
+            Write-ErgomsMessage -Key 'runtime_archive_curl_failed' -Color Red -Stderr -Param @{ code = $LASTEXITCODE }
+            throw 'runtime_archive_curl_failed'
+        }
     }
     else {
         Invoke-WebRequest -Uri $Url -OutFile $partial -UseBasicParsing -TimeoutSec 600
     }
 
     if (-not (Test-CachedRuntimeArchive -Path $partial)) {
-        throw 'Скачанный архив пуст или отсутствует'
+        Write-ErgomsMessage -Key 'runtime_archive_download_empty' -Color Red -Stderr
+        throw 'runtime_archive_download_empty'
     }
     Move-Item -LiteralPath $partial -Destination $DestPath -Force
 }

@@ -1,4 +1,4 @@
-"""Запуск сервисов разработки: Redis → API/backend → клиент (аналог Start All Services)."""
+"""Запуск сервисов разработки: Redis → API/backend → модули → клиент (аналог Start All Services)."""
 
 from __future__ import annotations
 
@@ -28,8 +28,17 @@ def _wait_api_ready() -> int:
     return subprocess.call([PYTHON, str(wait_script)], cwd=str(PROJECT_ROOT))
 
 
+def _module_start_commands() -> list[tuple[str, str]]:
+    from module_tasks_loader import INCLUDE_START_ALL, tasks_for_target
+
+    commands: list[tuple[str, str]] = []
+    for entry in tasks_for_target(PROJECT_ROOT, INCLUDE_START_ALL):
+        commands.append((entry.label, entry.command))
+    return commands
+
+
 def _ordered_dev_commands() -> list[tuple[str, str]]:
-    """Порядок: Redis → API / media / celery → client|nginx."""
+    """Порядок: Redis → API / media / celery → модули (include_in start-all) → client|nginx."""
     from deployment_env import is_nginx_enabled, is_redis_enabled
 
     commands: list[tuple[str, str]] = []
@@ -41,6 +50,7 @@ def _ordered_dev_commands() -> list[tuple[str, str]]:
         ('Worker', 'ergoms start-worker'),
         ('Beat', 'ergoms start-beat'),
     ])
+    commands.extend(_module_start_commands())
     if is_nginx_enabled():
         commands.append(('Nginx', 'ergoms start-nginx-dev'))
     else:
@@ -59,8 +69,10 @@ def _spawn_windows() -> int:
                 _wait_api_ready()
             else:
                 time.sleep(_GROUP_DELAY_SEC)
+        # Экранирование кавычек в title для cmd start
+        safe_title = title.replace('"', "'")
         subprocess.Popen(
-            f'start "{title}" cmd /c "{command}"',
+            f'start "{safe_title}" cmd /c "{command}"',
             shell=True,
             cwd=str(PROJECT_ROOT),
         )

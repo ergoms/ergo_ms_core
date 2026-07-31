@@ -2,8 +2,16 @@
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable
+
+_DEPLOYMENT_DIR = Path(__file__).resolve().parents[1]
+if str(_DEPLOYMENT_DIR) not in sys.path:
+    sys.path.insert(0, str(_DEPLOYMENT_DIR))
+
+from cli_locale import t  # noqa: E402
 
 from lifecycle.context import DeploymentTarget
 from lifecycle.steps.base import DeploymentStep
@@ -50,6 +58,7 @@ from lifecycle.steps.infra_steps import (  # noqa: E402
     EnsureRedisStep,
     InfraOperationStep,
 )
+from lifecycle.steps.module_tasks_steps import ModuleSetupTasksStep
 from lifecycle.steps.postgres_steps import EnsurePostgresStep
 from lifecycle.steps.service_steps import ServiceOperationStep
 
@@ -98,28 +107,29 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
                 MigrateStep(),
                 WarmupCachesStep(),
                 CollectStaticStep(),
+                ModuleSetupTasksStep(),
             ),
-            description='Полная первичная настройка',
+            description=t('recipe_setup_full'),
         ),
         RecipeSpec(
             'install-python-runtime',
             (EnsurePortablePythonStep(respect_env=False),),
-            description='Скачать portable Python 3.12 в virtual_env/packages/python',
+            description=t('recipe_install_python_runtime'),
         ),
         RecipeSpec(
             'install-nodejs',
             (EnsurePortableNodejsStep(respect_env=False),),
-            description='Скачать portable Node.js LTS в virtual_env/packages/nodejs',
+            description=t('recipe_install_nodejs'),
         ),
         RecipeSpec(
             'install-deps',
             (PythonInstallStep(), NpmInstallStep(), MigrateStep(), WarmupCachesStep()),
-            description='Python + npm, миграции и прогрев кэшей',
+            description=t('recipe_install_deps'),
         ),
         RecipeSpec(
             'python-install',
             (PythonInstallStep(),),
-            description='Только Python-зависимости',
+            description=t('recipe_python_install'),
         ),
         RecipeSpec(
             'setup-application',
@@ -131,7 +141,7 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
                 WarmupCachesStep(),
                 CollectStaticStep(),
             ),
-            description='Зависимости приложения без venv/scaffold',
+            description=t('recipe_setup_application'),
         ),
         RecipeSpec(
             'deploy-api',
@@ -142,12 +152,12 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
                 WarmupCachesStep(),
                 CollectStaticStep(),
             ),
-            description='Развёртывание API',
+            description=t('recipe_deploy_api'),
         ),
         RecipeSpec(
             'deploy-client',
             (_deploy_client_submodules(), NpmInstallStep(), ClientBuildStep()),
-            description='Развёртывание клиента',
+            description=t('recipe_deploy_client'),
         ),
         RecipeSpec(
             'deploy-all',
@@ -160,24 +170,24 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
                 CollectStaticStep(),
                 ClientBuildStep(),
             ),
-            description='Полное развёртывание',
+            description=t('recipe_deploy_all'),
         ),
         RecipeSpec(
             'build-all',
             (ClientBuildStep(), CollectStaticStep()),
-            description='Сборка клиента и static',
+            description=t('recipe_build_all'),
         ),
         RecipeSpec(
             'update-submodules',
             (GitSubmoduleUpdateStep(),),
             target='aux',
-            description='Обновление submodule ядра',
+            description=t('recipe_update_submodules'),
         ),
         RecipeSpec(
             'update-module-submodules',
             (UpdateModuleSubmodulesStep(),),
             target='aux',
-            description='Обновление submodule модулей',
+            description=t('recipe_update_module_submodules'),
         ),
         RecipeSpec(
             'docker-init',
@@ -198,7 +208,7 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
             ),
             target='compose',
             runtime='docker',
-            description='Первичная установка Docker',
+            description=t('recipe_docker_init'),
         ),
         RecipeSpec(
             'docker-bootstrap',
@@ -214,14 +224,14 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
             ),
             target='compose',
             runtime='docker',
-            description='Bootstrap Docker без build',
+            description=t('recipe_docker_bootstrap'),
         ),
         RecipeSpec(
             'docker-migrate',
             (MigrateStep(), WarmupCachesStep()),
             target='compose',
             runtime='docker',
-            description='Миграции в Docker',
+            description=t('recipe_docker_migrate'),
         ),
         RecipeSpec(
             'docker-install-deps',
@@ -290,7 +300,7 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
             'warmup-caches-if-needed',
             (DevForegroundStep('warmup-caches-if-needed'),),
             target='foreground',
-            description='Прогрев кэшей при необходимости',
+            description=t('recipe_warmup_caches'),
         ),
         RecipeSpec(
             'sync-logs-services',
@@ -356,7 +366,7 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
                         ),
                         target='service',
                         needs_sudo=True,
-                        description='Службы ОС: install all (+ nginx/redis при флагах в .env)',
+                        description=t('recipe_service_install_all'),
                     )
                 )
                 continue
@@ -365,7 +375,7 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
                     name,
                     (ServiceOperationStep(op, sid),),
                     target='service',
-                    description=f'Служба: {op} {sid}',
+                    description=t('recipe_service_op', op=op, sid=sid),
                 )
             )
 
@@ -409,7 +419,7 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
                     component in ('nginx', 'redis', 'postgres', 'tls')
                     and op not in ('status', 'test', 'migrate-to-portable')
                 ),
-                description=f'Инфра {component}: {op}',
+                description=t('recipe_infra_op', component=component, op=op),
             )
         )
 

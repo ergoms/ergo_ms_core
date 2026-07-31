@@ -52,9 +52,11 @@ function Install-PortablePython {
     $dest = Get-PortablePythonDir -Root $Root
     $exe = Get-PortablePythonExe -Root $Root
 
+    $script:ErgomsProjectRoot = $Root
+
     if (-not $Force -and (Test-PortablePythonInstalled -Root $Root)) {
         $ver = & $exe --version 2>&1
-        Write-ColorOutput (Format-ErgoConsole -Level skip -Message "Portable Python уже установлен: $ver") Gray
+        Write-ErgomsMessage -Key 'portable_python_skip_installed' -Color Gray -Param @{ version = $ver }
         return $exe
     }
 
@@ -72,11 +74,11 @@ function Install-PortablePython {
         while ($true) {
             $attempt++
             if (-not (Test-CachedRuntimeArchive -Path $archive)) {
-                Write-ColorOutput (Format-ErgoConsole -Level info -Message "Загрузка $($asset.Name)…") Cyan
-                Save-RuntimeArchiveDownload -Url $asset.Url -DestPath $archive
+                Write-ErgomsMessage -Key 'portable_python_info_download' -Color Cyan -Param @{ name = $asset.Name }
+                Save-RuntimeArchiveDownload -Url $asset.Url -DestPath $archive -Root $Root
             }
             else {
-                Write-ColorOutput (Format-ErgoConsole -Level info -Message "Кэш архива Python: $($asset.Name)") Cyan
+                Write-ErgomsMessage -Key 'portable_python_info_cache' -Color Cyan -Param @{ name = $asset.Name }
             }
 
             if (Test-Path -LiteralPath $extract) {
@@ -85,8 +87,11 @@ function Install-PortablePython {
             New-Item -ItemType Directory -Path $extract -Force | Out-Null
             & tar -xf $archive -C $extract
             if ($LASTEXITCODE -ne 0) {
-                if ($attempt -ge 2) { throw 'Не удалось распаковать архив Python (tar)' }
-                Write-ColorOutput (Format-ErgoConsole -Level warning -Message 'Архив Python повреждён — повторная загрузка') Yellow
+                if ($attempt -ge 2) {
+                    Write-ErgomsMessage -Key 'portable_python_error_unpack' -Color Red -Stderr
+                    throw 'portable_python_error_unpack'
+                }
+                Write-ErgomsMessage -Key 'portable_python_warn_corrupt' -Color Yellow
                 Remove-Item -LiteralPath $archive -Force -ErrorAction SilentlyContinue
                 continue
             }
@@ -95,8 +100,11 @@ function Install-PortablePython {
             if (-not (Test-Path -LiteralPath (Join-Path $pythonSrc 'python.exe'))) {
                 $found = Get-ChildItem -Path $extract -Directory | Select-Object -First 1
                 if (-not $found -or -not (Test-Path -LiteralPath (Join-Path $found.FullName 'python.exe'))) {
-                    if ($attempt -ge 2) { throw 'В архиве не найден python.exe' }
-                    Write-ColorOutput (Format-ErgoConsole -Level warning -Message 'Архив Python некорректен — повторная загрузка') Yellow
+                    if ($attempt -ge 2) {
+                        Write-ErgomsMessage -Key 'portable_python_error_bin_missing' -Color Red -Stderr -Param @{ binary = 'python.exe' }
+                        throw 'portable_python_error_bin_missing'
+                    }
+                    Write-ErgomsMessage -Key 'portable_python_warn_invalid' -Color Yellow
                     Remove-Item -LiteralPath $archive -Force -ErrorAction SilentlyContinue
                     continue
                 }
@@ -110,11 +118,12 @@ function Install-PortablePython {
             Move-Item -LiteralPath $pythonSrc -Destination $dest
 
             if (-not (Test-Path -LiteralPath $exe)) {
-                throw "После установки не найден: $exe"
+                Write-ErgomsMessage -Key 'portable_not_found_after_install' -Color Red -Stderr -Param @{ path = $exe }
+                throw 'portable_not_found_after_install'
             }
 
             $ver = & $exe --version 2>&1
-            Write-ColorOutput (Format-ErgoConsole -Level ok -Message "Portable Python установлен: $ver") Green
+            Write-ErgomsMessage -Key 'portable_python_ok_installed' -Color Green -Param @{ version = $ver }
             break
         }
     }

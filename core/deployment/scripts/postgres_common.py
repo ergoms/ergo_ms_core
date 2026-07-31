@@ -7,6 +7,7 @@ from __future__ import annotations
 import os
 import platform
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -21,6 +22,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 if str(DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(DEPLOYMENT_DIR))
 
+from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402
 
 DOWNLOAD_USER_AGENT = 'ergoms/1.0 (PostgreSQL installer)'
@@ -236,7 +238,7 @@ def _download_once(url: str, destination: Path) -> None:
         destination.write_bytes(response.read())
     if destination.stat().st_size < 1024:
         destination.unlink(missing_ok=True)
-        raise RuntimeError(f'Downloaded file is too small: {url}')
+        raise RuntimeError(t('postgres_download_too_small', url=url))
 
 
 def _download_with_curl(url: str, destination: Path) -> bool:
@@ -265,18 +267,18 @@ def _download_with_curl(url: str, destination: Path) -> bool:
 def _download(url: str, destination: Path, *, fallback_urls: tuple[str, ...] = ()) -> None:
     last_error: Exception | None = None
     for candidate in (url, *fallback_urls):
-        print(f'-> Downloading {candidate}')
+        print(t('postgres_downloading', url=candidate))
         try:
             _download_once(candidate, destination)
             return
         except Exception as exc:
             last_error = exc
-            print(format_console('warning', f'Загрузка не удалась ({exc}); следующий источник…'))
+            print(format_console('warning', t('postgres_download_failed', exc=exc)))
             destination.unlink(missing_ok=True)
         if _download_with_curl(candidate, destination):
             return
     raise RuntimeError(
-        f'Не удалось скачать архив PostgreSQL. Последняя ошибка: {last_error}'
+        t('postgres_download_archive_failed', last_error=last_error)
     ) from last_error
 
 
@@ -291,7 +293,7 @@ def resolve_latest_version() -> str:
     for match in re.finditer(r'v(\d+)\.(\d+)/', html):
         versions.append((int(match.group(1)), int(match.group(2))))
     if not versions:
-        raise RuntimeError('Не удалось определить последнюю версию PostgreSQL на ftp.postgresql.org')
+        raise RuntimeError(t('postgres_latest_version_failed'))
     major, minor = max(versions)
     return f'{major}.{minor}'
 
@@ -489,7 +491,7 @@ def _run_pg(
 ) -> subprocess.CompletedProcess[str]:
     binary = postgres_bin(root, tool)
     if not binary.is_file():
-        raise RuntimeError(f'Не найден {tool}: {binary}')
+        raise RuntimeError(t('postgres_tool_not_found', tool=tool, binary=binary))
     full_env = {**os.environ, **(env or {})}
     return subprocess.run(
         [str(binary), *args],
@@ -512,7 +514,7 @@ def _initdb_if_needed(root: Path, user: str, password: str, port: int, bind: str
     pwfile = paths['run'] / 'pwfile'
     pwfile.write_text(password + '\n', encoding='utf-8')
     try:
-        print('-> initdb…')
+        print(t('postgres_initdb_arrow'))
         _run_pg(
             root,
             'initdb',
@@ -528,7 +530,7 @@ def _initdb_if_needed(root: Path, user: str, password: str, port: int, bind: str
     finally:
         pwfile.unlink(missing_ok=True)
     _configure_cluster(root, port, bind)
-    print(format_console('ok', f'Кластер инициализирован: {data}'))
+    print(format_console('ok', t('postgres_cluster_initialized', data=data)))
 
 
 def is_server_running(root: Path) -> bool:
@@ -547,7 +549,7 @@ def start_server(root: Path) -> None:
         return
     data = postgres_data_dir(root)
     log_file = postgres_packages_dir(root) / 'logs' / 'pg_ctl.log'
-    print('-> Запуск PostgreSQL (pg_ctl)…')
+    print(t('postgres_starting_pg_ctl'))
     _run_pg(
         root,
         'pg_ctl',
@@ -599,7 +601,7 @@ def ensure_databases(root: Path, port: int | None = None) -> None:
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError):
             time.sleep(1)
     else:
-        raise RuntimeError('PostgreSQL не принял подключения после старта')
+        raise RuntimeError(t('postgres_not_accepting'))
 
     check = _run_pg(
         root,
@@ -612,11 +614,11 @@ def ensure_databases(root: Path, port: int | None = None) -> None:
         check=False,
     )
     if '1' not in (check.stdout or ''):
-        print(f'-> CREATE DATABASE {dbname}')
+        print(t('postgres_create_database_arrow', dbname=dbname))
         _exec_sql(f'CREATE DATABASE "{dbname}" OWNER "{user}"')
-        print(format_console('ok', f'База данных создана: {dbname}'))
+        print(format_console('ok', t('postgres_db_created', dbname=dbname)))
     else:
-        print(format_console('skip', f'База данных уже есть: {dbname}'))
+        print(format_console('skip', t('postgres_db_exists', dbname=dbname)))
 
     for extra in load_extra_db_sections(root):
         ename = extra['name']
@@ -641,7 +643,7 @@ def ensure_databases(root: Path, port: int | None = None) -> None:
         )
         if '1' not in (db_check.stdout or ''):
             _exec_sql(f'CREATE DATABASE "{ename}" OWNER "{euser}"')
-            print(format_console('ok', f'База данных создана: {ename}'))
+            print(format_console('ok', t('postgres_db_created', dbname=ename)))
 
     print_db_access_summary(root, port=port_i)
 
@@ -653,8 +655,14 @@ def print_db_access_summary(root: Path, port: int | None = None) -> None:
     host = defaults.get('host') or 'localhost'
     print(format_console(
         'info',
-        f"БД: {defaults['name']}  host={host}  port={port_i}  "
-        f"user={defaults['user']}  password={defaults['password']}",
+        t(
+            'postgres_db_access_summary',
+            name=defaults['name'],
+            host=host,
+            port=port_i,
+            user=defaults['user'],
+            password=defaults['password'],
+        ),
     ))
 
 

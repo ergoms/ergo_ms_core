@@ -24,7 +24,7 @@ function Install-Service {
 
     if ($existingService) {
 
-        Write-ColorOutput "-> Служба $ServiceName уже существует, переустановка..." Yellow
+        Write-ErgomsMessage -Key 'service_exists_reinstall' -Color Yellow -Param @{ name = $ServiceName }
 
         
 
@@ -32,7 +32,7 @@ function Install-Service {
 
         if ($existingService.Status -eq 'Running') {
 
-            Write-ColorOutput "   Остановка службы..." Gray
+            Write-ErgomsMessage -Key 'svc_stopping' -Color Gray
 
             & $NssmExe stop $ServiceName 2>$null
 
@@ -44,7 +44,7 @@ function Install-Service {
 
         # Remove service
 
-        Write-ColorOutput "   Удаление службы..." Gray
+        Write-ErgomsMessage -Key 'svc_removing' -Color Gray
 
         & $NssmExe remove $ServiceName confirm 2>$null
 
@@ -62,7 +62,7 @@ function Install-Service {
 
 
 
-    Write-ColorOutput "-> Установка службы: $ServiceName" Cyan
+    Write-ErgomsMessage -Key 'svc_installing' -Color Cyan -Param @{ name = $ServiceName }
 
 
 
@@ -174,7 +174,7 @@ function Install-Service {
 
 
 
-    Write-ColorOutput "[OK] Служба $ServiceName установлена" Green
+    Write-ErgomsMessage -Key 'svc_installed_ok' -Color Green -Param @{ name = $ServiceName }
 
 }
 
@@ -248,7 +248,7 @@ function Install-AllServices {
 
     
 
-    Write-ColorOutput "Установка служб: $($serviceNames -join ', ')" Cyan
+    Write-ErgomsMessage -Key 'svc_installing_list' -Color Cyan -Param @{ items = ($serviceNames -join ', ') }
 
     
 
@@ -260,9 +260,9 @@ function Install-AllServices {
 
 
 
-    Write-ColorOutput "`n[OK] Все службы успешно установлены" Green
+    Write-Host ""; Write-ErgomsMessage -Key 'svc_all_installed_ok' -Color Green
 
-    Write-ColorOutput "Каталог логов: $logsDir" Cyan
+    Write-ErgomsMessage -Key 'svc_logs_dir' -Color Cyan -Param @{ path = $logsDir }
 
 }
 
@@ -314,9 +314,9 @@ function Install-SingleService {
 
 
 
-    Write-ColorOutput "`n[OK] Служба $ServiceName успешно установлена" Green
+    Write-Host ""; Write-ErgomsMessage -Key 'svc_installed_success' -Color Green -Param @{ name = $ServiceName }
 
-    Write-ColorOutput "Каталог логов: $logsDir" Cyan
+    Write-ErgomsMessage -Key 'svc_logs_dir' -Color Cyan -Param @{ path = $logsDir }
 
 }
 
@@ -354,7 +354,7 @@ function Install-WorkerServices {
 
     
 
-    Write-ColorOutput "Установка служб воркеров: $($workerServices -join ', ')" Cyan
+    Write-ErgomsMessage -Key 'svc_installing_workers' -Color Cyan -Param @{ items = ($workerServices -join ', ') }
 
     
 
@@ -366,7 +366,7 @@ function Install-WorkerServices {
 
 
 
-    Write-ColorOutput "`n[OK] Все службы воркеров успешно установлены" Green
+    Write-Host ""; Write-ErgomsMessage -Key 'svc_workers_installed_ok' -Color Green
 
 }
 
@@ -378,7 +378,7 @@ function Start-AllServices {
 
     
 
-    Write-ColorOutput "-> Запуск всех служб..." Cyan
+    Write-ErgomsMessage -Key 'svc_starting_all' -Color Cyan
 
     $serviceNames = Get-ServiceNames -ProjectRoot $ProjectRoot
 
@@ -392,13 +392,13 @@ function Start-AllServices {
 
                 Start-Service -Name $serviceName
 
-                Write-ColorOutput "[OK] Запущена: $serviceName" Green
+                Write-ErgomsMessage -Key 'svc_started_ok' -Color Green -Param @{ name = $serviceName }
 
             }
 
             else {
 
-                Write-ColorOutput "- Не установлена: $serviceName" Gray
+                Write-ErgomsMessage -Key 'svc_not_installed_dash' -Color Gray -Param @{ name = $serviceName }
 
             }
 
@@ -406,7 +406,7 @@ function Start-AllServices {
 
         catch {
 
-            Write-ColorOutput "[ERROR] Не удалось запустить: $serviceName — $($_.Exception.Message)" Red
+            Write-ErgomsMessage -Key 'svc_start_failed' -Color Red -Stderr -Param @{ name = $serviceName; error = $_.Exception.Message }
 
         }
 
@@ -422,7 +422,7 @@ function Stop-AllServices {
 
     
 
-    Write-ColorOutput "-> Остановка всех служб..." Cyan
+    Write-ErgomsMessage -Key 'svc_stopping_all' -Color Cyan
 
     $serviceNames = Get-ServiceNames -ProjectRoot $ProjectRoot
 
@@ -436,13 +436,13 @@ function Stop-AllServices {
 
                 Stop-Service -Name $serviceName -Force
 
-                Write-ColorOutput "[OK] Остановлена: $serviceName" Green
+                Write-ErgomsMessage -Key 'svc_stopped_ok' -Color Green -Param @{ name = $serviceName }
 
             }
 
             else {
 
-                Write-ColorOutput "- Уже остановлена или не установлена: $serviceName" Gray
+                Write-ErgomsMessage -Key 'svc_already_stopped_or_missing' -Color Gray -Param @{ name = $serviceName }
 
             }
 
@@ -450,7 +450,7 @@ function Stop-AllServices {
 
         catch {
 
-            Write-ColorOutput "[ERROR] Не удалось остановить: $serviceName — $($_.Exception.Message)" Red
+            Write-ErgomsMessage -Key 'svc_stop_failed' -Color Red -Stderr -Param @{ name = $serviceName; error = $_.Exception.Message }
 
         }
 
@@ -466,7 +466,7 @@ function Restart-AllServices {
 
     
 
-    Write-ColorOutput "-> Перезапуск всех служб..." Cyan
+    Write-ErgomsMessage -Key 'svc_restarting_all' -Color Cyan
 
     $serviceNames = Get-ServiceNames -ProjectRoot $ProjectRoot
 
@@ -480,13 +480,13 @@ function Restart-AllServices {
 
                 Restart-Service -Name $serviceName -Force
 
-                Write-ColorOutput "[OK] Перезапущена: $serviceName" Green
+                Write-ErgomsMessage -Key 'svc_restarted_ok' -Color Green -Param @{ name = $serviceName }
 
             }
 
             else {
 
-                Write-ColorOutput "- Не установлена: $serviceName" Gray
+                Write-ErgomsMessage -Key 'svc_not_installed_dash' -Color Gray -Param @{ name = $serviceName }
 
             }
 
@@ -494,7 +494,7 @@ function Restart-AllServices {
 
         catch {
 
-            Write-ColorOutput "[ERROR] Не удалось перезапустить: $serviceName — $($_.Exception.Message)" Red
+            Write-ErgomsMessage -Key 'svc_restart_failed' -Color Red -Stderr -Param @{ name = $serviceName; error = $_.Exception.Message }
 
         }
 
@@ -512,7 +512,7 @@ function Start-WorkerServices {
 
     
 
-    Write-ColorOutput "-> Запуск служб воркеров..." Cyan
+    Write-ErgomsMessage -Key 'svc_starting_workers' -Color Cyan
 
     $workerServices = Get-WorkerServiceNames -ProjectRoot $ProjectRoot
 
@@ -526,13 +526,13 @@ function Start-WorkerServices {
 
                 Start-Service -Name $serviceName
 
-                Write-ColorOutput "[OK] Запущена: $serviceName" Green
+                Write-ErgomsMessage -Key 'svc_started_ok' -Color Green -Param @{ name = $serviceName }
 
             }
 
             else {
 
-                Write-ColorOutput "- Не установлена: $serviceName" Gray
+                Write-ErgomsMessage -Key 'svc_not_installed_dash' -Color Gray -Param @{ name = $serviceName }
 
             }
 
@@ -540,7 +540,7 @@ function Start-WorkerServices {
 
         catch {
 
-            Write-ColorOutput "[ERROR] Не удалось запустить: $serviceName — $($_.Exception.Message)" Red
+            Write-ErgomsMessage -Key 'svc_start_failed' -Color Red -Stderr -Param @{ name = $serviceName; error = $_.Exception.Message }
 
         }
 
@@ -556,7 +556,7 @@ function Show-ServicesStatus {
 
     
 
-    Write-ColorOutput "`n=== Статус служб Ergo MS ===" Cyan
+    Write-Host ""; Write-ErgomsMessage -Key 'svc_status_heading' -Color Cyan
 
     Write-ColorOutput ""
 
@@ -590,7 +590,7 @@ function Show-ServicesStatus {
 
             Write-Host "  $serviceName : " -NoNewline
 
-            Write-ColorOutput "Не установлена" DarkGray
+            Write-ErgomsMessage -Key 'svc_status_not_installed' -Color DarkGray
 
         }
 
@@ -600,7 +600,7 @@ function Show-ServicesStatus {
 
     Write-ColorOutput ""
 
-    Write-ColorOutput "Логи: logs\" Cyan
+    Write-ErgomsMessage -Key 'label_logs_short' -Color Cyan -Param @{ path = 'logs\' }
 
 }
 
@@ -648,11 +648,11 @@ function Show-ServiceLogs {
 
     if (-not (Test-Path $logPath)) {
 
-        Write-ColorOutput "[ERROR] Файл лога не найден: $logPath" Red
+        Write-ErgomsMessage -Key 'svc_log_file_not_found' -Color Red -Stderr -Param @{ path = $logPath }
 
-        Write-ColorOutput "Логи пишутся при запуске как службы Windows (ergoms install-services)." Gray
+        Write-ErgomsMessage -Key 'svc_logs_written_as_windows_service' -Color Gray
 
-        Write-ColorOutput "При задачах VS Code вывод идёт в терминал." Gray
+        Write-ErgomsMessage -Key 'svc_logs_vscode_terminal' -Color Gray
 
         exit 1
 
@@ -664,21 +664,21 @@ function Show-ServiceLogs {
 
     $isEmpty = $fileInfo.Length -eq 0
 
-    Write-ColorOutput "-> Последние $Lines строк лога $ServiceName..." Cyan
+    Write-ErgomsMessage -Key 'svc_tail_log' -Color Cyan -Param @{ lines = $Lines; name = $ServiceName }
 
-    Write-ColorOutput "   Файл лога: $logPath" Gray
+    Write-ErgomsMessage -Key 'svc_log_file_label' -Color Gray -Param @{ path = $logPath }
 
     if ($isEmpty) {
 
-        Write-ColorOutput "   Файл лога пуст." Yellow
+        Write-ErgomsMessage -Key 'svc_log_file_empty' -Color Yellow
 
-        Write-ColorOutput "   Подсказка: логи пишутся при запуске как службы Windows (ergoms install-services)." Gray
+        Write-ErgomsMessage -Key 'svc_log_hint_windows_service' -Color Gray
 
-        Write-ColorOutput "   При задачах VS Code (Start All Services) вывод идёт в терминал." Gray
+        Write-ErgomsMessage -Key 'svc_logs_vscode_start_all' -Color Gray
 
         Write-ColorOutput ""
 
-        Write-ColorOutput "Ожидание новых записей (-f)... Нажмите Ctrl+C для выхода." Gray
+        Write-ErgomsMessage -Key 'svc_tail_follow_wait' -Color Gray
 
     }
 
@@ -764,7 +764,7 @@ function Uninstall-AllServices {
 
 
 
-    Write-ColorOutput "-> Удаление всех служб..." Yellow
+    Write-ErgomsMessage -Key 'svc_removing_all' -Color Yellow
 
     
 
@@ -790,7 +790,7 @@ function Uninstall-AllServices {
 
                 if ($currentStatus -eq 'Running' -or $currentStatus -eq 'StartPending') {
 
-                    Write-ColorOutput "  Остановка службы: $serviceName" Gray
+                    Write-ErgomsMessage -Key 'svc_stopping_named' -Color Gray -Param @{ name = $serviceName }
 
                     # Use Stop-Service which handles StopPending state better than nssm
 
@@ -800,7 +800,7 @@ function Uninstall-AllServices {
 
                 elseif ($currentStatus -eq 'StopPending') {
 
-                    Write-ColorOutput "  Служба $serviceName уже останавливается, ожидание..." Gray
+                    Write-ErgomsMessage -Key 'svc_stopping_wait' -Color Gray -Param @{ name = $serviceName }
 
                 }
 
@@ -814,7 +814,7 @@ function Uninstall-AllServices {
 
                     if (-not $stopped) {
 
-                        Write-ColorOutput "  [WARNING] Служба $serviceName не остановилась за отведённое время, принудительная остановка..." Yellow
+                        Write-ErgomsMessage -Key 'svc_force_stop_timeout' -Color Yellow -Param @{ name = $serviceName }
 
                         Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
 
@@ -828,7 +828,7 @@ function Uninstall-AllServices {
 
                 # Remove service
 
-                Write-ColorOutput "  Удаление службы: $serviceName" Gray
+                Write-ErgomsMessage -Key 'svc_removing_named' -Color Gray -Param @{ name = $serviceName }
 
                 if (Test-Path $nssmExe) {
 
@@ -836,7 +836,7 @@ function Uninstall-AllServices {
 
                     if ($LASTEXITCODE -ne 0) {
 
-                        Write-ColorOutput "  NSSM не удалось удалить службу, пробую sc.exe..." Yellow
+                        Write-ErgomsMessage -Key 'svc_nssm_remove_fallback' -Color Yellow
 
                         sc.exe delete $serviceName 2>$null
 
@@ -852,13 +852,13 @@ function Uninstall-AllServices {
 
                 
 
-                Write-ColorOutput "[OK] Удалена: $serviceName" Green
+                Write-ErgomsMessage -Key 'svc_removed_ok' -Color Green -Param @{ name = $serviceName }
 
             }
 
             catch {
 
-                Write-ColorOutput "[ERROR] Не удалось удалить: $serviceName — $($_.Exception.Message)" Red
+                Write-ErgomsMessage -Key 'svc_remove_failed' -Color Red -Stderr -Param @{ name = $serviceName; error = $_.Exception.Message }
 
             }
 
@@ -866,7 +866,7 @@ function Uninstall-AllServices {
 
         else {
 
-            Write-ColorOutput "- Служба не найдена: $serviceName" Gray
+            Write-ErgomsMessage -Key 'svc_not_found_dash' -Color Gray -Param @{ name = $serviceName }
 
         }
 
@@ -881,23 +881,23 @@ function Uninstall-AllServices {
                 Stop-Service -Name $svc.Name -Force -ErrorAction SilentlyContinue
                 Wait-ServiceStopped -ServiceName $svc.Name -TimeoutSeconds 15 | Out-Null
             }
-            Write-ColorOutput "  Удаление legacy-службы: $($svc.Name)" Gray
+            Write-ErgomsMessage -Key 'svc_removing_legacy' -Color Gray -Param @{ name = $svc.Name }
             if (Test-Path $nssmExe) {
                 & $nssmExe remove $svc.Name confirm 2>&1 | Out-Null
             }
             if (Get-Service -Name $svc.Name -ErrorAction SilentlyContinue) {
                 sc.exe delete $svc.Name 2>$null
             }
-            Write-ColorOutput "[OK] Удалена legacy: $($svc.Name)" Green
+            Write-ErgomsMessage -Key 'svc_legacy_removed_ok' -Color Green -Param @{ name = $svc.Name }
         }
         catch {
-            Write-ColorOutput "[WARNING] Не удалось удалить legacy $($svc.Name): $($_.Exception.Message)" Yellow
+            Write-ErgomsMessage -Key 'svc_legacy_remove_failed' -Color Yellow -Param @{ name = $svc.Name; error = $_.Exception.Message }
         }
     }
 
     if ($PurgeData) {
 
-        Write-ColorOutput "-> Удаление данных конфигурации..." Yellow
+        Write-ErgomsMessage -Key 'svc_removing_config_data' -Color Yellow
 
         $dataDir = "$env:ProgramData\ergo_ms"
 
@@ -905,7 +905,7 @@ function Uninstall-AllServices {
 
             Remove-Item $dataDir -Recurse -Force
 
-            Write-ColorOutput "[OK] Удалено: $dataDir" Green
+            Write-ErgomsMessage -Key 'ok_removed_path' -Color Green -Param @{ path = $dataDir }
 
         }
 
@@ -921,7 +921,7 @@ function Uninstall-AllServices {
 
                 Remove-Item $projectLogsDir -Recurse -Force
 
-                Write-ColorOutput "[OK] Удалены логи проекта: $projectLogsDir" Green
+                Write-ErgomsMessage -Key 'svc_project_logs_removed' -Color Green -Param @{ path = $projectLogsDir }
 
             }
 
@@ -931,7 +931,7 @@ function Uninstall-AllServices {
 
 
 
-    Write-ColorOutput "[OK] Удаление служб завершено" Green
+    Write-ErgomsMessage -Key 'svc_remove_done' -Color Green
 
 }
 

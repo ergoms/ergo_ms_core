@@ -6,6 +6,9 @@ NGINX_VERSION='1.27.4'
 NGINX_CONF_NAME='ergo_ms'
 NGINX_SERVICE_NAME='ergo_ms_nginx'
 
+# shellcheck source=portable_archive.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/portable_archive.sh"
+
 _nginx_unit_file() {
   local root="$1"
   echo "$root/core/deployment/wrappers/systemd/${NGINX_SERVICE_NAME}.service"
@@ -84,21 +87,22 @@ _nginx_should_use_ssl() {
 }
 
 _nginx_warn_insecure_certs() {
+  local root="$1"
   local cert="${ERGO_SSL_CERT:-}"
   local key="${ERGO_SSL_KEY:-}"
   if [[ -z "$cert" || -z "$key" ]]; then
-    echo "[WARNING] ERGO_SSL_CERT / ERGO_SSL_KEY не заданы. HTTPS не пройдёт nginx -t." >&2
+    ergoms_console_from_root "$root" nginx_ssl_vars_missing yellow --stderr
     return 0
   fi
   if [[ "$cert" == *snakeoil* || "$key" == *snakeoil* ]]; then
-    echo "[WARNING] Используется самоподписанный сертификат. Для production — Let's Encrypt." >&2
+    ergoms_console_from_root "$root" nginx_ssl_self_signed yellow --stderr
     return 0
   fi
   if [[ ! -f "$cert" ]]; then
-    echo "[WARNING] SSL-сертификат не найден: $cert" >&2
+    ergoms_console_from_root "$root" nginx_ssl_cert_missing yellow --stderr "path=$cert"
   fi
   if [[ ! -f "$key" ]]; then
-    echo "[WARNING] Приватный ключ SSL не найден: $key" >&2
+    ergoms_console_from_root "$root" nginx_ssl_key_missing yellow --stderr "path=$key"
   fi
 }
 
@@ -116,7 +120,8 @@ _nginx_is_installed() {
 }
 
 _nginx_wait_for_apt_locks() {
-  local timeout="${1:-180}"
+  local root="$1"
+  local timeout="${2:-180}"
   local waited=0
   local lock_paths=(
     /var/lib/dpkg/lock-frontend
@@ -142,15 +147,15 @@ _nginx_wait_for_apt_locks() {
       return 0
     fi
     if (( waited == 0 )); then
-      echo "-> Ожидание блокировки apt/dpkg (запущен другой менеджер пакетов)..."
+      ergoms_console_from_root "$root" nginx_apt_lock_wait yellow
     fi
     sleep 3
     waited=$((waited + 3))
   done
 
-  echo "[ERROR] Блокировка apt/dpkg не снята за ${timeout}s." >&2
-  echo "  Дождитесь завершения unattended-upgrades или apt-get и повторите:" >&2
-  echo "  sudo ergoms install-nginx" >&2
-  echo "  Проверка: ps aux | grep -E 'apt|dpkg|unattended'" >&2
+  ergoms_console_from_root "$root" nginx_apt_lock_timeout red --stderr "timeout=$timeout"
+  ergoms_console_from_root "$root" nginx_apt_lock_hint yellow --stderr
+  ergoms_console_from_root "$root" nginx_apt_lock_retry_cmd yellow --stderr
+  ergoms_console_from_root "$root" nginx_apt_lock_check yellow --stderr
   return 1
 }

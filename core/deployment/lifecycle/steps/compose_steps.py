@@ -10,6 +10,7 @@ _DEPLOYMENT_DIR = Path(__file__).resolve().parents[2]
 if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 
+from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402
 from env_resolvers import read_env_file  # noqa: E402
 
@@ -32,7 +33,7 @@ class DockerComposeCommandStep(DeploymentStep):
 
     def run(self, ctx: DeploymentContext) -> StepResult:
         if not docker_ops.find_docker_compose():
-            return StepResult(exit_code=1, message='Docker не найден.')
+            return StepResult(exit_code=1, message=t('docker_not_found_short'))
         extra = list(ctx.options.get('compose_extra_args', [])) or list(self._extra_args)
         cmd, cwd = docker_ops.build_compose_cmd(
             self._compose_command,
@@ -60,7 +61,7 @@ class DockerComposeUpStep(DeploymentStep):
         if docker_ops.setup_marker_exists(root):
             step = DockerComposeCommandStep('up', ['-d', *ctx.extra_services])
             return step.run(ctx)
-        print(format_console('info', 'Первичная установка: поднимаем только redis, postgres и api…'))
+        print(format_console('info', t('docker_bootstrap_infra_up')))
         from lifecycle.orchestrator import DeploymentOrchestrator  # noqa: WPS433
 
         code = DeploymentOrchestrator(root).run_recipe(

@@ -16,7 +16,7 @@ alwaysApply: false
 | Portable CPython 3.12 | `virtual_env/packages/python/` |
 | Python venv | `virtual_env/python/` |
 | Portable Node.js LTS | `virtual_env/packages/nodejs/` |
-| nginx / Redis / NSSM | `virtual_env/packages/{nginx,redis,nssm}/` |
+| nginx / Redis / NSSM / модульные portable | `virtual_env/packages/{nginx,redis,nssm,…}/` — реестр: [`packages.mdc`](packages.mdc) |
 | Let's Encrypt + ACME webroot | `virtual_env/packages/letsencrypt/`, `…/certbot/webroot/` |
 | pip / Poetry / npm cache | `virtual_env/cache/{pip,poetry,npm}/` |
 | Архивы portable Python / Node.js | `virtual_env/cache/downloads/` |

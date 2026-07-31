@@ -10,6 +10,7 @@ _DEPLOYMENT_DIR = Path(__file__).resolve().parents[2]
 if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 
+from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402
 
 from lifecycle.context import DeploymentContext  # noqa: E402
@@ -71,7 +72,7 @@ class DockerBuildStep(DeploymentStep):
 
     def run(self, ctx: DeploymentContext) -> StepResult:
         if self._skip_if_present and docker_ops.should_skip_build(ctx.raw_env):
-            print(format_console('skip', 'Локальные образы уже собраны (DOCKER_BUILD_POLICY=if-missing)'))
+            print(format_console('skip', t('docker_images_already_built')))
             return StepResult()
         extra = list(ctx.options.get('build_extra_args') or []) or list(self._extra_args)
         cmd, cwd = docker_ops.build_compose_cmd(
@@ -120,7 +121,7 @@ class DockerStopBeforeBootstrapStep(DeploymentStep):
         return 'docker_stop_before_bootstrap'
 
     def run(self, ctx: DeploymentContext) -> StepResult:
-        print(format_console('info', 'Остановка сервисов до завершения установки…'))
+        print(format_console('info', t('docker_stop_before_setup')))
         stop_cmd, cwd = docker_ops.build_compose_cmd(
             'stop',
             mode=ctx.docker_mode,
@@ -146,9 +147,9 @@ class DockerBootstrapInfraStep(DeploymentStep):
         code = subprocess.call(cmd, cwd=str(cwd))
         if code != 0:
             return StepResult(exit_code=code)
-        print(format_console('info', 'Ожидание redis и postgres…'))
+        print(format_console('info', t('waiting_redis_postgres')))
         if not docker_ops.wait_bootstrap_infra(ctx.docker_mode, ctx.raw_env):
-            return StepResult(exit_code=1, message='redis/postgres не готовы')
+            return StepResult(exit_code=1, message=t('redis_postgres_not_ready'))
         return StepResult()
 
 
@@ -168,7 +169,7 @@ class DockerUpAppServicesStep(DeploymentStep):
         return 'docker_up_app_services'
 
     def run(self, ctx: DeploymentContext) -> StepResult:
-        print(format_console('info', 'Запуск сервисов приложения…'))
+        print(format_console('info', t('starting_app_services')))
         cmd, cwd = docker_ops.build_compose_cmd(
             'up',
             mode=ctx.docker_mode,
@@ -177,4 +178,4 @@ class DockerUpAppServicesStep(DeploymentStep):
         )
         code = subprocess.call(cmd, cwd=str(cwd))
         return StepResult(exit_code=code)
-
+

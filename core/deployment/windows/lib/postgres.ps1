@@ -152,11 +152,11 @@ function Invoke-PostgresPythonScript {
     $pythonExe = Get-ProjectPythonExeForPostgres -Root $Root
     $scriptPath = Join-Path $Root "core\deployment\scripts\$ScriptName"
     if (-not (Test-Path $pythonExe)) {
-        Write-ColorOutput '[ERROR] Python не найден. Выполните: ergoms setup' Red
+        Write-ErgomsMessage -Key 'python_not_found_setup' -Color Red -Stderr
         return $false
     }
     if (-not (Test-Path $scriptPath)) {
-        Write-ColorOutput "[ERROR] Скрипт не найден: $scriptPath" Red
+        Write-ErgomsMessage -Key 'script_not_found_path' -Color Red -Stderr -Param @{ path = $scriptPath }
         return $false
     }
     $env:PYTHONIOENCODING = 'utf-8'
@@ -192,13 +192,13 @@ function Install-Postgres {
     Initialize-PostgresServiceConfig -Root $Root
 
     Write-ColorOutput '' White
-    Write-ColorOutput '=== PostgreSQL: установка и запуск ===' Cyan
+    Write-ErgomsMessage -Key 'heading_install_run' -Color Cyan -Param @{ name = 'PostgreSQL' }
     Write-ColorOutput '' White
 
     $forceEnv = Test-PostgresForceInstall -Root $Root
     if ((Test-SystemPostgresqlService -Root $Root) -and -not $forceEnv -and -not $NoSkipSystem) {
-        Write-ColorOutput '[SKIP] Найдена системная служба PostgreSQL — portable не устанавливается' Gray
-        Write-ColorOutput '[INFO] Принудительно: POSTGRES_FORCE_INSTALL=true в .env' Cyan
+        Write-ErgomsMessage -Key 'pg_skip_system_service' -Color Gray
+        Write-ErgomsMessage -Key 'pg_info_force_install' -Color Cyan
         return
     }
 
@@ -212,12 +212,12 @@ function Install-Postgres {
 
     $ok = Invoke-PostgresPythonScript -Root $Root -ScriptName 'install_postgres.py' -ExtraArgs $extra
     if (-not $ok) {
-        Write-ColorOutput '[ERROR] Установка PostgreSQL не удалась' Red
+        Write-ErgomsMessage -Key 'error_install_failed' -Color Red -Stderr -Param @{ name = 'PostgreSQL' }
         exit 1
     }
 
     if (-not (Test-PostgresInstalled -Root $Root)) {
-        Write-ColorOutput '[SKIP] Portable PostgreSQL не установлен (системная СУБД или пропуск)' Gray
+        Write-ErgomsMessage -Key 'pg_skip_portable' -Color Gray
         return
     }
 
@@ -228,7 +228,7 @@ function Install-Postgres {
         '--ensure-db-only'
     )
     if (-not $dbOk) {
-        Write-ColorOutput '[ERROR] Не удалось создать базы данных' Red
+        Write-ErgomsMessage -Key 'pg_error_create_dbs' -Color Red -Stderr
         exit 1
     }
 
@@ -236,10 +236,10 @@ function Install-Postgres {
     $listenPort = Get-PostgresListenPort -Root $Root
     $listenBind = Get-PostgresListenBind -Root $Root
     Write-ColorOutput '' White
-    Write-ColorOutput '[OK] PostgreSQL установлен' Green
-    Write-ColorOutput "    Путь: $pgDir" Cyan
-    Write-ColorOutput "    Служба: $($script:PostgresServiceName)" Cyan
-    Write-ColorOutput "    Прослушивание: ${listenBind}:${listenPort}" Cyan
+    Write-ErgomsMessage -Key 'ok_installed' -Color Green -Param @{ name = 'PostgreSQL' }
+    Write-ErgomsMessage -Key 'label_path' -Color Cyan -Param @{ path = $pgDir }
+    Write-ErgomsMessage -Key 'label_service' -Color Cyan -Param @{ name = $script:PostgresServiceName }
+    Write-ErgomsMessage -Key 'label_listening' -Color Cyan -Param @{ addr = "${listenBind}:${listenPort}" }
     Write-PostgresDbAccessSummary -Root $Root
     Write-PostgresYamlPortHint -Root $Root -ListenPort $listenPort
 }
@@ -356,14 +356,15 @@ function Test-PostgresNssmServiceMatches {
 function Start-PostgresServiceAndVerify {
     param(
         [string]$StderrLog,
-        [string]$OkMessage
+        [string]$OkKey = 'pg_ok_service_started',
+        [string]$OkMessage = ''
     )
 
     try {
         Start-Service -Name $script:PostgresServiceName -ErrorAction Stop
     }
     catch {
-        Write-ColorOutput (Format-ErgoConsole -Level error -Message 'Не удалось запустить службу PostgreSQL') Red
+        Write-ErgomsMessage -Key 'pg_error_start_service' -Color Red -Stderr
         if (Test-Path $StderrLog) {
             Get-Content $StderrLog -Tail 15 -ErrorAction SilentlyContinue | ForEach-Object {
                 Write-ColorOutput "    $_" Red
@@ -374,7 +375,7 @@ function Start-PostgresServiceAndVerify {
     Start-Sleep -Seconds 2
     $running = Get-Service -Name $script:PostgresServiceName -ErrorAction SilentlyContinue
     if (-not $running -or $running.Status -ne 'Running') {
-        Write-ColorOutput (Format-ErgoConsole -Level error -Message 'Служба PostgreSQL не перешла в Running') Red
+        Write-ErgomsMessage -Key 'pg_error_not_running' -Color Red -Stderr
         if (Test-Path $StderrLog) {
             Get-Content $StderrLog -Tail 15 -ErrorAction SilentlyContinue | ForEach-Object {
                 Write-ColorOutput "    $_" Red
@@ -382,7 +383,11 @@ function Start-PostgresServiceAndVerify {
         }
         exit 1
     }
-    Write-ColorOutput (Format-ErgoConsole -Level ok -Message $OkMessage) Green
+    if ($OkMessage) {
+        Write-ColorOutput (Format-ErgoConsole -Level ok -Message $OkMessage) Green
+    } else {
+        Write-ErgomsMessage -Key $OkKey -Color Green
+    }
 }
 
 function Install-PostgresService {
@@ -391,7 +396,7 @@ function Install-PostgresService {
     Initialize-PostgresServiceConfig -Root $Root
 
     if (-not (Test-PostgresInstalled -Root $Root)) {
-        Write-ColorOutput (Format-ErgoConsole -Level error -Message 'PostgreSQL не установлен. Выполните: ergoms install-postgres') Red
+        Write-ErgomsMessage -Key 'error_not_installed_run' -Color Red -Stderr -Param @{ name = 'PostgreSQL'; cmd = 'ergoms install-postgres' }
         return
     }
 
@@ -412,16 +417,16 @@ function Install-PostgresService {
     ) {
         Grant-PostgresServiceDirectoryAccess -PgDir $pgDir
         if ($existingService.Status -eq 'Running') {
-            Write-ColorOutput (Format-ErgoConsole -Level skip -Message "Служба $($script:PostgresServiceName) уже настроена и запущена") Gray
+            Write-ErgomsMessage -Key 'pg_service_already_configured_running' -Color Gray -Param @{ name = $script:PostgresServiceName }
             return
         }
-        Write-ColorOutput (Format-ErgoConsole -Level info -Message "Служба $($script:PostgresServiceName) уже настроена — запуск...") Cyan
-        Start-PostgresServiceAndVerify -StderrLog $stderrLog -OkMessage 'Служба PostgreSQL запущена'
+        Write-ErgomsMessage -Key 'pg_service_configured_starting' -Color Cyan -Param @{ name = $script:PostgresServiceName }
+        Start-PostgresServiceAndVerify -StderrLog $stderrLog -OkKey 'pg_ok_service_started'
         return
     }
 
     if ($existingService) {
-        Write-ColorOutput (Format-ErgoConsole -Level info -Message "Служба $($script:PostgresServiceName): параметры устарели, переустановка...") Cyan
+        Write-ErgomsMessage -Key 'pg_service_stale_reinstall' -Color Cyan -Param @{ name = $script:PostgresServiceName }
     }
 
     Stop-PostgresClusterIfRunning -Root $Root -DataDir $dataDir
@@ -441,15 +446,15 @@ function Install-PostgresService {
         }
         & $nssmExe remove $script:PostgresServiceName confirm 2>$null
         if (-not (Wait-PostgresServiceRemoved)) {
-            Write-ColorOutput (Format-ErgoConsole -Level error -Message 'Служба PostgreSQL помечена на удаление, но ещё не снята. Повторите команду через несколько секунд') Red
+            Write-ErgomsMessage -Key 'pg_error_marked_for_deletion' -Color Red -Stderr
             exit 1
         }
     }
 
-    Write-ColorOutput (Format-ErgoConsole -Level info -Message 'Установка PostgreSQL как службы Windows...') Cyan
+    Write-ErgomsMessage -Key 'pg_installing_windows_service' -Color Cyan
     & $nssmExe install $script:PostgresServiceName $postgresExe
     if ($LASTEXITCODE -ne 0) {
-        Write-ColorOutput (Format-ErgoConsole -Level error -Message 'Не удалось зарегистрировать службу PostgreSQL в NSSM') Red
+        Write-ErgomsMessage -Key 'pg_error_nssm_register' -Color Red -Stderr
         exit 1
     }
     & $nssmExe set $script:PostgresServiceName AppParameters "-D `"$dataDir`""
@@ -468,7 +473,7 @@ function Install-PostgresService {
     & $nssmExe set $script:PostgresServiceName AppRestartDelay $script:PostgresServiceRestartDelayMs
 
     Grant-PostgresServiceDirectoryAccess -PgDir $pgDir
-    Start-PostgresServiceAndVerify -StderrLog $stderrLog -OkMessage 'Служба PostgreSQL установлена и запущена'
+    Start-PostgresServiceAndVerify -StderrLog $stderrLog -OkKey 'pg_ok_service_installed_running'
 }
 
 function Stop-PostgresProcess {
@@ -482,11 +487,11 @@ function Stop-PostgresProcess {
     $service = Get-Service -Name $script:PostgresServiceName -ErrorAction SilentlyContinue
     if ($service -and $service.Status -eq 'Running') {
         if (-not $Quiet) {
-            Write-ColorOutput '-> Остановка службы PostgreSQL...' Cyan
+            Write-ErgomsMessage -Key 'arrow_stopping_service' -Color Cyan -Param @{ name = 'PostgreSQL' }
         }
         Stop-Service -Name $script:PostgresServiceName -Force
         if (-not $Quiet) {
-            Write-ColorOutput '[OK] Служба PostgreSQL остановлена' Green
+            Write-ErgomsMessage -Key 'ok_service_stopped' -Color Green -Param @{ name = 'PostgreSQL' }
         }
         return
     }
@@ -496,14 +501,14 @@ function Stop-PostgresProcess {
         $pidFile = Join-Path $dataDir 'postmaster.pid'
         if (Test-Path $pidFile) {
             if (-not $Quiet) {
-                Write-ColorOutput '-> Остановка PostgreSQL (pg_ctl)...' Cyan
+                Write-ErgomsMessage -Key 'pg_arrow_stop_pg_ctl' -Color Cyan
             }
             Stop-PostgresClusterIfRunning -Root $Root -DataDir $dataDir
         }
     }
 
     if (-not $Quiet) {
-        Write-ColorOutput '[OK] PostgreSQL остановлен' Green
+        Write-ErgomsMessage -Key 'ok_stopped' -Color Green -Param @{ name = 'PostgreSQL' }
     }
 }
 
@@ -513,7 +518,7 @@ function Start-PostgresProcess {
     Initialize-PostgresServiceConfig -Root $Root
 
     if (-not (Test-PostgresInstalled -Root $Root)) {
-        Write-ColorOutput '[ERROR] PostgreSQL не установлен. Выполните: ergoms install-postgres' Red
+        Write-ErgomsMessage -Key 'error_not_installed_run' -Color Red -Stderr -Param @{ name = 'PostgreSQL'; cmd = 'ergoms install-postgres' }
         return
     }
 
@@ -522,20 +527,20 @@ function Start-PostgresProcess {
         if ($service.Status -ne 'Running') {
             Start-Service -Name $script:PostgresServiceName
         }
-        Write-ColorOutput '[OK] Служба PostgreSQL запущена' Green
+        Write-ErgomsMessage -Key 'pg_ok_service_started' -Color Green
         return
     }
 
     $pgCtl = Get-PostgresExe -Root $Root -Name 'pg_ctl'
     $dataDir = Get-PostgresDataDir -Root $Root
     $logFile = Join-Path (Get-PostgresDir -Root $Root) 'logs\pg_ctl.log'
-    Write-ColorOutput '-> Запуск PostgreSQL...' Cyan
+    Write-ErgomsMessage -Key 'arrow_starting' -Color Cyan -Param @{ name = 'PostgreSQL' }
     & $pgCtl start -D $dataDir -l $logFile -w -t 60
     if (Test-PostgresPing -Root $Root) {
-        Write-ColorOutput '[OK] PostgreSQL запущен' Green
+        Write-ErgomsMessage -Key 'ok_started' -Color Green -Param @{ name = 'PostgreSQL' }
     }
     else {
-        Write-ColorOutput '[ERROR] PostgreSQL не запустился' Red
+        Write-ErgomsMessage -Key 'pg_error_start_failed' -Color Red -Stderr
         exit 1
     }
 }
@@ -546,14 +551,14 @@ function Restart-PostgresProcess {
     Initialize-PostgresServiceConfig -Root $Root
 
     if (-not (Test-PostgresInstalled -Root $Root)) {
-        Write-ColorOutput '[ERROR] PostgreSQL не установлен. Выполните: ergoms install-postgres' Red
+        Write-ErgomsMessage -Key 'error_not_installed_run' -Color Red -Stderr -Param @{ name = 'PostgreSQL'; cmd = 'ergoms install-postgres' }
         return
     }
 
     $service = Get-Service -Name $script:PostgresServiceName -ErrorAction SilentlyContinue
     if ($service) {
         Restart-Service -Name $script:PostgresServiceName -Force
-        Write-ColorOutput '[OK] Служба PostgreSQL перезапущена' Green
+        Write-ErgomsMessage -Key 'ok_service_restarted' -Color Green -Param @{ name = 'PostgreSQL' }
         return
     }
 
@@ -577,11 +582,11 @@ function Migrate-PostgresToPortable {
     )
 
     Write-ColorOutput '' White
-    Write-ColorOutput '=== PostgreSQL: миграция данных в portable ===' Cyan
+    Write-ErgomsMessage -Key 'pg_heading_migrate' -Color Cyan
     Write-ColorOutput '' White
 
     if (-not (Test-PostgresInstalled -Root $Root)) {
-        Write-ColorOutput (Format-ErgoConsole -Level error -Message 'PostgreSQL не установлен. Выполните: ergoms install-postgres') Red
+        Write-ErgomsMessage -Key 'error_not_installed_run' -Color Red -Stderr -Param @{ name = 'PostgreSQL'; cmd = 'ergoms install-postgres' }
         exit 1
     }
 
@@ -658,10 +663,10 @@ function Write-PostgresDbAccessSummary {
     param([string]$Root)
 
     $access = Get-PostgresDbAccessDefaults -Root $Root
-    Write-ColorOutput "    База: $($access.Name)" Cyan
-    Write-ColorOutput "    Пользователь: $($access.User)" Cyan
-    Write-ColorOutput "    Пароль: $($access.Password)" Cyan
-    Write-ColorOutput '[INFO] Источник: databases.yaml (default) или значения по умолчанию portable' Cyan
+    Write-ErgomsMessage -Key 'pg_label_db' -Color Cyan -Param @{ name = $access.Name }
+    Write-ErgomsMessage -Key 'pg_label_user' -Color Cyan -Param @{ user = $access.User }
+    Write-ErgomsMessage -Key 'pg_label_password' -Color Cyan -Param @{ password = $access.Password }
+    Write-ErgomsMessage -Key 'pg_info_credentials_source' -Color Cyan
 }
 
 function Write-PostgresYamlPortHint {
@@ -672,12 +677,12 @@ function Write-PostgresYamlPortHint {
 
     $yamlPort = Get-PostgresYamlDefaultField -Root $Root -FieldName 'port'
     if (-not $yamlPort) {
-        Write-ColorOutput "[INFO] Задайте default.port в databases.yaml (сейчас portable: $ListenPort)" Cyan
+        Write-ErgomsMessage -Key 'pg_info_set_default_port' -Color Cyan -Param @{ port = $ListenPort }
         return
     }
     if ($yamlPort -ne $ListenPort) {
-        Write-ColorOutput "[WARNING] databases.yaml default.port=$yamlPort, portable слушает $ListenPort" Yellow
-        Write-ColorOutput '[INFO] Переустановите portable (ergoms install-postgres) или выровняйте port в databases.yaml' Cyan
+        Write-ErgomsMessage -Key 'pg_warn_port_mismatch' -Color Yellow -Param @{ yaml_port = $yamlPort; listen_port = $ListenPort }
+        Write-ErgomsMessage -Key 'pg_info_reinstall_or_align_port' -Color Cyan
     }
 }
 
@@ -690,13 +695,13 @@ function Show-PostgresStatus {
     $installed = Test-PostgresInstalled -Root $Root
 
     if (-not $installed) {
-        Write-ColorOutput 'PostgreSQL: не установлен' DarkGray
-        Write-ColorOutput "  Ожидаемый путь: $pgDir" DarkGray
+        Write-ErgomsMessage -Key 'component_not_installed' -Color DarkGray -Param @{ name = 'PostgreSQL' }
+        Write-ErgomsMessage -Key 'label_expected_path' -Color DarkGray -Param @{ path = $pgDir }
         return
     }
 
     Write-ColorOutput '' White
-    Write-ColorOutput '=== Статус PostgreSQL ===' Cyan
+    Write-ErgomsMessage -Key 'heading_status' -Color Cyan -Param @{ name = 'PostgreSQL' }
 
     $service = Get-Service -Name $script:PostgresServiceName -ErrorAction SilentlyContinue
     if ($service) {
@@ -705,24 +710,23 @@ function Show-PostgresStatus {
             'Stopped' { 'Red' }
             default { 'Yellow' }
         }
-        Write-Host "  Служба ($($script:PostgresServiceName)): " -NoNewline
-        Write-ColorOutput "$($service.Status)" $statusColor
+        Write-ErgomsMessage -Key 'label_service_status' -Color $statusColor -Param @{ name = $script:PostgresServiceName; status = $service.Status }
     }
     else {
-        Write-ColorOutput '  Служба: не зарегистрирована' Yellow
+        Write-ErgomsMessage -Key 'service_not_registered' -Color Yellow
     }
 
     $listenPort = Get-PostgresListenPort -Root $Root
     $listenBind = Get-PostgresListenBind -Root $Root
-    Write-ColorOutput "  Путь: $pgDir" Cyan
-    Write-ColorOutput "  Прослушивание: ${listenBind}:${listenPort}" Cyan
+    Write-ErgomsMessage -Key 'label_path_indent2' -Color Cyan -Param @{ path = $pgDir }
+    Write-ErgomsMessage -Key 'label_listening_indent2' -Color Cyan -Param @{ addr = "${listenBind}:${listenPort}" }
     Write-PostgresYamlPortHint -Root $Root -ListenPort $listenPort
 
     if (Test-PostgresPing -Root $Root) {
         Write-ColorOutput '  Ping: OK' Green
     }
     else {
-        Write-ColorOutput '  Ping: не удался (сервер не запущен?)' Yellow
+        Write-ErgomsMessage -Key 'ping_failed_server_down' -Color Yellow
     }
 }
 
@@ -734,7 +738,7 @@ function Uninstall-Postgres {
 
     Initialize-PostgresServiceConfig -Root $Root
 
-    Write-ColorOutput '=== PostgreSQL: удаление ===' Cyan
+    Write-ErgomsMessage -Key 'heading_remove' -Color Cyan -Param @{ name = 'PostgreSQL' }
     Stop-PostgresProcess -Root $Root -Quiet
 
     $service = Get-Service -Name $script:PostgresServiceName -ErrorAction SilentlyContinue
@@ -742,15 +746,15 @@ function Uninstall-Postgres {
         $nssmExe = Install-NSSM -Root $Root
         & $nssmExe stop $script:PostgresServiceName 2>$null
         & $nssmExe remove $script:PostgresServiceName confirm 2>$null
-        Write-ColorOutput '[OK] Служба PostgreSQL удалена' Green
+        Write-ErgomsMessage -Key 'pg_ok_service_removed' -Color Green
     }
 
     $pgDir = Get-PostgresDir -Root $Root
     if ($PurgeData -and (Test-Path $pgDir)) {
         Remove-Item -Path $pgDir -Recurse -Force -ErrorAction SilentlyContinue
-        Write-ColorOutput "[OK] Удалено: $pgDir" Green
+        Write-ErgomsMessage -Key 'ok_removed_path' -Color Green -Param @{ path = $pgDir }
     }
     else {
-        Write-ColorOutput '[OK] PostgreSQL остановлен (бинарники сохранены; для удаления packages/postgres используйте -Purge)' Green
+        Write-ErgomsMessage -Key 'ok_stopped_binaries_kept' -Color Green -Param @{ name = 'PostgreSQL'; pkg = 'postgres'; purge_flag = '-Purge' }
     }
 }

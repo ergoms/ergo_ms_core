@@ -2,8 +2,9 @@
 Вывод сообщений ergoms в консоль с корректной UTF-8 кодировкой.
 
 PowerShell 5.1 в Windows часто некорректно печатает кириллицу; Python — как ergoms help.
-Каталог _MESSAGES — единый источник повторяющихся шаблонов для shell-скриптов ядра.
+Каталог locales/<lang>/cli_messages.yaml — единый источник шаблонов для shell-скриптов ядра.
 Метки консоли — только на английском (см. console_tags.py).
+Язык: ERGO_CLI_LANGUAGE → системная локаль → ru (см. cli_locale.py).
 """
 
 from __future__ import annotations
@@ -16,6 +17,12 @@ _DEPLOYMENT_DIR = Path(__file__).resolve().parents[1]
 if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 
+from cli_locale import (  # noqa: E402
+    ensure_project_env_loaded,
+    get_message_template,
+    resolve_cli_language,
+    t,
+)
 from console_tags import format_console  # noqa: E402
 
 _COLORS = {
@@ -27,27 +34,12 @@ _COLORS = {
     'gray': '\033[90m',
 }
 
-_MESSAGES = {
-    'unknown_command': format_console('error', 'Неизвестная команда: {name}'),
-    'help_hint': 'Справка: ergoms help',
-    'command_suggestions': 'Возможно, вы имели в виду: {items}',
-    'command_failed': format_console('error', 'Команда завершилась с ошибкой: {name}'),
-    'help_unavailable': 'Справка недоступна: не найдено виртуальное окружение.',
-    'help_setup_hint': 'Выполните первичную настройку (ergoms setup или setup-full).',
-    'help_doc_hint': 'Подробнее: .docs/cli.md',
-    'venv_not_found': format_console('error', 'Виртуальное окружение не найдено'),
-    'venv_not_found_at': format_console('error', 'Виртуальное окружение не найдено: {path}'),
-    'venv_setup_hint': 'Сначала выполните ergoms python-install',
-    'invalid_project_root': format_console('error', 'Некорректный корень проекта: {path} не найден'),
-    'project_root_setup_hint': 'Выполните ergoms setup для инициализации всех submodule.',
-    'project_structure_ok': format_console('ok', 'Структура проекта проверена'),
-    'admin_required': format_console('error', 'Для команды «{name}» требуются права администратора'),
-    'admin_powershell_hint': 'Запустите PowerShell от имени администратора',
-    'service_name_required': format_console('error', 'Укажите имя службы'),
-    'unknown_service': format_console('error', 'Неизвестная служба: {name}'),
-    'logs_usage': 'Использование: ergoms logs <имя-службы> [строки]',
-    'available_services': 'Доступные службы: {items}',
-}
+
+def _detect_project_root() -> Path | None:
+    candidate = _DEPLOYMENT_DIR.parent.parent
+    if (candidate / 'pyproject.toml').is_file():
+        return candidate
+    return None
 
 
 def _configure_stdio() -> None:
@@ -66,14 +58,17 @@ def _render_message(
     tag: str | None,
 ) -> str:
     if key:
-        template = _MESSAGES.get(key)
+        template = get_message_template(key)
         if template is None:
-            raise SystemExit(format_console('error', f'Неизвестный ключ сообщения: {key}'))
-        message = template.format(**params)
-    elif text is not None:
+            raise SystemExit(t('unknown_message_key', key=key))
+        message = template.format(**params) if params else template
+        if tag and not message.startswith('['):
+            return format_console(tag, message)
+        return message
+    if text is not None:
         message = text
     else:
-        raise SystemExit(format_console('error', 'Укажите --key или --text'))
+        raise SystemExit(t('specify_key_or_text'))
 
     if tag:
         if message.startswith('['):
@@ -91,6 +86,9 @@ def _format_line(message: str, color: str, stream) -> str:
 
 def main() -> int:
     _configure_stdio()
+    root = _detect_project_root()
+    ensure_project_env_loaded(root)
+    resolve_cli_language(project_root=root)
 
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument('--stderr', action='store_true')

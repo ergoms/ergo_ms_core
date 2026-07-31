@@ -24,6 +24,7 @@ if str(DEPLOYMENT_DIR) not in sys.path:
 if str(DOCKER_DIR) not in sys.path:
     sys.path.insert(0, str(DOCKER_DIR))
 
+from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402
 from lifecycle.docker import ops as docker_ops  # noqa: E402
 
@@ -155,10 +156,10 @@ def build_payload(rows: list[ContainerStats]) -> dict[str, object]:
 
 def print_table(rows: list[ContainerStats]) -> None:
     if not rows:
-        print(format_console('info', 'Контейнеры ERGO MS не запущены'))
+        print(format_console('info', t('no_ergo_containers')))
         return
 
-    headers = ('Контейнер', 'Память', 'RAM %', 'CPU %')
+    headers = (t('docker_stats_header_container'), t('docker_stats_header_memory'), 'RAM %', 'CPU %')
     table_rows = [
         (
             item.name,
@@ -190,12 +191,12 @@ def print_table(rows: list[ContainerStats]) -> None:
 
     total_memory_mib = round(sum(item.memory_used_mib for item in rows), 1)
     print('-' * (sum(widths) + 6))
-    print(fmt_row((f'Итого ({len(rows)} конт.)', f'{total_memory_mib:.1f} MiB', '', '')))
+    print(fmt_row((t('docker_stats_total', count=len(rows)), f'{total_memory_mib:.1f} MiB', '', '')))
 
 
 def render_once(*, mode: str | None, as_json: bool) -> int:
     if not docker_ops.find_docker_compose():
-        print(format_console('error', 'Docker не найден.'), file=sys.stderr)
+        print(format_console('error', t('docker_not_found_dot')), file=sys.stderr)
         return 1
 
     rows = collect_container_stats(mode=mode)
@@ -209,7 +210,7 @@ def render_once(*, mode: str | None, as_json: bool) -> int:
 def run_stats(args: argparse.Namespace) -> int:
     if args.watch:
         if args.interval <= 0:
-            print(format_console('error', 'Интервал должен быть больше нуля'), file=sys.stderr)
+            print(format_console('error', t('interval_must_be_positive')), file=sys.stderr)
             return 1
         try:
             while True:
@@ -227,6 +228,6 @@ def run_stats(args: argparse.Namespace) -> int:
 
 
 def add_stats_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument('--json', action='store_true', help='Вывод в формате JSON')
-    parser.add_argument('-w', '--watch', action='store_true', help='Периодически обновлять отчёт')
-    parser.add_argument('--interval', type=float, default=3.0, help='Интервал обновления в секундах (--watch)')
+    parser.add_argument('--json', action='store_true', help=t('help_json_output'))
+    parser.add_argument('-w', '--watch', action='store_true', help=t('help_watch_report'))
+    parser.add_argument('--interval', type=float, default=3.0, help=t('help_watch_interval'))

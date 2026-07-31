@@ -1,0 +1,60 @@
+# Portable-пакеты ядра → virtual_env/packages/<dest>
+# Модульные пакеты — modules/<name>/packages.yaml (discovery через ModuleCatalog).
+
+packages:
+  nssm:
+    kind: archive
+    dest: nssm
+    version: "2.24"
+    platforms:
+      windows:
+        url: "https://nssm.cc/release/nssm-2.24.zip"
+        archive: zip
+        pick:
+          match: "**/win64/nssm.exe"
+          as: nssm.exe
+        marker: nssm.exe
+
+  python:
+    kind: custom
+    dest: python
+    version: "3.12"
+    installer: lifecycle/runner.py
+    installer_args: [install-python-runtime]
+    pass_root: false
+    marker_windows: python.exe
+    marker_linux: bin/python3
+
+  nodejs:
+    kind: custom
+    dest: nodejs
+    installer: lifecycle/runner.py
+    installer_args: [install-nodejs]
+    pass_root: false
+    marker_windows: node.exe
+    marker_linux: bin/node
+
+  redis:
+    kind: custom
+    dest: redis
+    version: "7.4"
+    installer: scripts/install_redis.py
+    marker_windows: redis-server.exe
+    marker_linux: bin/redis-server
+
+  nginx:
+    kind: custom
+    dest: nginx
+    version: "1.27.4"
+    installer: lifecycle/runner.py
+    installer_args: [nginx-install]
+    pass_root: false
+    marker_windows: nginx.exe
+    marker_linux: sbin/nginx
+
+  postgres:
+    kind: custom
+    dest: postgres
+    installer: scripts/install_postgres.py
+    marker_windows: VERSION
+    marker_linux: VERSION

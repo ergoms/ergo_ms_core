@@ -40,7 +40,9 @@ alwaysApply: true
 | Восстановление меню CMS | миграции меню модуля | [`restore_menu.py`](../../core/api/src/core/cms/management/commands/restore_menu.py) |
 | resource-usage (роли процессов) | `process_roles.yaml` | [`process_roles_loader.py`](../../core/deployment/scripts/process_roles_loader.py), [`process-roles.mdc`](process-roles.mdc) |
 | Тесты deployment (stop/install демонов) | `host_lifecycle.yaml` | [`host_lifecycle_loader.py`](../../core/deployment/scripts/host_lifecycle_loader.py), [`host-lifecycle.mdc`](host-lifecycle.mdc) |
+| Portable-пакеты (`virtual_env/packages`) | `packages.yaml` | [`core/deployment/packages/`](../../core/deployment/packages/), [`packages.mdc`](packages.mdc) |
 | Задачи Run Task (IDE) | `vscode.tasks.yaml` | расширение [`ergo-ms-tasks`](../../.vscode/extensions/tasks), [`module-vscode-tasks.mdc`](module-vscode-tasks.mdc) |
+| setup-full / start-all (модульные install/start) | `vscode.tasks.yaml` (`include_in`) | [`module_tasks_loader.py`](../../core/deployment/scripts/module_tasks_loader.py), [`module-vscode-tasks.mdc`](module-vscode-tasks.mdc) |
 
 Типичный паттерн: `importlib.import_module(...)` или `import.meta.glob('modules/*/...')` по **фиксированному имени файла** из списка установленных модулей — не произвольный import доменного класса.
 

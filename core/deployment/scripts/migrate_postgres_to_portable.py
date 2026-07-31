@@ -21,13 +21,8 @@ if str(SCRIPTS_DIR) not in sys.path:
 if str(DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(DEPLOYMENT_DIR))
 
+from cli_locale import t  # noqa: E402
 from console_tags import configure_stdio_utf8, format_console  # noqa: E402
-
-
-def _log(level: str, message: str) -> None:
-    """Печать с немедленным flush — иначе в PowerShell прогресс часто не виден."""
-    stream = sys.stderr if level == 'error' else sys.stdout
-    print(format_console(level, message), file=stream, flush=True)
 from postgres_common import (  # noqa: E402
     DEFAULT_PORT,
     PORTABLE_DEFAULT_PORT,
@@ -42,6 +37,12 @@ from project_layout import cache_tmp_dir, ensure_dir  # noqa: E402
 
 DUMP_TIMEOUT_SEC = 3600
 SOURCE_DEFAULT_PORT = DEFAULT_PORT
+
+
+def _log(level: str, message: str) -> None:
+    """Печать с немедленным flush — иначе в PowerShell прогресс часто не виден."""
+    stream = sys.stderr if level == 'error' else sys.stdout
+    print(format_console(level, message), file=stream, flush=True)
 
 
 def _normalize_host(host: str) -> str:
@@ -118,7 +119,7 @@ def load_postgresql_sections(root: Path) -> list[dict[str, str]]:
             'port': section.get('port') or defaults.get('port') or str(PORTABLE_DEFAULT_PORT),
         })
     if not sections:
-        raise RuntimeError('В databases.yaml нет секций PostgreSQL для переноса')
+        raise RuntimeError(t('postgres_migrate_no_sections'))
     return sections
 
 
@@ -143,7 +144,7 @@ def _run_tool(
 ) -> subprocess.CompletedProcess[str]:
     binary = postgres_bin(root, tool)
     if not binary.is_file():
-        raise RuntimeError(f'Не найден {tool}: {binary}')
+        raise RuntimeError(t('postgres_tool_not_found', tool=tool, binary=binary))
     # bytes + ручной decode: на Windows psql часто пишет stderr в CP1251.
     raw = subprocess.run(
         [str(binary), *args],
@@ -165,7 +166,7 @@ def _tool_failed(result: subprocess.CompletedProcess[str], label: str) -> None:
     detail = (result.stderr or result.stdout or '').strip()
     if detail:
         print(detail, file=sys.stderr)
-    raise RuntimeError(f'{label} завершился с кодом {result.returncode}')
+    raise RuntimeError(t('postgres_tool_failed', label=label, code=result.returncode))
 
 
 def _psql_scalar(
@@ -210,7 +211,7 @@ def _server_major(
     try:
         return int(value) // 10000
     except ValueError as exc:
-        raise RuntimeError(f'Не удалось определить версию PostgreSQL источника: {value!r}') from exc
+        raise RuntimeError(t('postgres_source_version_failed', value=repr(value))) from exc
 
 
 def _client_major(root: Path) -> int:
@@ -218,7 +219,7 @@ def _client_major(root: Path) -> int:
     text = ((result.stdout or '') + (result.stderr or '')).strip()
     match = re.search(r'(\d+)\.\d+', text)
     if not match:
-        raise RuntimeError(f'Не удалось определить версию pg_dump: {text!r}')
+        raise RuntimeError(t('postgres_pg_dump_version_failed', value=repr(text)))
     return int(match.group(1))
 
 
@@ -307,7 +308,7 @@ def _ensure_role_and_database(
     if not role_exists:
         safe_pass = db_password.replace("'", "''")
         exec_sql(f"CREATE ROLE \"{db_user}\" LOGIN PASSWORD '{safe_pass}'")
-        print(format_console('ok', f'Роль создана: {db_user}'))
+        print(format_console('ok', t('postgres_role_created', user=db_user)))
 
     if not _database_exists(
         root,
@@ -318,7 +319,7 @@ def _ensure_role_and_database(
         database=db_name,
     ):
         exec_sql(f'CREATE DATABASE "{db_name}" OWNER "{db_user}"')
-        print(format_console('ok', f'База данных создана: {db_name}'))
+        print(format_console('ok', t('postgres_db_created', dbname=db_name)))
 
 
 def _recreate_database(
@@ -365,7 +366,7 @@ def _recreate_database(
     )
     if create.returncode != 0:
         _tool_failed(create, 'CREATE DATABASE')
-    print(format_console('ok', f'База данных пересоздана: {db_name}'))
+    print(format_console('ok', t('postgres_db_recreated', dbname=db_name)))
 
 
 def _portable_accepts_connections(root: Path, port: int, timeout_sec: float = 2.0) -> bool:
@@ -392,10 +393,7 @@ def _wait_portable(root: Path, port: int, timeout_sec: float = 30.0) -> None:
         if _portable_accepts_connections(root, port, timeout_sec=2.0):
             return
         time.sleep(1)
-    raise RuntimeError(
-        f'Portable PostgreSQL не принимает соединения на порту {port}. '
-        'Запустите: ergoms start-postgres'
-    )
+    raise RuntimeError(t('postgres_portable_not_accepting', port=port))
 
 
 def _assert_target_admin(
@@ -418,11 +416,13 @@ def _assert_target_admin(
         )
     except RuntimeError as exc:
         raise RuntimeError(
-            f'Не удалось войти в portable как {user}@{host}:{port} '
-            f'с паролем из databases.yaml. '
-            f'В yaml должны быть учётные данные portable (после install-postgres), '
-            f'а логин/пароль системного Postgres — в --source-user / --source-password. '
-            f'Исходная ошибка: {exc}'
+            t(
+                'postgres_target_login_failed',
+                user=user,
+                host=host,
+                port=port,
+                exc=exc,
+            )
         ) from exc
 
 
@@ -494,7 +494,7 @@ def migrate(
 ) -> int:
     if not is_installed(root):
         print(
-            format_console('error', 'Portable PostgreSQL не установлен. Выполните: ergoms install-postgres'),
+            format_console('error', t('postgres_migrate_not_installed')),
             file=sys.stderr,
         )
         return 1
@@ -532,23 +532,41 @@ def migrate(
     if src_host == _normalize_host(target_host) and int(source_port) == int(target_port):
         _log(
             'error',
-            f'Источник и цель совпадают ({src_host}:{source_port}). '
-            f'Укажите --source-port {SOURCE_DEFAULT_PORT} для системного Postgres.',
+            t(
+                'postgres_migrate_same_source_target',
+                host=src_host,
+                port=source_port,
+                default_port=SOURCE_DEFAULT_PORT,
+            ),
         )
         return 1
 
     if client_major < source_major:
         _log(
             'error',
-            f'Версия pg_dump ({client_major}) ниже major источника ({source_major}). '
-            'Обновите portable: ergoms install-postgres',
+            t(
+                'postgres_migrate_client_older',
+                client_major=client_major,
+                source_major=source_major,
+            ),
         )
         return 1
 
     total = len(sections)
-    _log('info', f'Цель: portable {target_host}:{target_port} (учётные данные из databases.yaml)')
-    _log('info', f'Источник: {source_user}@{src_host}:{source_port} (из аргументов команды)')
-    _log('info', f'К переносу: {total} БД')
+    _log(
+        'info',
+        t('postgres_migrate_target_info', host=target_host, port=target_port),
+    )
+    _log(
+        'info',
+        t(
+            'postgres_migrate_source_info',
+            user=source_user,
+            host=src_host,
+            port=source_port,
+        ),
+    )
+    _log('info', t('postgres_migrate_db_count', total=total))
 
     tmp_root = ensure_dir(cache_tmp_dir(root) / 'postgres_migrate')
     dump_paths: list[Path] = []
@@ -564,8 +582,16 @@ def migrate(
 
             _log(
                 'info',
-                f'[{step}] [{section_name}] {db_name}: '
-                f'{src_host}:{src_port} → {target_host}:{target_port}',
+                t(
+                    'postgres_migrate_db_step',
+                    step=step,
+                    section=section_name,
+                    db_name=db_name,
+                    src_host=src_host,
+                    src_port=src_port,
+                    target_host=target_host,
+                    target_port=target_port,
+                ),
             )
 
             target_exists = _database_exists(
@@ -589,19 +615,36 @@ def migrate(
             if target_busy and not force:
                 _log(
                     'error',
-                    f'[{step}] [{section_name}] Целевая БД {db_name} не пуста. '
-                    'Повторите с --force для перезаписи.',
+                    t(
+                        'postgres_migrate_target_not_empty',
+                        step=step,
+                        section=section_name,
+                        db_name=db_name,
+                    ),
                 )
                 return 1
 
             if dry_run:
-                action = 'перезаписать' if target_busy else 'загрузить'
-                _log('ok', f'[{step}] [{section_name}] dry-run: будет {action} {db_name}')
+                action = (
+                    t('postgres_migrate_action_overwrite')
+                    if target_busy
+                    else t('postgres_migrate_action_load')
+                )
+                _log(
+                    'ok',
+                    t(
+                        'postgres_migrate_dry_run_action',
+                        step=step,
+                        section=section_name,
+                        action=action,
+                        db_name=db_name,
+                    ),
+                )
                 continue
 
             dump_path = tmp_root / f'{section_name}_{db_name}.dump'
             dump_paths.append(dump_path)
-            _log('info', f'[{step}] pg_dump {db_name}…')
+            _log('info', t('postgres_migrate_pg_dump', step=step, db_name=db_name))
             dump = _run_tool(
                 root,
                 'pg_dump',
@@ -620,7 +663,10 @@ def migrate(
                 _tool_failed(dump, f'pg_dump [{section_name}]')
             if dump_path.is_file():
                 size_mb = dump_path.stat().st_size / (1024 * 1024)
-                _log('info', f'[{step}] Дамп готов: {size_mb:.1f} МБ')
+                _log(
+                    'info',
+                    t('postgres_migrate_dump_ready', step=step, size_mb=f'{size_mb:.1f}'),
+                )
 
             _ensure_role_and_database(
                 root,
@@ -643,7 +689,7 @@ def migrate(
                     db_user=db_user,
                 )
 
-            _log('info', f'[{step}] pg_restore {db_name}…')
+            _log('info', t('postgres_migrate_pg_restore', step=step, db_name=db_name))
             restore = _run_tool(
                 root,
                 'pg_restore',
@@ -660,21 +706,32 @@ def migrate(
             )
             if restore.returncode != 0:
                 _tool_failed(restore, f'pg_restore [{section_name}]')
-            _log('ok', f'[{step}] [{section_name}] Перенесено: {db_name}')
+            _log(
+                'ok',
+                t(
+                    'postgres_migrate_done_db',
+                    step=step,
+                    section=section_name,
+                    db_name=db_name,
+                ),
+            )
 
         if dry_run:
-            _log('ok', 'Проверка завершена (dry-run), данные не переносились')
+            _log('ok', t('postgres_migrate_dry_run_done'))
             return 0
 
         updated = update_yaml_ports_to_portable(root, target_port, host=target_host)
-        _log('ok', 'Миграция данных в portable PostgreSQL завершена')
+        _log('ok', t('postgres_migrate_complete'))
         if updated:
             _log(
                 'ok',
-                f'В databases.yaml выставлен port: {target_port} '
-                f'для секций: {", ".join(updated)}',
+                t(
+                    'postgres_migrate_yaml_updated',
+                    port=target_port,
+                    sections=', '.join(updated),
+                ),
             )
-        _log('info', 'Перезапустите API, чтобы подхватить portable')
+        _log('info', t('postgres_migrate_restart_api'))
         return 0
     except (RuntimeError, subprocess.TimeoutExpired, OSError) as exc:
         _log('error', str(exc))
@@ -688,42 +745,44 @@ def migrate(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description=(
-            'Перенос данных из системного PostgreSQL в portable. '
-            'Учётные данные portable — в databases.yaml; системного — в --source-*.'
-        ),
+        description=t('postgres_migrate_description'),
     )
-    parser.add_argument('--root', type=Path, default=PROJECT_ROOT, help='Корень проекта')
+    parser.add_argument(
+        '--root',
+        type=Path,
+        default=PROJECT_ROOT,
+        help=t('help_project_root'),
+    )
     parser.add_argument(
         '--source-port',
         type=int,
         default=SOURCE_DEFAULT_PORT,
-        help=f'Порт системного Postgres (по умолчанию {SOURCE_DEFAULT_PORT})',
+        help=t('postgres_migrate_help_source_port', default=SOURCE_DEFAULT_PORT),
     )
     parser.add_argument(
         '--source-host',
         default='127.0.0.1',
-        help='Host системного Postgres (по умолчанию 127.0.0.1)',
+        help=t('postgres_migrate_help_source_host'),
     )
     parser.add_argument(
         '--source-user',
         default='postgres',
-        help='Пользователь системного Postgres (по умолчанию postgres)',
+        help=t('postgres_migrate_help_source_user'),
     )
     parser.add_argument(
         '--source-password',
         required=True,
-        help='Пароль системного Postgres (обязательно)',
+        help=t('postgres_migrate_help_source_password'),
     )
     parser.add_argument(
         '--force',
         action='store_true',
-        help='Перезаписать непустые целевые БД',
+        help=t('postgres_migrate_help_force'),
     )
     parser.add_argument(
         '--dry-run',
         action='store_true',
-        help='Только проверки и список БД, без переноса',
+        help=t('postgres_migrate_help_dry_run'),
     )
     return parser
 

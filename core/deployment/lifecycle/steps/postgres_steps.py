@@ -12,6 +12,7 @@ if str(_DEPLOYMENT_DIR) not in sys.path:
 if str(_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIR))
 
+from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402
 
 from lifecycle.context import DeploymentContext  # noqa: E402
@@ -40,12 +41,12 @@ class EnsurePostgresStep(DeploymentStep):
         if not force and not should_setup_portable_postgres():
             print(format_console(
                 'skip',
-                'ERGO_DB не portable_postgres — portable PostgreSQL не устанавливается',
+                t('postgres_skip_not_portable'),
             ))
             return StepResult()
 
         if has_system_postgresql_service() and not force:
-            print(format_console('skip', 'Системная служба PostgreSQL уже есть'))
+            print(format_console('skip', t('postgres_system_service_skip')))
             return StepResult()
 
         if force and has_system_postgresql_service():
@@ -56,14 +57,13 @@ class EnsurePostgresStep(DeploymentStep):
             listen_port = resolve_portable_listen_port(ctx.project_root)
             print(format_console(
                 'warning',
-                'POSTGRES_FORCE_INSTALL / --with-postgres: portable при системной службе '
-                f'(порт {listen_port} из databases.yaml default.port)',
+                t('postgres_force_with_system', listen_port=listen_port),
             ))
 
         if is_installed(ctx.project_root) and not force:
-            print(format_console('info', 'Portable PostgreSQL найден — проверка службы и БД'))
+            print(format_console('info', t('postgres_portable_found')))
 
-        print(format_console('info', 'Установка / проверка portable PostgreSQL…'))
+        print(format_console('info', t('installing_portable_postgres')))
         extra: list[str] = []
         if force:
             extra.append('--no-skip-system')
@@ -74,7 +74,7 @@ class EnsurePostgresStep(DeploymentStep):
         if code != 0:
             return StepResult(
                 exit_code=code,
-                message='Не удалось установить portable PostgreSQL',
+                message=t('postgres_portable_install_failed'),
             )
-        print(format_console('ok', 'PostgreSQL готов'))
+        print(format_console('ok', t('postgres_ready')))
         return StepResult()

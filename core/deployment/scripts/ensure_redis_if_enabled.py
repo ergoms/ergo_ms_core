@@ -20,6 +20,7 @@ if str(_DEPLOYMENT_DIR) not in sys.path:
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
+from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402
 from deployment_env import PROJECT_ROOT, effective_redis_host, effective_redis_port, is_redis_enabled  # noqa: E402
 from install_redis import is_installed, ping_redis  # noqa: E402
@@ -52,12 +53,12 @@ def ensure_redis_for_dev(*, quiet: bool = False) -> int:
         return 0
 
     if not is_installed(PROJECT_ROOT):
-        print(format_console('error', 'Redis не установлен. Выполните: ergoms install-redis'))
+        print(format_console('error', t('redis_not_installed_hint')))
         return 1
 
     if is_redis_managed_service(PROJECT_ROOT):
         if not quiet:
-            print(format_console('info', 'Redis работает как служба ОС.'))
+            print(format_console('info', t('redis_os_service_running')))
         return 0
 
     def _claim_dev_session(*, source: str) -> None:
@@ -73,7 +74,7 @@ def ensure_redis_for_dev(*, quiet: bool = False) -> int:
     if ping_redis(PROJECT_ROOT):
         _claim_dev_session(source='warmup-adopt')
         if not quiet:
-            print(format_console('info', 'Redis уже запущен.'))
+            print(format_console('info', t('redis_already_started')))
         return 0
 
     result = subprocess.run(
@@ -92,12 +93,12 @@ def ensure_redis_for_dev(*, quiet: bool = False) -> int:
         if ping_redis(PROJECT_ROOT) and _redis_tcp_ready(connect_host, connect_port):
             _claim_dev_session(source='warmup')
             if not quiet:
-                print(format_console('ok', 'Redis запущен.'))
+                print(format_console('ok', t('redis_started_ok')))
             return 0
         time.sleep(0.5)
 
     log_hint = log_file_path('REDIS', PROJECT_ROOT)
-    print(format_console('error', f'Redis не ответил на ping. Проверьте лог: {log_hint}'))
+    print(format_console('error', t('redis_ping_failed_log', path=log_hint)))
     return 1
 
 

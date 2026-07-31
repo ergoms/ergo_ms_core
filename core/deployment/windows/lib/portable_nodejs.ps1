@@ -47,9 +47,11 @@ function Install-PortableNodejs {
     $dest = Get-PortableNodejsDir -Root $Root
     $exe = Get-PortableNodeExe -Root $Root
 
+    $script:ErgomsProjectRoot = $Root
+
     if (-not $Force -and (Test-PortableNodejsInstalled -Root $Root)) {
         $ver = & $exe --version 2>&1
-        Write-ColorOutput (Format-ErgoConsole -Level skip -Message "Portable Node.js уже установлен: $ver") Gray
+        Write-ErgomsMessage -Key 'portable_node_skip_installed' -Color Gray -Param @{ version = $ver }
         return $exe
     }
 
@@ -71,11 +73,11 @@ function Install-PortableNodejs {
         while ($true) {
             $attempt++
             if (-not (Test-CachedRuntimeArchive -Path $zipPath)) {
-                Write-ColorOutput (Format-ErgoConsole -Level info -Message "Загрузка Node.js LTS v$version ($arch)…") Cyan
-                Save-RuntimeArchiveDownload -Url $url -DestPath $zipPath
+                Write-ErgomsMessage -Key 'portable_node_info_download' -Color Cyan -Param @{ version = $version; arch = $arch }
+                Save-RuntimeArchiveDownload -Url $url -DestPath $zipPath -Root $Root
             }
             else {
-                Write-ColorOutput (Format-ErgoConsole -Level info -Message "Кэш архива Node.js: $zipName") Cyan
+                Write-ErgomsMessage -Key 'portable_node_info_cache' -Color Cyan -Param @{ name = $zipName }
             }
 
             if (Test-Path -LiteralPath $extract) {
@@ -85,16 +87,22 @@ function Install-PortableNodejs {
 
             & tar -xf $zipPath -C $extract 2>$null
             if ($LASTEXITCODE -ne 0) {
-                if ($attempt -ge 2) { throw 'Не удалось распаковать архив Node.js (tar)' }
-                Write-ColorOutput (Format-ErgoConsole -Level warning -Message 'Архив Node.js повреждён — повторная загрузка') Yellow
+                if ($attempt -ge 2) {
+                    Write-ErgomsMessage -Key 'portable_node_error_unpack' -Color Red -Stderr
+                    throw 'portable_node_error_unpack'
+                }
+                Write-ErgomsMessage -Key 'portable_node_warn_corrupt' -Color Yellow
                 Remove-Item -LiteralPath $zipPath -Force -ErrorAction SilentlyContinue
                 continue
             }
 
             $inner = Get-ChildItem -Path $extract -Directory | Select-Object -First 1
             if (-not $inner -or -not (Test-Path -LiteralPath (Join-Path $inner.FullName 'node.exe'))) {
-                if ($attempt -ge 2) { throw 'В архиве Node.js не найден node.exe' }
-                Write-ColorOutput (Format-ErgoConsole -Level warning -Message 'Архив Node.js некорректен — повторная загрузка') Yellow
+                if ($attempt -ge 2) {
+                    Write-ErgomsMessage -Key 'portable_node_error_bin_missing' -Color Red -Stderr -Param @{ binary = 'node.exe' }
+                    throw 'portable_node_error_bin_missing'
+                }
+                Write-ErgomsMessage -Key 'portable_node_warn_invalid' -Color Yellow
                 Remove-Item -LiteralPath $zipPath -Force -ErrorAction SilentlyContinue
                 continue
             }
@@ -106,11 +114,12 @@ function Install-PortableNodejs {
             Move-Item -LiteralPath $inner.FullName -Destination $dest
 
             if (-not (Test-Path -LiteralPath $exe)) {
-                throw "После установки не найден: $exe"
+                Write-ErgomsMessage -Key 'portable_not_found_after_install' -Color Red -Stderr -Param @{ path = $exe }
+                throw 'portable_not_found_after_install'
             }
 
             $ver = & $exe --version 2>&1
-            Write-ColorOutput (Format-ErgoConsole -Level ok -Message "Portable Node.js установлен: $ver") Green
+            Write-ErgomsMessage -Key 'portable_node_ok_installed' -Color Green -Param @{ version = $ver }
             break
         }
     }

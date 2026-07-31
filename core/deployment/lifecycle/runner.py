@@ -13,6 +13,7 @@ _PROJECT_ROOT = _DEPLOYMENT_DIR.parent.parent
 if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 
+from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402
 
 from lifecycle.context import HostPlatform  # noqa: E402
@@ -39,8 +40,8 @@ def runner_python_argv(project_root: Path, recipe: str) -> list[str]:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description='ErgoMS lifecycle runner')
-    parser.add_argument('recipe', nargs='?', help='Имя рецепта pipeline')
-    parser.add_argument('--list', action='store_true', help='Список рецептов')
+    parser.add_argument('recipe', nargs='?', help=t('runner_help_recipe'))
+    parser.add_argument('--list', action='store_true', help=t('runner_help_list'))
     parser.add_argument('--recreate-venv', action='store_true')
     parser.add_argument('--docker-mode', choices=('dev', 'prod'), default=None)
     parser.add_argument('--purge', action='store_true')
@@ -51,18 +52,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--email', default='')
     parser.add_argument('--dry-run', action='store_true')
     parser.add_argument('--force', action='store_true',
-                        help='Принудительная перезапись (migrate-postgres-to-portable)')
+                        help=t('runner_help_force'))
     parser.add_argument('--source-port', default='',
-                        help='Порт системного Postgres для migrate-postgres-to-portable')
+                        help=t('runner_help_source_port'))
     parser.add_argument('--source-host', default='',
-                        help='Host системного Postgres для migrate-postgres-to-portable')
+                        help=t('runner_help_source_host'))
     parser.add_argument('--source-user', default='',
-                        help='Пользователь системного Postgres для migrate-postgres-to-portable')
+                        help=t('runner_help_source_user'))
     parser.add_argument('--source-password', default='',
-                        help='Пароль системного Postgres для migrate-postgres-to-portable')
+                        help=t('runner_help_source_password'))
     parser.add_argument('--with-postgres', action='store_true',
-                        help='Принудительно поставить portable PostgreSQL')
-    parser.add_argument('--mode', choices=('dev', 'prod'), default=None, help='alias для --docker-mode')
+                        help=t('runner_help_with_postgres'))
+    parser.add_argument('--mode', choices=('dev', 'prod'), default=None, help=t('runner_help_mode_alias'))
     return parser
 
 
@@ -88,7 +89,7 @@ def main(argv: list[str] | None = None) -> int:
     project_root = detect_project_root()
     spec = RECIPE_REGISTRY.get(args.recipe)
     if spec is None:
-        print(format_console('error', f'Неизвестный рецепт: {args.recipe}'), file=sys.stderr)
+        print(format_console('error', t('unknown_recipe', name=args.recipe)), file=sys.stderr)
         return 1
 
     docker_mode = args.docker_mode or args.mode

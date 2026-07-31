@@ -26,6 +26,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 if str(DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(DEPLOYMENT_DIR))
 
+from cli_locale import t  # noqa: E402
 from console_tags import configure_stdio_utf8, format_console  # noqa: E402
 from log_env import resolve_logs_dir  # noqa: E402
 from project_layout import nodejs_bin_dir, npm_exe, npm_root_dir  # noqa: E402
@@ -124,9 +125,9 @@ def _run_step(
             full_fh.write(footer)
 
     if code == 0:
-        print(format_console('ok', f'{title}: успешно'), flush=True)
+        print(format_console('ok', t('client_check_ok', title=title)), flush=True)
     else:
-        print(format_console('error', f'{title}: код выхода {code}'), flush=True)
+        print(format_console('error', t('client_check_exit_code', title=title, code=code)), flush=True)
     return code
 
 
@@ -135,7 +136,7 @@ def main() -> int:
 
     npm_root = npm_root_dir(PROJECT_ROOT)
     if not (npm_root / 'package.json').is_file():
-        print(format_console('error', f'Не найден npm workspace: {npm_root}'), file=sys.stderr)
+        print(format_console('error', t('npm_workspace_not_found', npm_root=npm_root)), file=sys.stderr)
         return 1
 
     logs_root = resolve_logs_dir(PROJECT_ROOT)
@@ -160,7 +161,7 @@ def main() -> int:
         f'run_dir: {run_dir}\n'
     )
     full_log.write_text(header, encoding='utf-8')
-    print(format_console('info', f'Прогон client-check → {run_dir}'), flush=True)
+    print(format_console('info', t('client_check_run_dir', run_dir=run_dir)), flush=True)
 
     for index, (step_id, title, npm_args) in enumerate(STEPS, start=1):
         code = _run_step(
@@ -184,13 +185,19 @@ def main() -> int:
         f'client-check {stamp}',
         f'run_dir: {run_dir}',
         '',
-        'Шаги:',
+        t('client_check_steps'),
     ]
     for step_id, title, code in results:
         status = 'OK' if code == 0 else f'FAIL ({code})'
         summary_lines.append(f'  {step_id} ({title}): {status}')
     summary_lines.append('')
-    summary_lines.append(f'Итог: {"OK" if exit_code == 0 else "FAIL"} (exit {exit_code})')
+    summary_lines.append(
+        t(
+            'client_check_summary',
+            status='OK' if exit_code == 0 else 'FAIL',
+            exit_code=exit_code,
+        )
+    )
     summary_text = '\n'.join(summary_lines) + '\n'
     summary_log.write_text(summary_text, encoding='utf-8')
     with full_log.open('a', encoding='utf-8') as full_fh:
@@ -202,12 +209,12 @@ def main() -> int:
 
     print(summary_text, end='')
     if exit_code == 0:
-        print(format_console('ok', f'client-check завершён успешно; логи: {run_dir}'), flush=True)
+        print(format_console('ok', t('client_check_success', run_dir=run_dir)), flush=True)
     else:
         print(
             format_console(
                 'error',
-                f'client-check завершён с ошибками ({len(failed)}/{total}); логи: {run_dir}',
+                t('client_check_failed', failed=len(failed), total=total, run_dir=run_dir),
             ),
             flush=True,
         )

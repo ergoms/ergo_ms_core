@@ -30,7 +30,9 @@ class DeploymentOrchestrator:
             from console_tags import format_console
             import sys
 
-            print(format_console('error', f'Неизвестный рецепт: {name}'), file=sys.stderr)
+            from cli_locale import t
+
+            print(format_console('error', t('unknown_recipe', name=name)), file=sys.stderr)
             return 1
 
         resolved_runtime: Literal['host', 'docker'] = runtime or spec.runtime  # type: ignore[assignment]

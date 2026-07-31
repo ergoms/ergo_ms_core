@@ -147,10 +147,10 @@ _postgres_db_access_summary() {
   db_name="$(_postgres_db_access_field "$root" name ergo_ms)"
   db_user="$(_postgres_db_access_field "$root" user postgres)"
   db_password="$(_postgres_db_access_field "$root" password admin)"
-  echo "    База: $db_name"
-  echo "    Пользователь: $db_user"
-  echo "    Пароль: $db_password"
-  echo "[INFO] Источник: databases.yaml (default) или значения по умолчанию portable"
+  write_ergoms_message pg_label_db cyan "" "name=$db_name"
+  write_ergoms_message pg_label_user cyan "" "user=$db_user"
+  write_ergoms_message pg_label_password cyan "" "password=$db_password"
+  write_ergoms_message pg_info_credentials_source cyan
 }
 
 _postgres_yaml_port_hint() {
@@ -159,12 +159,12 @@ _postgres_yaml_port_hint() {
   local yaml_port
   yaml_port="$(_postgres_yaml_default_field "$root" port || true)"
   if [[ -z "$yaml_port" ]]; then
-    echo "[INFO] Задайте default.port в databases.yaml (сейчас portable: $listen_port)"
+    write_ergoms_message pg_info_set_default_port cyan "" "port=$listen_port"
     return 0
   fi
   if [[ "$yaml_port" != "$listen_port" ]]; then
-    echo "[WARNING] databases.yaml default.port=$yaml_port, portable слушает $listen_port"
-    echo "[INFO] Переустановите portable (ergoms install-postgres) или выровняйте port в databases.yaml"
+    write_ergoms_message pg_warn_port_mismatch yellow "" "yaml_port=$yaml_port" "listen_port=$listen_port"
+    write_ergoms_message pg_info_reinstall_or_align_port cyan
   fi
 }
 
@@ -183,7 +183,7 @@ _postgres_run_script() {
   local py
   py="$(_postgres_python "$root")"
   if [[ -z "$py" ]]; then
-    echo "[ERROR] Python не найден. Выполните: ergoms setup" >&2
+    write_ergoms_message python_not_found_setup red --stderr
     return 1
   fi
   export PYTHONIOENCODING=utf-8
@@ -238,7 +238,7 @@ postgres_install() {
   _postgres_init_service_config "$root"
 
   echo ""
-  echo "=== PostgreSQL: установка и запуск ==="
+  write_ergoms_message heading_install_run cyan "" "name=PostgreSQL"
   echo ""
 
   local force_env=false
@@ -247,8 +247,8 @@ postgres_install() {
   fi
 
   if _postgres_system_present "$root" && [[ "$force_env" != "true" ]] && [[ "$no_skip_system" != "true" ]]; then
-    echo "[SKIP] Найдена системная служба PostgreSQL — portable не устанавливается"
-    echo "[INFO] Принудительно: POSTGRES_FORCE_INSTALL=true в .env"
+    write_ergoms_message pg_skip_system_service gray
+    write_ergoms_message pg_info_force_install cyan
     return 0
   fi
 
@@ -259,12 +259,12 @@ postgres_install() {
   fi
 
   if ! _postgres_run_script "$root" "${args[@]}"; then
-    echo "[ERROR] Установка PostgreSQL не удалась" >&2
+    write_ergoms_message error_install_failed red --stderr "name=PostgreSQL"
     return 1
   fi
 
   if ! _postgres_is_installed "$root"; then
-    echo "[SKIP] Portable PostgreSQL не установлен (системная СУБД или пропуск)"
+    write_ergoms_message pg_skip_portable gray
     return 0
   fi
 
@@ -275,7 +275,7 @@ postgres_install() {
   fi
 
   if ! _postgres_run_script "$root" --ensure-db-only; then
-    echo "[ERROR] Не удалось создать базы данных" >&2
+    write_ergoms_message pg_error_create_dbs red --stderr
     return 1
   fi
 
@@ -283,10 +283,10 @@ postgres_install() {
   listen_port="$(_postgres_listen_port "$root")"
   listen_bind="$(_postgres_listen_bind "$root")"
   echo ""
-  echo "[OK] PostgreSQL установлен"
-  echo "    Путь: $(_postgres_dir "$root")"
-  echo "    Служба: $POSTGRES_SERVICE_NAME"
-  echo "    Прослушивание: ${listen_bind}:${listen_port}"
+  write_ergoms_message ok_installed green "" "name=PostgreSQL"
+  write_ergoms_message label_path cyan "" "path=$(_postgres_dir "$root")"
+  write_ergoms_message label_service cyan "" "name=$POSTGRES_SERVICE_NAME"
+  write_ergoms_message label_listening cyan "" "addr=${listen_bind}:${listen_port}"
   _postgres_db_access_summary "$root"
   _postgres_yaml_port_hint "$root" "$listen_port"
 }
@@ -295,7 +295,7 @@ postgres_install_service() {
   local root="$1"
   _postgres_init_service_config "$root"
   if ! _postgres_is_installed "$root"; then
-    echo "[ERROR] PostgreSQL не установлен. Выполните: ergoms install-postgres" >&2
+    write_ergoms_message error_not_installed_run red --stderr "name=PostgreSQL" "cmd=ergoms install-postgres"
     return 1
   fi
 
@@ -305,19 +305,19 @@ postgres_install_service() {
   content="$(_postgres_unit_content "$root")"
   install_unit "$POSTGRES_SERVICE_NAME" "$content" "$root"
   enable_and_start "$POSTGRES_SERVICE_NAME.service"
-  echo "[OK] Служба systemd PostgreSQL установлена и запущена"
+  write_ergoms_message ok_systemd_service_installed_running green "" "name=PostgreSQL"
 }
 
 postgres_start() {
   local root="$1"
   _postgres_init_service_config "$root"
   if ! _postgres_is_installed "$root"; then
-    echo "[ERROR] PostgreSQL не установлен. Выполните: ergoms install-postgres" >&2
+    write_ergoms_message error_not_installed_run red --stderr "name=PostgreSQL" "cmd=ergoms install-postgres"
     return 1
   fi
 
   if systemctl is-active --quiet "$POSTGRES_SERVICE_NAME.service" 2>/dev/null; then
-    echo "[OK] Служба PostgreSQL уже запущена"
+    write_ergoms_message ok_service_already_running green "" "name=PostgreSQL"
     return 0
   fi
 
@@ -327,7 +327,7 @@ postgres_start() {
     else
       sudo systemctl start "$POSTGRES_SERVICE_NAME.service"
     fi
-    echo "[OK] Служба PostgreSQL запущена"
+    write_ergoms_message pg_ok_service_started green
     return 0
   fi
 
@@ -336,12 +336,12 @@ postgres_start() {
   data="$(_postgres_data "$root")"
   log_file="$(_postgres_dir "$root")/logs/pg_ctl.log"
   mkdir -p "$(_postgres_dir "$root")/logs"
-  echo "-> Запуск PostgreSQL..."
+  write_ergoms_message arrow_starting cyan "" "name=PostgreSQL"
   if ! "$pg_ctl" start -D "$data" -l "$log_file" -w -t 60; then
-    echo "[ERROR] PostgreSQL не запустился. Проверьте логи: $log_file" >&2
+    write_ergoms_message error_start_failed_check_logs red --stderr "name=PostgreSQL" "path=$log_file"
     return 1
   fi
-  echo "[OK] PostgreSQL запущен"
+  write_ergoms_message ok_started green "" "name=PostgreSQL"
 }
 
 postgres_stop() {
@@ -350,13 +350,13 @@ postgres_stop() {
   _postgres_init_service_config "$root"
 
   if systemctl is-active --quiet "$POSTGRES_SERVICE_NAME.service" 2>/dev/null; then
-    [[ -z "$quiet" ]] && echo "-> Остановка службы PostgreSQL..."
+    [[ -z "$quiet" ]] && write_ergoms_message arrow_stopping_service cyan "" "name=PostgreSQL"
     if [[ $(id -u) -eq 0 ]]; then
       systemctl stop "$POSTGRES_SERVICE_NAME.service"
     else
       sudo systemctl stop "$POSTGRES_SERVICE_NAME.service"
     fi
-    [[ -z "$quiet" ]] && echo "[OK] Служба PostgreSQL остановлена"
+    [[ -z "$quiet" ]] && write_ergoms_message ok_service_stopped green "" "name=PostgreSQL"
     return 0
   fi
 
@@ -364,11 +364,11 @@ postgres_stop() {
     local pg_ctl data
     pg_ctl="$(_postgres_bin "$root" pg_ctl)"
     data="$(_postgres_data "$root")"
-    [[ -z "$quiet" ]] && echo "-> Остановка PostgreSQL (pg_ctl)..."
+    [[ -z "$quiet" ]] && write_ergoms_message pg_arrow_stop_pg_ctl cyan
     "$pg_ctl" stop -D "$data" -m fast -w 2>/dev/null || true
   fi
 
-  [[ -z "$quiet" ]] && echo "[OK] PostgreSQL остановлен"
+  [[ -z "$quiet" ]] && write_ergoms_message ok_stopped green "" "name=PostgreSQL"
   return 0
 }
 
@@ -382,7 +382,7 @@ postgres_restart() {
     else
       sudo systemctl restart "$POSTGRES_SERVICE_NAME.service"
     fi
-    echo "[OK] Служба PostgreSQL перезапущена"
+    write_ergoms_message ok_service_restarted green "" "name=PostgreSQL"
     return 0
   fi
   postgres_stop "$root"
@@ -396,30 +396,30 @@ postgres_status() {
   dir="$(_postgres_dir "$root")"
 
   if ! _postgres_is_installed "$root"; then
-    echo "PostgreSQL: не установлен"
-    echo "  Ожидаемый путь: $dir"
+    write_ergoms_message component_not_installed gray "" "name=PostgreSQL"
+    write_ergoms_message label_expected_path gray "" "path=$dir"
     return 0
   fi
 
   echo ""
-  echo "=== Статус PostgreSQL ==="
+  write_ergoms_message heading_status cyan "" "name=PostgreSQL"
   if systemctl is-active --quiet "$POSTGRES_SERVICE_NAME.service" 2>/dev/null; then
-    echo "  Служба ($POSTGRES_SERVICE_NAME): active"
+    write_ergoms_message label_service_status green "" "name=$POSTGRES_SERVICE_NAME" "status=active"
   elif [[ -f "$POSTGRES_UNIT_PATH" ]]; then
-    echo "  Служба ($POSTGRES_SERVICE_NAME): inactive"
+    write_ergoms_message label_service_status yellow "" "name=$POSTGRES_SERVICE_NAME" "status=inactive"
   else
-    echo "  Служба: не зарегистрирована"
+    write_ergoms_message service_not_registered yellow
   fi
   local listen_port listen_bind
   listen_port="$(_postgres_listen_port "$root")"
   listen_bind="$(_postgres_listen_bind "$root")"
-  echo "  Путь: $dir"
-  echo "  Прослушивание: ${listen_bind}:${listen_port}"
+  write_ergoms_message label_path_indent2 cyan "" "path=$dir"
+  write_ergoms_message label_listening_indent2 cyan "" "addr=${listen_bind}:${listen_port}"
   _postgres_yaml_port_hint "$root" "$listen_port"
   if _postgres_run_script "$root" --ping-only; then
     echo "  Ping: OK"
   else
-    echo "  Ping: не удался (сервер не запущен?)"
+    write_ergoms_message ping_failed_server_down yellow
   fi
 }
 
@@ -433,18 +433,18 @@ postgres_migrate_to_portable() {
   shift || true
 
   echo ""
-  echo "=== PostgreSQL: миграция данных в portable ==="
+  write_ergoms_message pg_heading_migrate cyan
   echo ""
 
   if ! _postgres_is_installed "$root"; then
-    echo "[ERROR] PostgreSQL не установлен. Выполните: ergoms install-postgres" >&2
+    write_ergoms_message error_not_installed_run red --stderr "name=PostgreSQL" "cmd=ergoms install-postgres"
     return 1
   fi
 
   local py
   py="$(_postgres_python "$root")"
   if [[ -z "$py" ]]; then
-    echo "[ERROR] Python не найден. Выполните: ergoms setup" >&2
+    write_ergoms_message python_not_found_setup red --stderr
     return 1
   fi
   export PYTHONIOENCODING=utf-8
@@ -458,7 +458,7 @@ postgres_uninstall() {
   local purge="${2:-false}"
 
   _postgres_init_service_config "$root"
-  echo "=== PostgreSQL: удаление ==="
+  write_ergoms_message heading_remove cyan "" "name=PostgreSQL"
   postgres_stop "$root" quiet 2>/dev/null || true
 
   if [[ -f "$POSTGRES_UNIT_PATH" ]]; then
@@ -471,15 +471,15 @@ postgres_uninstall() {
       sudo rm -f "$POSTGRES_UNIT_PATH"
       sudo systemctl daemon-reload
     fi
-    echo "[OK] Служба PostgreSQL удалена"
+    write_ergoms_message pg_ok_service_removed green
   fi
 
   local dir
   dir="$(_postgres_dir "$root")"
   if [[ "$purge" == "true" ]] && [[ -d "$dir" ]]; then
     rm -rf "$dir"
-    echo "[OK] Удалено: $dir"
+    write_ergoms_message ok_removed_path green "" "path=$dir"
   else
-    echo "[OK] PostgreSQL остановлен (бинарники сохранены; для удаления packages/postgres используйте --purge)"
+    write_ergoms_message ok_stopped_binaries_kept green "" "name=PostgreSQL" "pkg=postgres" "purge_flag=--purge"
   fi
 }

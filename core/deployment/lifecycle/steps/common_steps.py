@@ -10,6 +10,7 @@ _DEPLOYMENT_DIR = Path(__file__).resolve().parents[2]
 if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 
+from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402
 
 from lifecycle.context import DeploymentContext  # noqa: E402
@@ -29,18 +30,18 @@ class PythonInstallStep(DeploymentStep):
         return self._run_host(ctx)
 
     def _run_host(self, ctx: DeploymentContext) -> StepResult:
-        print(format_console('info', 'Установка Python-зависимостей (ядро + модули)…'))
+        print(format_console('info', t('installing_python_deps')))
         code = host_ops.run_api_command(ctx, 'install')
         return StepResult(exit_code=code)
 
     def _run_docker(self, ctx: DeploymentContext) -> StepResult:
         if not docker_ops.find_docker_compose():
-            return StepResult(exit_code=1, message='Docker не найден.')
-        print(format_console('info', 'Установка Python-зависимостей (ядро + модули)…'))
+            return StepResult(exit_code=1, message=t('docker_not_found_short'))
+        print(format_console('info', t('installing_python_deps')))
         print(
             format_console(
                 'info',
-                f'Прогресс — в этом терминале и в {docker_ops.DOCKER_PYTHON_INSTALL_LOG}',
+                t('python_install_progress', path=docker_ops.DOCKER_PYTHON_INSTALL_LOG),
             )
         )
         code = docker_ops.run_api_oneoff(docker_ops.api_install_shell(), mode=ctx.docker_mode)
@@ -48,7 +49,7 @@ class PythonInstallStep(DeploymentStep):
             print(
                 format_console(
                     'error',
-                    f'Установка Python прервалась. Журнал: {docker_ops.DOCKER_PYTHON_INSTALL_LOG}',
+                    t('python_install_failed_log', path=docker_ops.DOCKER_PYTHON_INSTALL_LOG),
                 ),
                 file=sys.stderr,
             )
@@ -66,13 +67,13 @@ class NpmInstallStep(DeploymentStep):
         return self._run_host(ctx)
 
     def _run_host(self, ctx: DeploymentContext) -> StepResult:
-        print(format_console('info', 'Установка npm-зависимостей…'))
+        print(format_console('info', t('installing_npm_deps')))
         code = host_ops.run_npm(ctx, 'install:all')
         return StepResult(exit_code=code)
 
     def _run_docker(self, ctx: DeploymentContext) -> StepResult:
         if not docker_ops.find_docker_compose():
-            return StepResult(exit_code=1, message='Docker не найден.')
+            return StepResult(exit_code=1, message=t('docker_not_found_short'))
         resolved_mode = ctx.resolved_docker_mode()
         service = docker_ops.npm_client_service(resolved_mode)
         shell = (
@@ -81,8 +82,8 @@ class NpmInstallStep(DeploymentStep):
             '/usr/local/bin/ergo-ensure-npm-deps.sh '
             '2>&1 | tee -a /app/logs/docker/npm-install.log'
         )
-        print(format_console('info', f'Установка npm-зависимостей ({service})…'))
-        print(format_console('info', 'Прогресс npm — в logs/docker/npm-install.log (первый запуск может занять несколько минут)'))
+        print(format_console('info', t('installing_npm_deps_service', service=service)))
+        print(format_console('info', t('npm_progress_docker_log')))
         cmd, cwd = docker_ops.build_compose_cmd(
             'run',
             mode=ctx.docker_mode,
@@ -104,14 +105,14 @@ class MigrateStep(DeploymentStep):
         return self._run_host(ctx)
 
     def _run_host(self, ctx: DeploymentContext) -> StepResult:
-        print(format_console('info', 'Применение миграций…'))
+        print(format_console('info', t('applying_migrations')))
         code = host_ops.run_api_command(ctx, 'migrate')
         return StepResult(exit_code=code)
 
     def _run_docker(self, ctx: DeploymentContext) -> StepResult:
         if not docker_ops.find_docker_compose():
-            return StepResult(exit_code=1, message='Docker не найден.')
-        print(format_console('info', 'Миграции…'))
+            return StepResult(exit_code=1, message=t('docker_not_found_short'))
+        print(format_console('info', t('migrations_ellipsis')))
         code = docker_ops.run_api_oneoff(docker_ops.api_migrate_shell(), mode=ctx.docker_mode)
         return StepResult(exit_code=code)
 
@@ -124,7 +125,7 @@ class WarmupCachesStep(DeploymentStep):
     def run(self, ctx: DeploymentContext) -> StepResult:
         if ctx.runtime == 'docker':
             if not docker_ops.find_docker_compose():
-                return StepResult(exit_code=1, message='Docker не найден.')
+                return StepResult(exit_code=1, message=t('docker_not_found_short'))
             code = docker_ops.run_api_oneoff(docker_ops.api_warmup_shell(), mode=ctx.docker_mode)
             return StepResult(exit_code=code)
         code = host_ops.run_api_command(ctx, 'warmup_caches')
@@ -140,7 +141,7 @@ class ClientBuildStep(DeploymentStep):
         return 'client_build'
 
     def run(self, ctx: DeploymentContext) -> StepResult:
-        print(format_console('info', 'Сборка клиента…'))
+        print(format_console('info', t('building_client')))
         code = host_ops.run_npm(ctx, 'build')
         return StepResult(exit_code=code)
 
@@ -154,6 +155,6 @@ class CollectStaticStep(DeploymentStep):
         return 'collectstatic'
 
     def run(self, ctx: DeploymentContext) -> StepResult:
-        print(format_console('info', 'Сбор статических файлов…'))
+        print(format_console('info', t('collecting_static')))
         code = host_ops.run_api_command(ctx, 'collectstatic', '--noinput')
         return StepResult(exit_code=code)

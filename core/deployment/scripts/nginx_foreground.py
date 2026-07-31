@@ -17,6 +17,7 @@ if str(_DEPLOYMENT_DIR) not in sys.path:
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
+from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402
 from log_env import log_file_path, nginx_access_log_enabled  # noqa: E402
 
@@ -105,9 +106,9 @@ def nginx_log_tail_paths() -> list[Path]:
 
 
 def _print_client_hint(url: str) -> None:
-    print(format_console('info', 'NGINX_ENABLED=true — клиент отдаётся через nginx.'))
-    print(format_console('info', f'Откройте {url}'))
-    print(format_console('info', 'После правок клиента: ergoms client-build && ergoms reload-nginx'))
+    print(format_console('info', t('nginx_client_via_nginx')))
+    print(format_console('info', t('open_url', url=url)))
+    print(format_console('info', t('after_client_edits_hint')))
 
 
 def tail_log_files(
@@ -134,20 +135,20 @@ def tail_log_files(
         if time.monotonic() >= deadline:
             print(format_console(
                 'info',
-                f'Файлы логов {service} не найдены. {service} работает; ожидание (Ctrl+C — выход)...',
+                t('log_files_not_found_waiting', service=service),
             ))
             try:
                 while True:
                     time.sleep(3600)
             except KeyboardInterrupt:
-                print(format_console('info', 'Потоковый вывод логов остановлен.'))
+                print(format_console('info', t('log_stream_stopped')))
             return 0
         time.sleep(0.5)
 
     if process_keeps_running:
-        tail_hint = f'Потоковый вывод логов {service_lower} (Ctrl+C — выход, {service} продолжит работу)...'
+        tail_hint = t('log_stream_keeps_running', service_lower=service_lower, service=service)
     else:
-        tail_hint = f'Потоковый вывод логов {service_lower} (Ctrl+C — выход)...'
+        tail_hint = t('log_stream_exit', service_lower=service_lower)
     print(format_console('info', tail_hint))
     try:
         while True:
@@ -158,7 +159,7 @@ def tail_log_files(
                     line = handle.readline()
             time.sleep(0.3)
     except KeyboardInterrupt:
-        print(format_console('info', 'Потоковый вывод логов остановлен.'))
+        print(format_console('info', t('log_stream_stopped')))
         return 0
     finally:
         for handle in handles.values():

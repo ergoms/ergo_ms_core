@@ -21,11 +21,11 @@ function Install-NSSM {
     $nssmExe = Join-Path $nssmDir "nssm.exe"
 
     if (Test-Path -LiteralPath $nssmExe) {
-        Write-ColorOutput "[OK] NSSM уже установлен: $nssmExe" Green
+        Write-ErgomsMessage -Key 'nssm_already_installed' -Color Green -Param @{ path = $nssmExe }
         return $nssmExe
     }
 
-    Write-ColorOutput "-> Загрузка NSSM..." Yellow
+    Write-ErgomsMessage -Key 'nssm_downloading' -Color Yellow
     $cacheTmp = Join-Path $Root "virtual_env\cache\tmp"
     New-Item -ItemType Directory -Path $cacheTmp -Force | Out-Null
     $tempZip = Join-Path $cacheTmp "nssm.zip"
@@ -51,7 +51,7 @@ function Install-NSSM {
         New-Item -ItemType Directory -Path $nssmDir -Force | Out-Null
         Copy-Item $nssmSource.FullName -Destination $nssmExe -Force
 
-        Write-ColorOutput "[OK] NSSM установлен: $nssmExe" Green
+        Write-ErgomsMessage -Key 'nssm_installed' -Color Green -Param @{ path = $nssmExe }
     }
     finally {
         if (Test-Path -LiteralPath $tempZip) { Remove-Item -LiteralPath $tempZip -Force -ErrorAction SilentlyContinue }

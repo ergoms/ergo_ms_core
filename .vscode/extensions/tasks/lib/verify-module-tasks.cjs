@@ -8,6 +8,7 @@ const os = require('os');
 const {
   parseYaml,
   discoverModuleTaskDefs,
+  discoverModuleIncludeTasks,
   ERGO_MODULE_TASK_TYPE
 } = require('./module-tasks.cjs');
 
@@ -88,12 +89,71 @@ if (!w2.some((m) => m.includes('ergoms'))) {
 console.log('[OK] non-ergoms command skipped with warning');
 fs.rmSync(tmpDir, { recursive: true, force: true });
 
-const vsix = path.join(
-  root,
-  '.vscode/local-extensions/ergo-ms-tasks-1.4.0.vsix'
+const includeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ergo-mtasks-inc-'));
+const incMod = path.join(includeDir, 'modules', 'agg_mod');
+fs.mkdirSync(path.join(incMod, 'api'), { recursive: true });
+fs.writeFileSync(
+  path.join(incMod, 'vscode.tasks.yaml'),
+  [
+    'module: agg_mod',
+    'tasks:',
+    '  - label: "Agg: Install"',
+    '    detail: "Установка"',
+    '    command: "ergoms agg_mod:install"',
+    '    hide: true',
+    '    include_in:',
+    '      - setup-full',
+    '  - label: "Agg: Start"',
+    '    detail: "Запуск"',
+    '    command: "ergoms agg_mod:start"',
+    '    panel: new',
+    '    include_in:',
+    '      - start-all'
+  ].join('\n')
 );
-if (!fs.existsSync(vsix)) {
-  throw new Error('VSIX 1.3.0 missing');
+const includeParsed = parseYaml(
+  fs.readFileSync(path.join(incMod, 'vscode.tasks.yaml'), 'utf8')
+);
+if (!Array.isArray(includeParsed.tasks[0].include_in)) {
+  throw new Error('include_in not parsed as array');
 }
-console.log('[OK] VSIX 1.4.0 present');
+if (!includeParsed.tasks[0].include_in.includes('setup-full')) {
+  throw new Error('include_in setup-full missing in parse');
+}
+const setupTasks = discoverModuleIncludeTasks(
+  includeDir,
+  () => '',
+  'setup-full',
+  () => {}
+);
+if (!setupTasks.some((t) => t.label === 'Agg: Install' && t.hide)) {
+  throw new Error('hide+setup-full task missing from aggregate');
+}
+const startTasks = discoverModuleIncludeTasks(
+  includeDir,
+  () => '',
+  'start-all',
+  () => {}
+);
+if (!startTasks.some((t) => t.label === 'Agg: Start')) {
+  throw new Error('start-all task missing from aggregate');
+}
+const runTaskDefs = discoverModuleTaskDefs(includeDir, () => '', () => {});
+if (runTaskDefs.some((t) => t.label === 'Agg: Install')) {
+  throw new Error('hide task leaked into Run Task discovery');
+}
+if (!runTaskDefs.some((t) => t.label === 'Agg: Start')) {
+  throw new Error('visible start task missing from Run Task discovery');
+}
+console.log('[OK] include_in setup-full/start-all aggregation');
+fs.rmSync(includeDir, { recursive: true, force: true });
+
+const vsixDir = path.join(root, '.vscode/local-extensions');
+const vsixMatch = fs.existsSync(vsixDir)
+  ? fs.readdirSync(vsixDir).find((name) => /^ergo-ms-tasks-[\d.]+\.vsix$/.test(name))
+  : null;
+if (!vsixMatch) {
+  throw new Error('VSIX ergo-ms-tasks missing in .vscode/local-extensions');
+}
+console.log(`[OK] VSIX ${vsixMatch} present`);
 console.log('[OK] all checks passed');

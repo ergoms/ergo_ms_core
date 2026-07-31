@@ -17,6 +17,7 @@ _DEPLOYMENT_DIR = _SCRIPTS_DIR.parent
 if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 
+from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402
 
 from ergo_process_classifier import (  # noqa: E402
@@ -30,11 +31,11 @@ def resolve_root(explicit: str | None) -> Path:
     if explicit:
         root = Path(explicit).resolve()
         if not root.is_dir():
-            raise SystemExit(format_console('error', f'Каталог проекта не найден: {root}'))
+            raise SystemExit(format_console('error', t('project_dir_not_found', root=root)))
         return root
     if (PROJECT_ROOT / 'pyproject.toml').is_file():
         return PROJECT_ROOT
-    raise SystemExit(format_console('error', 'Не удалось определить корень проекта; укажите --root'))
+    raise SystemExit(format_console('error', t('project_root_resolve_failed')))
 
 
 def collect_samples(root: Path) -> list[ProcessSample]:
@@ -63,10 +64,10 @@ def build_payload(samples: list[ProcessSample]) -> dict[str, object]:
 
 def print_table(samples: list[ProcessSample]) -> None:
     if not samples:
-        print(format_console('info', 'Процессы ERGO MS не найдены'))
+        print(format_console('info', t('no_ergo_processes')))
         return
 
-    headers = ('Роль', 'PID', 'RAM (МБ)', 'CPU %')
+    headers = (t('resource_header_role'), t('resource_header_pid'), t('resource_header_ram'), 'CPU %')
     rows = [
         (item.role, str(item.pid), f'{item.memory_mb:.1f}', f'{item.cpu_percent:.1f}')
         for item in samples
@@ -93,7 +94,7 @@ def print_table(samples: list[ProcessSample]) -> None:
 
     total_memory_mb = round(sum(item.memory_mb for item in samples), 1)
     print('-' * (sum(widths) + 6))
-    print(fmt_row((f'Итого ({len(samples)} проц.)', '', f'{total_memory_mb:.1f}', '')))
+    print(fmt_row((t('resource_usage_total', count=len(samples)), '', f'{total_memory_mb:.1f}', '')))
 
 
 def render_once(root: Path, *, as_json: bool) -> int:
@@ -111,18 +112,18 @@ def main() -> int:
     if hasattr(sys.stderr, 'reconfigure'):
         sys.stderr.reconfigure(encoding='utf-8')
 
-    parser = argparse.ArgumentParser(description='Потребление RAM/CPU процессов ERGO MS на хосте')
-    parser.add_argument('--json', action='store_true', help='Вывод в формате JSON')
-    parser.add_argument('-w', '--watch', action='store_true', help='Периодически обновлять отчёт')
-    parser.add_argument('--interval', type=float, default=3.0, help='Интервал обновления в секундах (--watch)')
-    parser.add_argument('--root', default=None, help='Корень проекта ERGO MS')
+    parser = argparse.ArgumentParser(description=t('resource_usage_description'))
+    parser.add_argument('--json', action='store_true', help=t('help_json_output'))
+    parser.add_argument('-w', '--watch', action='store_true', help=t('help_watch_report'))
+    parser.add_argument('--interval', type=float, default=3.0, help=t('help_watch_interval'))
+    parser.add_argument('--root', default=None, help=t('help_project_root'))
     args = parser.parse_args()
 
     root = resolve_root(args.root)
 
     if args.watch:
         if args.interval <= 0:
-            raise SystemExit(format_console('error', 'Интервал должен быть больше нуля'))
+            raise SystemExit(format_console('error', t('interval_must_be_positive')))
         try:
             while True:
                 if not args.json and sys.stdout.isatty():

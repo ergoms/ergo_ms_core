@@ -44,7 +44,7 @@ function Write-NginxSkipClientMessage {
         }
     }
 
-    Write-ColorOutput '[OK] ergo_ms_client_dev пропущен (ERGO_PROXY=nginx / NGINX_ENABLED, клиент отдаётся через nginx)' Green
-    Write-ColorOutput "  Откройте: http://$publicHost" Cyan
-    Write-ColorOutput '  После изменений UI: ergoms client-build && ergoms reload-nginx' Gray
+    Write-ErgomsMessage -Key 'skip_client_dev_nginx' -Color Green
+    Write-ErgomsMessage -Key 'open_url' -Color Cyan -Param @{ url = "http://$publicHost" }
+    Write-ErgomsMessage -Key 'after_client_edits_hint' -Color Gray
 }

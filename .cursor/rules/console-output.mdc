@@ -1,8 +1,9 @@
 ---
-description: Метки консольного вывода ergoms — [OK]/[ERROR]/[WARNING]/[SKIP] на английском, текст на русском; console_tags.py
+description: Метки консольного вывода ergoms — [OK]/[ERROR]/[WARNING]/[SKIP] на английском; текст через cli_locale.py и каталоги locales/
 globs:
   - "core/deployment/**"
   - "**/console_tags.py"
+  - "**/cli_locale.py"
   - "**/ergoms_console.py"
 alwaysApply: false
 ---
@@ -11,10 +12,12 @@ alwaysApply: false
 
 ## Кратко
 
-- **Текст** сообщения для человека — **русский** (ergoms clean, setup, nginx, ошибки CLI).
+- **Текст** для человека — из каталогов локализации CLI: `core/deployment/locales/<lang>/cli_messages.yaml` (опционально `cli_messages/*.yaml`). Доступ: `t('key')` в Python, `Write-ErgomsMessage -Key` / `write_ergoms_message --key` в shell.
+- **Источник строк** — русский в основных YAML; переводы — overlay-файлы той же структуры в `locales/<lang>/`. Пропущенный перевод → русский fallback.
+- **Язык CLI**: `ERGO_CLI_LANGUAGE` (`.env` / процесс) → системная локаль → `ru`. `DEFAULT_LANGUAGE` для CLI **не** используется.
 - **Метки** в начале строки — **только английские**, как в логах API: `[OK]`, `[ERROR]`, `[WARNING]`, `[SKIP]`, `[INFO]`.
 - **Запрещено** переводить метки: `[ПРОПУСК]`, `[ОШИБКА]`, `[ПРЕДУПРЕЖДЕНИЕ]`.
-- Единый источник — [`console_tags.py`](../../core/deployment/console_tags.py).
+- Реализация — [`cli_locale.py`](../../core/deployment/cli_locale.py); метки — [`console_tags.py`](../../core/deployment/console_tags.py).
 
 ## Обязательно
 
@@ -29,10 +32,11 @@ alwaysApply: false
 Python:
 
 ```python
+from cli_locale import t
 from console_tags import format_console
 
-print(format_console('skip', f'{label} не найден'))
-raise SystemExit(format_console('error', 'Корень проекта не найден'))
+print(format_console('skip', t('clean.path_not_found', label=label)))
+raise SystemExit(format_console('error', t('project_root_not_found')))
 ```
 
 Bash (после `source core.sh`):
@@ -60,7 +64,7 @@ ergoms-console --tag error --text "сообщение" --stderr
 
 | Контекст | Формат | Где |
 |----------|--------|-----|
-| Консоль ergoms / deployment | `[OK]`, `[ERROR]`, … + русский текст | `ergoms clean`, setup, nginx |
+| Консоль ergoms / deployment | `[OK]`, `[ERROR]`, … + локализованный текст (`t`) | `ergoms clean`, setup, nginx |
 | Файлы `logs/*.log` | `[INFO]`, `[WARNING]`, `[ERROR]` + timestamp + logger | [`logging_config.py`](../../core/api/src/config/logging_config.py) |
 
 Уровни logging **не** переводить и **не** заменять на `[OK]`/`[SKIP]`.
@@ -88,16 +92,18 @@ Write-ColorOutput "[ПРОПУСК] уже пуст" Gray
 [ERROR] Не удалось удалить virtual_env/npm/node_modules
 ```
 
-Заголовки шагов без метки — русский текст: `-> Шаг 2/9: очистка virtual_env/python...`
+Заголовки шагов без метки — через `t('…')`: `-> Шаг 2/9: очистка virtual_env/python...`
 
 ## Скрипты ergoms и терминал VS Code
 
-Сообщения для человека в **`core/deployment/scripts/`** (в т.ч. `start_client_if_dev.py`, `nginx_foreground.py`, `ergoms_console.py`) и в shell/PowerShell развёртывания — **русский текст**, метки — `[OK]` / `[INFO]` / `[ERROR]` через [`console_tags.py`](../../core/deployment/console_tags.py).
+Сообщения для человека в **`core/deployment/scripts/`** (в т.ч. `start_client_if_dev.py`, `nginx_foreground.py`, `ergoms_console.py`) и в shell/PowerShell развёртывания — **ключи `cli_messages`**, не литералы в коде; метки — `[OK]` / `[INFO]` / `[ERROR]` через [`console_tags.py`](../../core/deployment/console_tags.py).
+
+Новые строки добавляй в `core/deployment/locales/ru/cli_messages.yaml` (+ overlay в `locales/en/`, `locales/fr/` и др.).
 
 **Запрещено** в пользовательском выводе:
 
-- английские фразы вроде `Open http://…`, `After UI changes`, `starting nginx in foreground`, `Stopped log streaming`, `nginx is already running`;
-- префикс `[ergoms]` без метки уровня — используй `format_console('info', '…')`.
+- хардкод пользовательского текста вместо `t('key')` / `Write-ErgomsMessage -Key`;
+- префикс `[ergoms]` без метки уровня — используй `format_console('info', t('…'))`.
 
 **Допустимо на английском:** сырой вывод nginx (`nginx: configuration file … test is successful`), tasklist, traceback сторонних инструментов — **не переводить**.
 
@@ -109,4 +115,6 @@ Write-ColorOutput "[ПРОПУСК] уже пуст" Gray
 |------|------|
 | Файлы logs/, RotatingFileHandler | [`logging.mdc`](logging.mdc) |
 | ergoms, commands.conf | [`ergoms-commands.mdc`](ergoms-commands.mdc) |
+| Локализация CLI | [`cli_locale.py`](../../core/deployment/cli_locale.py) |
+| Справка help (overlays) | [`ergoms-module-help.mdc`](ergoms-module-help.mdc) |
 | Стиль русского текста | [`writing-docs-and-rules.mdc`](writing-docs-and-rules.mdc) |

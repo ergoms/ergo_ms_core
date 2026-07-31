@@ -106,6 +106,7 @@ JWT session claims **не зашиты в ядре** — их деклариру
 | `menu.removed_route_names` | group | Скрытые route names в меню | [`menuExtensions.js`](../../core/client/src/integrations/menuExtensions.js) |
 | `menu.scope_required_route_prefixes` | group | Префиксы route names, требующих активный scope | menuExtensions |
 | `header.userMenu.items` | group | Пункты UserMenu | [`headerUserMenu.js`](../../core/client/src/integrations/headerUserMenu.js) |
+| `apps.menu.items` | group | Пункты меню приложений (AppsMenu) | [`appsMenu.js`](../../core/client/src/integrations/appsMenu.js) |
 
 Хелперы: [`sessionScopedModuleContext.js`](../../core/client/src/integrations/sessionScopedModuleContext.js), [`sessionScopeGuard.js`](../../core/client/src/js/session/sessionScopeGuard.js), [`sessionScopeEntryRoutes.js`](../../core/client/src/integrations/sessionScopeEntryRoutes.js), [`sessionScopeGating.js`](../../core/client/src/integrations/sessionScopeGating.js).
 

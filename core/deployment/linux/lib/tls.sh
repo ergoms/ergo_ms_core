@@ -66,23 +66,23 @@ _tls_install_certbot() {
   fi
 
   if [[ ! -x "$py" ]]; then
-    echo "[ERROR] Нет virtual_env/python. Выполните: ergoms setup" >&2
+    write_ergoms_message tls_error_no_venv red --stderr
     return 1
   fi
 
   pip_cache="$root/virtual_env/cache/pip"
   mkdir -p "$pip_cache"
-  echo "-> Установка certbot в virtual_env/python (pip, без пакетов ОС)..."
+  write_ergoms_message tls_installing_certbot cyan
   if ! PIP_CACHE_DIR="$pip_cache" "$py" -m pip install --upgrade 'certbot>=3.0,<5'; then
-    echo "[ERROR] Не удалось установить certbot в venv" >&2
+    write_ergoms_message tls_error_certbot_install red --stderr
     return 1
   fi
 
   if [[ -x "$certbot_bin" ]]; then
-    echo "[OK] certbot установлен: $($certbot_bin --version 2>&1 | head -1)"
+    write_ergoms_message tls_ok_certbot_installed green "" "version=$($certbot_bin --version 2>&1 | head -1)"
     return 0
   fi
-  echo "[ERROR] certbot не появился в $certbot_bin после pip install" >&2
+  write_ergoms_message tls_error_certbot_missing red --stderr "path=$certbot_bin"
   return 1
 }
 
@@ -94,7 +94,7 @@ _tls_install_renewal_hook() {
   local target="$hook_dir/$TLS_HOOK_NAME"
 
   if [[ ! -f "$template" ]]; then
-    echo "[WARNING] Hook template не найден: $template" >&2
+    write_ergoms_message tls_warn_hook_missing yellow --stderr "path=$template"
     return 1
   fi
 
@@ -105,11 +105,11 @@ _tls_install_renewal_hook() {
 
   printf '%s\n' "$content" > "$target"
   chmod 0755 "$target" 2>/dev/null || true
-  echo "[OK] deploy-hook обновления certbot: $target"
+  write_ergoms_message tls_ok_deploy_hook green "" "path=$target"
 }
 
 _tls_enable_timer() {
-  echo "[INFO] Автообновление: ergoms renew-tls (или планировщик ОС). Системный certbot.timer не используется — config-dir в проекте."
+  write_ergoms_message tls_info_autorenew cyan
 }
 
 tls_install() {
@@ -121,7 +121,7 @@ tls_install() {
   _nginx_read_env "$root"
 
   if ! _tls_cli "$root" validate; then
-    echo "[WARNING] Проверьте .env вручную: NGINX_ENABLED=true, домены и ERGO_TLS_EMAIL" >&2
+    write_ergoms_message tls_warn_check_env yellow --stderr
     return 1
   fi
 
@@ -152,8 +152,8 @@ tls_install() {
   logs_dir="$config_dir/logs"
 
   echo ""
-  echo "=== TLS: установка Let's Encrypt ==="
-  echo "    Домены: ${domains[*]}"
+  write_ergoms_message tls_heading_install cyan
+  write_ergoms_message tls_label_domains cyan "" "domains=${domains[*]}"
   echo "    Email:  $email"
   echo "    Webroot: $webroot"
   echo "    Config:  $config_dir"
@@ -166,16 +166,16 @@ tls_install() {
   mkdir -p "$webroot" "$config_dir" "$work_dir" "$logs_dir"
 
   if [[ ! -f "$root/core/client/dist/index.html" ]]; then
-    echo "[ERROR] $root/core/client/dist/index.html не найден. Выполните: ergoms client-build" >&2
+    write_ergoms_message tls_error_dist_missing red --stderr "path=$root"
     return 1
   fi
 
   _nginx_read_env "$root"
   _nginx_resolve_env "$root"
 
-  echo "-> Установка HTTP nginx (ACME webroot)..."
+  write_ergoms_message tls_installing_http_nginx cyan
   if ! nginx_install "$root" "$primary" 80 false; then
-    echo "[ERROR] Установка HTTP nginx завершилась с ошибкой (нужна для проверки сертификата)" >&2
+    write_ergoms_message tls_error_http_nginx red --stderr
     return 1
   fi
 
@@ -194,7 +194,7 @@ tls_install() {
 
   if [[ "$staging" == "true" ]]; then
     certbot_args+=(--staging)
-    echo "[WARNING] Используется STAGING Let's Encrypt (браузеры не доверяют сертификату)"
+    write_ergoms_message tls_warn_staging yellow
   fi
 
   local domain
@@ -202,20 +202,20 @@ tls_install() {
     certbot_args+=(-d "$domain")
   done
 
-  echo "-> Запрос сертификата..."
+  write_ergoms_message tls_requesting_cert cyan
   local certbot_bin
   certbot_bin="$(_tls_certbot_bin "$root")"
   if ! "$certbot_bin" "${certbot_args[@]}"; then
-    echo "[ERROR] certbot завершился с ошибкой. Проверьте DNS, порт 80, and http://$primary/.well-known/" >&2
+    write_ergoms_message tls_error_certbot red --stderr "host=$primary"
     return 1
   fi
 
-  echo "-> Рекомендуемые переменные для .env:"
+  write_ergoms_message tls_recommended_env cyan
   _tls_cli "$root" suggest-env --domain "$primary" || true
 
   _nginx_read_env "$root"
 
-  echo "-> Установка HTTPS nginx..."
+  write_ergoms_message tls_installing_https_nginx cyan
   if ! nginx_install "$root" "$primary" 443 true; then
     return 1
   fi
@@ -224,12 +224,12 @@ tls_install() {
   _tls_enable_timer
 
   echo ""
-  echo "[OK] TLS установлен для $primary"
+  write_ergoms_message tls_ok_installed green "" "host=$primary"
   _tls_cli "$root" status --domain "$primary"
   echo ""
-  echo "    Сайт: https://$primary"
-  echo "    Обновление: ergoms renew-tls"
-  echo "    Статус: ergoms status-tls"
+  write_ergoms_message tls_site_url cyan "" "host=$primary"
+  write_ergoms_message tls_renew_hint cyan
+  write_ergoms_message tls_status_hint cyan
 }
 
 tls_renew() {
@@ -237,11 +237,11 @@ tls_renew() {
   local dry_run="${2:-false}"
 
   echo ""
-  echo "=== TLS: обновление сертификатов ==="
+  write_ergoms_message tls_heading_renew cyan
   echo ""
 
   if ! _tls_install_certbot "$root"; then
-    echo "[ERROR] certbot (venv) недоступен. Выполните: ergoms setup && ergoms install-tls" >&2
+    write_ergoms_message tls_error_certbot_unavailable red --stderr
     return 1
   fi
 
@@ -262,13 +262,13 @@ tls_renew() {
   )
   if [[ "$dry_run" == "true" ]]; then
     args+=(--dry-run)
-    echo "-> Пробный запуск (без изменений)..."
+    write_ergoms_message tls_dry_run cyan
   else
-    echo "-> Обновление при необходимости..."
+    write_ergoms_message tls_renewing cyan
   fi
 
   if "$certbot_bin" "${args[@]}"; then
-    echo "[OK] certbot renew завершён"
+    write_ergoms_message tls_ok_renew green
     if [[ "$dry_run" != "true" ]]; then
       nginx_reload_service "$root" || true
       _tls_cli "$root" status || true
@@ -276,7 +276,7 @@ tls_renew() {
     return 0
   fi
 
-  echo "[ERROR] certbot renew завершился с ошибкой" >&2
+  write_ergoms_message tls_error_renew red --stderr
   return 1
 }
 

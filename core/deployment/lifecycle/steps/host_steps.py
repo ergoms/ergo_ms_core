@@ -10,6 +10,7 @@ _DEPLOYMENT_DIR = Path(__file__).resolve().parents[2]
 if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 
+from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402
 
 from lifecycle.context import DeploymentContext, HostPlatform  # noqa: E402
@@ -57,12 +58,12 @@ class GitSubmoduleUpdateStep(DeploymentStep):
         cmd = ['git', 'submodule', 'update', '--init', '--remote', *paths]
         code = subprocess.call(cmd, cwd=str(root))
         if code != 0:
-            return StepResult(exit_code=code, message='Не удалось обновить git submodule')
+            return StepResult(exit_code=code, message=t('git_submodule_update_failed'))
         for rel in paths:
             sub = root / rel
             if sub.is_dir():
                 subprocess.call(['git', 'checkout', branch], cwd=str(sub))
-        print(format_console('ok', 'Git submodule обновлены'))
+        print(format_console('ok', t('git_submodules_updated')))
         return StepResult()
 
 
@@ -74,7 +75,7 @@ class ConfigScaffoldStep(DeploymentStep):
     def run(self, ctx: DeploymentContext) -> StepResult:
         script = ctx.project_root / 'core' / 'deployment' / 'scripts' / 'scaffold_config_files.py'
         if not script.is_file():
-            print(format_console('skip', 'Скрипт scaffold не найден'))
+            print(format_console('skip', t('scaffold_script_not_found')))
             return StepResult()
         argv = [*host_ops.base_python_argv(ctx.project_root, ctx.platform), str(script), '--root', str(ctx.project_root)]
         code = subprocess.call(argv, cwd=str(ctx.project_root))
@@ -104,9 +105,9 @@ class EnsurePortablePythonStep(DeploymentStep):
 
     def run(self, ctx: DeploymentContext) -> StepResult:
         if self._respect_env and not host_ops.portable_python_enabled(ctx):
-            print(format_console('skip', 'PORTABLE_PYTHON_ENABLED=false — portable Python не устанавливается'))
+            print(format_console('skip', t('portable_python_disabled_skip')))
             return StepResult()
-        print(format_console('info', 'Проверка portable Python 3.12…'))
+        print(format_console('info', t('checking_portable_python')))
         code = host_ops.ensure_portable_python(ctx, force=ctx.option_bool('force_runtime'))
         return StepResult(exit_code=code)
 
@@ -124,9 +125,9 @@ class EnsurePortableNodejsStep(DeploymentStep):
 
     def run(self, ctx: DeploymentContext) -> StepResult:
         if self._respect_env and not host_ops.portable_nodejs_enabled(ctx):
-            print(format_console('skip', 'PORTABLE_NODEJS_ENABLED=false — portable Node.js не устанавливается'))
+            print(format_console('skip', t('portable_nodejs_disabled_skip')))
             return StepResult()
-        print(format_console('info', 'Проверка portable Node.js LTS…'))
+        print(format_console('info', t('checking_portable_nodejs')))
         code = host_ops.ensure_portable_nodejs(ctx, force=ctx.option_bool('force_runtime'))
         return StepResult(exit_code=code)
 
@@ -160,7 +161,7 @@ class UpdateModuleSubmodulesStep(DeploymentStep):
         root = ctx.project_root
         gitmodules = root / '.gitmodules'
         if not gitmodules.is_file():
-            return StepResult(exit_code=1, message='.gitmodules не найден')
+            return StepResult(exit_code=1, message=t('gitmodules_not_found'))
         result = subprocess.run(
             ['git', 'config', '-f', '.gitmodules', '--get-regexp', r'^submodule\..*\.path$'],
             cwd=str(root),
@@ -179,7 +180,7 @@ class UpdateModuleSubmodulesStep(DeploymentStep):
             name = key.removeprefix('submodule.').removesuffix('.path')
             entries.append((name, path))
         if not entries:
-            print(format_console('skip', 'Submodule модулей не найдены'))
+            print(format_console('skip', t('module_submodules_not_found')))
             return StepResult()
 
         succeeded = 0
@@ -196,7 +197,7 @@ class UpdateModuleSubmodulesStep(DeploymentStep):
                 check=False,
             )
             if not (index.stdout or '').strip():
-                print(format_console('skip', f'{rel} не зарегистрирован в git (нет в индексе)'))
+                print(format_console('skip', t('path_not_in_git_index', rel=rel)))
                 skipped += 1
                 continue
 
@@ -214,14 +215,14 @@ class UpdateModuleSubmodulesStep(DeploymentStep):
                 cwd=str(root),
             )
             if code != 0:
-                print(format_console('warning', f'Не удалось обновить {rel}'), file=sys.stderr)
+                print(format_console('warning', t('failed_update_rel', rel=rel)), file=sys.stderr)
                 failed += 1
                 failed_paths.append(rel)
                 continue
 
             sub = root / rel
             if not sub.is_dir():
-                print(format_console('warning', f'Каталог submodule не найден: {rel}'), file=sys.stderr)
+                print(format_console('warning', t('submodule_dir_not_found', rel=rel)), file=sys.stderr)
                 failed += 1
                 failed_paths.append(rel)
                 continue
@@ -229,25 +230,25 @@ class UpdateModuleSubmodulesStep(DeploymentStep):
             checkout_code = subprocess.call(['git', 'checkout', branch], cwd=str(sub))
             if checkout_code != 0:
                 print(
-                    format_console('warning', f'Не удалось переключить ветку {branch} в {rel}'),
+                    format_console('warning', t('failed_checkout_branch', branch=branch, rel=rel)),
                     file=sys.stderr,
                 )
             succeeded += 1
 
         if succeeded > 0:
-            summary = f'Обновлено модулей: {succeeded}'
+            summary = t('modules_updated_count', succeeded=succeeded)
             if skipped > 0 or failed > 0:
-                summary += f'. Пропущено: {skipped}. С ошибкой: {failed}'
+                summary += t('modules_updated_summary_extra', skipped=skipped, failed=failed)
             print(format_console('ok', summary))
             for rel in failed_paths:
                 print(f'  - {rel}', file=sys.stderr)
             return StepResult()
 
         if failed > 0:
-            print(format_console('error', f'Не удалось обновить ни одного модуля ({failed})'), file=sys.stderr)
+            print(format_console('error', t('failed_update_any_module', failed=failed)), file=sys.stderr)
             for rel in failed_paths:
                 print(f'  - {rel}', file=sys.stderr)
-            return StepResult(exit_code=1, message='Не удалось обновить submodule модулей')
+            return StepResult(exit_code=1, message=t('failed_update_module_submodules'))
 
-        print(format_console('warning', 'Нет модулей для обновления'), file=sys.stderr)
+        print(format_console('warning', t('no_modules_to_update')), file=sys.stderr)
         return StepResult()

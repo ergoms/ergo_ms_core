@@ -11,6 +11,7 @@ _DEPLOYMENT_DIR = Path(__file__).resolve().parents[2]
 if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 
+from cli_locale import t  # noqa: E402
 from lifecycle.context import DeploymentContext  # noqa: E402
 from lifecycle.host import ops as host_ops  # noqa: E402
 from lifecycle.steps.base import DeploymentStep, StepResult  # noqa: E402
@@ -48,7 +49,7 @@ class DevForegroundStep(DeploymentStep):
     def run(self, ctx: DeploymentContext) -> StepResult:
         scripts = _DEV_SCRIPTS.get(self._recipe_key, [])
         if not scripts:
-            return StepResult(exit_code=1, message=f'Неизвестный dev-рецепт: {self._recipe_key}')
+            return StepResult(exit_code=1, message=t('unknown_dev_recipe', name=self._recipe_key))
         # Wall-clock до warmup/скрипта — итог включает всю цепочку рецепта.
         if self._recipe_key == 'dev-api':
             os.environ.setdefault(_API_START_WALL_ENV, str(time.time()))

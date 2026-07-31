@@ -298,7 +298,7 @@ function Main {
 
                 else {
 
-                    Write-ColorOutput '[ERROR] Redis ping не удался' Red
+                    Write-ErgomsMessage -Key 'redis_ping_failed_short' -Color Red -Stderr
 
                     exit 1
 
@@ -318,7 +318,7 @@ function Main {
 
                 else {
 
-                    Write-ColorOutput '[ERROR] PostgreSQL ping не удался' Red
+                    Write-ErgomsMessage -Key 'pg_ping_failed_short' -Color Red -Stderr
 
                     exit 1
 
@@ -472,11 +472,11 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            Write-ColorOutput "-> Развёртывание только API для: $projectRoot" Cyan
+            Write-ErgomsMessage -Key 'deploy_api_only' -Color Cyan -Param @{ root = $projectRoot }
 
             Invoke-CustomCommand -CommandName "deploy-api" -ProjectRoot $projectRoot -CommandArgs $RemainingArgs
 
-            Write-ColorOutput "`n[OK] Развёртывание API завершено!" Green
+            Write-Host ""; Write-ErgomsMessage -Key 'deploy_api_done' -Color Green
 
         }
 
@@ -484,11 +484,11 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            Write-ColorOutput "-> Развёртывание только клиента для: $projectRoot" Cyan
+            Write-ErgomsMessage -Key 'deploy_client_only' -Color Cyan -Param @{ root = $projectRoot }
 
             Invoke-CustomCommand -CommandName "deploy-client" -ProjectRoot $projectRoot -CommandArgs $RemainingArgs
 
-            Write-ColorOutput "`n[OK] Развёртывание клиента завершено!" Green
+            Write-Host ""; Write-ErgomsMessage -Key 'deploy_client_done' -Color Green
 
         }
 
@@ -496,7 +496,7 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            Write-ColorOutput "-> Развёртывание и запуск API в режиме разработки для: $projectRoot" Cyan
+            Write-ErgomsMessage -Key 'deploy_api_dev' -Color Cyan -Param @{ root = $projectRoot }
 
             Invoke-CustomCommand -CommandName "deploy-api-dev" -ProjectRoot $projectRoot -CommandArgs $RemainingArgs
 
@@ -506,7 +506,7 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            Write-ColorOutput "-> Развёртывание и запуск клиента в режиме разработки для: $projectRoot" Cyan
+            Write-ErgomsMessage -Key 'deploy_client_dev' -Color Cyan -Param @{ root = $projectRoot }
 
             Invoke-CustomCommand -CommandName "deploy-client-dev" -ProjectRoot $projectRoot -CommandArgs $RemainingArgs
 
@@ -516,11 +516,11 @@ function Main {
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
 
-            Write-ColorOutput "-> Развёртывание всех компонентов для: $projectRoot" Cyan
+            Write-ErgomsMessage -Key 'deploy_all' -Color Cyan -Param @{ root = $projectRoot }
 
             Invoke-CustomCommand -CommandName "deploy-all" -ProjectRoot $projectRoot -CommandArgs $RemainingArgs
 
-            Write-ColorOutput "`n[OK] Полное развёртывание завершено!" Green
+            Write-Host ""; Write-ErgomsMessage -Key 'deploy_all_done' -Color Green
 
         }
 
@@ -631,7 +631,7 @@ function Main {
             }
 
             if ($serviceName -eq 'ergo_ms_client_dev' -and (Test-NginxEnabled -ProjectRoot $projectRoot)) {
-                Write-ColorOutput (Format-ErgoConsole -Level skip -Message 'ergo_ms_client_dev не используется (NGINX_ENABLED=true, клиент через nginx)') Gray
+                Write-ErgomsMessage -Key 'skip_client_dev_nginx' -Color Gray
                 exit 0
             }
 
@@ -959,7 +959,7 @@ function Main {
 
                 else {
 
-                    Write-ColorOutput "[ERROR] Неизвестный аргумент: $arg" Red
+                    Write-ErgomsMessage -Key 'error_unknown_arg' -Color Red -Stderr -Param @{ arg = $arg }
 
                     exit 1
 
@@ -969,7 +969,7 @@ function Main {
 
             if (-not $hasSourcePassword) {
 
-                Write-ColorOutput '[ERROR] Укажите --source-password <пароль системного Postgres>' Red
+                Write-ErgomsMessage -Key 'error_need_source_password' -Color Red -Stderr
 
                 exit 1
 

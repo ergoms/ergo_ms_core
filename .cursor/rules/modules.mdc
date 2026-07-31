@@ -35,7 +35,8 @@ modules/<имя>/
 ├── ergoms.help.yaml         # справка для ergoms help module (если есть ergoms.conf)
 ├── process_roles.yaml       # роли процессов для ergoms resource-usage (если есть свой демон)
 ├── host_lifecycle.yaml      # stop/install демона в тестах deployment (если есть служба/процесс)
-├── vscode.tasks.yaml        # задачи Run Task (тип ergo-module; необязательно)
+├── packages.yaml            # portable-пакеты в virtual_env/packages (если модуль ставит бинарники)
+├── vscode.tasks.yaml        # задачи Run Task + include_in setup-full/start-all (необязательно)
 └── README.md
 ```
 
@@ -47,7 +48,9 @@ modules/<имя>/
 
 Stop/install модульного демона в Windows-тестах deployment — только через `host_lifecycle.yaml` ([`host-lifecycle.mdc`](host-lifecycle.mdc)).
 
-Задачи VS Code / Cursor (Run Task) — только через `vscode.tasks.yaml`: это hook модульности (как `ergoms.conf` / `process_roles.yaml`), не правка монолита ядра. Подробности — [`module-vscode-tasks.mdc`](module-vscode-tasks.mdc); формат shell-задач ядра — [`vscode-tasks.mdc`](vscode-tasks.mdc).
+Portable-бинарники модуля (ollama, ffmpeg и т.п.) — только через `packages.yaml` и `ergoms package-install` ([`packages.mdc`](packages.mdc)); не дублируй download в Django management и не хардкодь имена модулей в ядре.
+
+Задачи VS Code / Cursor (Run Task) и участие в **Setup Full** / **Start All** — только через `vscode.tasks.yaml` (`include_in: setup-full` / `start-all`): hook модульности, не правка монолита ядра. Подробности — [`module-vscode-tasks.mdc`](module-vscode-tasks.mdc); формат shell-задач ядра — [`vscode-tasks.mdc`](vscode-tasks.mdc).
 
 Вложенные подприложения (`client/<раздел>/js/routes.js`) подхватываются для маршрутов и `integrations.js`. Файлы `endpoints.js`, `permission-rules.js` — только из `client/js/` (или re-export оттуда).
 
@@ -92,6 +95,8 @@ class MyModuleConfig(AppConfig):
 Пункты бокового меню — **миграция API** (`MenuMigrationHelper`, эталон `modules/<name>/api/migrations/*_add_menu.py`); маршруты — `client/js/routes.js`. Порядок и видимость — в CMS. Подробности: [`menu.mdc`](menu.mdc).
 
 Пункты выпадающего меню пользователя в шапке (`UserMenu`) — через `bridge.provideMany` в группе `header.userMenu.items`. Эталон: `modules/<name>/client/js/headerUserMenu.js`, подключается из `integrations.js`. Сбор в ядре — [`headerUserMenu.js`](../../core/client/src/integrations/headerUserMenu.js). Это **не** боковое меню: sidebar — миграции API, шапка — ModuleBridge.
+
+Пункты меню приложений (`AppsMenu` в toolbar) — через `bridge.provideMany` в группе `apps.menu.items`. Эталон: `modules/<name>/client/js/appsMenu.js`, подключается из `integrations.js`. Сбор в ядре — [`appsMenu.js`](../../core/client/src/integrations/appsMenu.js). Кнопка Apps по умолчанию (`actionButton=apps` в `uiSettings.js`).
 
 ## Темы оформления модуля
 
@@ -213,6 +218,7 @@ def get_my_serializer_class():
 | Справка ergoms модуля | [`ergoms-module-help.mdc`](ergoms-module-help.mdc) |
 | Роли процессов (resource-usage) | [`process-roles.mdc`](process-roles.mdc) |
 | Host lifecycle (тесты deployment) | [`host-lifecycle.mdc`](host-lifecycle.mdc) |
+| Portable-пакеты (virtual_env/packages) | [`packages.mdc`](packages.mdc) |
 | Модульные задачи Run Task | [`module-vscode-tasks.mdc`](module-vscode-tasks.mdc) |
 | Формат задач ядра (tasks.json) | [`vscode-tasks.mdc`](vscode-tasks.mdc) |
 | Правила Cursor модуля | [`module-cursor-rules.mdc`](module-cursor-rules.mdc) |

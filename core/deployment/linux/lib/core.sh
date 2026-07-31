@@ -30,7 +30,7 @@ CACHED_UNITS_LIST=""
 require_root_or_sudo() {
   if [[ $(id -u) -ne 0 ]]; then
     if ! command -v sudo >/dev/null 2>&1; then
-      echo "Скрипт требует root или sudo. Установите sudo или запустите от root." >&2
+      write_ergoms_message admin_required_linux red --stderr
       exit 1
     fi
   fi

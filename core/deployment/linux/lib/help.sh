@@ -14,11 +14,17 @@ print_usage() {
     fi
   fi
 
-  cat <<'FALLBACK'
-Справка недоступна: не найдено виртуальное окружение.
-Выполните первичную настройку (ergoms setup или setup-full).
-Подробнее: .docs/cli.md
+  if declare -F write_ergoms_message >/dev/null 2>&1; then
+    write_ergoms_message help_unavailable red --stderr
+    write_ergoms_message help_setup_hint yellow --stderr
+    write_ergoms_message help_doc_hint cyan --stderr
+  else
+    cat <<'FALLBACK'
+Help unavailable: virtual environment not found.
+Run initial setup (ergoms setup or setup-full).
+See: .docs/cli.md
 FALLBACK
+  fi
 }
 
 export -f print_usage

@@ -55,17 +55,18 @@ priority: critical
 
 ## Язык сообщений ergoms
 
-- Пользовательский вывод ergoms и deployment-скриптов — **русский**; метки статуса — только `[OK]`, `[ERROR]`, `[WARNING]`, `[SKIP]`, `[INFO]`.
-- Повторяющиеся шаблоны — `ergoms_console.py` (`_MESSAGES`); в Python — `format_console` из `console_tags.py`.
-- Django management-команды проекта: сообщения в `self.stdout.write` / `self.stderr.write` — на русском.
-- Сырой вывод Django, npm, Poetry и traceback **не переводить** — это вывод сторонних инструментов.
-- Подробности — [`console-output.mdc`](console-output.mdc).
+- CLI ergoms — **overlay-локализация**: русский source в `locales/ru/cli_messages.yaml` и основных help-YAML; переводы в `core/deployment/locales/<lang>/` и `modules/<имя>/locales/<lang>/`. Язык: `ERGO_CLI_LANGUAGE` → OS locale → `ru` ([`cli_locale.py`](../../core/deployment/cli_locale.py)); `DEFAULT_LANGUAGE` для CLI не используется.
+- Метки статуса — только `[OK]`, `[ERROR]`, `[WARNING]`, `[SKIP]`, `[INFO]` (английский, не переводить).
+- Доступ к строкам: `t('key')`, `Write-ErgomsMessage -Key`, `format_console` + [`console_tags.py`](../../core/deployment/console_tags.py).
+- Django management-команды проекта: сообщения в `self.stdout.write` / `self.stderr.write` — на русском (отдельно от CLI ergoms).
+- Сырой вывод Django, npm, Poetry и traceback **не переводить**.
+- Подробности — [`console-output.mdc`](console-output.mdc), справка help — [`ergoms-module-help.mdc`](ergoms-module-help.mdc).
 
 ## Связанные правила
 
 | Тема | Файл |
 |------|------|
-| Метки и русский текст в консоли | [`console-output.mdc`](console-output.mdc) |
+| Метки и локализация CLI | [`console-output.mdc`](console-output.mdc) |
 | Формат commands.conf | [`ergoms-commands.mdc`](ergoms-commands.mdc) |
 | Справочник команд | [`.docs/cli.md`](../../.docs/cli.md) |
 | Python-окружение | [`virtual-env.mdc`](virtual-env.mdc) |

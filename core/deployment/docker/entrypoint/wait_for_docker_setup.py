@@ -12,6 +12,12 @@ import sys
 import time
 from pathlib import Path
 
+_DEPLOYMENT_DIR = Path(__file__).resolve().parents[2]
+if str(_DEPLOYMENT_DIR) not in sys.path:
+    sys.path.insert(0, str(_DEPLOYMENT_DIR))
+
+from cli_locale import t  # noqa: E402
+
 MARKER = Path(os.environ.get('ERGO_DOCKER_SETUP_MARKER', '/app/logs/.ergo-docker-setup-ok'))
 POLL_SEC = float(os.environ.get('ERGO_DOCKER_SETUP_POLL_SEC', '5'))
 
@@ -28,10 +34,10 @@ def main() -> int:
     if MARKER.is_file():
         return 0
 
-    print('[INFO] Ожидание завершения установки Docker (ergoms docker-init)…', flush=True)
+    print(t('wait_docker_setup'), flush=True)
     while not MARKER.is_file():
         time.sleep(POLL_SEC)
-    print('[OK] Установка Docker завершена, запуск сервиса…', flush=True)
+    print(t('wait_docker_setup_done'), flush=True)
     return 0
 
 

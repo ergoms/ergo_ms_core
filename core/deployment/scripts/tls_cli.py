@@ -15,6 +15,7 @@ DEPLOYMENT_NGINX = DEPLOYMENT_DIR / 'nginx'
 sys.path.insert(0, str(DEPLOYMENT_DIR))
 sys.path.insert(0, str(DEPLOYMENT_NGINX))
 
+from cli_locale import t  # noqa: E402
 from env_file_loader import load_project_env  # noqa: E402
 from tls_config import (  # noqa: E402
     cert_status,
@@ -34,9 +35,9 @@ def cmd_validate(args: argparse.Namespace) -> int:
             print(f'[ERROR] {item}', file=sys.stderr)
         return 1
     domains = resolve_domains(values)
-    print(f'[OK] Домены: {", ".join(domains)}')
-    print(f'[OK] Webroot: {webroot_path(values, root=args.root)}')
-    print(f'[OK] Email: {values.get("ERGO_TLS_EMAIL", "").strip()}')
+    print(t('tls_domains_ok', domains=', '.join(domains)))
+    print(t('tls_webroot_ok', path=webroot_path(values, root=args.root)))
+    print(t('tls_email_ok', email=values.get('ERGO_TLS_EMAIL', '').strip()))
     return 0
 
 
@@ -44,7 +45,7 @@ def cmd_suggest_env(args: argparse.Namespace) -> int:
     values = load_project_env(args.root)
     domain = args.domain or primary_domain(values)
     if not domain:
-        print('[ERROR] Домен не указан и не найден в .env / env/nginx.env', file=sys.stderr)
+        print(t('tls_error_domain_missing'), file=sys.stderr)
         return 1
     extra = resolve_domains(values)
     extra = [item for item in extra if item != domain]
@@ -54,7 +55,7 @@ def cmd_suggest_env(args: argparse.Namespace) -> int:
         print(json.dumps(suggestions, ensure_ascii=False, indent=2))
         return 0
 
-    print('Рекомендуемые переменные для env/nginx.env после install-tls:')
+    print(t('tls_suggest_env_heading'))
     for key, value in suggestions.items():
         current = values.get(key, '').strip()
         marker = '  ' if current == value else ' *'
@@ -79,7 +80,7 @@ def cmd_status(args: argparse.Namespace) -> int:
     for item in payload:
         print(f"Domain: {item['domain']}")
         if not item.get('exists'):
-            print('  Certificate: не найден')
+            print(t('tls_cert_not_found'))
             continue
         print(f"  Fullchain: {item['fullchain']}")
         print(f"  Privkey:   {item['privkey']}")
@@ -92,7 +93,7 @@ def cmd_status(args: argparse.Namespace) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description='ERGO MS TLS utilities')
     parser.add_argument('--root', type=Path, default=PROJECT_ROOT)
-    sub = parser.add_subparsers(dest='команда', required=True)
+    sub = parser.add_subparsers(dest='command', required=True)
 
     validate_parser = sub.add_parser('validate', help='Check .env before install-tls')
     validate_parser.set_defaults(func=cmd_validate)

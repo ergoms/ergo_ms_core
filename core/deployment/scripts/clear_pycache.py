@@ -15,7 +15,8 @@ _DEPLOYMENT_DIR = Path(__file__).resolve().parents[1]
 if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 
-from console_tags import format_console
+from cli_locale import t  # noqa: E402
+from console_tags import format_console  # noqa: E402
 
 
 def _configure_stdio_utf8() -> None:
@@ -39,7 +40,10 @@ def clear_pycache(root: Path) -> tuple[int, int]:
             removed += 1
         except OSError as exc:
             failed += 1
-            print(format_console('warning', f'Не удалось удалить {cache_dir}: {exc}'), file=sys.stderr)
+            print(
+                format_console('warning', t('pycache_remove_failed', path=cache_dir, exc=exc)),
+                file=sys.stderr,
+            )
 
     return removed, failed
 
@@ -47,32 +51,35 @@ def clear_pycache(root: Path) -> tuple[int, int]:
 def main() -> int:
     _configure_stdio_utf8()
 
-    parser = argparse.ArgumentParser(description='Удалить каталоги __pycache__')
+    parser = argparse.ArgumentParser(description=t('pycache_description'))
     parser.add_argument(
         '--root',
         default='.',
-        help='Корень проекта (по умолчанию — текущий каталог)',
+        help=t('help_root_path'),
     )
     args = parser.parse_args()
 
     root = Path(args.root).resolve()
     if not root.is_dir():
-        print(format_console('error', f'Каталог не найден: {root}'), file=sys.stderr)
+        print(format_console('error', t('project_dir_not_found', root=root)), file=sys.stderr)
         return 1
 
     removed, failed = clear_pycache(root)
 
     if failed:
         print(
-            format_console('error', f'Удалено каталогов __pycache__: {removed}, ошибок: {failed}'),
+            format_console(
+                'error',
+                t('pycache_partial_fail', removed=removed, failed=failed),
+            ),
             file=sys.stderr,
         )
         return 1
 
     if removed:
-        print(format_console('ok', f'Удалено каталогов __pycache__: {removed}'))
+        print(format_console('ok', t('pycache_removed', count=removed)))
     else:
-        print(format_console('ok', 'Каталоги __pycache__ не найдены'))
+        print(format_console('ok', t('pycache_none_found')))
 
     return 0
 

@@ -12,12 +12,18 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-_DEPLOYMENT_DIR = Path(__file__).resolve().parent.parent
+_SCRIPTS_DIR = Path(__file__).resolve().parent
+_DEPLOYMENT_DIR = _SCRIPTS_DIR.parent
+if str(_DEPLOYMENT_DIR) not in sys.path:
+    sys.path.insert(0, str(_DEPLOYMENT_DIR))
+
+from cli_locale import t  # noqa: E402
+from console_tags import format_console  # noqa: E402
+
 PROJECT_ROOT = _DEPLOYMENT_DIR.parent.parent
 
 MAINTENANCE_FLAG_NAME = 'maintenance.flag'
 MAINTENANCE_HTML_REL = Path('core') / 'deployment' / 'nginx' / 'maintenance' / 'index.html'
-MAINTENANCE_DETAIL = 'Система временно недоступна. Мы проводим обновление и скоро вернёмся.'
 # Синхронизировать с core/client/src/js/maintenanceConfig.js
 MAINTENANCE_POLL_INTERVAL_MS = 3000
 MAINTENANCE_JSON_REL_PATHS = (
@@ -30,11 +36,13 @@ def resolve_root(explicit: str | None) -> Path:
     if explicit:
         root = Path(explicit).resolve()
         if not root.is_dir():
-            raise SystemExit(f'[ERROR] Каталог проекта не найден: {root}')
+            raise SystemExit(
+                format_console('error', t('project_dir_not_found', root=root))
+            )
         return root
     if (PROJECT_ROOT / 'pyproject.toml').is_file():
         return PROJECT_ROOT
-    raise SystemExit('[ERROR] Не удалось определить корень проекта; укажите --root')
+    raise SystemExit(format_console('error', t('project_root_resolve_failed')))
 
 
 def flag_path(root: Path) -> Path:
@@ -55,7 +63,7 @@ def maintenance_json_payload(*, enabled: bool) -> dict[str, object]:
         'pollIntervalMs': MAINTENANCE_POLL_INTERVAL_MS,
     }
     if enabled:
-        payload['detail'] = MAINTENANCE_DETAIL
+        payload['detail'] = t('maintenance_detail')
     return payload
 
 
@@ -81,15 +89,15 @@ def cmd_on(root: Path) -> int:
     flag = flag_path(root)
     page = html_path(root)
     if not page.is_file():
-        print(f'[WARNING] Страница заглушки не найдена: {page}', file=sys.stderr)
-        print('[WARNING] Nginx может вернуть 503 без HTML.', file=sys.stderr)
+        print(t('maintenance_warn_stub_page', page=page), file=sys.stderr)
+        print(t('maintenance_warn_503_no_html'), file=sys.stderr)
     flag.touch()
     json_written = write_maintenance_json(root, enabled=True)
-    print('[OK] Режим технических работ включён')
-    print(f'     Флаг: {flag}')
+    print(t('maintenance_on_ok'))
+    print(t('maintenance_flag_label', path=flag))
     for path in json_written:
-        print(f'     JSON: {path}')
-    print('     Выключить: ergoms maintenance-off')
+        print(t('maintenance_json_label', path=path))
+    print(t('maintenance_off_hint'))
     return 0
 
 
@@ -97,13 +105,13 @@ def cmd_off(root: Path) -> int:
     flag = flag_path(root)
     if flag.is_file():
         flag.unlink()
-        print('[OK] Режим технических работ выключён')
+        print(t('maintenance_off_ok'))
     else:
-        print('[OK] Режим технических работ уже выключен')
+        print(t('maintenance_already_off_ok'))
     json_written = write_maintenance_json(root, enabled=False)
-    print(f'     Флаг: {flag}')
+    print(t('maintenance_flag_label', path=flag))
     for path in json_written:
-        print(f'     JSON: {path}')
+        print(t('maintenance_json_label', path=path))
     return 0
 
 
@@ -112,17 +120,17 @@ def cmd_status(root: Path) -> int:
     page = html_path(root)
     if flag.is_file():
         mtime = datetime.fromtimestamp(flag.stat().st_mtime, tz=timezone.utc).astimezone()
-        print('Статус: ON (заглушка для пользователей)')
-        print(f'Флаг:   {flag}')
-        print(f'С:      {mtime:%Y-%m-%d %H:%M:%S %Z}')
+        print(t('maintenance_status_on'))
+        print(t('maintenance_flag_line', path=flag))
+        print(t('maintenance_since', mtime=f'{mtime:%Y-%m-%d %H:%M:%S %Z}'))
     else:
-        print('Статус: OFF (сайт доступен)')
-        print(f'Флаг:   {flag} (отсутствует)')
-    page_state = 'есть' if page.is_file() else 'нет'
-    print(f'HTML:   {page} ({page_state})')
+        print(t('maintenance_status_off'))
+        print(t('maintenance_flag_missing', path=flag))
+    page_state = t('state_present') if page.is_file() else t('state_absent')
+    print(t('maintenance_html_state', path=page, state=page_state))
     for path in json_paths(root):
-        state = 'есть' if path.is_file() else 'нет'
-        print(f'JSON:   {path} ({state})')
+        state = t('state_present') if path.is_file() else t('state_absent')
+        print(t('maintenance_json_state', path=path, state=state))
     return 0
 
 
@@ -134,7 +142,7 @@ def main() -> int:
 
     parser = argparse.ArgumentParser(description='Режим технических работ (флаг maintenance.flag)')
     parser.add_argument('action', choices=('on', 'off', 'status'))
-    parser.add_argument('--root', default=None, help='Корень проекта ERGO MS')
+    parser.add_argument('--root', default=None, help=t('help_project_root'))
     args = parser.parse_args()
     root = resolve_root(args.root)
     ensure_maintenance_json(root)

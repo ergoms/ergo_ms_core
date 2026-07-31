@@ -1,17 +1,18 @@
 . "$(dirname "${BASH_SOURCE[0]}")/nginx_common.sh"
 
 _nginx_install_build_deps() {
-  echo "-> Установка зависимостей сборки..."
+  local root="$1"
+  write_ergoms_message nginx_install_build_deps cyan
   if command -v apt-get >/dev/null 2>&1; then
     local apt_opts=(
       -o "DPkg::Lock::Timeout=120"
       -o "APT::Acquire::Retries=3"
     )
-    _nginx_wait_for_apt_locks || return 1
+    _nginx_wait_for_apt_locks "$root" || return 1
     if _nginx_sudo apt-get "${apt_opts[@]}" install -y -qq build-essential zlib1g-dev libssl-dev libpcre3-dev; then
       return 0
     fi
-    _nginx_wait_for_apt_locks || return 1
+    _nginx_wait_for_apt_locks "$root" || return 1
     _nginx_sudo apt-get "${apt_opts[@]}" install -y -qq build-essential zlib1g-dev libssl-dev libpcre2-dev
     return $?
   fi
@@ -27,7 +28,7 @@ _nginx_install_build_deps() {
     _nginx_sudo pacman -Sy --noconfirm base-devel zlib openssl pcre2
     return $?
   fi
-  echo "[ERROR] Не удалось определить менеджер пакетов для зависимостей сборки." >&2
+  write_ergoms_message nginx_error_pkg_mgr red --stderr
   return 1
 }
 
@@ -48,7 +49,7 @@ _nginx_download_tarball() {
     wget -q -O "$dest" "$url"
     return $?
   fi
-  echo "[ERROR] Для загрузки nginx нужны curl или wget." >&2
+  write_ergoms_message nginx_error_need_curl_wget red --stderr
   return 1
 }
 
@@ -58,13 +59,13 @@ _nginx_install_binary() {
   nginx_bin="$(_nginx_binary "$root")"
 
   if [[ -x "$nginx_bin" ]]; then
-    echo "[OK] Nginx уже установлен: $nginx_bin"
+    write_ergoms_message nginx_already_installed green "" "path=$nginx_bin"
     "$nginx_bin" -v 2>&1 | sed 's/^/[OK] /'
     return 0
   fi
 
-  if ! _nginx_install_build_deps; then
-    echo "[ERROR] Не удалось установить зависимости сборки." >&2
+  if ! _nginx_install_build_deps "$root"; then
+    write_ergoms_message nginx_error_build_deps red --stderr
     return 1
   fi
 
@@ -78,25 +79,25 @@ _nginx_install_binary() {
   jobs="$(nproc 2>/dev/null || echo 2)"
   pcre_flag="$(_nginx_configure_pcre_flag)"
 
-  echo "-> Загрузка nginx ${NGINX_VERSION}..."
+  write_ergoms_message nginx_downloading cyan "" "version=$NGINX_VERSION"
   if ! _nginx_download_tarball "$tarball"; then
     rm -rf "$build_dir"
-    echo "[ERROR] Не удалось загрузить архив nginx." >&2
+    write_ergoms_message nginx_error_download red --stderr
     return 1
   fi
 
-  echo "-> Распаковка исходников..."
+  write_ergoms_message nginx_unpacking cyan
   tar -xzf "$tarball" -C "$build_dir"
 
   if [[ ! -d "$src_dir" ]]; then
     rm -rf "$build_dir"
-    echo "[ERROR] Каталог исходников nginx не найден." >&2
+    write_ergoms_message nginx_error_src_dir red --stderr
     return 1
   fi
 
   mkdir -p "$nginx_dir/logs" "$nginx_dir/temp" "$nginx_dir/conf"
 
-  echo "-> Конфигурация nginx (prefix: $nginx_dir)..."
+  write_ergoms_message nginx_configuring cyan "" "path=$nginx_dir"
   local -a configure_opts=(
     --prefix="$nginx_dir"
     --sbin-path="$nginx_dir/sbin/nginx"
@@ -119,33 +120,33 @@ _nginx_install_binary() {
 
   if ! (cd "$src_dir" && ./configure "${configure_opts[@]}"); then
     rm -rf "$build_dir"
-    echo "[ERROR] nginx ./configure завершился с ошибкой." >&2
+    write_ergoms_message nginx_error_configure red --stderr
     return 1
   fi
 
-  echo "-> Сборка nginx..."
+  write_ergoms_message nginx_building cyan
   if ! (cd "$src_dir" && make -j"$jobs"); then
     rm -rf "$build_dir"
-    echo "[ERROR] nginx make завершился с ошибкой." >&2
+    write_ergoms_message nginx_error_make red --stderr
     return 1
   fi
 
-  echo "-> Установка nginx в $nginx_dir..."
+  write_ergoms_message nginx_installing_to cyan "" "path=$nginx_dir"
   if ! (cd "$src_dir" && make install); then
     rm -rf "$build_dir"
-    echo "[ERROR] nginx make install завершился с ошибкой." >&2
+    write_ergoms_message nginx_error_make_install red --stderr
     return 1
   fi
 
   rm -rf "$build_dir"
 
   if [[ -x "$nginx_bin" ]]; then
-    echo "[OK] Nginx установлен в $nginx_dir"
+    write_ergoms_message nginx_installed_to green "" "path=$nginx_dir"
     "$nginx_bin" -v 2>&1 | sed 's/^/[OK] /'
     return 0
   fi
 
-  echo "[ERROR] Исполняемый файл nginx не найден после установки: $nginx_bin" >&2
+  write_ergoms_message nginx_error_bin_missing red --stderr "path=$nginx_bin"
   return 1
 }
 
@@ -218,7 +219,7 @@ EOF
 _nginx_stop_system_nginx_if_running() {
   if command -v systemctl >/dev/null 2>&1; then
     if systemctl is-active --quiet nginx 2>/dev/null; then
-      echo "-> Остановка системного nginx (конфликт порта с packages install)..."
+      write_ergoms_message nginx_stop_system_conflict yellow
       _nginx_sudo systemctl stop nginx 2>/dev/null || true
     fi
   fi
@@ -236,7 +237,7 @@ _nginx_render_template() {
 
   local script="$root/core/deployment/scripts/render_nginx_config.py"
   if [[ ! -f "$script" ]]; then
-    echo "[ERROR] render_nginx_config.py не найден" >&2
+    write_ergoms_message error_render_nginx_missing red --stderr
     return 1
   fi
 
@@ -316,7 +317,7 @@ UNIT
 nginx_install_service() {
   local root="$1"
   if ! _nginx_is_installed "$root"; then
-    echo "[ERROR] Nginx не установлен. Выполните: ergoms install-nginx" >&2
+    write_ergoms_message error_not_installed_run red --stderr "name=Nginx" "cmd=ergoms install-nginx"
     return 1
   fi
 
@@ -327,7 +328,7 @@ nginx_install_service() {
   install_unit "$NGINX_SERVICE_NAME" "$content" "$root"
   _nginx_sudo systemctl daemon-reload
   enable_and_start "${NGINX_SERVICE_NAME}.service"
-  echo "[OK] Служба systemd nginx установлена и запущена"
+  write_ergoms_message ok_systemd_service_installed_running green "" "name=nginx"
 }
 
 nginx_install() {
@@ -351,11 +352,11 @@ nginx_install() {
     use_ssl="true"
     export ERGO_SSL_CERT="${ERGO_SSL_CERT:-/etc/ssl/certs/ssl-cert-snakeoil.pem}"
     export ERGO_SSL_KEY="${ERGO_SSL_KEY:-/etc/ssl/private/ssl-cert-snakeoil.key}"
-    _nginx_warn_insecure_certs
+    _nginx_warn_insecure_certs "$root"
   fi
 
   echo ""
-  echo "=== Nginx: установка ==="
+  write_ergoms_message heading_install_only cyan "" "name=Nginx"
   echo ""
 
   _nginx_stop_system_nginx_if_running
@@ -367,16 +368,16 @@ nginx_install() {
   local template
   template="$(_nginx_select_template "$root" "$use_ssl")"
   if [[ ! -f "$template" ]]; then
-    echo "[ERROR] Шаблон не найден: $template" >&2
+    write_ergoms_message error_template_not_found red --stderr "path=$template"
     return 1
   fi
 
   local dist_path="$root/core/client/dist"
   if [[ ! -f "$dist_path/index.html" ]]; then
-    echo "[ERROR] $dist_path/index.html не найден." >&2
-    echo "  Nginx serves production build, not Vite dev. Run:" >&2
+    write_ergoms_message error_index_html_not_found red --stderr "path=$dist_path"
+    write_ergoms_message nginx_need_client_build yellow >&2
     echo "    ergoms client-build" >&2
-    echo "  Then: ergoms install-nginx" >&2
+    write_ergoms_message hint_then_install_nginx yellow >&2
     return 1
   fi
 
@@ -384,7 +385,7 @@ nginx_install() {
   rendered="$(_nginx_render_template "$template" "$root" "$server_name" "$listen_host" "$listen_port" "$use_ssl")"
   site_conf="$(_nginx_site_conf "$root")"
   printf '%s\n' "$rendered" >"$site_conf"
-  echo "[OK] Конфиг записан: $site_conf"
+  write_ergoms_message ok_config_written green "" "path=$site_conf"
 
   _nginx_write_main_conf "$root" "$site_conf"
 
@@ -393,24 +394,24 @@ nginx_install() {
   main_conf="$(_nginx_main_conf "$root")"
   nginx_dir="$(_nginx_packages_dir "$root")"
 
-  echo "-> Проверка конфигурации nginx..."
+  write_ergoms_message arrow_checking_nginx_config cyan
   if (cd "$nginx_dir" && "$nginx_bin" -t -c "$main_conf"); then
-    echo "[OK] Конфигурация корректна"
+    write_ergoms_message ok_config_valid green
   else
-    echo "[ERROR] nginx -t завершился с ошибкой." >&2
+    write_ergoms_message error_nginx_t_failed_dot red --stderr
     return 1
   fi
 
   nginx_install_service "$root"
 
-  echo "[OK] Nginx установлен и запущен"
-  echo "    Path: $nginx_dir"
-  echo "    Config: $site_conf"
-  echo "    Логи: $nginx_dir/logs"
+  write_ergoms_message ok_installed_and_running green "" "name=Nginx"
+  write_ergoms_message label_path cyan "" "path=$nginx_dir"
+  write_ergoms_message label_config cyan "" "path=$site_conf"
+  write_ergoms_message label_logs cyan "" "path=$nginx_dir/logs"
   if [[ "$use_ssl" == "true" ]]; then
-    echo "    Listening: https://${server_name}:443"
+    write_ergoms_message label_listening_https cyan "" "host=$server_name"
   else
-    echo "    Listening: http://${server_name}:${listen_port} (bind ${listen_host})"
+    write_ergoms_message label_listening_http_bind cyan "" "host=$server_name" "port=$listen_port" "bind=$listen_host"
   fi
 }
 
@@ -419,14 +420,14 @@ nginx_uninstall() {
   local purge="${2:-false}"
 
   echo ""
-  echo "=== Nginx: удаление ==="
+  write_ergoms_message heading_remove cyan "" "name=Nginx"
   echo ""
 
   _nginx_stop_system_nginx_if_running
   nginx_stop_service "$root" quiet 2>/dev/null || true
 
   if [[ -f "$(_nginx_unit_file "$root")" ]] || [[ -L "/etc/systemd/system/${NGINX_SERVICE_NAME}.service" ]]; then
-    echo "-> Удаление unit systemd nginx..."
+    write_ergoms_message arrow_remove_nginx_unit yellow
     local unit_file link_path
     unit_file="$(_nginx_unit_file "$root")"
     link_path="/etc/systemd/system/${NGINX_SERVICE_NAME}.service"
@@ -440,43 +441,43 @@ nginx_uninstall() {
       rm -f "$unit_file" 2>/dev/null || true
       sudo systemctl daemon-reload
     fi
-    echo "[OK] Unit systemd nginx удалён"
+    write_ergoms_message ok_nginx_unit_removed green
   fi
 
   local site_conf
   site_conf="$(_nginx_site_conf "$root")"
   if [[ -f "$site_conf" ]]; then
     rm -f "$site_conf"
-    echo "[OK] Конфиг удалён: $site_conf"
+    write_ergoms_message ok_config_removed green "" "path=$site_conf"
   fi
 
   local nginx_dir
   nginx_dir="$(_nginx_packages_dir "$root")"
   if [[ "$purge" == "true" ]] && [[ -d "$nginx_dir" ]]; then
     rm -rf "$nginx_dir"
-    echo "[OK] Удалено: $nginx_dir"
+    write_ergoms_message ok_removed_path green "" "path=$nginx_dir"
   elif [[ -d "$nginx_dir" ]]; then
-    echo "[OK] Nginx остановлен (бинарники сохранены; --purge удалит packages/nginx)"
+    write_ergoms_message ok_stopped_binaries_kept green "" "name=Nginx" "pkg=nginx" "purge_flag=--purge"
   fi
 
-  echo "[OK] Nginx удалён"
+  write_ergoms_message ok_removed green "" "name=Nginx"
 }
 
 nginx_start_service() {
   local root="$1"
   if ! _nginx_is_installed "$root"; then
-    echo "[ERROR] Nginx не установлен. Выполните: ergoms install-nginx" >&2
+    write_ergoms_message error_not_installed_run red --stderr "name=Nginx" "cmd=ergoms install-nginx"
     return 1
   fi
 
   if [[ -f "$(_nginx_unit_file "$root")" ]] || [[ -L "/etc/systemd/system/${NGINX_SERVICE_NAME}.service" ]]; then
     if systemctl is-active --quiet "${NGINX_SERVICE_NAME}.service" 2>/dev/null; then
-      echo "[OK] Служба nginx уже запущена"
+      write_ergoms_message ok_service_already_running green "" "name=nginx"
       return 0
     fi
-    echo "-> Запуск службы nginx..."
+    write_ergoms_message arrow_starting_service cyan "" "name=nginx"
     _nginx_sudo systemctl start "${NGINX_SERVICE_NAME}.service"
-    echo "[OK] Служба nginx запущена"
+    write_ergoms_message ok_service_started green "" "name=nginx"
     return 0
   fi
 
@@ -489,18 +490,16 @@ nginx_start_service() {
   local pid_file="$nginx_dir/logs/nginx.pid"
   rm -f "$pid_file"
 
-  echo "-> Запуск nginx..."
+  write_ergoms_message arrow_starting cyan "" "name=nginx"
   (cd "$nginx_dir" && "$nginx_bin" -c "$main_conf")
   sleep 2
 
   if [[ -f "$pid_file" ]] || pgrep -f "$nginx_bin" >/dev/null 2>&1; then
-    echo "[OK] Nginx запущен"
+    write_ergoms_message ok_started green "" "name=Nginx"
     return 0
   fi
 
-  echo "[ERROR] Nginx не запустился. Проверьте логи: $(
-    _nginx_log_env "$root" path NGINX_ERROR
-  )" >&2
+  err_log="$(_nginx_log_env "$root" path NGINX_ERROR)"; [[ -z "$err_log" ]] && err_log="$root/logs/nginx-error.log"; write_ergoms_message error_start_failed_check_logs red --stderr "name=Nginx" "path=$err_log"
   return 1
 }
 
@@ -578,21 +577,21 @@ nginx_stop_service() {
   _nginx_remove_stale_pid_file "$root"
 
   if ! _nginx_is_running "$root"; then
-    [[ -z "$quiet" ]] && echo "[SKIP] Nginx не был запущен"
+    [[ -z "$quiet" ]] && write_ergoms_message skip_was_not_running gray "" "name=Nginx"
     return 0
   fi
 
   if [[ -f "$(_nginx_unit_file "$root")" ]] || [[ -L "/etc/systemd/system/${NGINX_SERVICE_NAME}.service" ]] && systemctl is-active --quiet "${NGINX_SERVICE_NAME}.service" 2>/dev/null; then
-    echo "-> Остановка службы nginx..."
+    write_ergoms_message arrow_stopping_service cyan "" "name=nginx"
     _nginx_sudo systemctl stop "${NGINX_SERVICE_NAME}.service"
     if ! _nginx_wait_stopped "$root" 15; then
       _nginx_force_stop_processes
       if ! _nginx_wait_stopped "$root" 5; then
-        echo "[ERROR] Не удалось остановить службу nginx" >&2
+        write_ergoms_message error_stop_service_failed red --stderr "name=nginx"
         return 1
       fi
     fi
-    echo "[OK] Служба nginx остановлена"
+    write_ergoms_message ok_service_stopped green "" "name=nginx"
     return 0
   fi
 
@@ -603,10 +602,10 @@ nginx_stop_service() {
     nginx_dir="$(_nginx_packages_dir "$root")"
 
     if [[ -x "$nginx_bin" ]]; then
-      echo "-> Остановка процесса nginx..."
+      write_ergoms_message arrow_stopping_process cyan "" "name=nginx"
       (cd "$nginx_dir" && "$nginx_bin" -s quit -c "$main_conf" 2>/dev/null) || true
       if _nginx_wait_stopped "$root" 8; then
-        [[ -z "$quiet" ]] && echo "[OK] Nginx остановлен"
+        [[ -z "$quiet" ]] && write_ergoms_message ok_stopped green "" "name=Nginx"
         return 0
       fi
     fi
@@ -619,16 +618,16 @@ nginx_stop_service() {
   _nginx_force_stop_processes
 
   if ! _nginx_wait_stopped "$root" 5; then
-    echo "[ERROR] Не удалось остановить nginx" >&2
+    write_ergoms_message error_stop_failed red --stderr "name=nginx"
     return 1
   fi
-  [[ -z "$quiet" ]] && echo "[OK] Nginx остановлен"
+  [[ -z "$quiet" ]] && write_ergoms_message ok_stopped green "" "name=Nginx"
 }
 
 nginx_reload_service() {
   local root="$1"
   if ! _nginx_is_installed "$root"; then
-    echo "[ERROR] Nginx не установлен. Выполните: ergoms install-nginx" >&2
+    write_ergoms_message error_not_installed_run red --stderr "name=Nginx" "cmd=ergoms install-nginx"
     return 1
   fi
 
@@ -637,29 +636,29 @@ nginx_reload_service() {
   main_conf="$(_nginx_main_conf "$root")"
   nginx_dir="$(_nginx_packages_dir "$root")"
 
-  echo "-> Проверка конфигурации..."
+  write_ergoms_message arrow_checking_config cyan
   if ! (cd "$nginx_dir" && "$nginx_bin" -t -c "$main_conf"); then
-    echo "[ERROR] Проверка конфигурации завершилась с ошибкой. Перезагрузка не выполнена." >&2
+    write_ergoms_message error_config_check_failed_no_reload red --stderr
     return 1
   fi
 
   if [[ -f "$(_nginx_unit_file "$root")" ]] || [[ -L "/etc/systemd/system/${NGINX_SERVICE_NAME}.service" ]] && systemctl is-active --quiet "${NGINX_SERVICE_NAME}.service" 2>/dev/null; then
-    echo "-> Перезагрузка службы nginx..."
+    write_ergoms_message arrow_reload_nginx_service cyan
     _nginx_sudo systemctl reload "${NGINX_SERVICE_NAME}.service"
-    echo "[OK] Nginx перезагружен"
+    write_ergoms_message ok_reloaded green "" "name=Nginx"
     return 0
   fi
 
-  echo "-> Перезагрузка nginx..."
+  write_ergoms_message arrow_reloading cyan "" "name=nginx"
   (cd "$nginx_dir" && "$nginx_bin" -s reload -c "$main_conf")
-  echo "[OK] Nginx перезагружен"
+  write_ergoms_message ok_reloaded green "" "name=Nginx"
 }
 
 nginx_status_service() {
   local root="$1"
   if ! _nginx_is_installed "$root"; then
-    echo "Nginx: не установлен"
-    echo "  Expected path: $(_nginx_packages_dir "$root")"
+    write_ergoms_message component_not_installed gray "" "name=Nginx"
+    write_ergoms_message label_expected_path gray "" "path=$(_nginx_packages_dir "$root")"
     return 0
   fi
 
@@ -668,35 +667,35 @@ nginx_status_service() {
   site_conf="$(_nginx_site_conf "$root")"
 
   echo ""
-  echo "=== Статус Nginx ==="
+  write_ergoms_message heading_status cyan "" "name=Nginx"
 
   if [[ -f "$(_nginx_unit_file "$root")" ]] || [[ -L "/etc/systemd/system/${NGINX_SERVICE_NAME}.service" ]]; then
     if systemctl is-active --quiet "${NGINX_SERVICE_NAME}.service" 2>/dev/null; then
-      echo "  Service ($NGINX_SERVICE_NAME): Running"
+      write_ergoms_message label_service_status green "" "name=$NGINX_SERVICE_NAME" "status=Running"
     else
-      echo "  Service ($NGINX_SERVICE_NAME): Not running"
+      write_ergoms_message label_service_status yellow "" "name=$NGINX_SERVICE_NAME" "status=Not running"
     fi
   elif pgrep -f "$nginx_dir/sbin/nginx" >/dev/null 2>&1; then
-    echo "  Process: Запущен (PID: $(pgrep -f "$nginx_dir/sbin/nginx" | head -n1))"
+    write_ergoms_message status_running_pid_process green "" "pid=$(pgrep -f "$nginx_dir/sbin/nginx" | head -n1)"
   else
-    echo "  Process: Not running"
+    write_ergoms_message status_process_not_running red
   fi
 
   if [[ -f "$site_conf" ]]; then
-    echo "  Config: Installed ($site_conf)"
+    write_ergoms_message config_installed_at cyan "" "path=$site_conf"
   else
-    echo "  Config: Not installed"
+    write_ergoms_message config_not_installed yellow
   fi
 
-  echo "  Path: $nginx_dir"
-  echo "  Логи: $nginx_dir/logs"
+  write_ergoms_message label_path_indent2 cyan "" "path=$nginx_dir"
+  write_ergoms_message label_logs_indent2 cyan "" "path=$nginx_dir/logs"
   echo ""
 }
 
 nginx_test_config() {
   local root="$1"
   if ! _nginx_is_installed "$root"; then
-    echo "[ERROR] Nginx не установлен" >&2
+    write_ergoms_message error_component_not_installed red --stderr "name=Nginx"
     return 1
   fi
 

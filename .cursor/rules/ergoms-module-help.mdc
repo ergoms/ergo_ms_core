@@ -1,5 +1,5 @@
 ---
-description: Справка ergoms для модулей — ergoms.help.yaml рядом с ergoms.conf, help module, русский текст
+description: Справка ergoms для модулей — ergoms.help.yaml (ru source) + locales/<lang>/ergoms.help.yaml overlays
 globs:
   - "modules/**/ergoms.conf"
 alwaysApply: false
@@ -14,18 +14,19 @@ alwaysApply: false
 - Вызов: `ergoms <имя_модуля>:<команда> [аргументы]`
 - Оглавление модулей: `ergoms help modules`
 - Справка по модулю: `ergoms help module <имя>`
-- Текст справки — **только русский**; имена команд и путей — как в коде
+- Текст справки — **русские plain-строки в источнике** `ergoms.help.yaml`; переводы — overlay `modules/<имя>/locales/<lang>/ergoms.help.yaml` (та же структура, deep-merge). Имена команд и путей — как в коде
 
 ## Обязательно
 
 При добавлении или изменении строки в `ergoms.conf`:
 
-1. Создай или обнови **`ergoms.help.yaml`** в том же каталоге модуля.
+1. Создай или обнови **`ergoms.help.yaml`** в корне модуля (русский source).
 2. Для каждой команды conf добавь `commands.<имя>.summary` на русском.
-3. Поле `module` в yaml совпадает с именем каталога (`kebab-case`).
-4. Эталон — `modules/<name>/ergoms.help.yaml` рядом с `ergoms.conf`.
+3. Переводы — в `modules/<имя>/locales/<lang>/ergoms.help.yaml` (например `en`, `fr`).
+4. Поле `module` в yaml совпадает с именем каталога (`kebab-case`).
+5. Эталон — `modules/<name>/ergoms.help.yaml` рядом с `ergoms.conf`.
 
-## Формат ergoms.help.yaml
+## Формат ergoms.help.yaml (source, ru)
 
 ```yaml
 module: <name>
@@ -40,6 +41,17 @@ notes:
   - "Вызов: ergoms <name>:<команда>"
 ```
 
+Перевод (overlay, та же структура):
+
+```yaml
+# modules/<name>/locales/en/ergoms.help.yaml
+title: "My module"
+summary: "Brief module description"
+commands:
+  install:
+    summary: "Install all module dependencies"
+```
+
 | Поле | Назначение |
 |------|------------|
 | `module` | Имя каталога модуля |
@@ -51,7 +63,7 @@ notes:
 ## Запрещено
 
 - Описания модульных ergoms-команд в `core/deployment/help.manifest.yaml` или в `ergoms_help.py`
-- Английский текст в `ergoms.help.yaml`
+- Вложенные карты языков в одном файле (`title: { ru: …, en: … }`) — только source + overlay
 - Команда в conf без `summary` в help (при `help module` будет предупреждение)
 
 ## Где смотреть
@@ -59,7 +71,8 @@ notes:
 | Что | Файл |
 |-----|------|
 | Рендер справки | [`core/deployment/scripts/ergoms_help.py`](../../core/deployment/scripts/ergoms_help.py) |
-| Справка ядра | [`core/deployment/help.manifest.yaml`](../../core/deployment/help.manifest.yaml) |
+| Справка ядра | [`core/deployment/help.manifest.yaml`](../../core/deployment/help.manifest.yaml) + overlays `locales/<lang>/help.manifest.yaml` |
+| Локализация CLI | [`cli_locale.py`](../../core/deployment/cli_locale.py) |
 | Эталон модуля | `modules/<name>/ergoms.help.yaml` |
 
 ## Связанные правила

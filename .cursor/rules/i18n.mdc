@@ -140,9 +140,21 @@ ergoms i18n-compilemessages
 | Клиент ERGO MS | vue-i18n | `UserProfile` / localStorage / `DEFAULT_LANGUAGE` |
 | API | Django gettext | то же + Accept-Language |
 | Расширения IDE | `package.nls` (+ `vscode.l10n` для runtime) | Display Language Cursor/VS Code |
-| Справка `ergoms help` | `help.manifest.yaml` / `ergoms.help.yaml` | сейчас один язык (не package.nls) |
+| CLI ergoms | `cli_locale.py` + overlays `locales/<lang>/` | `ERGO_CLI_LANGUAGE` → OS → `ru`; не vue-i18n/gettext |
 
-Описания задач из `modules/<name>/vscode.tasks.yaml` (`detail` / `description` в YAML) — не покрываются `package.nls`. При необходимости мультиязычности — отдельные поля в YAML и выбор в коде расширения по `vscode.env.language` (см. [`module-vscode-tasks.mdc`](module-vscode-tasks.mdc)).
+## CLI ergoms (отдельно от UI/API)
+
+Консольные сообщения и `ergoms help` — **не** vue-i18n и **не** Django gettext:
+
+- Сообщения: `core/deployment/locales/<lang>/cli_messages.yaml` → `t('key')`
+- Help ядра: `help.manifest.yaml` (ru source) + `locales/<lang>/help.manifest.yaml`
+- Help модуля: `ergoms.help.yaml` (ru) + `modules/<name>/locales/<lang>/ergoms.help.yaml`
+- Новый язык: каталог `locales/<code>/` с overlay-файлами; без вложенных `{ru,en,fr}` в одном YAML
+- Fallback пропущенного перевода — русский source
+
+Подробности — [`console-output.mdc`](console-output.mdc), [`ergoms-module-help.mdc`](ergoms-module-help.mdc), [`ergoms-commands.mdc`](ergoms-commands.mdc).
+
+Описания задач из `modules/<name>/vscode.tasks.yaml` (`detail` / `description` в YAML) — не покрываются ни CLI locales, ни `package.nls`. При необходимости мультиязычности — отдельные поля в YAML и выбор в коде расширения по `vscode.env.language` (см. [`module-vscode-tasks.mdc`](module-vscode-tasks.mdc)).
 
 ## Источник языка
 
@@ -166,6 +178,7 @@ ergoms i18n-compilemessages
 | Profile locale MW | [`profile_locale_middleware.py`](../../core/api/src/core/utils/middleware/profile_locale_middleware.py) |
 | Модуль | `modules/<name>/client/js/locales.js` |
 | Расширения IDE | [`.vscode/extensions/*/package.nls*.json`](../../.vscode/extensions/) |
+| CLI ergoms | [`cli_locale.py`](../../core/deployment/cli_locale.py), `core/deployment/locales/` |
 
 ## Связанные правила
 
@@ -176,4 +189,4 @@ ergoms i18n-compilemessages
 | Модульные задачи IDE | [`module-vscode-tasks.mdc`](module-vscode-tasks.mdc) |
 | Установка расширений | [`npm-workspace.mdc`](npm-workspace.mdc) → `install-extensions` |
 | Безопасность | [`security.mdc`](security.mdc) |
-| ergoms | [`no-direct-manage-py.mdc`](no-direct-manage-py.mdc) |
+| ergoms, CLI locales | [`console-output.mdc`](console-output.mdc), [`ergoms-module-help.mdc`](ergoms-module-help.mdc) |

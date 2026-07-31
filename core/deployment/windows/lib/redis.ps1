@@ -131,11 +131,11 @@ function Invoke-RedisPythonScript {
     $pythonExe = Get-ProjectPythonExe -Root $Root
     $scriptPath = Join-Path $Root "core\deployment\scripts\$ScriptName"
     if (-not (Test-Path $pythonExe)) {
-        Write-ColorOutput '[ERROR] Python не найден. Выполните: ergoms setup' Red
+        Write-ErgomsMessage -Key 'python_not_found_setup' -Color Red -Stderr
         return $false
     }
     if (-not (Test-Path $scriptPath)) {
-        Write-ColorOutput "[ERROR] Скрипт не найден: $scriptPath" Red
+        Write-ErgomsMessage -Key 'script_not_found_path' -Color Red -Stderr -Param @{ path = $scriptPath }
         return $false
     }
     & $pythonExe $scriptPath @ExtraArgs
@@ -156,11 +156,11 @@ function Install-Redis {
     }
 
     if ($Configure) {
-        Write-ColorOutput '[WARNING] --configure устарел; задайте REDIS_ENABLED=true в .env вручную' Yellow
+        Write-ErgomsMessage -Key 'redis_configure_deprecated' -Color Yellow
     }
 
     Write-ColorOutput '' White
-    Write-ColorOutput '=== Redis: установка и запуск ===' Cyan
+    Write-ErgomsMessage -Key 'heading_install_run' -Color Cyan -Param @{ name = 'Redis' }
     Write-ColorOutput '' White
 
     $ok = Invoke-RedisPythonScript -Root $Root -ScriptName 'install_redis.py' -ExtraArgs @(
@@ -168,7 +168,7 @@ function Install-Redis {
         '--port', $ListenPort
     )
     if (-not $ok) {
-        Write-ColorOutput '[ERROR] Установка Redis не удалась' Red
+        Write-ErgomsMessage -Key 'error_install_failed' -Color Red -Stderr -Param @{ name = 'Redis' }
         return
     }
 
@@ -181,12 +181,12 @@ function Install-Redis {
 
     $redisDir = Get-RedisDir -Root $Root
     Write-ColorOutput '' White
-    Write-ColorOutput '[OK] Redis установлен' Green
-    Write-ColorOutput "    Прослушивание: 127.0.0.1:${ListenPort}" Cyan
-    Write-ColorOutput "    Путь: $redisDir" Cyan
-    Write-ColorOutput "    Конфиг: $(Get-RedisConfPath -Root $Root)" Cyan
+    Write-ErgomsMessage -Key 'ok_installed' -Color Green -Param @{ name = 'Redis' }
+    Write-ErgomsMessage -Key 'label_listening' -Color Cyan -Param @{ addr = "127.0.0.1:${ListenPort}" }
+    Write-ErgomsMessage -Key 'label_path' -Color Cyan -Param @{ path = $redisDir }
+    Write-ErgomsMessage -Key 'label_config' -Color Cyan -Param @{ path = (Get-RedisConfPath -Root $Root) }
     if (-not $Configure) {
-        Write-ColorOutput '    Задайте REDIS_ENABLED=true в .env для кэша, channel layer и Celery broker' Yellow
+        Write-ErgomsMessage -Key 'redis_hint_enable_env' -Color Yellow
     }
 }
 
@@ -194,7 +194,7 @@ function Install-RedisService {
     param([string]$Root)
 
     if (-not (Test-RedisInstalled -Root $Root)) {
-        Write-ColorOutput '[ERROR] Redis не установлен. Выполните: ergoms install-redis' Red
+        Write-ErgomsMessage -Key 'error_not_installed_run' -Color Red -Stderr -Param @{ name = 'Redis'; cmd = 'ergoms install-redis' }
         return
     }
 
@@ -205,7 +205,7 @@ function Install-RedisService {
 
     $existingService = Get-Service -Name $script:RedisServiceName -ErrorAction SilentlyContinue
     if ($existingService) {
-        Write-ColorOutput "-> Служба $($script:RedisServiceName) уже существует, переустановка..." Yellow
+        Write-ErgomsMessage -Key 'service_exists_reinstall' -Color Yellow -Param @{ name = $script:RedisServiceName }
         if ($existingService.Status -eq 'Running') {
             & $nssmExe stop $script:RedisServiceName 2>$null
             Start-Sleep -Seconds 2
@@ -216,7 +216,7 @@ function Install-RedisService {
 
     Stop-RedisProcess -Root $Root -Quiet
 
-    Write-ColorOutput '-> Установка Redis как службы Windows...' Cyan
+    Write-ErgomsMessage -Key 'arrow_install_as_windows_service' -Color Cyan -Param @{ name = 'Redis' }
     & $nssmExe install $script:RedisServiceName $serverExe
     & $nssmExe set $script:RedisServiceName AppParameters 'conf\redis.conf'
     & $nssmExe set $script:RedisServiceName AppDirectory $redisDir
@@ -231,7 +231,7 @@ function Install-RedisService {
     & $nssmExe set $script:RedisServiceName AppRestartDelay 5000
 
     Start-Service -Name $script:RedisServiceName
-    Write-ColorOutput '[OK] Служба Redis установлена и запущена' Green
+    Write-ErgomsMessage -Key 'ok_windows_service_installed_running' -Color Green -Param @{ name = 'Redis' }
 }
 
 function Stop-RedisProcess {
@@ -242,23 +242,23 @@ function Stop-RedisProcess {
 
     if (-not (Test-RedisProcessRunning)) {
         if (-not $Quiet) {
-            Write-ColorOutput '[SKIP] Redis не был запущен' Gray
+            Write-ErgomsMessage -Key 'skip_was_not_running' -Color Gray -Param @{ name = 'Redis' }
         }
         return
     }
 
     $service = Get-Service -Name $script:RedisServiceName -ErrorAction SilentlyContinue
     if ($service -and $service.Status -eq 'Running') {
-        Write-ColorOutput '-> Остановка службы Redis...' Cyan
+        Write-ErgomsMessage -Key 'arrow_stopping_service' -Color Cyan -Param @{ name = 'Redis' }
         Stop-Service -Name $script:RedisServiceName -Force
         if (Test-RedisProcessRunning) {
             if (-not $Quiet) {
-                Write-ColorOutput '[ERROR] Не удалось остановить службу Redis' Red
+                Write-ErgomsMessage -Key 'error_stop_service_failed' -Color Red -Stderr -Param @{ name = 'Redis' }
                 exit 1
             }
             return
         }
-        Write-ColorOutput '[OK] Служба Redis остановлена' Green
+        Write-ErgomsMessage -Key 'ok_service_stopped' -Color Green -Param @{ name = 'Redis' }
         return
     }
 
@@ -266,7 +266,7 @@ function Stop-RedisProcess {
         $cli = Get-RedisCliExe -Root $Root
         if (Test-Path $cli) {
             if (-not $Quiet) {
-                Write-ColorOutput '-> Завершение работы Redis...' Cyan
+                Write-ErgomsMessage -Key 'redis_arrow_shutdown' -Color Cyan
             }
             $endpoint = Get-RedisCliEndpoint -Root $Root
             # Windows redis-cli: -c включает cluster mode, не путь к конфигу (в отличие от Linux).
@@ -287,13 +287,13 @@ function Stop-RedisProcess {
 
     if (Test-RedisProcessRunning) {
         if (-not $Quiet) {
-            Write-ColorOutput '[ERROR] Не удалось остановить Redis' Red
+            Write-ErgomsMessage -Key 'error_stop_failed' -Color Red -Stderr -Param @{ name = 'Redis' }
             exit 1
         }
         return
     }
     if (-not $Quiet) {
-        Write-ColorOutput '[OK] Redis остановлен' Green
+        Write-ErgomsMessage -Key 'ok_stopped' -Color Green -Param @{ name = 'Redis' }
     }
 }
 
@@ -301,7 +301,7 @@ function Start-RedisProcess {
     param([string]$Root)
 
     if (-not (Test-RedisInstalled -Root $Root)) {
-        Write-ColorOutput '[ERROR] Redis не установлен. Выполните: ergoms install-redis' Red
+        Write-ErgomsMessage -Key 'error_not_installed_run' -Color Red -Stderr -Param @{ name = 'Redis'; cmd = 'ergoms install-redis' }
         return
     }
 
@@ -310,7 +310,7 @@ function Start-RedisProcess {
         if ($service.Status -ne 'Running') {
             Start-Service -Name $script:RedisServiceName
         }
-        Write-ColorOutput '[OK] Служба Redis запущена' Green
+        Write-ErgomsMessage -Key 'ok_service_started' -Color Green -Param @{ name = 'Redis' }
         return
     }
 
@@ -320,16 +320,16 @@ function Start-RedisProcess {
     $serverExe = Get-RedisServerExe -Root $Root
     $confPath = Get-RedisConfPath -Root $Root
 
-    Write-ColorOutput '-> Запуск Redis...' Cyan
+    Write-ErgomsMessage -Key 'arrow_starting' -Color Cyan -Param @{ name = 'Redis' }
     # MSYS2-сборка redis-windows не принимает абсолютный путь к конфигу (C:\...).
     Start-Process -FilePath $serverExe -ArgumentList 'conf\redis.conf' -WindowStyle Hidden -WorkingDirectory $redisDir
     Start-Sleep -Seconds 2
 
     if (Test-RedisPing -Root $Root) {
-        Write-ColorOutput '[OK] Redis запущен' Green
+        Write-ErgomsMessage -Key 'ok_started' -Color Green -Param @{ name = 'Redis' }
     }
     else {
-        Write-ColorOutput "[ERROR] Redis не запустился. Проверьте логи: $(Join-Path $redisDir 'logs\redis.log')" Red
+        Write-ErgomsMessage -Key 'error_start_failed_check_logs' -Color Red -Stderr -Param @{ name = 'Redis'; path = (Join-Path $redisDir 'logs\redis.log') }
     }
 }
 
@@ -337,14 +337,14 @@ function Restart-RedisProcess {
     param([string]$Root)
 
     if (-not (Test-RedisInstalled -Root $Root)) {
-        Write-ColorOutput '[ERROR] Redis не установлен. Выполните: ergoms install-redis' Red
+        Write-ErgomsMessage -Key 'error_not_installed_run' -Color Red -Stderr -Param @{ name = 'Redis'; cmd = 'ergoms install-redis' }
         return
     }
 
     $service = Get-Service -Name $script:RedisServiceName -ErrorAction SilentlyContinue
     if ($service) {
         Restart-Service -Name $script:RedisServiceName -Force
-        Write-ColorOutput '[OK] Служба Redis перезапущена' Green
+        Write-ErgomsMessage -Key 'ok_service_restarted' -Color Green -Param @{ name = 'Redis' }
         return
     }
 
@@ -368,13 +368,13 @@ function Show-RedisStatus {
     $installed = Test-RedisInstalled -Root $Root
 
     if (-not $installed) {
-        Write-ColorOutput 'Redis: не установлен' DarkGray
-        Write-ColorOutput "  Ожидаемый путь: $redisDir" DarkGray
+        Write-ErgomsMessage -Key 'component_not_installed' -Color DarkGray -Param @{ name = 'Redis' }
+        Write-ErgomsMessage -Key 'label_expected_path' -Color DarkGray -Param @{ path = $redisDir }
         return
     }
 
     Write-ColorOutput '' White
-    Write-ColorOutput '=== Статус Redis ===' Cyan
+    Write-ErgomsMessage -Key 'heading_status' -Color Cyan -Param @{ name = 'Redis' }
 
     $service = Get-Service -Name $script:RedisServiceName -ErrorAction SilentlyContinue
     if ($service) {
@@ -383,29 +383,26 @@ function Show-RedisStatus {
             'Stopped' { 'Red' }
             default { 'Yellow' }
         }
-        Write-Host "  Служба ($($script:RedisServiceName)): " -NoNewline
-        Write-ColorOutput "$($service.Status)" $statusColor
+        Write-ErgomsMessage -Key 'label_service_status' -Color $statusColor -Param @{ name = $script:RedisServiceName; status = $service.Status }
     }
     else {
         $procs = Get-Process -Name 'redis-server' -ErrorAction SilentlyContinue
         if ($procs) {
-            Write-Host '  Процесс: ' -NoNewline
-            Write-ColorOutput "Запущен (PID: $($procs[0].Id))" Green
+            Write-ErgomsMessage -Key 'status_running_pid_process' -Color Green -Param @{ pid = $procs[0].Id }
         }
         else {
-            Write-Host '  Процесс: ' -NoNewline
-            Write-ColorOutput 'Не запущен' Red
+            Write-ErgomsMessage -Key 'status_process_not_running' -Color Red
         }
     }
 
-    Write-ColorOutput "  Путь: $redisDir" Cyan
-    Write-ColorOutput "  Конфиг: $(Get-RedisConfPath -Root $Root)" Cyan
+    Write-ErgomsMessage -Key 'label_path_indent2' -Color Cyan -Param @{ path = $redisDir }
+    Write-ErgomsMessage -Key 'label_config_indent2' -Color Cyan -Param @{ path = (Get-RedisConfPath -Root $Root) }
 
     if (Test-RedisPing -Root $Root) {
         Write-ColorOutput '  Ping: PONG' Green
     }
     else {
-        Write-ColorOutput '  Ping: не удался (сервер не запущен?)' Yellow
+        Write-ErgomsMessage -Key 'ping_failed_server_down' -Color Yellow
     }
 }
 
@@ -415,7 +412,7 @@ function Uninstall-Redis {
         [switch]$PurgeData
     )
 
-    Write-ColorOutput '=== Redis: удаление ===' Cyan
+    Write-ErgomsMessage -Key 'heading_remove' -Color Cyan -Param @{ name = 'Redis' }
     Stop-RedisProcess -Root $Root -Quiet
 
     $service = Get-Service -Name $script:RedisServiceName -ErrorAction SilentlyContinue
@@ -423,15 +420,15 @@ function Uninstall-Redis {
         $nssmExe = Install-NSSM -Root $Root
         & $nssmExe stop $script:RedisServiceName 2>$null
         & $nssmExe remove $script:RedisServiceName confirm 2>$null
-        Write-ColorOutput '[OK] Служба Redis удалена' Green
+        Write-ErgomsMessage -Key 'redis_ok_service_removed' -Color Green
     }
 
     $redisDir = Get-RedisDir -Root $Root
     if ($PurgeData -and (Test-Path $redisDir)) {
         Remove-Item -Path $redisDir -Recurse -Force -ErrorAction SilentlyContinue
-        Write-ColorOutput "[OK] Удалено: $redisDir" Green
+        Write-ErgomsMessage -Key 'ok_removed_path' -Color Green -Param @{ path = $redisDir }
     }
     else {
-        Write-ColorOutput '[OK] Redis остановлен (бинарники сохранены; для удаления packages/redis используйте -Purge)' Green
+        Write-ErgomsMessage -Key 'ok_stopped_binaries_kept' -Color Green -Param @{ name = 'Redis'; pkg = 'redis'; purge_flag = '-Purge' }
     }
 }

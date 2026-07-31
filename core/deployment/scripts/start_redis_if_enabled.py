@@ -23,6 +23,7 @@ if str(_DEPLOYMENT_DIR) not in sys.path:
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
+from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402
 from deployment_env import PROJECT_ROOT, is_redis_enabled  # noqa: E402
 from install_redis import is_installed, ping_redis, redis_packages_dir  # noqa: E402
@@ -76,10 +77,7 @@ def _tail_owned_session() -> int:
     signal.signal(signal.SIGINT, _handle_signal)
     atexit.register(_cleanup)
 
-    print(format_console(
-        'info',
-        'Redis уже запущен; логи ниже. Ctrl+C или закрытие терминала останавливает Redis.',
-    ))
+    print(format_console('info', t('redis_already_running_tail')))
     try:
         return tail_log_files(
             redis_log_tail_paths(),
@@ -100,11 +98,11 @@ def main() -> int:
     _configure_stdio_utf8()
 
     if not is_installed(PROJECT_ROOT):
-        print(format_console('error', 'Redis не установлен. Выполните: ergoms install-redis'))
+        print(format_console('error', t('redis_not_installed_hint')))
         return 1
 
     if is_redis_managed_service(PROJECT_ROOT):
-        print(format_console('info', 'Redis работает как служба ОС; терминал не управляет процессом.'))
+        print(format_console('info', t('redis_os_service_terminal')))
         return tail_log_files(redis_log_tail_paths(), service='Redis', process_keeps_running=True)
 
     marker = read_dev_session_marker(PROJECT_ROOT)

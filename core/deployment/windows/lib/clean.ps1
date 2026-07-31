@@ -19,7 +19,7 @@ function Clear-ProjectShellEnvironment {
         $activeNorm = [System.IO.Path]::GetFullPath($env:VIRTUAL_ENV).TrimEnd('\')
         if ($activeNorm -eq $venvNorm) {
             Remove-Item Env:VIRTUAL_ENV -ErrorAction SilentlyContinue
-            Write-ColorOutput "  Сброшена переменная VIRTUAL_ENV для виртуального окружения проекта" Gray
+            Write-ErgomsMessage -Key 'clean_venv_cleared' -Color Gray
         }
     }
 
@@ -37,7 +37,7 @@ function Stop-BlockingProcessesForClean {
         [string]$Root
     )
 
-    Write-ColorOutput "  Останавливаю процессы, которые могут блокировать файлы проекта..." Gray
+    Write-ErgomsMessage -Key 'clean_stopping_blockers' -Color Gray
 
     # Все OS-службы проекта — ergo_ms_*; ergo-* оставляем для legacy до переустановки
     $services = @(
@@ -48,10 +48,10 @@ function Stop-BlockingProcessesForClean {
     foreach ($svc in $services) {
         try {
             Stop-Service -Name $svc.Name -Force -ErrorAction Stop
-            Write-ColorOutput "  Остановлена служба: $($svc.Name)" Gray
+            Write-ErgomsMessage -Key 'clean_service_stopped' -Color Gray -Param @{ name = $svc.Name }
         }
         catch {
-            Write-ColorOutput "  [WARNING] Не удалось остановить службу $($svc.Name) (может потребоваться запуск от администратора)" Yellow
+            Write-ErgomsMessage -Key 'clean_warn_stop_service_admin' -Color Yellow -Param @{ name = $svc.Name }
         }
     }
 
@@ -89,11 +89,11 @@ function Stop-BlockingProcessesForClean {
         if ($p.ProcessId -eq $PID) { continue }
         try {
             Stop-Process -Id $p.ProcessId -Force -ErrorAction Stop
-            Write-ColorOutput "  Остановлен: $($p.Name) (PID $($p.ProcessId))" Gray
+            Write-ErgomsMessage -Key 'clean_process_stopped' -Color Gray -Param @{ name = $p.Name; pid = $p.ProcessId }
             $stopped++
         }
         catch {
-            Write-ColorOutput "  [WARNING] Не удалось остановить PID $($p.ProcessId): $($p.Name)" Yellow
+            Write-ErgomsMessage -Key 'clean_warn_stop_pid' -Color Yellow -Param @{ pid = $p.ProcessId; name = $p.Name }
         }
     }
 
@@ -362,7 +362,7 @@ function Remove-DirectoryContents {
     )
 
     if (-not (Test-Path -LiteralPath $Path)) {
-        Write-ColorOutput "[SKIP] $Label не найден" Gray
+        Write-ErgomsMessage -Key 'clean_skip_not_found' -Color Gray -Param @{ label = $Label }
         return @{ Ok = $true; Async = $false; Count = 0 }
     }
 
@@ -370,7 +370,7 @@ function Remove-DirectoryContents {
         Where-Object { $_.Name -ne '.gitkeep' })
 
     if ($items.Count -eq 0) {
-        Write-ColorOutput "[SKIP] $Label уже пуст" Gray
+        Write-ErgomsMessage -Key 'clean_skip_already_empty' -Color Gray -Param @{ label = $Label }
         return @{ Ok = $true; Async = $false; Count = 0 }
     }
 
@@ -380,7 +380,7 @@ function Remove-DirectoryContents {
         # Каталог уехал целиком (включая .gitkeep) — возвращаем исходный .gitkeep
         Restore-CleanDirectorySkeleton -Path $Path -WithGitkeep $false
         Restore-GitkeepFromTrash -TargetDir $Path -TrashDir $moved
-        Write-ColorOutput "[OK] Удалено $removedCount элементов из $Label (фон)" Green
+        Write-ErgomsMessage -Key 'clean_ok_removed_count_bg' -Color Green -Param @{ count = $removedCount; label = $Label }
         return @{ Ok = $true; Async = $true; Count = $removedCount }
     }
 
@@ -404,12 +404,12 @@ function Remove-DirectoryContents {
     }
 
     if ($failedItems.Count -gt 0) {
-        Write-ColorOutput "[ERROR] Не удалось очистить ${Label}: не удалось удалить: $($failedItems -join ', ')" Red
-        Write-ColorOutput "  Закройте терминалы с активированным venv, остановите серверы разработки и снова выполните ergoms clean" Yellow
+        Write-ErgomsMessage -Key 'clean_error_clear_failed' -Color Red -Stderr -Param @{ label = $Label; items = ($failedItems -join ', ') }
+        Write-ErgomsMessage -Key 'clean_hint_close_venv' -Color Yellow
         return @{ Ok = $false; Async = $false; Count = 0 }
     }
 
-    Write-ColorOutput "[OK] Удалено $removedCount элементов из $Label" Green
+    Write-ErgomsMessage -Key 'clean_ok_removed_count' -Color Green -Param @{ count = $removedCount; label = $Label }
     return @{ Ok = $true; Async = $false; Count = $removedCount }
 }
 
@@ -422,29 +422,29 @@ function Remove-FullPathFast {
     )
 
     if (-not (Test-Path -LiteralPath $Path)) {
-        Write-ColorOutput "[SKIP] $Label не найден" Gray
+        Write-ErgomsMessage -Key 'clean_skip_not_found' -Color Gray -Param @{ label = $Label }
         return @{ Ok = $true; Async = $false }
     }
 
     $moved = Move-PathToCleanTrash -Path $Path -StagingRoot $StagingRoot
     if ($moved) {
-        Write-ColorOutput "[OK] $Label удалён (фон)" Green
+        Write-ErgomsMessage -Key 'clean_ok_label_removed_bg' -Color Green -Param @{ label = $Label }
         return @{ Ok = $true; Async = $true }
     }
 
     if (Remove-PathRobust -Path $Path) {
-        Write-ColorOutput "[OK] $Label удалён" Green
+        Write-ErgomsMessage -Key 'clean_ok_label_removed' -Color Green -Param @{ label = $Label }
         return @{ Ok = $true; Async = $false }
     }
 
     Stop-BlockingProcessesForClean -Root $Root
     if (Remove-PathRobust -Path $Path -MaxRetries 5 -RetryDelayMs 400) {
-        Write-ColorOutput "[OK] $Label удалён" Green
+        Write-ErgomsMessage -Key 'clean_ok_label_removed' -Color Green -Param @{ label = $Label }
         return @{ Ok = $true; Async = $false }
     }
 
-    Write-ColorOutput "[ERROR] Не удалось удалить $Label" Red
-    Write-ColorOutput "  Закройте другие терминалы и серверы разработки, затем снова выполните ergoms clean" Yellow
+    Write-ErgomsMessage -Key 'clean_error_remove_failed' -Color Red -Stderr -Param @{ label = $Label }
+    Write-ErgomsMessage -Key 'clean_hint_close_terminals' -Color Yellow
     return @{ Ok = $false; Async = $false }
 }
 
@@ -467,19 +467,19 @@ function Clear-ProjectDependencies {
         @{Path = "virtual_env\docker-cache";    Label = "virtual_env/docker-cache";    FullRemove = $false}
     )
 
-    Write-ColorOutput "`n=== Очистка зависимостей проекта ===" Cyan
+    Write-Host ""; Write-ErgomsMessage -Key 'clean_heading' -Color Cyan
     Write-ColorOutput ""
-    Write-ColorOutput "Будут удалены:" Yellow
+    Write-ErgomsMessage -Key 'clean_will_remove' -Color Yellow
     foreach ($target in $cleanTargets) {
         Write-ColorOutput "  - $($target.Label)" Gray
     }
     Write-ColorOutput ""
-    Write-ColorOutput "Папка media не будет удалена." Green
+    Write-ErgomsMessage -Key 'clean_media_kept' -Color Green
     Write-ColorOutput ""
 
-    $confirmation = Read-Host "Продолжить? (y/N)"
+    Write-ErgomsMessage -Key 'clean_confirm' -Color White; $confirmation = Read-Host
     if ($confirmation -notmatch '^[yY]$') {
-        Write-ColorOutput "Операция отменена пользователем." Yellow
+        Write-ErgomsMessage -Key 'clean_cancelled' -Color Yellow
         return
     }
 
@@ -492,8 +492,8 @@ function Clear-ProjectDependencies {
     }
 
     if ($workTargets.Count -eq 0) {
-        Write-ColorOutput "`n[SKIP] Нечего очищать — все цели уже пусты" Gray
-        Write-ColorOutput "`n=== Очистка завершена ===" Green
+        Write-Host ""; Write-ErgomsMessage -Key 'clean_skip_nothing' -Color Gray
+        Write-Host ""; Write-ErgomsMessage -Key 'clean_done_heading' -Color Green
         Write-ColorOutput ""
         return
     }
@@ -509,22 +509,22 @@ function Clear-ProjectDependencies {
         $target = $cleanTargets[$i]
         $step = $i + 1
         $fullPath = Join-Path $Root $target.Path
-        Write-ColorOutput "`n-> Шаг ${step}/${total}: очистка $($target.Label)..." Yellow
+        Write-Host ""; Write-ErgomsMessage -Key 'clean_step' -Color Yellow -Param @{ step = $step; total = $total; label = $target.Label }
 
         if (-not (Test-CleanTargetHasWork -Path $fullPath -FullRemove:$target.FullRemove)) {
             if ($target.FullRemove -and -not (Test-Path -LiteralPath $fullPath)) {
-                Write-ColorOutput "[SKIP] $($target.Label) не найден" Gray
+                Write-ErgomsMessage -Key 'clean_skip_not_found' -Color Gray -Param @{ label = $target.Label }
             }
             elseif (-not $target.FullRemove) {
                 if (-not (Test-Path -LiteralPath $fullPath)) {
-                    Write-ColorOutput "[SKIP] $($target.Label) не найден" Gray
+                    Write-ErgomsMessage -Key 'clean_skip_not_found' -Color Gray -Param @{ label = $target.Label }
                 }
                 else {
-                    Write-ColorOutput "[SKIP] $($target.Label) уже пуст" Gray
+                    Write-ErgomsMessage -Key 'clean_skip_already_empty' -Color Gray -Param @{ label = $target.Label }
                 }
             }
             else {
-                Write-ColorOutput "[SKIP] $($target.Label) уже пуст" Gray
+                Write-ErgomsMessage -Key 'clean_skip_already_empty' -Color Gray -Param @{ label = $target.Label }
             }
             continue
         }
@@ -543,15 +543,15 @@ function Clear-ProjectDependencies {
 
     if ($anyAsync) {
         Start-BackgroundTrashRemoval -StagingRoot $staging
-        Write-ColorOutput "`n[INFO] Тяжёлое удаление продолжается в фоне" Gray
+        Write-Host ""; Write-ErgomsMessage -Key 'clean_info_async' -Color Gray
     }
     else {
         Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue
     }
 
-    Write-ColorOutput "`n=== Очистка завершена ===" Green
+    Write-Host ""; Write-ErgomsMessage -Key 'clean_done_heading' -Color Green
     Write-ColorOutput ""
-    Write-ColorOutput "Чтобы установить зависимости заново, выполните:" Cyan
+    Write-ErgomsMessage -Key 'clean_reinstall_hint' -Color Cyan
     Write-ColorOutput "  ergoms setup" Yellow
     Write-ColorOutput ""
 }

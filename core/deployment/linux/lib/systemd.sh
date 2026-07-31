@@ -16,7 +16,7 @@ NODE_ENV=development
 ERGO_LOG_CONSOLE=false
 EOF
   chmod 0644 "$env_file" 2>/dev/null || true
-  echo "Записан $env_file с ERGO_ROOT=$root"
+  ERGO_ROOT="$root" write_ergoms_message systemd_env_written white "" "path=$env_file" "root=$root"
 
   if [[ -f "$legacy" ]]; then
     if [[ $(id -u) -eq 0 ]]; then
@@ -24,7 +24,7 @@ EOF
     else
       sudo rm -f "$legacy" 2>/dev/null || true
     fi
-    echo "[OK] Удалён устаревший $legacy"
+    ERGO_ROOT="$root" write_ergoms_message systemd_legacy_removed green "" "path=$legacy"
   fi
 }
 
@@ -62,7 +62,7 @@ install_unit() {
     sudo systemctl link "$unit_path" >/dev/null
     sudo systemctl daemon-reload
   fi
-  echo "Установлен $unit_path (systemctl link)"
+  ERGO_ROOT="$root" write_ergoms_message systemd_unit_installed white "" "path=$unit_path"
 }
 
 enable_and_start() {
@@ -254,14 +254,14 @@ install_worker_units() {
   workers="$(get_celery_workers "$root")"
   
   if [[ -n "$workers" ]]; then
-    echo "Найдены воркеры в celery_workers.yaml: $workers"
+    ERGO_ROOT="$root" write_ergoms_message systemd_workers_found white "" "workers=$workers"
     for worker in $workers; do
       local unit_content
       unit_content="$(generate_worker_unit "$worker" "$root")"
       install_unit "ergo_ms_celery_worker_${worker}" "$unit_content" "$root"
     done
   else
-    echo "Конфиг celery_workers.yaml не найден, устанавливаем один общий воркер"
+    ERGO_ROOT="$root" write_ergoms_message systemd_workers_config_missing white
     local unit_content
     unit_content="$(generate_default_worker_unit "$root")"
     install_unit "ergo_ms_celery_worker" "$unit_content" "$root"

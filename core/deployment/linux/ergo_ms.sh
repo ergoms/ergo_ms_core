@@ -80,7 +80,7 @@ main() {
         if [[ -v "available_custom_cmds[$command]" ]]; then
           shift
         else
-          echo "Неизвестная команда: $command" >&2
+          write_ergoms_message unknown_command red --stderr "name=$command"
           print_usage "$detected_root"
           exit 1
         fi
@@ -200,7 +200,7 @@ main() {
       if [[ -d "$arg_root" ]]; then
         if command -v readlink >/dev/null 2>&1; then ERGO_ROOT="$(readlink -f "$arg_root")"; else ERGO_ROOT="$(cd "$arg_root" && pwd)"; fi
       else
-        echo "Указанный путь --root не существует или не является каталогом: $arg_root" >&2
+        write_ergoms_message error_root_not_dir red --stderr "path=$arg_root"
         exit 1
       fi
     else
@@ -255,7 +255,7 @@ main() {
         case "$1" in
           --purge) redis_purge=true; shift ;;
           --configure)
-            echo "[WARNING] --configure устарел; задайте REDIS_ENABLED=true в .env" >&2
+            write_ergoms_message redis_configure_deprecated_short yellow --stderr
             shift
             ;;
           *)
@@ -292,26 +292,26 @@ main() {
         while (( "$#" )); do
           case "$1" in
             --source-port)
-              [[ -n "${2:-}" ]] || { echo "[ERROR] --source-port требует значение" >&2; exit 1; }
+              [[ -n "${2:-}" ]] || { write_ergoms_message error_arg_requires_value red --stderr "flag=--source-port"; exit 1; }
               extra+=(--source-port "$2"); shift 2 ;;
             --source-host)
-              [[ -n "${2:-}" ]] || { echo "[ERROR] --source-host требует значение" >&2; exit 1; }
+              [[ -n "${2:-}" ]] || { write_ergoms_message error_arg_requires_value red --stderr "flag=--source-host"; exit 1; }
               extra+=(--source-host "$2"); shift 2 ;;
             --source-user)
-              [[ -n "${2:-}" ]] || { echo "[ERROR] --source-user требует значение" >&2; exit 1; }
+              [[ -n "${2:-}" ]] || { write_ergoms_message error_arg_requires_value red --stderr "flag=--source-user"; exit 1; }
               extra+=(--source-user "$2"); shift 2 ;;
             --source-password)
-              [[ -n "${2:-}" ]] || { echo "[ERROR] --source-password требует значение" >&2; exit 1; }
+              [[ -n "${2:-}" ]] || { write_ergoms_message error_arg_requires_value red --stderr "flag=--source-password"; exit 1; }
               extra+=(--source-password "$2"); has_source_password=true; shift 2 ;;
             --force|--dry-run)
               extra+=("$1"); shift ;;
             *)
-              echo "[ERROR] Неизвестный аргумент: $1" >&2
+              write_ergoms_message error_unknown_arg red --stderr "arg=$1"
               exit 1 ;;
           esac
         done
         if [[ "$has_source_password" != true ]]; then
-          echo "[ERROR] Укажите --source-password <пароль системного Postgres>" >&2
+          write_ergoms_message error_need_source_password red --stderr
           exit 1
         fi
         invoke_lifecycle_runner "$ERGO_ROOT" migrate-postgres-to-portable "${extra[@]}"
@@ -362,9 +362,9 @@ main() {
     # Execute logs command
     if [[ "$is_logs_command" == true ]]; then
       if [[ $# -eq 0 ]]; then
-        echo "[ERROR] Укажите имя службы" >&2
-        echo "Доступные службы: $(units_list "$ERGO_ROOT" | tr ' ' ',')" >&2
-        echo "Использование: ergoms logs <имя-службы> [строки]" >&2
+        write_ergoms_message service_name_required red --stderr
+        write_ergoms_message available_services yellow --stderr "items=$(units_list "$ERGO_ROOT" | tr ' ' ',')"
+        write_ergoms_message logs_usage cyan --stderr
         exit 1
       fi
       
@@ -403,7 +403,7 @@ main() {
       # При NGINX_ENABLED Vite-служба не ставится — не открываем её логи с ошибкой
       if [[ "$service_name" == "ergo_ms_client_dev" || "$service_name" == "ergo_ms_client_dev.service" ]]; then
         if is_nginx_enabled "$ERGO_ROOT"; then
-          echo "$(format_ergo_console skip 'ergo_ms_client_dev не используется (NGINX_ENABLED=true, клиент через nginx)')"
+          write_ergoms_message skip_client_dev_nginx gray
           exit 0
         fi
       fi
@@ -431,7 +431,7 @@ main() {
 
       if [[ "$valid" == false ]]; then
         write_ergoms_message 'unknown_service' red stderr "name=$service_name"
-        echo "Доступные службы: $(units_list "$ERGO_ROOT" | tr '\n' ' ') ergo_ms_nginx ergo_ms_redis $postgres_svc celery-tasks celery-beat" >&2
+        write_ergoms_message available_services yellow --stderr "items=$(units_list "$ERGO_ROOT" | tr '\n' ' ') ergo_ms_nginx ergo_ms_redis $postgres_svc celery-tasks celery-beat"
         exit 1
       fi
 
@@ -479,7 +479,7 @@ main() {
         if [[ -z "$arg_root" ]]; then
           arg_root="$1"; shift
         else
-          echo "Неизвестный аргумент: $1" >&2; print_usage "$detected_root"; exit 1
+          write_ergoms_message error_unknown_arg_plain red --stderr "arg=$1"; print_usage "$detected_root"; exit 1
         fi
         ;;
     esac
@@ -490,7 +490,7 @@ main() {
     if [[ -d "$arg_root" ]]; then
       if command -v readlink >/dev/null 2>&1; then ERGO_ROOT="$(readlink -f "$arg_root")"; else ERGO_ROOT="$(cd "$arg_root" && pwd)"; fi
     else
-      echo "Указанный путь --root не существует или не является каталогом: $arg_root" >&2
+      write_ergoms_message error_root_not_dir red --stderr "path=$arg_root"
       exit 1
     fi
   else
@@ -545,7 +545,7 @@ main() {
       invoke_lifecycle_runner "$ERGO_ROOT" install-media-service
       exit 0
       ;;
-    *)        echo "Неизвестная команда: $command" >&2; print_usage "$detected_root"; exit 1 ;;
+    *)        write_ergoms_message unknown_command red --stderr "name=$command"; print_usage "$detected_root"; exit 1 ;;
   esac
 }
 

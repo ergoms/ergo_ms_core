@@ -12,6 +12,7 @@ if str(_DEPLOYMENT_DIR) not in sys.path:
 if str(_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIR))
 
+from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402
 
 from lifecycle.context import DeploymentContext  # noqa: E402
@@ -98,16 +99,16 @@ class EnsureRedisStep(DeploymentStep):
         if not is_redis_enabled():
             print(format_console(
                 'skip',
-                'ERGO_BROKER≠redis (и REDIS_ENABLED не true) — Redis не устанавливается',
+                t('redis_skip_broker'),
             ))
             return StepResult()
 
-        print(format_console('info', 'Установка / проверка Redis (ERGO_BROKER=redis)…'))
+        print(format_console('info', t('installing_redis')))
         ctx.options.setdefault('needs_sudo', True)
         code = invoke_dispatch(ctx, 'redis', 'install')
         if code != 0:
-            return StepResult(exit_code=code, message='Не удалось установить Redis')
-        print(format_console('ok', 'Redis готов'))
+            return StepResult(exit_code=code, message=t('redis_install_failed'))
+        print(format_console('ok', t('redis_ready')))
         return StepResult()
 
 
@@ -127,16 +128,16 @@ class EnsureNginxStep(DeploymentStep):
         if not is_nginx_enabled():
             print(format_console(
                 'skip',
-                'ERGO_PROXY≠nginx (и NGINX_ENABLED не true) — nginx не устанавливается',
+                t('nginx_skip_proxy'),
             ))
             return StepResult()
 
-        print(format_console('info', 'Установка / проверка nginx (ERGO_PROXY=nginx)…'))
+        print(format_console('info', t('installing_nginx')))
         ctx.options.setdefault('needs_sudo', True)
         code = invoke_dispatch(ctx, 'nginx', 'install')
         if code != 0:
-            return StepResult(exit_code=code, message='Не удалось установить nginx')
-        print(format_console('ok', 'nginx готов'))
+            return StepResult(exit_code=code, message=t('nginx_install_failed'))
+        print(format_console('ok', t('nginx_ready')))
         return StepResult()
 
 
@@ -156,16 +157,16 @@ class EnsureRedisOsServiceStep(DeploymentStep):
         if not is_redis_enabled():
             print(format_console(
                 'skip',
-                'ERGO_BROKER≠redis — служба Redis не создаётся',
+                t('redis_service_skip'),
             ))
             return StepResult()
 
-        print(format_console('info', 'Установка службы Redis (ERGO_BROKER=redis)…'))
+        print(format_console('info', t('installing_redis_service')))
         ctx.options.setdefault('needs_sudo', True)
         code = invoke_dispatch(ctx, 'redis', 'install-service')
         if code != 0:
-            return StepResult(exit_code=code, message='Не удалось установить службу Redis')
-        print(format_console('ok', 'Служба Redis готова'))
+            return StepResult(exit_code=code, message=t('redis_service_install_failed'))
+        print(format_console('ok', t('redis_service_ready')))
         return StepResult()
 
 
@@ -185,14 +186,14 @@ class EnsureNginxOsServiceStep(DeploymentStep):
         if not is_nginx_enabled():
             print(format_console(
                 'skip',
-                'ERGO_PROXY≠nginx — служба nginx не создаётся',
+                t('nginx_service_skip'),
             ))
             return StepResult()
 
-        print(format_console('info', 'Установка службы nginx (ERGO_PROXY=nginx)…'))
+        print(format_console('info', t('installing_nginx_service')))
         ctx.options.setdefault('needs_sudo', True)
         code = invoke_dispatch(ctx, 'nginx', 'install-service')
         if code != 0:
-            return StepResult(exit_code=code, message='Не удалось установить службу nginx')
-        print(format_console('ok', 'Служба nginx готова'))
+            return StepResult(exit_code=code, message=t('nginx_service_install_failed'))
+        print(format_console('ok', t('nginx_service_ready')))
         return StepResult()

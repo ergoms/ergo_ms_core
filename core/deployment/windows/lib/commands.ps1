@@ -70,7 +70,7 @@ function Invoke-CustomCommand {
     
     if (-not $customCommands.ContainsKey($CommandName)) {
         Write-ErgomsMessage -Key 'unknown_command' -Color Red -Stderr -Param @{ name = $CommandName }
-        Write-ColorOutput "Доступные пользовательские команды: $($customCommands.Keys -join ', ')" Yellow
+        Write-ErgomsMessage -Key 'cmd_available_custom' -Color Yellow -Param @{ items = ($customCommands.Keys -join ', ') }
         Write-ErgomsMessage -Key 'help_hint' -Color Cyan
         exit 1
     }
@@ -80,7 +80,7 @@ function Invoke-CustomCommand {
     # Check if it's a composite command (contains &&)
     if ($commandDef -match '&&') {
         $subCommands = $commandDef -split '&&' | ForEach-Object { $_.Trim() }
-        Write-ColorOutput "-> Выполнение составной команды: $CommandName" Cyan
+        Write-ErgomsMessage -Key 'cmd_running_composite' -Color Cyan -Param @{ name = $CommandName }
         
         foreach ($subCmd in $subCommands) {
             if (-not (Test-ShouldRunOnThisPlatform -CommandString $subCmd)) {
@@ -185,8 +185,8 @@ function Execute-CommandString {
                 Push-Location $npmRoot
                 try {
                     if (-not (Test-Path "package.json")) {
-                        Write-ColorOutput "[ERROR] package.json не найден в virtual_env/npm" Red
-                        Write-ColorOutput "  Текущий каталог: $(Get-Location)" Gray
+                        Write-ErgomsMessage -Key 'cmd_error_package_json' -Color Red -Stderr
+                        Write-ErgomsMessage -Key 'cmd_cwd_label' -Color Gray -Param @{ path = (Get-Location) }
                         exit 1
                     }
                     $npmCache = Join-Path $ProjectRoot "virtual_env\cache\npm"
@@ -271,11 +271,11 @@ function Invoke-ModulePoetryCommand {
     $env:ERGOMS_INTERNAL = '1'
 
     if ($CommandArgs.Count -eq 0) {
-        Write-ColorOutput "Использование:" Yellow
-        Write-ColorOutput "  ergoms ${ModuleName}:poetry add PACKAGE              — добавить зависимость (версия определяется автоматически)" Yellow
-        Write-ColorOutput "  ergoms ${ModuleName}:poetry add PACKAGE `">=1.0.0`"  — добавить с явным ограничением версии" Yellow
-        Write-ColorOutput "  ergoms ${ModuleName}:poetry remove PACKAGE           — удалить зависимость" Yellow
-        Write-ColorOutput "  ergoms ${ModuleName}:poetry list                     — список зависимостей модуля" Yellow
+        Write-ErgomsMessage -Key 'poetry_usage_heading' -Color Yellow
+        Write-ErgomsMessage -Key 'poetry_usage_add' -Color Yellow -Param @{ module = $ModuleName }
+        Write-ErgomsMessage -Key 'poetry_usage_add_constraint' -Color Yellow -Param @{ module = $ModuleName }
+        Write-ErgomsMessage -Key 'poetry_usage_remove' -Color Yellow -Param @{ module = $ModuleName }
+        Write-ErgomsMessage -Key 'poetry_usage_list' -Color Yellow -Param @{ module = $ModuleName }
         return
     }
 
@@ -285,14 +285,14 @@ function Invoke-ModulePoetryCommand {
     switch ($subCmd) {
         'add' {
             if ($restArgs.Count -eq 0) {
-                Write-ColorOutput "[ERROR] Укажите имя пакета: ergoms ${ModuleName}:poetry add PACKAGE" Red
+                Write-ErgomsMessage -Key 'poetry_error_need_package_add' -Color Red -Stderr -Param @{ module = $ModuleName }
                 return
             }
             Invoke-ApiCommand -CommandArgs (@('module-add', $ModuleName) + $restArgs) -Root $Root
         }
         'remove' {
             if ($restArgs.Count -eq 0) {
-                Write-ColorOutput "[ERROR] Укажите имя пакета: ergoms ${ModuleName}:poetry remove PACKAGE" Red
+                Write-ErgomsMessage -Key 'poetry_error_need_package_remove' -Color Red -Stderr -Param @{ module = $ModuleName }
                 return
             }
             Invoke-ApiCommand -CommandArgs (@('module-remove', $ModuleName) + $restArgs) -Root $Root
@@ -301,8 +301,8 @@ function Invoke-ModulePoetryCommand {
             Invoke-ApiCommand -CommandArgs @('module-list', $ModuleName) -Root $Root
         }
         default {
-            Write-ColorOutput "[ERROR] Неизвестная подкоманда: $subCmd" Red
-            Write-ColorOutput "Доступные: add, remove, list" Yellow
+            Write-ErgomsMessage -Key 'poetry_error_unknown_subcmd' -Color Red -Stderr -Param @{ cmd = $subCmd }
+            Write-ErgomsMessage -Key 'poetry_available_subcmds' -Color Yellow
         }
     }
 }
@@ -441,7 +441,7 @@ function Invoke-NpmCommand {
                 $nodeBin = "node"
             }
             $syncScript = Join-Path $Root "core\deployment\scripts\sync-module-npm-deps.js"
-            Write-ColorOutput (Format-ErgoConsole -Level info -Message 'Обновление npm-зависимостей модулей...') Cyan
+            Write-ErgomsMessage -Key 'npm_updating_modules' -Color Cyan
             & $nodeBin $syncScript '--update' '--install-missing' @pkgArgs
             if ($LASTEXITCODE -ne 0) {
                 exit $LASTEXITCODE

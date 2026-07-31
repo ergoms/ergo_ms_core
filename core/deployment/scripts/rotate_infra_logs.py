@@ -15,9 +15,13 @@ import sys
 from pathlib import Path
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
+_DEPLOYMENT_DIR = SCRIPTS_DIR.parent
+if str(_DEPLOYMENT_DIR) not in sys.path:
+    sys.path.insert(0, str(_DEPLOYMENT_DIR))
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
+from cli_locale import t  # noqa: E402
 from deployment_env import PROJECT_ROOT  # noqa: E402
 from log_env import (  # noqa: E402
     infra_rotation_settings,
@@ -170,11 +174,11 @@ def rotate_infra_logs(root: Path, *, dry_run: bool = False, verbose: bool = Fals
         size = path.stat().st_size
         if size <= max_bytes:
             if verbose:
-                print(f'[пропуск] {label}: {path} ({size} B <= {max_bytes} B)')
+                print(t('log_rotate_skip_size', label=label, path=path, size=size, max_bytes=max_bytes))
             continue
 
         if dry_run:
-            print(f'[пробный запуск] ротация {label}: {path} ({size} B > {max_bytes} B)')
+            print(t('log_rotate_dry_run', label=label, path=path, size=size, max_bytes=max_bytes))
             rotated_any = True
             if mode == 'rename':
                 nginx_rotated = True
@@ -183,23 +187,23 @@ def rotate_infra_logs(root: Path, *, dry_run: bool = False, verbose: bool = Fals
         if mode == 'rename':
             did = rotate_rename(path, max_bytes, backup_count)
             if did:
-                print(f'[OK] Ротация {label}: {path}')
+                print(t('log_rotate_ok', label=label, path=path))
                 rotated_any = True
                 nginx_rotated = True
         else:
             did = rotate_copytruncate(path, max_bytes, backup_count)
             if did:
-                print(f'[OK] Ротация {label}: {path}')
+                print(t('log_rotate_ok', label=label, path=path))
                 rotated_any = True
 
     if nginx_rotated and not dry_run:
         if reopen_nginx_logs(root):
-            print('[OK] Файлы логов nginx переоткрыты')
+            print(t('log_rotate_nginx_reopened'))
         else:
-            print('[WARNING] Логи nginx ротированы, но переоткрытие пропущено (nginx не запущен?)')
+            print(t('log_rotate_nginx_reopen_skipped'))
 
     if verbose and not rotated_any:
-        print('[ergoms] Ротация infra-логов не требовалась')
+        print(t('log_rotate_not_needed'))
     return 0
 
 

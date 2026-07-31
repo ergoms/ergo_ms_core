@@ -7,29 +7,29 @@ update_submodules() {
   
   cd "$root" || exit 1
   if ! git submodule update --init --remote core/api core/client core/media_api; then
-    echo "[ERROR] Не удалось обновить git submodule" >&2
+    write_ergoms_message setup_error_submodules_plain red --stderr
     exit 1
   fi
   
-  echo "-> Переключение submodule на ветку dev..."
+  write_ergoms_message setup_switch_dev_branch yellow
   
   cd "$root/core/api" || exit 1
   if ! git checkout dev; then
-    echo "[WARNING] Не удалось переключить ветку dev в core/api" >&2
+    write_ergoms_message setup_warn_dev_branch yellow --stderr "path=core/api"
   fi
   
   cd "$root/core/client" || exit 1
   if ! git checkout dev; then
-    echo "[WARNING] Не удалось переключить ветку dev в core/client" >&2
+    write_ergoms_message setup_warn_dev_branch yellow --stderr "path=core/client"
   fi
   
   cd "$root/core/media_api" || exit 1
   if ! git checkout dev; then
-    echo "[WARNING] Не удалось переключить ветку dev в core/media_api" >&2
+    write_ergoms_message setup_warn_dev_branch yellow --stderr "path=core/media_api"
   fi
   
   cd "$root" || exit 1
-  echo "[OK] Git submodule обновлены"
+  write_ergoms_message setup_ok_submodules green
 }
 
 update_module_submodules() {
@@ -39,12 +39,12 @@ update_module_submodules() {
   local key path name branch
 
   if [[ ! -f "$gitmodules" ]]; then
-    echo "[ERROR] .gitmodules не найден: $gitmodules" >&2
+    write_ergoms_message setup_error_gitmodules_missing red --stderr "path=$gitmodules"
     exit 1
   fi
 
   echo ""
-  echo "=== Обновление git submodule модулей ==="
+  write_ergoms_message setup_heading_modules cyan
   echo ""
 
   cd "$root" || exit 1
@@ -56,7 +56,7 @@ update_module_submodules() {
   done < <(git config -f "$gitmodules" --get-regexp '^submodule\..*\.path$' | awk '{print $1, $2}')
 
   if [[ ${#module_paths[@]} -eq 0 ]]; then
-    echo "[WARNING] В .gitmodules не найдены submodule модулей" >&2
+    write_ergoms_message setup_warn_no_module_submodules_alt yellow --stderr
     exit 0
   fi
 
@@ -65,7 +65,7 @@ update_module_submodules() {
   local skipped=0
   local -a failed_paths=()
 
-  echo "-> Обновление ${#module_paths[@]} submodule модулей..."
+  write_ergoms_message setup_updating_modules_alt yellow "" "count=${#module_paths[@]}"
   while IFS=' ' read -r key path; do
     [[ "$path" == modules/* ]] || continue
     name="${key#submodule.}"
@@ -74,21 +74,21 @@ update_module_submodules() {
     branch="${branch:-dev}"
 
     if [[ -z "$(git ls-files -s -- "$path")" ]]; then
-      echo "[SKIP] $path не зарегистрирован в git (нет в индексе)"
+      write_ergoms_message setup_skip_not_in_index gray "" "path=$path"
       skipped=$((skipped + 1))
       continue
     fi
 
     echo "  $path..."
     if ! git submodule update --init --remote -- "$path"; then
-      echo "[WARNING] Не удалось обновить $path" >&2
+      write_ergoms_message setup_warn_update_failed yellow --stderr "path=$path"
       failed=$((failed + 1))
       failed_paths+=("$path")
       continue
     fi
 
     if ! (cd "$root/$path" && git checkout "$branch"); then
-      echo "[WARNING] Не удалось переключить ветку $branch в $path" >&2
+      write_ergoms_message setup_warn_switch_branch_named yellow --stderr "branch=$branch" "path=$path"
     fi
 
     succeeded=$((succeeded + 1))
@@ -97,11 +97,11 @@ update_module_submodules() {
   cd "$root" || exit 1
 
   if [[ "$succeeded" -gt 0 ]]; then
-    local summary="[OK] Обновлено модулей: $succeeded"
     if [[ "$skipped" -gt 0 || "$failed" -gt 0 ]]; then
-      summary="$summary. Пропущено: $skipped. С ошибкой: $failed"
+      write_ergoms_message setup_ok_modules_summary_full green "" "succeeded=$succeeded" "skipped=$skipped" "failed=$failed"
+    else
+      write_ergoms_message setup_ok_modules_summary green "" "succeeded=$succeeded"
     fi
-    echo "$summary"
     local fp
     for fp in "${failed_paths[@]}"; do
       echo "  - $fp" >&2
@@ -110,7 +110,7 @@ update_module_submodules() {
   fi
 
   if [[ "$failed" -gt 0 ]]; then
-    echo "[ERROR] Не удалось обновить ни одного модуля ($failed)" >&2
+    write_ergoms_message setup_error_no_modules red --stderr "failed=$failed"
     local fp
     for fp in "${failed_paths[@]}"; do
       echo "  - $fp" >&2
@@ -118,7 +118,7 @@ update_module_submodules() {
     exit 1
   fi
 
-  echo "[WARNING] Нет модулей для обновления" >&2
+  write_ergoms_message setup_warn_no_modules yellow --stderr
 }
 
 scaffold_config_files() {
@@ -134,12 +134,12 @@ scaffold_config_files() {
   done
 
   if [[ -z "$python_cmd" ]]; then
-    echo "    [WARNING] Python не найден, невозможно создать файлы конфигурации" >&2
+    write_ergoms_message setup_warn_python_missing_config_short yellow --stderr
     return 1
   fi
 
   if [[ ! -f "$script" ]]; then
-    echo "    [WARNING] Скрипт создания конфигурации не найден: $script" >&2
+    write_ergoms_message setup_warn_config_script_missing yellow --stderr "path=$script"
     return 1
   fi
 

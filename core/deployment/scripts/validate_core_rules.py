@@ -27,6 +27,11 @@ import sys
 from pathlib import Path
 
 _SCRIPTS_DIR = Path(__file__).resolve().parent
+_DEPLOYMENT_DIR = _SCRIPTS_DIR.parent
+PROJECT_ROOT = _DEPLOYMENT_DIR.parent.parent
+
+if str(_DEPLOYMENT_DIR) not in sys.path:
+    sys.path.insert(0, str(_DEPLOYMENT_DIR))
 if str(_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIR))
 
@@ -36,11 +41,10 @@ if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 os.environ.setdefault('PYTHONIOENCODING', 'utf-8')
 
+from cli_locale import t  # noqa: E402
+from console_tags import format_console  # noqa: E402
 from validate_ps1_encoding import find_ps1_encoding_violations  # noqa: E402
 from validate_sh_encoding import find_sh_encoding_violations  # noqa: E402
-
-_DEPLOYMENT_DIR = _SCRIPTS_DIR.parent
-PROJECT_ROOT = _DEPLOYMENT_DIR.parent.parent
 API_DIR = PROJECT_ROOT / 'core' / 'api'
 CLIENT_SRC = PROJECT_ROOT / 'core' / 'client' / 'src'
 CORE_CLIENT = PROJECT_ROOT / 'core' / 'client'
@@ -134,7 +138,7 @@ def run_module_isolation_check(*, scope: str, fail_on_error: bool) -> list[str]:
     if output.strip():
         print(output.rstrip())
     if result.returncode != 0 and fail_on_error:
-        errors.append(f'validate_module_isolation --scope={scope}: обнаружены нарушения изоляции')
+        errors.append(t('core_rules_isolation_failed', scope=scope))
     return errors
 
 
@@ -162,7 +166,7 @@ def run_bridge_contracts_check() -> list[str]:
     if output.strip():
         print(output.rstrip())
     if result.returncode != 0:
-        errors.append('validate_bridge_contracts: обнаружены нарушения схем контрактов моста')
+        errors.append(t('core_rules_bridge_failed'))
     return errors
 
 
@@ -246,8 +250,12 @@ def check_hardcoded_module_names() -> list[str]:
                 match = literal_pattern.search(line)
                 if match:
                     violations.append(
-                        f'{rel}:{line_no}: hardcoded module name «{match.group(2)}» — '
-                        'используйте ModuleBridge или hook discovery'
+                        t(
+                            'core_rules_hardcoded_module_name',
+                            rel=rel,
+                            line_no=line_no,
+                            name=match.group(2),
+                        )
                     )
     return violations
 
@@ -291,8 +299,12 @@ def check_client_cross_module_imports() -> list[str]:
                     if target == owner:
                         continue
                     violations.append(
-                        f'{rel}:{line_no}: import из @/modules/{target}/ — '
-                        'используйте ModuleBridge или @/integrations/* из ядра'
+                        t(
+                            'core_rules_cross_module_import',
+                            rel=rel,
+                            line_no=line_no,
+                            target=target,
+                        )
                     )
     return violations
 
@@ -328,8 +340,12 @@ def check_client_hardcoded_module_paths() -> list[str]:
                 match = path_pattern.search(line)
                 if match:
                     violations.append(
-                        f'{rel}:{line_no}: hardcoded маршрут модуля «/{match.group(1)}» — '
-                        'регистрируйте через ModuleBridge (session.org_entry_routes и т.п.)'
+                        t(
+                            'core_rules_hardcoded_module_route',
+                            rel=rel,
+                            line_no=line_no,
+                            name=match.group(1),
+                        )
                     )
     return violations
 
@@ -357,8 +373,12 @@ def check_client_module_literal_registry() -> list[str]:
             match = pattern.search(line)
             if match:
                 violations.append(
-                    f'{rel}:{line_no}: names.add("{match.group(2)}") — '
-                    'регистрируйте модуль через layout.plugin_registry'
+                    t(
+                        'core_rules_names_add',
+                        rel=rel,
+                        line_no=line_no,
+                        name=match.group(2),
+                    )
                 )
     return violations
 
@@ -377,7 +397,9 @@ def check_console_error() -> list[str]:
         for line_no, line in enumerate(text.splitlines(), start=1):
             if 'console.error(' in line:
                 rel = path.relative_to(PROJECT_ROOT)
-                violations.append(f'{rel}:{line_no}: console.error( — используйте logError')
+                violations.append(
+                    t('core_rules_console_error', rel=rel, line_no=line_no)
+                )
     return violations
 
 
@@ -391,7 +413,9 @@ def check_native_select() -> list[str]:
         for line_no, line in enumerate(text.splitlines(), start=1):
             if any(p.search(line) for p in SELECT_PATTERNS):
                 rel = path.relative_to(PROJECT_ROOT)
-                violations.append(f'{rel}:{line_no}: native select — используйте SelectBox')
+                violations.append(
+                    t('core_rules_native_select', rel=rel, line_no=line_no)
+                )
     return violations
 
 
@@ -410,7 +434,9 @@ def check_modules_imports_in_core() -> list[str]:
                 continue
             if MODULES_IMPORT_RE.match(line):
                 rel = path.relative_to(PROJECT_ROOT)
-                violations.append(f'{rel}:{line_no}: импорт modules.* в ядре запрещён')
+                violations.append(
+                    t('core_rules_modules_import', rel=rel, line_no=line_no)
+                )
     return violations
 
 
@@ -453,138 +479,148 @@ def check_python_file_integrity() -> list[str]:
             try:
                 source = path.read_text(encoding='utf-8-sig')
             except OSError as exc:
-                violations.append(f'{rel}: не удалось прочитать ({exc})')
+                violations.append(t('core_rules_py_read_failed', rel=rel, exc=exc))
                 continue
 
             first = _first_significant_line(source)
             if first is not None and first[:1] in (' ', '\t'):
-                violations.append(
-                    f'{rel}: первая значимая строка с отступом '
-                    '(подозрение на mid-function cut)'
-                )
+                violations.append(t('core_rules_py_mid_indent', rel=rel))
 
             try:
                 ast.parse(source, filename=str(path))
             except SyntaxError as exc:
                 line = exc.lineno or '?'
-                violations.append(f'{rel}:{line}: SyntaxError: {exc.msg}')
+                violations.append(
+                    t('core_rules_py_syntax_error', rel=rel, line=line, msg=exc.msg)
+                )
     return violations
 
 
 def main() -> int:
     all_errors: list[str] = []
 
-    print('=== Проверка изоляции ядра (validate_module_isolation --scope=core) ===')
+def main() -> int:
+    all_errors: list[str] = []
+
+    def _section(key: str) -> None:
+        print()
+        print(t(key))
+
+    print(t('core_rules_heading_isolation_core'))
     all_errors.extend(run_module_isolation_check(scope='core', fail_on_error=True))
 
-    print('\n=== Отчёт изоляции modules/ (validate_module_isolation --scope=all) ===')
+    _section('core_rules_heading_isolation_all')
     run_module_isolation_check(scope='all', fail_on_error=False)
 
-    print('\n=== Проверка схем контрактов моста (validate_bridge_contracts) ===')
+    _section('core_rules_heading_bridge')
     all_errors.extend(run_bridge_contracts_check())
 
-    print('\n=== Проверка ядра: hardcoded имена модулей ===')
+    _section('core_rules_heading_hardcoded_names')
     hardcoded_violations = check_hardcoded_module_names()
     if hardcoded_violations:
         all_errors.extend(hardcoded_violations)
         for item in hardcoded_violations:
-            print(f'[ERROR] {item}')
+            print(format_console('error', item))
     else:
-        print('[OK] hardcoded имена модулей в runtime-коде ядра не найдены')
+        print(format_console('ok', t('core_rules_hardcoded_names_ok')))
 
-    print('\n=== Проверка клиента: hardcoded маршруты модулей ===')
+    _section('core_rules_heading_hardcoded_routes')
     module_path_violations = check_client_hardcoded_module_paths()
     if module_path_violations:
         all_errors.extend(module_path_violations)
         for item in module_path_violations:
-            print(f'[ERROR] {item}')
+            print(format_console('error', item))
     else:
-        print('[OK] hardcoded маршруты модулей в ядре клиента не найдены')
+        print(format_console('ok', t('core_rules_hardcoded_routes_ok')))
 
-    print('\n=== Проверка клиента: names.add(module) ===')
+    _section('core_rules_heading_names_add')
     registry_violations = check_client_module_literal_registry()
     if registry_violations:
         all_errors.extend(registry_violations)
         for item in registry_violations:
-            print(f'[ERROR] {item}')
+            print(format_console('error', item))
     else:
-        print('[OK] hardcoded names.add(module) не найдены')
+        print(format_console('ok', t('core_rules_names_add_ok')))
 
-    print('\n=== Проверка клиента: cross-module imports (отчёт) ===')
+    _section('core_rules_heading_cross_module')
     cross_module_violations = check_client_cross_module_imports()
     if cross_module_violations:
         for item in cross_module_violations:
-            print(f'[WARNING] {item}')
+            print(format_console('warning', item))
         print(
-            f'[INFO] Найдено cross-module imports: {len(cross_module_violations)} '
-            '(пока WARNING; целевое состояние — только ModuleBridge)'
+            format_console(
+                'info',
+                t('core_rules_cross_module_info', count=len(cross_module_violations)),
+            )
         )
     else:
-        print('[OK] cross-module imports в modules/*/client не найдены')
+        print(format_console('ok', t('core_rules_cross_module_ok')))
 
-    print('\n=== Проверка клиента: console.error ===')
+    _section('core_rules_heading_console_error')
     console_violations = check_console_error()
     if console_violations:
         all_errors.extend(console_violations)
         for item in console_violations:
-            print(f'[ERROR] {item}')
+            print(format_console('error', item))
     else:
-        print('[OK] console.error в прикладном коде не найден')
+        print(format_console('ok', t('core_rules_console_error_ok')))
 
-    print('\n=== Проверка клиента: native select ===')
+    _section('core_rules_heading_native_select')
     select_violations = check_native_select()
     if select_violations:
         all_errors.extend(select_violations)
         for item in select_violations:
-            print(f'[ERROR] {item}')
+            print(format_console('error', item))
     else:
-        print('[OK] native select в .vue не найден')
+        print(format_console('ok', t('core_rules_native_select_ok')))
 
-    print('\n=== Проверка API: from modules. ===')
+    _section('core_rules_heading_modules_import')
     import_violations = check_modules_imports_in_core()
     if import_violations:
         all_errors.extend(import_violations)
         for item in import_violations:
-            print(f'[ERROR] {item}')
+            print(format_console('error', item))
     else:
-        print('[OK] импорты modules.* в core/api/src не найдены')
+        print(format_console('ok', t('core_rules_modules_import_ok')))
 
-    print('\n=== Проверка Python: mid-indent / ast.parse ===')
+    _section('core_rules_heading_py_integrity')
     py_integrity_violations = check_python_file_integrity()
     if py_integrity_violations:
         all_errors.extend(py_integrity_violations)
         for item in py_integrity_violations:
-            print(f'[ERROR] {item}')
+            print(format_console('error', item))
     else:
-        print('[OK] mid-indent / SyntaxError в core/api/src и deployment/scripts не найдены')
+        print(format_console('ok', t('core_rules_py_integrity_ok')))
 
-    print('\n=== Проверка deployment: UTF-8 BOM в .ps1 ===')
+    _section('core_rules_heading_ps1')
     ps1_violations = find_ps1_encoding_violations()
     if ps1_violations:
         for path in ps1_violations:
             rel = path.relative_to(PROJECT_ROOT)
-            msg = f'{rel}: нет UTF-8 BOM (кириллица сломает PowerShell 5.1)'
+            msg = t('core_rules_ps1_no_bom', rel=rel)
             all_errors.append(msg)
-            print(f'[ERROR] {msg}')
+            print(format_console('error', msg))
     else:
-        print('[OK] все .ps1 deployment с не-ASCII имеют UTF-8 BOM')
+        print(format_console('ok', t('core_rules_ps1_ok')))
 
-    print('\n=== Проверка deployment: LF без BOM в .sh ===')
+    _section('core_rules_heading_sh')
     sh_violations = find_sh_encoding_violations()
     if sh_violations:
         for path, issues in sh_violations:
             rel = path.relative_to(PROJECT_ROOT)
-            msg = f'{rel}: {", ".join(issues)} (Linux shebang/source)'
+            msg = t('core_rules_sh_issues', rel=rel, issues=', '.join(issues))
             all_errors.append(msg)
-            print(f'[ERROR] {msg}')
+            print(format_console('error', msg))
     else:
-        print('[OK] все .sh deployment в UTF-8 LF без BOM')
+        print(format_console('ok', t('core_rules_sh_ok')))
 
     if all_errors:
-        print(f'\n[ERROR] Проверка завершилась с ошибками: {len(all_errors)}')
+        print()
+        print(format_console('error', t('core_rules_failed', count=len(all_errors))))
         return 1
 
-    print('\n[OK] Все проверки ядра пройдены')
+    print()
+    print(format_console('ok', t('core_rules_all_passed')))
     return 0
 
 

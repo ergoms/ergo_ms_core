@@ -28,8 +28,15 @@ function Show-Help {
         }
     }
 
-    Write-ColorOutput '[ERROR] Справка недоступна: не найдено виртуальное окружение или ergoms_help.py' Red
-    Write-ColorOutput '  Выполните первичную настройку: ergoms setup или ergoms setup-full' Yellow
-    Write-ColorOutput '  Подробнее: .docs/cli.md' Cyan
+    if (Get-Command Write-ErgomsMessage -ErrorAction SilentlyContinue) {
+        Write-ErgomsMessage -Key 'help_unavailable_full' -Color Red -Stderr
+        Write-ErgomsMessage -Key 'help_setup_hint_full' -Color Yellow -Stderr
+        Write-ErgomsMessage -Key 'help_doc_hint' -Color Cyan -Stderr
+    }
+    else {
+        Write-ColorOutput '[ERROR] Help unavailable: virtual environment or ergoms_help.py not found' Red
+        Write-ColorOutput '  Run initial setup: ergoms setup or ergoms setup-full' Yellow
+        Write-ColorOutput '  See: .docs/cli.md' Cyan
+    }
     exit 1
 }

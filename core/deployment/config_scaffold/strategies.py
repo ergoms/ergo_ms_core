@@ -11,6 +11,8 @@ _DEPLOYMENT_DIR = Path(__file__).resolve().parents[1]
 if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 
+from cli_locale import t  # noqa: E402
+
 
 class CopyStrategy(ABC):
     """Интерфейс стратегии копирования example -> рабочий конфиг."""
@@ -58,9 +60,9 @@ class DatabasesYamlCopyStrategy(CopyStrategy):
             bits.append(f'port={port}')
         extra = ''
         if 'redis' not in sections:
-            extra = '; redis — при ERGO_BROKER=redis (см. example)'
+            extra = t('scaffold_redis_hint')
         elif port is None:
-            extra = '; celery/analytics — в example'
+            extra = t('scaffold_celery_hint')
         self.last_detail = ', '.join(bits) + extra
 
     def _env_values(self) -> dict[str, str]:
@@ -138,7 +140,7 @@ class NamedSectionsCopyStrategy(CopyStrategy):
 
     def __init__(self, sections: tuple[str, ...]) -> None:
         if not sections:
-            raise ValueError('NamedSectionsCopyStrategy: нужен хотя бы один section')
+            raise ValueError(t('named_sections_need_section'))
         self._sections = sections
         self._wanted = frozenset(sections)
 
@@ -150,14 +152,14 @@ class NamedSectionsCopyStrategy(CopyStrategy):
         lines = text.splitlines()
         databases_idx = self._find_databases_line(lines)
         if databases_idx is None:
-            raise ValueError('в шаблоне нет ключа databases:')
+            raise ValueError(t('template_missing_databases_key'))
 
         preamble = lines[:databases_idx]
         parsed = self._parse_sections(lines[databases_idx + 1 :])
         missing = [name for name in self._sections if name not in parsed]
         if missing:
             raise ValueError(
-                f'в шаблоне нет секций: {", ".join(missing)}',
+                t('template_missing_sections', sections=', '.join(missing)),
             )
 
         out: list[str] = list(preamble)

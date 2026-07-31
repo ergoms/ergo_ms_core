@@ -19,6 +19,7 @@ if str(_DEPLOYMENT_DIR) not in sys.path:
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
+from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402
 from dev_session import (  # noqa: E402
     clear_dev_session_marker as _clear_marker,
@@ -97,7 +98,7 @@ def stop_redis_for_dev(root: Path, *, quiet: bool = False) -> bool:
     cli = redis_cli_path(root)
     if cli.is_file():
         if not quiet:
-            print(format_console('info', 'Остановка Redis...'))
+            print(format_console('info', t('stopping_redis')))
         bind, port = _redis_cli_endpoint(root)
         subprocess.run(
             [str(cli), '-h', bind, '-p', port, 'shutdown'],
@@ -110,12 +111,12 @@ def stop_redis_for_dev(root: Path, *, quiet: bool = False) -> bool:
 
     if ping_redis(root):
         if not quiet:
-            print(format_console('warning', 'Redis не ответил на shutdown, завершение процесса...'))
+            print(format_console('warning', t('redis_shutdown_force')))
         _force_stop_redis_process(root)
 
     still_running = ping_redis(root)
     if not still_running and not quiet:
-        print(format_console('ok', 'Redis остановлен'))
+        print(format_console('ok', t('redis_stopped')))
     return not still_running
 
 
@@ -150,22 +151,22 @@ def run_redis_foreground(root: Path) -> int:
     run_dir = redis_run_dir(root)
 
     if not server.is_file() or not conf.is_file():
-        print(format_console('error', 'Redis не установлен. Выполните: ergoms install-redis'))
+        print(format_console('error', t('redis_not_installed_hint')))
         return 1
 
     if is_redis_managed_service(root):
-        print(format_console('error', 'Redis работает как служба ОС; используйте ergoms stop-redis'))
+        print(format_console('error', t('redis_os_service_use_stop')))
         return 1
 
     _configure_stdio_utf8()
 
     if ping_redis(root):
-        print(format_console('error', 'Redis уже запущен. Остановите его перед foreground-запуском.'))
+        print(format_console('error', t('redis_already_running')))
         return 1
 
     print(format_console(
         'info',
-        'Запуск Redis (Ctrl+C или закрытие терминала останавливает Redis)...',
+        t('starting_redis_foreground'),
     ))
 
     conf_arg = 'conf/redis.conf' if os.name != 'nt' else 'conf\\redis.conf'

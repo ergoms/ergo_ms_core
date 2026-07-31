@@ -19,6 +19,7 @@ if str(_DEPLOYMENT_DIR) not in sys.path:
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
+from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402
 from deployment_env import PROJECT_ROOT, resolve_public_host  # noqa: E402
 from dev_session import (  # noqa: E402
@@ -117,7 +118,7 @@ def stop_nginx_for_dev(root: Path, *, quiet: bool = False) -> bool:
         return True
 
     if not quiet:
-        print(format_console('info', 'Остановка nginx...'))
+        print(format_console('info', t('stopping_nginx')))
 
     main_conf_arg = str(main_conf).replace('\\', '/') if os.name == 'nt' else str(main_conf)
     subprocess.run(
@@ -132,16 +133,16 @@ def stop_nginx_for_dev(root: Path, *, quiet: bool = False) -> bool:
 
     if is_nginx_running(nginx_dir, exe):
         if not quiet:
-            print(format_console('warning', 'Nginx не ответил на quit, завершение процесса...'))
+            print(format_console('warning', t('nginx_quit_force')))
         _force_stop_nginx_process(nginx_dir, exe)
         _remove_stale_pidfile(nginx_dir)
         wait_nginx_stopped(nginx_dir, exe, timeout_sec=5.0)
 
     still_running = is_nginx_running(nginx_dir, exe)
     if not still_running and not quiet:
-        print(format_console('ok', 'Nginx остановлен'))
+        print(format_console('ok', t('nginx_stopped')))
     elif still_running and not quiet:
-        print(format_console('error', 'Не удалось полностью остановить nginx'))
+        print(format_console('error', t('nginx_stop_incomplete')))
     return not still_running
 
 
@@ -149,7 +150,7 @@ def run_nginx_foreground() -> int:
     _configure_stdio_utf8()
     nginx_dir, exe, main_conf = nginx_paths()
     if not exe.is_file():
-        print(format_console('error', 'Nginx не установлен. Выполните: ergoms install-nginx'))
+        print(format_console('error', t('nginx_not_installed_hint')))
         return 1
 
     public_host = resolve_public_host()
@@ -163,7 +164,7 @@ def run_nginx_foreground() -> int:
     access_paths = nginx_log_tail_paths()
 
     if is_nginx_managed_service(PROJECT_ROOT):
-        print(format_console('info', 'Nginx работает как служба ОС; терминал не управляет процессом.'))
+        print(format_console('info', t('nginx_os_service_no_control')))
         _print_client_hint(url)
         return tail_log_files(access_paths, service='nginx', process_keeps_running=True)
 
@@ -173,16 +174,16 @@ def run_nginx_foreground() -> int:
         if marker is None:
             print(format_console(
                 'info',
-                'Nginx уже запущен (внешний); закрытие терминала не остановит сервер.',
+                t('nginx_external_running'),
             ))
             _print_client_hint(url)
             return tail_log_files(access_paths, service='nginx', process_keeps_running=True)
 
-        print(format_console('info', 'Передача управления nginx в терминал разработки...'))
+        print(format_console('info', t('nginx_handoff_to_terminal')))
         stop_nginx_for_dev(PROJECT_ROOT)
         clear_dev_session_marker(PROJECT_ROOT)
         if not wait_nginx_stopped(nginx_dir, exe, timeout_sec=5.0):
-            print(format_console('error', 'Не удалось остановить предыдущий nginx перед foreground-запуском.'))
+            print(format_console('error', t('nginx_stop_before_fg_failed')))
             return 1
     elif marker is not None:
         clear_dev_session_marker(PROJECT_ROOT)
@@ -196,12 +197,12 @@ def run_nginx_foreground() -> int:
         from log_env import log_file_path  # noqa: WPS433
 
         error_log = log_file_path('NGINX_ERROR', PROJECT_ROOT)
-        print(format_console('error', f'Проверка конфигурации nginx не прошла. См. {error_log}'))
+        print(format_console('error', t('nginx_config_check_failed_see', error_log=error_log)))
         return test.returncode
 
     print(format_console(
         'info',
-        'Запуск nginx (Ctrl+C или закрытие терминала останавливает nginx)...',
+        t('starting_nginx_foreground'),
     ))
     _print_client_hint(url)
 

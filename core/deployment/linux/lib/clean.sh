@@ -7,7 +7,7 @@ stop_blocking_processes_for_clean() {
   local packages_dir="$root/virtual_env/packages"
   local stopped=0
 
-  echo "  Останавливаю процессы, которые могут блокировать файлы проекта..."
+  write_ergoms_message clean_stopping_blockers gray
 
   # Все OS-службы проекта — ergo_ms_*; ergo-* — legacy до переустановки
   if command -v systemctl >/dev/null 2>&1; then
@@ -15,10 +15,10 @@ stop_blocking_processes_for_clean() {
       [[ -z "$unit" ]] && continue
       if systemctl is-active --quiet "$unit" 2>/dev/null; then
         if systemctl stop "$unit" 2>/dev/null; then
-          echo "  Остановлена служба: $unit"
+          write_ergoms_message clean_service_stopped gray "" "name=$unit"
           stopped=1
         else
-          echo "  [WARNING] Не удалось остановить службу $unit (может потребоваться root)" >&2
+          write_ergoms_message clean_warn_stop_service_root yellow --stderr "name=$unit"
         fi
       fi
     done < <(systemctl list-units --type=service --all --no-legend 2>/dev/null | awk '/ergo_ms_|ergo-/ {print $1}')
@@ -66,7 +66,7 @@ clear_project_shell_environment() {
     active_norm="$(cd "$VIRTUAL_ENV" 2>/dev/null && pwd -P)" || active_norm="$VIRTUAL_ENV"
     if [[ "$active_norm" == "$venv_norm" ]]; then
       unset VIRTUAL_ENV
-      echo "  Сброшена переменная VIRTUAL_ENV для виртуального окружения проекта"
+      write_ergoms_message clean_venv_cleared gray
     fi
   fi
 
@@ -181,7 +181,7 @@ clean_directory_contents() {
   local staging_root="$4"
 
   if [[ ! -d "$dir_path" ]]; then
-    echo "[SKIP] $label не найден"
+    write_ergoms_message clean_skip_not_found gray "" "label=$label"
     return 0
   fi
 
@@ -192,7 +192,7 @@ clean_directory_contents() {
   done < <(find "$dir_path" -mindepth 1 -maxdepth 1 ! -name '.gitkeep' -print0 2>/dev/null)
 
   if [[ ${#items[@]} -eq 0 ]]; then
-    echo "[SKIP] $label уже пуст"
+    write_ergoms_message clean_skip_already_empty gray "" "label=$label"
     return 0
   fi
 
@@ -207,7 +207,7 @@ clean_directory_contents() {
     else
       restore_clean_directory_skeleton "$dir_path" 1
     fi
-    echo "[OK] Удалено $removed_count элементов из $label (фон)"
+    write_ergoms_message clean_ok_removed_count_bg green "" "count=$removed_count" "label=$label"
     return 10
   fi
 
@@ -236,12 +236,12 @@ clean_directory_contents() {
   fi
 
   if [[ ${#failed_items[@]} -gt 0 ]]; then
-    echo "[ERROR] Не удалось очистить $label: не удалось удалить: ${failed_items[*]}" >&2
-    echo "  Закройте терминалы с активированным venv, остановите серверы разработки и снова выполните ergoms clean" >&2
+    write_ergoms_message clean_error_clear_failed red --stderr "label=$label" "items=${failed_items[*]}"
+    write_ergoms_message clean_hint_close_venv yellow --stderr
     return 1
   fi
 
-  echo "[OK] Удалено $removed_count элементов из $label"
+  write_ergoms_message clean_ok_removed_count green "" "count=$removed_count" "label=$label"
   return 0
 }
 
@@ -252,28 +252,28 @@ remove_full_path_fast() {
   local staging_root="$4"
 
   if [[ ! -e "$path" ]]; then
-    echo "[SKIP] $label не найден"
+    write_ergoms_message clean_skip_not_found gray "" "label=$label"
     return 0
   fi
 
   if move_path_to_clean_trash "$path" "$staging_root" >/dev/null; then
-    echo "[OK] $label удалён (фон)"
+    write_ergoms_message clean_ok_label_removed_bg green "" "label=$label"
     return 10
   fi
 
   if remove_path_robust "$path"; then
-    echo "[OK] $label удалён"
+    write_ergoms_message clean_ok_label_removed green "" "label=$label"
     return 0
   fi
 
   stop_blocking_processes_for_clean "$root"
   if remove_path_robust "$path" 5; then
-    echo "[OK] $label удалён"
+    write_ergoms_message clean_ok_label_removed green "" "label=$label"
     return 0
   fi
 
-  echo "[ERROR] Не удалось удалить $label" >&2
-  echo "  Закройте другие терминалы и серверы разработки, затем снова выполните ergoms clean" >&2
+  write_ergoms_message clean_error_remove_failed red --stderr "label=$label"
+  write_ergoms_message clean_hint_close_terminals yellow --stderr
   return 1
 }
 
@@ -295,20 +295,20 @@ clear_project_dependencies() {
   )
 
   echo ""
-  echo "=== Очистка зависимостей проекта ==="
+  write_ergoms_message clean_heading cyan
   echo ""
-  echo "Будут удалены:"
+  write_ergoms_message clean_will_remove yellow
   local p
   for p in "${clean_paths[@]}"; do
     echo "  - $p"
   done
   echo ""
-  echo "Папка media не будет удалена."
+  write_ergoms_message clean_media_kept green
   echo ""
 
-  read -rp "Продолжить? (y/N) " confirmation
+  write_ergoms_message clean_confirm white; read -r confirmation
   if [[ ! "$confirmation" =~ ^[yY]$ ]]; then
-    echo "Операция отменена пользователем."
+    write_ergoms_message clean_cancelled yellow
     return
   fi
 
@@ -325,9 +325,9 @@ clear_project_dependencies() {
 
   if [[ "$has_work" -eq 0 ]]; then
     echo ""
-    echo "[SKIP] Нечего очищать — все цели уже пусты"
+    write_ergoms_message clean_skip_nothing gray
     echo ""
-    echo "=== Очистка завершена ==="
+    write_ergoms_message clean_done_heading green
     echo ""
     return
   fi
@@ -346,16 +346,16 @@ clear_project_dependencies() {
     step=$((step + 1))
     local full_path="$root/$p"
     echo ""
-    echo "-> Шаг ${step}/${total}: очистка ${p}..."
+    write_ergoms_message clean_step yellow "" "step=$step" "total=$total" "label=$p"
 
     local full_remove=0
     [[ "$p" == "node_modules" || "$p" == "virtual_env/npm/node_modules" ]] && full_remove=1
 
     if ! clean_target_has_work "$full_path" "$full_remove"; then
       if [[ ! -e "$full_path" ]]; then
-        echo "[SKIP] $p не найден"
+        write_ergoms_message clean_skip_not_found gray "" "label=$p"
       else
-        echo "[SKIP] $p уже пуст"
+        write_ergoms_message clean_skip_already_empty gray "" "label=$p"
       fi
       continue
     fi
@@ -376,15 +376,15 @@ clear_project_dependencies() {
   if [[ "$any_async" -eq 1 ]]; then
     start_background_trash_removal "$staging"
     echo ""
-    echo "[INFO] Тяжёлое удаление продолжается в фоне"
+    write_ergoms_message clean_info_async gray
   else
     rm -rf "$staging" >/dev/null 2>&1 || true
   fi
 
   echo ""
-  echo "=== Очистка завершена ==="
+  write_ergoms_message clean_done_heading green
   echo ""
-  echo "Чтобы установить зависимости заново, выполните:"
+  write_ergoms_message clean_reinstall_hint cyan
   echo "  ergoms setup"
   echo ""
 }

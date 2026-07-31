@@ -37,7 +37,7 @@ portable_node_arch_suffix() {
     aarch64|arm64) echo 'linux-arm64' ;;
     x86_64|amd64) echo 'linux-x64' ;;
     *)
-      echo "[ERROR] Неподдерживаемая архитектура для portable Node.js: $machine" >&2
+      ergoms_console_from_root "$1" portable_unsupported_arch_node red --stderr "arch=$machine"
       return 1
       ;;
   esac
@@ -51,7 +51,7 @@ install_portable_nodejs() {
   exe="$(portable_node_exe "$root")"
 
   if [[ "$force" != "true" ]] && portable_nodejs_installed "$root"; then
-    echo "$(format_ergo_console skip "Portable Node.js уже установлен: $($exe --version 2>&1)")"
+    ergoms_console_from_root "$root" portable_node_skip_installed gray "" "version=$($exe --version 2>&1)"
     return 0
   fi
 
@@ -60,7 +60,7 @@ install_portable_nodejs() {
   cache_tmp="$root/virtual_env/cache/tmp"
   mkdir -p "$downloads" "$cache_tmp"
   version="$PORTABLE_NODE_LTS_VERSION"
-  arch="$(portable_node_arch_suffix)" || return 1
+  arch="$(portable_node_arch_suffix "$root")" || return 1
 
   local tar_name="node-v${version}-${arch}.tar.xz"
   local url="https://nodejs.org/dist/v${version}/${tar_name}"
@@ -73,22 +73,22 @@ install_portable_nodejs() {
   while true; do
     attempt=$((attempt + 1))
     if ! cached_runtime_archive_ok "$archive"; then
-      echo "$(format_ergo_console info "Загрузка Node.js LTS v${version} (${arch})…")"
-      download_runtime_archive "$url" "$archive" || return 1
+      ergoms_console_from_root "$root" portable_node_info_download cyan "" "version=$version" "arch=$arch"
+      download_runtime_archive "$url" "$archive" "$root" || return 1
     else
-      echo "$(format_ergo_console info "Кэш архива Node.js: ${tar_name}")"
+      ergoms_console_from_root "$root" portable_node_info_cache cyan "" "name=$tar_name"
     fi
 
     rm -rf "$extract"
     mkdir -p "$extract"
     if ! tar -xJf "$archive" -C "$extract"; then
       if [[ "$attempt" -ge 2 ]]; then
-        echo "[ERROR] Не удалось распаковать архив Node.js" >&2
+        ergoms_console_from_root "$root" portable_node_error_unpack red --stderr
         rm -f "$partial"
         rm -rf "$extract"
         return 1
       fi
-      echo "$(format_ergo_console warning 'Архив Node.js повреждён — повторная загрузка')"
+      ergoms_console_from_root "$root" portable_node_warn_corrupt yellow
       rm -f "$archive"
       continue
     fi
@@ -97,12 +97,12 @@ install_portable_nodejs() {
     inner="$(find "$extract" -maxdepth 1 -mindepth 1 -type d | head -n1)"
     if [[ -z "$inner" || ! -x "$inner/bin/node" ]]; then
       if [[ "$attempt" -ge 2 ]]; then
-        echo "[ERROR] В архиве Node.js не найден bin/node" >&2
+        ergoms_console_from_root "$root" portable_node_error_bin_missing red --stderr "binary=bin/node"
         rm -f "$partial"
         rm -rf "$extract"
         return 1
       fi
-      echo "$(format_ergo_console warning 'Архив Node.js некорректен — повторная загрузка')"
+      ergoms_console_from_root "$root" portable_node_warn_invalid yellow
       rm -f "$archive"
       continue
     fi
@@ -114,11 +114,11 @@ install_portable_nodejs() {
     rm -rf "$extract"
 
     if [[ ! -x "$exe" ]]; then
-      echo "[ERROR] После установки не найден: $exe" >&2
+      ergoms_console_from_root "$root" portable_not_found_after_install red --stderr "path=$exe"
       return 1
     fi
 
-    echo "$(format_ergo_console ok "Portable Node.js установлен: $($exe --version 2>&1)")"
+    ergoms_console_from_root "$root" portable_node_ok_installed green "" "version=$($exe --version 2>&1)"
     return 0
   done
 }

@@ -173,31 +173,33 @@ function filterServiceKeys(workspaceRoot, items, sourceFile) {
 }
 
 /**
- * Читает список из YAML/JSON файла
+ * Читает источник: ключи + опциональные command / stop_command из map.
+ * @returns {{ key: string, command: string, stopCommand: string }[]}
  */
-function readSourceFile(workspaceRoot, sourceConfig, silent = false) {
+function readSourceEntries(workspaceRoot, sourceConfig, silent = false) {
     const relFile = String(sourceConfig.file || '').replace(/\\/g, '/');
     if (
         relFile.includes('logs-services.runtime.yaml')
         || relFile.includes('optional-services.runtime.yaml')
         || relFile.includes('redis-dev.runtime.yaml')
         || relFile.includes('client-dev.runtime.yaml')
+        || relFile.includes('module-start-services.runtime.yaml')
     ) {
         ensureLogsServicesRuntime(workspaceRoot);
     }
 
     const filePath = path.join(workspaceRoot, sourceConfig.file);
-    
+
     if (!fs.existsSync(filePath)) {
         if (!silent) {
             vscode.window.showErrorMessage(`Файл не найден: ${sourceConfig.file}`);
         }
         return [];
     }
-    
+
     const content = fs.readFileSync(filePath, 'utf8');
     const ext = path.extname(filePath).toLowerCase();
-    
+
     let data;
     if (ext === '.json') {
         data = JSON.parse(content);
@@ -207,9 +209,9 @@ function readSourceFile(workspaceRoot, sourceConfig, silent = false) {
         vscode.window.showErrorMessage(`Неподдерживаемый формат: ${ext}`);
         return [];
     }
-    
+
     const items = getValueByPath(data, sourceConfig.path);
-    
+
     if (!items) {
         // Пустой services: в runtime.yaml (Redis выключен) — не ошибка.
         if (!silent) {
@@ -217,15 +219,41 @@ function readSourceFile(workspaceRoot, sourceConfig, silent = false) {
         }
         return [];
     }
-    
-    let keys;
+
+    let entries;
     if (typeof items === 'object' && !Array.isArray(items)) {
-        keys = Object.keys(items);
+        entries = Object.keys(items).map((key) => {
+            const meta = items[key];
+            const isMap = meta && typeof meta === 'object' && !Array.isArray(meta);
+            const command = isMap ? String(meta.command || '').trim() : '';
+            const stopCommand = isMap ? String(meta.stop_command || '').trim() : '';
+            const description = isMap ? String(meta.description || '').trim() : '';
+            return { key, command, stopCommand, description };
+        });
     } else {
-        keys = Array.isArray(items) ? items : [];
+        entries = (Array.isArray(items) ? items : []).map((key) => ({
+            key: String(key),
+            command: '',
+            stopCommand: '',
+            description: ''
+        }));
     }
 
-    return filterServiceKeys(workspaceRoot, keys, sourceConfig.file);
+    const allowedKeys = new Set(
+        filterServiceKeys(
+            workspaceRoot,
+            entries.map((e) => e.key),
+            sourceConfig.file
+        )
+    );
+    return entries.filter((e) => allowedKeys.has(e.key));
+}
+
+/**
+ * Читает список ключей из YAML/JSON файла (обратная совместимость).
+ */
+function readSourceFile(workspaceRoot, sourceConfig, silent = false) {
+    return readSourceEntries(workspaceRoot, sourceConfig, silent).map((e) => e.key);
 }
 
 /**
@@ -449,18 +477,28 @@ function releaseTrackedTask(found) {
  * Обрабатывает один источник данных и возвращает список задач
  */
 function processSource(workspaceRoot, sourceConfig, defaultCwd, silent = false, defaultStopTemplate = null) {
-    const items = readSourceFile(workspaceRoot, sourceConfig, silent);
+    const entries = readSourceEntries(workspaceRoot, sourceConfig, silent);
     const commandTemplate = sourceConfig.commandTemplate || 'echo ${key}';
     const nameTemplate = sourceConfig.nameTemplate || 'Task: ${key}';
     const stopTemplate = sourceConfig.stopCommandTemplate || defaultStopTemplate;
-    
-    return items.map(item => {
-        const stopCommand = stopTemplate
+
+    return entries.map((entry) => {
+        const item = entry.key;
+        const stopFromTemplate = stopTemplate
             ? applyTemplate(stopTemplate, { key: item, item: item })
             : null;
+        const stopCommand = entry.stopCommand || stopFromTemplate || null;
+        const command = entry.command
+            || applyTemplate(commandTemplate, { key: item, item: item });
+        const templatedName = applyTemplate(nameTemplate, { key: item, item: item });
+        const sourceFile = String(sourceConfig.file || '').replace(/\\/g, '/');
+        const useDescriptionName = (
+            entry.description
+            && sourceFile.includes('module-start-services.runtime.yaml')
+        );
         return {
-            name: applyTemplate(nameTemplate, { key: item, item: item }),
-            command: applyTemplate(commandTemplate, { key: item, item: item }),
+            name: useDescriptionName ? entry.description : templatedName,
+            command,
             cwd: sourceConfig.cwd ? path.join(workspaceRoot, sourceConfig.cwd) : defaultCwd,
             stopCommand
         };

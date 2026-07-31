@@ -27,13 +27,15 @@ portable_python_installed() {
 }
 
 portable_python_arch_triple() {
-  local machine
+  local machine root="${1:-}"
   machine="$(uname -m)"
   case "$machine" in
     aarch64|arm64) echo 'aarch64-unknown-linux-gnu' ;;
     x86_64|amd64) echo 'x86_64-unknown-linux-gnu' ;;
     *)
-      echo "[ERROR] Неподдерживаемая архитектура для portable Python: $machine" >&2
+      if [[ -n "$root" ]]; then
+        ergoms_console_from_root "$root" portable_unsupported_arch_python red --stderr "arch=$machine"
+      fi
       return 1
       ;;
   esac
@@ -55,12 +57,12 @@ install_portable_python() {
   exe="$(portable_python_exe "$root")"
 
   if [[ "$force" != "true" ]] && portable_python_installed "$root"; then
-    echo "$(format_ergo_console skip "Portable Python уже установлен: $($exe --version 2>&1)")"
+    ergoms_console_from_root "$root" portable_python_skip_installed gray "" "version=$($exe --version 2>&1)"
     return 0
   fi
 
   local arch_triple downloads cache_tmp
-  arch_triple="$(portable_python_arch_triple)" || return 1
+  arch_triple="$(portable_python_arch_triple "$root")" || return 1
   downloads="$root/virtual_env/cache/downloads"
   cache_tmp="$root/virtual_env/cache/tmp"
   mkdir -p "$downloads" "$cache_tmp"
@@ -80,22 +82,22 @@ install_portable_python() {
   while true; do
     attempt=$((attempt + 1))
     if ! cached_runtime_archive_ok "$archive"; then
-      echo "$(format_ergo_console info "Загрузка $name…")"
-      download_runtime_archive "$url" "$archive" || return 1
+      ergoms_console_from_root "$root" portable_python_info_download cyan "" "name=$name"
+      download_runtime_archive "$url" "$archive" "$root" || return 1
     else
-      echo "$(format_ergo_console info "Кэш архива Python: ${name}")"
+      ergoms_console_from_root "$root" portable_python_info_cache cyan "" "name=$name"
     fi
 
     rm -rf "$extract"
     mkdir -p "$extract"
     if ! tar -xzf "$archive" -C "$extract"; then
       if [[ "$attempt" -ge 2 ]]; then
-        echo "[ERROR] Не удалось распаковать архив Python" >&2
+        ergoms_console_from_root "$root" portable_python_error_unpack red --stderr
         rm -f "$partial"
         rm -rf "$extract"
         return 1
       fi
-      echo "$(format_ergo_console warning 'Архив Python повреждён — повторная загрузка')"
+      ergoms_console_from_root "$root" portable_python_warn_corrupt yellow
       rm -f "$archive"
       continue
     fi
@@ -110,12 +112,12 @@ install_portable_python() {
     fi
     if [[ ! -x "$python_src/bin/python3" ]]; then
       if [[ "$attempt" -ge 2 ]]; then
-        echo "[ERROR] В архиве не найден bin/python3" >&2
+        ergoms_console_from_root "$root" portable_python_error_bin_missing red --stderr "binary=bin/python3"
         rm -f "$partial"
         rm -rf "$extract"
         return 1
       fi
-      echo "$(format_ergo_console warning 'Архив Python некорректен — повторная загрузка')"
+      ergoms_console_from_root "$root" portable_python_warn_invalid yellow
       rm -f "$archive"
       continue
     fi
@@ -127,11 +129,11 @@ install_portable_python() {
     rm -rf "$extract"
 
     if [[ ! -x "$exe" ]]; then
-      echo "[ERROR] После установки не найден: $exe" >&2
+      ergoms_console_from_root "$root" portable_not_found_after_install red --stderr "path=$exe"
       return 1
     fi
 
-    echo "$(format_ergo_console ok "Portable Python установлен: $($exe --version 2>&1)")"
+    ergoms_console_from_root "$root" portable_python_ok_installed green "" "version=$($exe --version 2>&1)"
     return 0
   done
 }

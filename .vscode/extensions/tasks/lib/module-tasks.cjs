@@ -115,6 +115,26 @@ function yamlTruthy(value) {
   return normalized === '1' || normalized === 'true' || normalized === 'yes';
 }
 
+const VALID_INCLUDE_TARGETS = new Set(['setup-full', 'start-all']);
+
+function normalizeIncludeIn(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => String(item || '').trim())
+      .filter((item) => VALID_INCLUDE_TARGETS.has(item));
+  }
+  const single = String(value || '').trim();
+  return VALID_INCLUDE_TARGETS.has(single) ? [single] : [];
+}
+
+function parseOrder(value) {
+  if (value === undefined || value === null || value === '') {
+    return 0;
+  }
+  const n = Number.parseInt(String(value), 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
 /**
  * @param {string} workspaceRoot
  * @param {(key: string) => string|undefined} getEnv
@@ -148,12 +168,13 @@ function listEnabledModuleDirs(workspaceRoot, getEnv) {
 }
 
 /**
+ * Все валидные задачи модуля (включая hide), с include_in / order.
  * @param {string} workspaceRoot
  * @param {(key: string) => string|undefined} getEnv
  * @param {(message: string) => void} [warn]
  * @returns {object[]}
  */
-function discoverModuleTaskDefs(workspaceRoot, getEnv, warn = () => {}) {
+function discoverAllModuleTaskDefs(workspaceRoot, getEnv, warn = () => {}) {
   const seenLabels = new Set();
   const defs = [];
   for (const { name, moduleDir } of listEnabledModuleDirs(workspaceRoot, getEnv)) {
@@ -192,9 +213,6 @@ function discoverModuleTaskDefs(workspaceRoot, getEnv, warn = () => {}) {
         warn(`${name}: «${label}» — command должен начинаться с ergoms — пропуск`);
         continue;
       }
-      if (yamlTruthy(raw.hide)) {
-        continue;
-      }
       if (seenLabels.has(label)) {
         warn(`${name}: label «${label}» уже объявлен — повтор пропущен`);
         continue;
@@ -207,19 +225,69 @@ function discoverModuleTaskDefs(workspaceRoot, getEnv, warn = () => {}) {
         detail,
         command,
         module: name,
-        panel: panelRaw === 'new' ? 'new' : 'shared'
+        panel: panelRaw === 'new' ? 'new' : 'shared',
+        hide: yamlTruthy(raw.hide),
+        include_in: normalizeIncludeIn(raw.include_in),
+        order: parseOrder(raw.order)
       });
     }
   }
   return defs;
 }
 
+/**
+ * Задачи для Run Task (без hide).
+ * @param {string} workspaceRoot
+ * @param {(key: string) => string|undefined} getEnv
+ * @param {(message: string) => void} [warn]
+ * @returns {object[]}
+ */
+function discoverModuleTaskDefs(workspaceRoot, getEnv, warn = () => {}) {
+  return discoverAllModuleTaskDefs(workspaceRoot, getEnv, warn)
+    .filter((def) => !def.hide)
+    .map(({ hide, include_in, order, ...rest }) => ({
+      ...rest,
+      include_in,
+      order
+    }));
+}
+
+/**
+ * Задачи с include_in (включая hide) для агрегатов setup-full / start-all.
+ * @param {string} workspaceRoot
+ * @param {(key: string) => string|undefined} getEnv
+ * @param {'setup-full'|'start-all'} target
+ * @param {(message: string) => void} [warn]
+ * @returns {object[]}
+ */
+function discoverModuleIncludeTasks(workspaceRoot, getEnv, target, warn = () => {}) {
+  const wanted = String(target || '').trim();
+  if (!VALID_INCLUDE_TARGETS.has(wanted)) {
+    return [];
+  }
+  return discoverAllModuleTaskDefs(workspaceRoot, getEnv, warn)
+    .filter((def) => Array.isArray(def.include_in) && def.include_in.includes(wanted))
+    .sort((a, b) => {
+      if (a.order !== b.order) {
+        return a.order - b.order;
+      }
+      if (a.module !== b.module) {
+        return a.module.localeCompare(b.module);
+      }
+      return a.label.localeCompare(b.label);
+    });
+}
+
 module.exports = {
   MODULE_TASKS_FILENAME,
   ERGO_MODULE_TASK_TYPE,
   ERGO_MODULE_TASK_SOURCE,
+  VALID_INCLUDE_TARGETS,
   parseYaml,
   parseDisabledModules,
+  normalizeIncludeIn,
   listEnabledModuleDirs,
-  discoverModuleTaskDefs
+  discoverAllModuleTaskDefs,
+  discoverModuleTaskDefs,
+  discoverModuleIncludeTasks
 };

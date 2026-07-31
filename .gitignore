@@ -25,6 +25,7 @@ __pycache__/
 .vscode/optional-services.runtime.yaml
 .vscode/redis-dev.runtime.yaml
 .vscode/client-dev.runtime.yaml
+.vscode/module-start-services.runtime.yaml
 
 /virtual_env/celery/*
 !/virtual_env/celery/.gitkeep

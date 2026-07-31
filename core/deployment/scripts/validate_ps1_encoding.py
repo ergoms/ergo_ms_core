@@ -31,6 +31,7 @@ if str(_DEPLOYMENT_DIR) not in sys.path:
 if str(_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIR))
 
+from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402
 from ps1_io import UTF8_BOM, read_ps1, write_ps1  # noqa: E402
 
@@ -60,41 +61,41 @@ def fix_ps1_encoding(paths: list[Path]) -> int:
         write_ps1(path, read_ps1(path))
         fixed += 1
         rel = path.relative_to(PROJECT_ROOT)
-        print(format_console('ok', f'UTF-8 BOM добавлен: {rel}'))
+        print(format_console('ok', t('ps1_bom_added', rel=rel)))
     return fixed
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description='Проверка UTF-8 BOM в .ps1 с кириллицей')
+    parser = argparse.ArgumentParser(description=t('ps1_encoding_check_description'))
     parser.add_argument(
         '--fix',
         action='store_true',
-        help='перезаписать нарушающие файлы через ps1_io.write_ps1 (UTF-8 с BOM)',
+        help=t('help_fix_ps1'),
     )
     args = parser.parse_args()
 
     violations = find_ps1_encoding_violations()
     if not violations:
-        print(format_console('ok', 'Все .ps1 deployment с не-ASCII имеют UTF-8 BOM'))
+        print(format_console('ok', t('ps1_encoding_ok')))
         return 0
 
     for path in violations:
         rel = path.relative_to(PROJECT_ROOT)
-        print(format_console('error', f'Нет UTF-8 BOM: {rel}'))
+        print(format_console('error', t('ps1_no_bom', rel=rel)))
 
     if args.fix:
         fix_ps1_encoding(violations)
         remaining = find_ps1_encoding_violations()
         if remaining:
-            print(format_console('error', f'После --fix осталось нарушений: {len(remaining)}'))
+            print(format_console('error', t('ps1_fix_remaining', count=len(remaining))))
             return 1
-        print(format_console('ok', 'Кодировка .ps1 исправлена'))
+        print(format_console('ok', t('ps1_encoding_fixed')))
         return 0
 
     print(
         format_console(
             'info',
-            'Исправление: ergoms ps1-encoding-check --fix (или write_ps1 при правке .ps1 из Python)',
+            t('ps1_fix_hint'),
         ),
     )
     return 1

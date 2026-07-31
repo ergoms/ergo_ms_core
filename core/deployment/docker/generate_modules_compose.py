@@ -10,8 +10,14 @@ import sys
 from pathlib import Path
 
 DOCKER_DIR = Path(__file__).resolve().parent
-PROJECT_ROOT = DOCKER_DIR.parent.parent.parent
+DEPLOYMENT_DIR = DOCKER_DIR.parent
+PROJECT_ROOT = DEPLOYMENT_DIR.parent.parent
 OUTPUT = DOCKER_DIR / 'docker-compose.modules.generated.yml'
+
+if str(DEPLOYMENT_DIR) not in sys.path:
+    sys.path.insert(0, str(DEPLOYMENT_DIR))
+
+from cli_locale import t  # noqa: E402
 
 PYTHON_VOLUMES_YAML = """    volumes:
       - ${ERGO_PROJECT_ROOT:-../../..}:/app
@@ -95,7 +101,7 @@ def main() -> int:
     parser.add_argument(
         '--quiet',
         action='store_true',
-        help='не выводить сообщение об успешной генерации',
+        help=t('help_quiet_success'),
     )
     args = parser.parse_args()
 
@@ -122,12 +128,9 @@ def main() -> int:
     if not args.quiet:
         if hasattr(sys.stdout, 'reconfigure'):
             sys.stdout.reconfigure(encoding='utf-8')
-        print(f'[OK] Сгенерировано module-сервисов: {len(modules)} -> {args.output}')
+        print(t('generated_module_services', count=len(modules), output=args.output))
     return 0
 
 
 if __name__ == '__main__':
-    deployment = DOCKER_DIR.parent
-    if str(deployment) not in sys.path:
-        sys.path.insert(0, str(deployment))
     raise SystemExit(main())

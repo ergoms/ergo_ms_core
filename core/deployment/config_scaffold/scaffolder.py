@@ -9,6 +9,7 @@ _DEPLOYMENT_DIR = Path(__file__).resolve().parents[1]
 if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 
+from cli_locale import t
 from console_tags import format_console
 
 from .models import ConfigTemplate, ConfigTemplateRegistry, ScaffoldAction, ScaffoldResult
@@ -34,12 +35,12 @@ def format_scaffold_result(result: ScaffoldResult) -> str:
 
     if result.action is ScaffoldAction.CREATED:
         suffix = f' ({result.detail})' if result.detail else ''
-        return f'    Создан {target}{suffix}'
+        return t('scaffold_created', target=target, suffix=suffix)
 
     if result.action is ScaffoldAction.SKIPPED_EXISTS:
-        return f'    {target} уже существует, пропуск'
+        return t('scaffold_exists_skip', target=target)
 
     if result.action is ScaffoldAction.SKIPPED_NO_SOURCE:
-        return f'    {format_console("warning", f"Example file {result.source_rel} не найден")}'
+        return f'    {format_console("warning", t("scaffold_example_missing", source_rel=result.source_rel))}'
 
-    return f'    {format_console("warning", f"Не удалось создать {target}: {result.detail}")}'
+    return f'    {format_console("warning", t("scaffold_create_failed", target=target, detail=result.detail))}'

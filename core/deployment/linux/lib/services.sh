@@ -112,15 +112,15 @@ show_celery_tasks_logs() {
   local log_file
   log_file="$(resolve_ergo_logs_dir "$root")/celery_tasks.log"
   if [[ ! -f "$log_file" ]]; then
-    echo "[ERROR] Лог задач Celery не найден: $log_file" >&2
+    write_ergoms_message svc_celery_tasks_log_missing red --stderr "path=$log_file"
     return 1
   fi
 
-  echo "-> Последние $lines строк celery_tasks.log..."
+  write_ergoms_message svc_tail_celery_tasks cyan "" "lines=$lines"
   echo "   $log_file"
   if [[ -n "$module_name" ]]; then
     local pattern="celery\\.module\\.${module_name}"
-    echo "   Фильтр: $pattern"
+    write_ergoms_message svc_log_filter gray "" "pattern=$pattern"
     echo ""
     grep -E "$pattern" "$log_file" 2>/dev/null | tail -n "$lines" || true
     tail -n 0 -F "$log_file" | grep --line-buffered -E "$pattern" | cat
@@ -146,15 +146,15 @@ show_celery_beat_logs() {
   local log_file
   log_file="$(resolve_ergo_logs_dir "$root")/celery_beat.log"
   if [[ ! -f "$log_file" ]]; then
-    echo "[ERROR] Лог Celery beat не найден: $log_file" >&2
+    write_ergoms_message svc_celery_beat_log_missing red --stderr "path=$log_file"
     return 1
   fi
 
-  echo "-> Последние $lines строк celery_beat.log..."
+  write_ergoms_message svc_tail_celery_beat cyan "" "lines=$lines"
   echo "   $log_file"
   if [[ -n "$module_name" ]]; then
     local pattern="celery\\.beat\\.module\\.${module_name}"
-    echo "   Фильтр: $pattern"
+    write_ergoms_message svc_log_filter gray "" "pattern=$pattern"
     echo ""
     grep -E "$pattern" "$log_file" 2>/dev/null | tail -n "$lines" || true
     tail -n 0 -F "$log_file" | grep --line-buffered -E "$pattern" | cat
@@ -183,11 +183,11 @@ show_service_logs() {
       [[ -n "$file" && -f "$file" ]] && files+=("$file")
     done < <(resolve_service_log_files "ergo_ms_nginx" "$root" 2>/dev/null || true)
     if [[ ${#files[@]} -eq 0 ]]; then
-      echo "[ERROR] Файлы логов Nginx не найдены в $(resolve_ergo_logs_dir "$root")" >&2
-      echo "Выполните ergoms install-nginx или ergoms reload-nginx." >&2
+      write_ergoms_message svc_nginx_logs_missing red --stderr "path=$(resolve_ergo_logs_dir "$root")"
+      write_ergoms_message svc_nginx_logs_hint yellow --stderr
       return 1
     fi
-    echo "-> Последние $lines строк логов nginx..."
+    write_ergoms_message svc_tail_nginx_logs cyan "" "lines=$lines"
     echo ""
     tail -n "$lines" -F "${files[@]}" | cat
     return 0
@@ -203,22 +203,22 @@ show_service_logs() {
   done < <(resolve_service_log_files "$service_name" "$root" 2>/dev/null || true)
 
   if [[ ${#log_files[@]} -eq 0 ]]; then
-    echo "[ERROR] Файлы логов для службы не найдены: $service_name" >&2
-    echo "Ожидается в: $(resolve_ergo_logs_dir "$root")" >&2
+    write_ergoms_message svc_service_logs_missing red --stderr "name=$service_name"
+    write_ergoms_message svc_logs_expected_in yellow --stderr "path=$(resolve_ergo_logs_dir "$root")"
     return 1
   fi
 
-  echo "-> Последние $lines строк логов $service_name..."
+  write_ergoms_message svc_tail_service_logs cyan "" "lines=$lines" "name=$service_name"
   for file in "${log_files[@]}"; do
     echo "   $file"
   done
   if [[ "$service_name" == ergo_ms_celery_worker* ]]; then
-    echo "   Логи задач модулей: $(resolve_ergo_logs_dir "$root")/celery_tasks.log"
-    echo "   Фильтр: ergoms logs celery-tasks [module] [lines]"
+    write_ergoms_message svc_module_tasks_log_hint gray "" "path=$(resolve_ergo_logs_dir "$root")/celery_tasks.log"
+    write_ergoms_message svc_filter_celery_tasks_cmd gray
   fi
   if [[ "$service_name" == "ergo_ms_celery_beat" || "$service_name" == "ergo_ms_celery_beat.service" ]]; then
-    echo "   Логи beat модулей: $(resolve_ergo_logs_dir "$root")/celery_beat.log"
-    echo "   Фильтр: ergoms logs celery-beat [module] [lines]"
+    write_ergoms_message svc_module_beat_log_hint gray "" "path=$(resolve_ergo_logs_dir "$root")/celery_beat.log"
+    write_ergoms_message svc_filter_celery_beat_cmd gray
   fi
   echo ""
   tail -n "$lines" -F "${log_files[@]}" | cat
@@ -238,7 +238,7 @@ uninstall_all() {
       else
         sudo rm -f "/etc/systemd/system/$u"
       fi
-      echo "Удалён /etc/systemd/system/$u"
+      write_ergoms_message svc_unit_removed gray "" "path=/etc/systemd/system/$u"
     fi
   done
 
@@ -261,7 +261,7 @@ uninstall_all() {
       else
         sudo rm -f "/etc/systemd/system/$legacy"
       fi
-      echo "Удалён legacy /etc/systemd/system/$legacy"
+      write_ergoms_message svc_legacy_unit_removed gray "" "path=/etc/systemd/system/$legacy"
     fi
   done
   while IFS= read -r legacy; do
@@ -274,7 +274,7 @@ uninstall_all() {
       else
         sudo rm -f "/etc/systemd/system/$legacy"
       fi
-      echo "Удалён legacy /etc/systemd/system/$legacy"
+      write_ergoms_message svc_legacy_unit_removed gray "" "path=/etc/systemd/system/$legacy"
     fi
   done < <(systemctl list-unit-files --type=service --no-legend 2>/dev/null | awk '/^ergo-celery-worker-/ {print $1}')
   
@@ -286,7 +286,7 @@ uninstall_all() {
       else
         sudo rm -f "/etc/default/ergo_ms"
       fi
-      echo "Удалён /etc/default/ergo_ms"
+      write_ergoms_message svc_unit_removed gray "" "path=/etc/default/ergo_ms"
     fi
   fi
 }
@@ -307,7 +307,7 @@ install_services() {
   is_nginx_enabled "$root" && skip_client=1
   
   echo ""
-  echo "=== Установка служб ==="
+  write_ergoms_message svc_install_heading cyan
   echo ""
   
   cd "$root" || exit 1
@@ -347,11 +347,11 @@ install_services() {
   enable_and_start_workers "$root"
 
   echo ""
-  echo "=== Службы установлены и запущены ==="
+  write_ergoms_message svc_installed_running_heading green
   echo ""
   status_all
   echo ""
-  echo "Службы запущены!"
+  write_ergoms_message svc_services_started_bang green
 }
 
 install_single_service() {
@@ -359,7 +359,7 @@ install_single_service() {
   local root="$2"
   
   echo ""
-  echo "=== Установка службы $service_name ==="
+  write_ergoms_message svc_install_one_heading cyan "" "name=$service_name"
   echo ""
   
   cd "$root" || exit 1
@@ -393,11 +393,11 @@ install_single_service() {
       daemon_reload
       enable_and_start_workers "$root"
       echo ""
-      echo "=== Все службы воркеров установлены и запущены ==="
+      write_ergoms_message svc_workers_installed_running_heading green
       echo ""
       status_all
       echo ""
-      echo "Службы worker запущены!"
+      write_ergoms_message svc_workers_started_bang green
       return
       ;;
     "beat")
@@ -409,7 +409,7 @@ install_single_service() {
       install_unit "$unit_name" "$MEDIA_API_UNIT" "$root"
       ;;
     *)
-      echo "Неизвестная служба: $service_name" >&2
+      write_ergoms_message unknown_service red --stderr "name=$service_name"
       exit 1
       ;;
   esac
@@ -418,11 +418,11 @@ install_single_service() {
   enable_and_start "${unit_name}.service"
 
   echo ""
-  echo "=== Служба $service_name установлена и запущена ==="
+  write_ergoms_message svc_one_installed_running_heading green "" "name=$service_name"
   echo ""
   status_all
   echo ""
-  echo "Служба $service_name запущена!"
+  write_ergoms_message svc_one_started_bang green "" "name=$service_name"
 }
 
 export -f disable_client_service_if_nginx

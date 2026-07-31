@@ -122,7 +122,7 @@ execute_command_string() {
       api)
         local venv_python="$root/virtual_env/python/bin/python"
         if [[ ! -f "$venv_python" ]]; then
-          echo "[ERROR] Виртуальное окружение не найдено" >&2
+          write_ergoms_message venv_not_found red --stderr
           exit 1
         fi
         export PYTHONPATH="$root"
@@ -136,7 +136,7 @@ execute_command_string() {
       media_api)
         local venv_python="$root/virtual_env/python/bin/python"
         if [[ ! -f "$venv_python" ]]; then
-          echo "[ERROR] Виртуальное окружение не найдено" >&2
+          write_ergoms_message venv_not_found red --stderr
           exit 1
         fi
         cd "$root" || exit 1
@@ -212,7 +212,7 @@ invoke_custom_command() {
   load_custom_commands "$root"
   
   if [[ ! -v "CUSTOM_COMMANDS[$cmd_name]" ]]; then
-    echo "[ERROR] Неизвестная команда: $cmd_name" >&2
+    write_ergoms_message unknown_command red --stderr "name=$cmd_name"
     local suggestions
     suggestions="$(_suggest_conf_commands "$cmd_name" | head -n 5)"
     if [[ -n "$suggestions" ]]; then
@@ -224,9 +224,9 @@ invoke_custom_command() {
         fi
         formatted+="ergoms ${suggestion}"
       done <<< "$suggestions"
-      echo "Возможно, вы имели в виду: $formatted" >&2
+      write_ergoms_message command_suggestions yellow --stderr "items=$formatted"
     fi
-    echo "Справка: ergoms help" >&2
+    write_ergoms_message help_hint yellow --stderr
     exit 1
   fi
   
@@ -247,7 +247,7 @@ invoke_custom_command() {
       local exit_code=$?
       
       if [[ $exit_code -ne 0 ]]; then
-        echo "[ERROR] Команда завершилась с ошибкой: $cmd_name" >&2
+        write_ergoms_message command_failed red --stderr "name=$cmd_name"
         exit $exit_code
       fi
     done
@@ -255,7 +255,7 @@ invoke_custom_command() {
     execute_command_string "$root" "$command_def" "${user_args[@]}"
     local exit_code=$?
     if [[ $exit_code -ne 0 ]]; then
-      echo "[ERROR] Команда завершилась с ошибкой: $cmd_name" >&2
+      write_ergoms_message command_failed red --stderr "name=$cmd_name"
       exit $exit_code
     fi
   fi
@@ -300,11 +300,11 @@ invoke_module_poetry_command() {
   local sub_cmd="${1:-}"
 
   if [[ -z "$sub_cmd" ]]; then
-    echo "Использование:"
-    echo "  ergoms ${module_name}:poetry add PACKAGE              -- добавить зависимость (версия подбирается автоматически)"
-    echo "  ergoms ${module_name}:poetry add PACKAGE '>=1.0.0'    -- добавить с явным ограничением версии"
-    echo "  ergoms ${module_name}:poetry remove PACKAGE           -- удалить зависимость"
-    echo "  ergoms ${module_name}:poetry list                     -- список зависимостей модуля"
+    write_ergoms_message poetry_usage_heading yellow
+    write_ergoms_message poetry_usage_add yellow "" "module=$module_name"
+    write_ergoms_message poetry_usage_add_constraint yellow "" "module=$module_name"
+    write_ergoms_message poetry_usage_remove yellow "" "module=$module_name"
+    write_ergoms_message poetry_usage_list yellow "" "module=$module_name"
     return
   fi
 
@@ -312,14 +312,14 @@ invoke_module_poetry_command() {
   case "$sub_cmd" in
     add)
       if [[ $# -eq 0 ]]; then
-        echo "[ERROR] Укажите имя пакета: ergoms ${module_name}:poetry add PACKAGE" >&2
+        write_ergoms_message poetry_error_need_package_add red --stderr "module=$module_name"
         exit 1
       fi
       invoke_api_command "$root" module-add "$module_name" "$@"
       ;;
     remove)
       if [[ $# -eq 0 ]]; then
-        echo "[ERROR] Укажите имя пакета: ergoms ${module_name}:poetry remove PACKAGE" >&2
+        write_ergoms_message poetry_error_need_package_remove red --stderr "module=$module_name"
         exit 1
       fi
       invoke_api_command "$root" module-remove "$module_name" "$@"
@@ -328,8 +328,8 @@ invoke_module_poetry_command() {
       invoke_api_command "$root" module-list "$module_name"
       ;;
     *)
-      echo "[ERROR] Неизвестная подкоманда: $sub_cmd" >&2
-      echo "Доступные: add, remove, list" >&2
+      write_ergoms_message poetry_error_unknown_subcmd red --stderr "cmd=$sub_cmd"
+      write_ergoms_message poetry_available_subcmds yellow --stderr
       exit 1
       ;;
   esac
@@ -341,8 +341,8 @@ invoke_api_command() {
   local venv_python="$root/virtual_env/python/bin/python"
   
   if [[ ! -f "$venv_python" ]]; then
-    echo "[ERROR] Виртуальное окружение не найдено: $venv_python" >&2
-    echo "  Сначала выполните ergoms python-install" >&2
+    write_ergoms_message venv_not_found_at red --stderr "path=$venv_python"
+    write_ergoms_message venv_setup_hint yellow --stderr
     exit 1
   fi
   
@@ -361,8 +361,8 @@ invoke_media_api_command() {
   local venv_python="$root/virtual_env/python/bin/python"
   
   if [[ ! -f "$venv_python" ]]; then
-    echo "[ERROR] Виртуальное окружение не найдено: $venv_python" >&2
-    echo "  Сначала выполните ergoms python-install" >&2
+    write_ergoms_message venv_not_found_at red --stderr "path=$venv_python"
+    write_ergoms_message venv_setup_hint yellow --stderr
     exit 1
   fi
   
@@ -396,7 +396,7 @@ invoke_npm_command() {
       [[ "$arg" == -* ]] && continue
       [[ -n "$arg" ]] && pkg_args+=("$arg")
     done
-    echo "[INFO] Обновление npm-зависимостей модулей..."
+    write_ergoms_message npm_updating_modules cyan
     node "$root/core/deployment/scripts/sync-module-npm-deps.js" --update --install-missing "${pkg_args[@]}"
     return $?
   fi

@@ -16,9 +16,13 @@ import sys
 from pathlib import Path
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
+_DEPLOYMENT_DIR = SCRIPTS_DIR.parent
+if str(_DEPLOYMENT_DIR) not in sys.path:
+    sys.path.insert(0, str(_DEPLOYMENT_DIR))
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
+from cli_locale import t  # noqa: E402
 from deployment_env import PROJECT_ROOT  # noqa: E402
 from log_env import infra_rotation_settings  # noqa: E402
 
@@ -56,17 +60,17 @@ def install_linux(root: Path, hour: int, *, uninstall: bool) -> int:
             new_crontab += '\n'
         proc = subprocess.run(['crontab', '-'], input=new_crontab, text=True, check=False)
         if proc.returncode == 0:
-            print('[OK] Удалено ergo_ms infra log rotate cron job')
+            print(t('log_rotate_cron_removed'))
         return proc.returncode
 
     lines.append(cron_line)
     new_crontab = '\n'.join(lines).strip() + '\n'
     proc = subprocess.run(['crontab', '-'], input=new_crontab, text=True, check=False)
     if proc.returncode != 0:
-        print('[ERROR] Не удалось добавить запись в crontab', file=sys.stderr)
+        print(t('log_rotate_crontab_failed'), file=sys.stderr)
         return proc.returncode
-    print(f'[OK] Ежедневный cron в {hour:02d}:00 — параметры ergoms rotate-logs из .env')
-    print(f'     Log: {root / "logs" / "rotate-infra.log"}')
+    print(t('log_rotate_cron_scheduled', hour=f'{hour:02d}'))
+    print(t('log_rotate_log_path', path=root / 'logs' / 'rotate-infra.log'))
     return 0
 
 
@@ -75,9 +79,9 @@ def install_windows(root: Path, hour: int, *, uninstall: bool) -> int:
     if uninstall:
         proc = subprocess.run(['schtasks', '/Delete', '/TN', TASK_NAME, '/F'], check=False)
         if proc.returncode == 0:
-            print(f'[OK] Удалено scheduled task: {TASK_NAME}')
+            print(t('log_rotate_task_removed', name=TASK_NAME))
         else:
-            print('[WARNING] Запланированная задача не найдена или не удалось удалить')
+            print(t('log_rotate_task_not_found'))
         return 0
 
     time_str = f'{hour:02d}:00'
@@ -103,9 +107,9 @@ def install_windows(root: Path, hour: int, *, uninstall: bool) -> int:
     )
     if proc.returncode != 0:
         print('[ERROR] schtasks failed:', proc.stderr or proc.stdout, file=sys.stderr)
-        print('Запустите PowerShell от имени администратора.', file=sys.stderr)
+        print(t('admin_powershell_hint'), file=sys.stderr)
         return proc.returncode
-    print(f'[OK] Запланированная задача «{TASK_NAME}» ежедневно в {time_str}')
+    print(t('log_rotate_task_scheduled', name=TASK_NAME, time=time_str))
     return 0
 
 
@@ -129,7 +133,7 @@ def main() -> int:
         return install_linux(root, hour, uninstall=args.uninstall)
 
     print(f'[ERROR] Unsupported OS for install-infra-log-rotate: {system}', file=sys.stderr)
-    print('Запустите вручную: ergoms rotate-logs', file=sys.stderr)
+    print(t('log_rotate_run_manually'), file=sys.stderr)
     return 1
 
 

@@ -209,12 +209,13 @@
         },
         {
             "label": "Services",
-            "detail": "Внутренняя композиция: Redis Dev → backend → клиент",
+            "detail": "Внутренняя композиция: Redis Dev → backend → модули → клиент",
             "hide": true,
             "dependsOrder": "sequence",
             "dependsOn": [
                 "Redis Dev",
                 "Backend Services",
+                "Module Services",
                 "Client Dev"
             ],
             "presentation": {
@@ -312,6 +313,35 @@
             }
         },
         {
+            "label": "Module Services",
+            "detail": "Запустить модульные сервисы из vscode.tasks.yaml (include_in: start-all)",
+            "hide": true,
+            "type": "multi-terminal",
+            "source": {
+                "file": ".vscode/module-start-services.runtime.yaml",
+                "path": "services"
+            },
+            "commandTemplate": "ergoms help",
+            "nameTemplate": "${key}",
+            "group": "module-services",
+            "delay": 500,
+            "hideControlTerminal": true,
+            "windows": {
+                "options": {
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
+                    }
+                }
+            },
+            "linux": {
+                "options": {
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
+                }
+            }
+        },
+        {
             "label": "Client Dev",
             "detail": "Запустить клиент или nginx после готовности API",
             "hide": true,
@@ -343,7 +373,7 @@
         },
         {
             "label": "Start All Services",
-            "detail": "Запустить все службы разработки: прогрев кэшей, Redis, API, Media API, Celery и клиент после готовности API",
+            "detail": "Запустить все службы разработки: прогрев кэшей, Redis, API, Media API, Celery, модули и клиент после готовности API",
             "dependsOrder": "sequence",
             "dependsOn": [
                 "Cache Warmup",

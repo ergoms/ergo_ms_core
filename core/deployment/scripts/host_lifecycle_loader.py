@@ -22,6 +22,7 @@ _DEPLOYMENT_DIR = _SCRIPTS_DIR.parent
 if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 
+from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402
 from lifecycle.modules.catalog import ModuleCatalog  # noqa: E402
 
@@ -70,21 +71,21 @@ def _parse_file(path: Path, *, module_dir_name: str) -> HostLifecycleEntry | Non
     try:
         text = path.read_text(encoding='utf-8')
     except OSError as exc:
-        _warn(f'Не удалось прочитать {path}: {exc}')
+        _warn(t('yaml_read_failed', path=path, exc=exc))
         return None
 
     if not text.strip():
-        _warn(f'{path}: файл пуст')
+        _warn(t('yaml_file_empty', path=path))
         return None
 
     try:
         data = yaml.safe_load(text)
     except yaml.YAMLError as exc:
-        _warn(f'{path}: ошибка YAML: {exc}')
+        _warn(t('yaml_parse_error', path=path, exc=exc))
         return None
 
     if not isinstance(data, dict):
-        _warn(f'{path}: корень должен быть объектом')
+        _warn(t('yaml_root_must_be_object', path=path))
         return None
 
     module = str(data.get('module') or module_dir_name).strip() or module_dir_name
@@ -97,7 +98,7 @@ def _parse_file(path: Path, *, module_dir_name: str) -> HostLifecycleEntry | Non
             'service_units': data.get('service_units'),
         }
     if not isinstance(host, dict):
-        _warn(f'{path}: секция host должна быть объектом')
+        _warn(t('host_section_must_be_object', path=path))
         return None
 
     stop = tuple(_as_str_list(host.get('stop_commands')))
@@ -105,7 +106,7 @@ def _parse_file(path: Path, *, module_dir_name: str) -> HostLifecycleEntry | Non
     units = tuple(_as_str_list(host.get('service_units')))
 
     if not stop and not install and not units:
-        _warn(f'{path}: пустой host (нужен хотя бы один список команд/unit)')
+        _warn(t('host_section_empty', path=path))
         return None
 
     return HostLifecycleEntry(
@@ -164,9 +165,9 @@ def dump_host_lifecycle_json(project_root: Path | str) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description='Модульный host_lifecycle для тестов deployment')
-    parser.add_argument('--root', type=Path, default=None, help='Корень проекта')
-    parser.add_argument('--json', action='store_true', help='Вывести агрегат JSON в stdout')
+    parser = argparse.ArgumentParser(description=t('host_lifecycle_description'))
+    parser.add_argument('--root', type=Path, default=None, help=t('help_root_path'))
+    parser.add_argument('--json', action='store_true', help=t('help_json_stdout'))
     args = parser.parse_args(argv)
 
     root = args.root
@@ -175,7 +176,7 @@ def main(argv: list[str] | None = None) -> int:
         root = _DEPLOYMENT_DIR.parent.parent
     root = root.resolve()
     if not (root / 'pyproject.toml').is_file():
-        print(format_console('error', f'Корень проекта не найден: {root}'), file=sys.stderr)
+        print(format_console('error', t('project_root_not_found', root=root)), file=sys.stderr)
         return 1
 
     if args.json:
@@ -183,7 +184,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     agg = aggregate_host_lifecycle(root)
-    print(f'modules: {", ".join(agg.modules) or "(нет)"}')
+    print(t('modules_list', items=', '.join(agg.modules) or t('modules_none')))
     print(f'stop_commands: {len(agg.stop_commands)}')
     for cmd in agg.stop_commands:
         print(f'  - {cmd}')

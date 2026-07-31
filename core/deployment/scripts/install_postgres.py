@@ -24,6 +24,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 if str(DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(DEPLOYMENT_DIR))
 
+from cli_locale import t  # noqa: E402
 from console_tags import configure_stdio_utf8, format_console  # noqa: E402
 from postgres_common import (  # noqa: E402
     DEFAULT_PORT,
@@ -65,7 +66,7 @@ def _find_edb_pgsql_root(extract_dir: Path) -> Path:
     for postgres_path in nested:
         if postgres_path.parent.name == 'bin':
             return postgres_path.parent.parent
-    raise RuntimeError(f'В архиве EDB не найден postgres: {extract_dir}')
+    raise RuntimeError(t('postgres_edb_not_found', extract_dir=extract_dir))
 
 
 def _copy_tree_merge(src: Path, dest: Path) -> None:
@@ -83,9 +84,9 @@ def _install_windows(root: Path, version: str, force: bool) -> None:
     installed = read_installed_version(root)
     if is_installed(root) and not force:
         if installed == version:
-            print(format_console('skip', f'PostgreSQL {version} уже установлен'))
+            print(format_console('skip', t('postgres_already_installed', version=version)))
             return
-        print(format_console('info', f'Обновление PostgreSQL {installed} → {version}…'))
+        print(format_console('info', t('postgres_upgrading', installed=installed, version=version)))
         force = True
 
     if force and paths['bin'].exists():
@@ -107,7 +108,7 @@ def _install_windows(root: Path, version: str, force: bool) -> None:
         _download(url, zip_path)
         extract_dir = tmp_path / 'extract'
         extract_dir.mkdir()
-        print('-> Распаковка архива…')
+        print(t('postgres_unpacking'))
         with zipfile.ZipFile(zip_path, 'r') as archive:
             archive.extractall(extract_dir)
         source = _find_edb_pgsql_root(extract_dir)
@@ -117,7 +118,7 @@ def _install_windows(root: Path, version: str, force: bool) -> None:
                 _copy_tree_merge(src, paths['base'] / name)
 
     postgres_version_file(root).write_text(version + '\n', encoding='utf-8')
-    print(format_console('ok', f'PostgreSQL {version} установлен в {paths["base"]}'))
+    print(format_console('ok', t('postgres_installed_at', version=version, base=paths['base'])))
 
 
 def _linux_build_tools_hint() -> str:
@@ -128,16 +129,18 @@ def _linux_build_tools_hint() -> str:
         )
     if Path('/etc/redhat-release').is_file():
         return 'sudo dnf groupinstall -y "Development Tools" && sudo dnf install -y readline-devel zlib-devel'
-    return 'Установите gcc, make, readline/zlib development packages'
+    return t('postgres_linux_build_tools')
 
 
 def _require_linux_build_tools() -> None:
     missing = [tool for tool in ('gcc', 'make') if shutil.which(tool) is None]
     if missing:
         raise RuntimeError(
-            'Для сборки portable PostgreSQL нужны: '
-            + ', '.join(missing)
-            + f'. Установите: {_linux_build_tools_hint()}'
+            t(
+                'postgres_linux_build_required',
+                tools=', '.join(missing),
+                hint=_linux_build_tools_hint(),
+            )
         )
 
 
@@ -146,9 +149,9 @@ def _install_linux(root: Path, version: str, force: bool) -> None:
     if is_installed(root) and not force:
         installed = read_installed_version(root)
         if installed == version:
-            print(format_console('skip', f'PostgreSQL {version} уже установлен'))
+            print(format_console('skip', t('postgres_already_installed', version=version)))
             return
-        print(format_console('info', f'Обновление PostgreSQL {installed} → {version}…'))
+        print(format_console('info', t('postgres_upgrading', installed=installed, version=version)))
         force = True
 
     _require_linux_build_tools()
@@ -171,21 +174,21 @@ def _install_linux(root: Path, version: str, force: bool) -> None:
             archive.extractall(extract_dir)
         source_dirs = list(extract_dir.glob(f'postgresql-{version}'))
         if not source_dirs:
-            raise RuntimeError('Не найден каталог исходников PostgreSQL после распаковки')
+            raise RuntimeError(t('postgres_sources_not_found'))
         source = source_dirs[0]
         prefix = paths['base']
         jobs = str(max(1, (os.cpu_count() or 2)))
-        print(f'-> Сборка PostgreSQL {version} (может занять несколько минут)…')
+        print(t('postgres_building', version=version))
         configure = ['./configure', f'--prefix={prefix}', '--without-icu']
         cfg = subprocess.run([*configure, '--with-openssl'], cwd=str(source), check=False)
         if cfg.returncode != 0:
-            print(format_console('warning', 'configure --with-openssl не удался; повтор без OpenSSL'))
+            print(format_console('warning', t('postgres_openssl_configure_fallback')))
             subprocess.run(configure, cwd=str(source), check=True)
         subprocess.run(['make', f'-j{jobs}'], cwd=str(source), check=True)
         subprocess.run(['make', 'install'], cwd=str(source), check=True)
 
     postgres_version_file(root).write_text(version + '\n', encoding='utf-8')
-    print(format_console('ok', f'PostgreSQL {version} установлен в {paths["base"]}'))
+    print(format_console('ok', t('postgres_installed_at', version=version, base=paths['base'])))
 
 
 def install_postgres(
@@ -209,8 +212,8 @@ def install_postgres(
 
     system_present = has_system_postgresql_service()
     if skip_if_system and system_present:
-        print(format_console('skip', 'Найдена системная служба PostgreSQL — portable не устанавливается'))
-        print(format_console('info', 'Принудительно: POSTGRES_FORCE_INSTALL=true в .env или --no-skip-system'))
+        print(format_console('skip', t('postgres_system_skip_portable')))
+        print(format_console('info', t('postgres_force_hint')))
         return 2
 
     alongside_system = (not skip_if_system) and system_present
@@ -224,14 +227,17 @@ def install_postgres(
     if alongside_system:
         print(format_console(
             'warning',
-            'POSTGRES_FORCE_INSTALL / --no-skip-system: portable при системной службе '
-            f'(порт {listen_port} из databases.yaml)',
+            t('postgres_force_with_system_port', listen_port=listen_port),
         ))
 
     print(format_console(
         'info',
-        f'Portable слушает {listen_bind}:{listen_port} '
-        f'(host/port из databases.yaml; системный обычно на {DEFAULT_PORT})',
+        t(
+            'postgres_listen_info',
+            listen_bind=listen_bind,
+            listen_port=listen_port,
+            default_port=DEFAULT_PORT,
+        ),
     ))
     yaml_port = None
     try:
@@ -242,8 +248,7 @@ def install_postgres(
     if port is not None and yaml_port is not None and yaml_port != listen_port:
         print(format_console(
             'info',
-            f'CLI --port={listen_port} отличается от databases.yaml port={yaml_port}; '
-            f'для Django укажите port: {listen_port} в databases.yaml',
+            t('postgres_cli_port_differs', listen_port=listen_port, yaml_port=yaml_port),
         ))
 
     system = platform_name.lower()
@@ -251,8 +256,8 @@ def install_postgres(
         system = platform.system().lower()
 
     version = resolve_latest_version()
-    print(format_console('info', f'Целевая версия PostgreSQL: {version}'))
-    print(format_console('info', f'Порт прослушивания portable: {listen_port}'))
+    print(format_console('info', t('postgres_target_version', version=version)))
+    print(format_console('info', t('postgres_listen_port_info', listen_port=listen_port)))
 
     defaults = load_db_defaults(root)
     user = defaults['user']
@@ -264,7 +269,7 @@ def install_postgres(
         elif system == 'linux':
             _install_linux(root, version, force)
         else:
-            raise RuntimeError(f'Неподдерживаемая платформа для portable PostgreSQL: {system}')
+            raise RuntimeError(t('postgres_unsupported_platform', system=system))
 
         _initdb_if_needed(root, user, password, listen_port, listen_bind)
         if start:

@@ -9,6 +9,7 @@ _DEPLOYMENT_DIR = Path(__file__).resolve().parents[2]
 if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 
+from cli_locale import t  # noqa: E402
 from lifecycle.context import DeploymentContext  # noqa: E402
 from lifecycle.host.shell_bridge import invoke_dispatch  # noqa: E402
 from lifecycle.steps.base import DeploymentStep, StepResult  # noqa: E402
@@ -74,7 +75,14 @@ class ServiceOperationStep(DeploymentStep):
         op_map = _SERVICE_OPS.get(self._operation, {})
         dispatch_op = op_map.get(self._service_id)
         if not dispatch_op:
-            return StepResult(exit_code=1, message=f'Неизвестная операция службы: {self._operation}/{self._service_id}')
+            return StepResult(
+                exit_code=1,
+                message=t(
+                    'unknown_service_operation',
+                    operation=self._operation,
+                    service_id=self._service_id,
+                ),
+            )
         extra: list[str] = []
         if self._operation == 'uninstall' and ctx.option_bool('purge'):
             extra.append('--purge')

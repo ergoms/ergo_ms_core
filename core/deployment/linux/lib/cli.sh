@@ -21,20 +21,24 @@ create_cli_wrapper() {
   local_bin="$bin_dir/ergoms"
 
   if [[ ! -f "$local_bin" ]]; then
-    echo "[ERROR] Не найден локальный файл: $local_bin" >&2
-    echo "  Восстановите core/deployment/bin из репозитория." >&2
+    ERGO_ROOT="$project_root" write_ergoms_message cli_local_missing red --stderr "path=$local_bin"
+    ERGO_ROOT="$project_root" write_ergoms_message cli_restore_bin yellow --stderr
     return 1
   fi
 
   chmod +x "$local_bin" 2>/dev/null || true
 
-  echo "[OK] CLI ergoms — $bin_dir"
-  echo "  Запуск: ergoms … (Project-Shell / PATH с core/deployment/bin)"
-  echo "  Работает только из каталога проекта и подпапок (cwd)."
+  ERGO_ROOT="$project_root" write_ergoms_message cli_ok_path green "" "path=$bin_dir"
+  ERGO_ROOT="$project_root" write_ergoms_message cli_run_hint cyan
+  ERGO_ROOT="$project_root" write_ergoms_message cli_cwd_hint cyan
 }
 
 remove_cli_wrapper() {
-  echo "[INFO] Файлы в core/deployment/bin не удаляются (они в репозитории)"
+  local project_root="${1:-}"
+  if [[ -z "$project_root" ]]; then
+    project_root="$(_ergoms_project_root_from_cli_lib)"
+  fi
+  ERGO_ROOT="$project_root" write_ergoms_message cli_bin_not_removed cyan
 }
 
 export -f create_cli_wrapper

@@ -60,9 +60,9 @@ nginx_skip_client_message() {
     [[ -z "$public_host" ]] && public_host='<NGINX_PUBLIC_HOST>'
   fi
 
-  echo "[OK] ergo_ms_client_dev пропущен (ERGO_PROXY=nginx / NGINX_ENABLED, клиент отдаётся через nginx)"
-  echo "  Откройте: http://${public_host}"
-  echo "  После изменений UI: ergoms client-build && ergoms reload-nginx"
+  write_ergoms_message skip_client_dev_nginx green
+  write_ergoms_message open_url cyan "" "url=http://${public_host}"
+  write_ergoms_message after_client_edits_hint gray
 }
 
 export -f is_nginx_enabled

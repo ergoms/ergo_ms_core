@@ -20,6 +20,7 @@ _DEPLOYMENT_DIR = _SCRIPTS_DIR.parent
 if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 
+from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402
 from lifecycle.modules.catalog import ModuleCatalog  # noqa: E402
 
@@ -65,7 +66,7 @@ def _as_str_tuple(value: Any) -> tuple[str, ...]:
 
 def _parse_when_entry(raw: Any, *, module: str, role_id: str, path: Path) -> ProcessRoleWhen | None:
     if not isinstance(raw, dict):
-        _warn(f'{path}: роль «{role_id}» модуля {module} — when-элемент должен быть объектом')
+        _warn(t('process_role_when_must_be_object', path=path, role_id=role_id, module=module))
         return None
 
     cmdline = _as_str_tuple(raw.get('cmdline_contains_any'))
@@ -74,8 +75,7 @@ def _parse_when_entry(raw: Any, *, module: str, role_id: str, path: Path) -> Pro
 
     if not cmdline and not cwd and not project_bound:
         _warn(
-            f'{path}: роль «{role_id}» модуля {module} — '
-            'when-элемент пуст (нужен cmdline_contains_any, cwd_contains_any или project_bound)'
+            t('process_role_when_empty', path=path, role_id=role_id, module=module)
         )
         return None
 
@@ -88,17 +88,17 @@ def _parse_when_entry(raw: Any, *, module: str, role_id: str, path: Path) -> Pro
 
 def _parse_role(raw: Any, *, module: str, path: Path) -> ProcessRoleRule | None:
     if not isinstance(raw, dict):
-        _warn(f'{path}: элемент roles должен быть объектом (модуль {module})')
+        _warn(t('process_roles_item_must_be_object', path=path, module=module))
         return None
 
     role_id = str(raw.get('id') or '').strip()
     if not role_id:
-        _warn(f'{path}: у роли модуля {module} нет id')
+        _warn(t('process_role_missing_id', path=path, module=module))
         return None
 
     when_raw = raw.get('when')
     if not isinstance(when_raw, list) or not when_raw:
-        _warn(f'{path}: роль «{role_id}» модуля {module} — нужен непустой when')
+        _warn(t('process_role_needs_when', path=path, role_id=role_id, module=module))
         return None
 
     when_entries: list[ProcessRoleWhen] = []
@@ -108,7 +108,7 @@ def _parse_role(raw: Any, *, module: str, path: Path) -> ProcessRoleRule | None:
             when_entries.append(parsed)
 
     if not when_entries:
-        _warn(f'{path}: роль «{role_id}» модуля {module} — ни одного валидного when')
+        _warn(t('process_role_no_valid_when', path=path, role_id=role_id, module=module))
         return None
 
     process_names = tuple(
@@ -126,27 +126,27 @@ def _load_file(path: Path, *, module_dir_name: str) -> list[ProcessRoleRule]:
     try:
         text = path.read_text(encoding='utf-8')
     except OSError as exc:
-        _warn(f'Не удалось прочитать {path}: {exc}')
+        _warn(t('yaml_read_failed', path=path, exc=exc))
         return []
 
     if not text.strip():
-        _warn(f'{path}: файл пуст')
+        _warn(t('yaml_file_empty', path=path))
         return []
 
     try:
         data = yaml.safe_load(text)
     except yaml.YAMLError as exc:
-        _warn(f'{path}: ошибка YAML: {exc}')
+        _warn(t('yaml_parse_error', path=path, exc=exc))
         return []
 
     if not isinstance(data, dict):
-        _warn(f'{path}: корень должен быть объектом')
+        _warn(t('yaml_root_must_be_object', path=path))
         return []
 
     module = str(data.get('module') or module_dir_name).strip() or module_dir_name
     roles_raw = data.get('roles')
     if not isinstance(roles_raw, list) or not roles_raw:
-        _warn(f'{path}: нужен непустой список roles')
+        _warn(t('process_roles_list_required', path=path))
         return []
 
     rules: list[ProcessRoleRule] = []
@@ -172,7 +172,7 @@ def load_module_process_roles(project_root: str) -> tuple[ProcessRoleRule, ...]:
         for rule in _load_file(path, module_dir_name=module_dir.name):
             if rule.role_id in seen_ids:
                 _warn(
-                    f'{path}: роль «{rule.role_id}» уже объявлена другим модулем — пропуск'
+                    t('process_role_duplicate', path=path, role_id=rule.role_id)
                 )
                 continue
             seen_ids.add(rule.role_id)

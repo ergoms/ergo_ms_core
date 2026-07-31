@@ -29,6 +29,7 @@ if str(_DEPLOYMENT_DIR) not in sys.path:
 if str(_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIR))
 
+from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402
 from sh_io import read_sh, sh_encoding_issues, write_sh  # noqa: E402
 
@@ -54,24 +55,24 @@ def fix_sh_encoding(paths: list[Path]) -> int:
         write_sh(path, read_sh(path))
         fixed += 1
         rel = path.relative_to(PROJECT_ROOT)
-        print(format_console('ok', f'LF без BOM: {rel}'))
+        print(format_console('ok', t('sh_lf_ok_rel', rel=rel)))
     return fixed
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description='Проверка LF и отсутствия BOM в .sh deployment (Linux shebang)',
+        description=t('sh_encoding_check_description'),
     )
     parser.add_argument(
         '--fix',
         action='store_true',
-        help='нормализовать нарушающие файлы через sh_io.write_sh (UTF-8, LF, без BOM)',
+        help=t('help_fix_sh'),
     )
     args = parser.parse_args()
 
     violations = find_sh_encoding_violations()
     if not violations:
-        print(format_console('ok', 'Все .sh deployment в UTF-8 LF без BOM'))
+        print(format_console('ok', t('sh_encoding_ok')))
         return 0
 
     for path, issues in violations:
@@ -82,15 +83,15 @@ def main() -> int:
         fix_sh_encoding([path for path, _ in violations])
         remaining = find_sh_encoding_violations()
         if remaining:
-            print(format_console('error', f'После --fix осталось нарушений: {len(remaining)}'))
+            print(format_console('error', t('sh_fix_remaining', count=len(remaining))))
             return 1
-        print(format_console('ok', 'Кодировка .sh исправлена'))
+        print(format_console('ok', t('sh_encoding_fixed')))
         return 0
 
     print(
         format_console(
             'info',
-            'Исправление: ergoms sh-encoding-check --fix (или write_sh при правке .sh из Python)',
+            t('sh_fix_hint'),
         ),
     )
     return 1

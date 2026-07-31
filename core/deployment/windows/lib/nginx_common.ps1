@@ -124,11 +124,11 @@ function Install-NginxBinary {
     $nginxExe = Get-NginxExe -Root $Root
 
     if (Test-Path $nginxExe) {
-        Write-ColorOutput "[OK] Nginx уже установлен: $nginxDir" Green
+        Write-ErgomsMessage -Key 'nginx_already_installed' -Color Green -Param @{ path = $nginxDir }
         return $nginxExe
     }
 
-    Write-ColorOutput "-> Загрузка nginx $script:NginxVersion..." Yellow
+    Write-ErgomsMessage -Key 'nginx_downloading' -Color Yellow -Param @{ version = $script:NginxVersion }
 
     $cacheTmp = Join-Path $Root "virtual_env\cache\tmp"
     New-Item -ItemType Directory -Path $cacheTmp -Force | Out-Null
@@ -156,7 +156,7 @@ function Install-NginxBinary {
         New-Item -ItemType Directory -Path (Split-Path $nginxDir -Parent) -Force | Out-Null
         Move-Item -Path $extractedDir.FullName -Destination $nginxDir -Force
 
-        Write-ColorOutput "[OK] Nginx установлен в $nginxDir" Green
+        Write-ErgomsMessage -Key 'nginx_installed_to' -Color Green -Param @{ path = $nginxDir }
     }
     finally {
         if (Test-Path $tempZip) { Remove-Item $tempZip -Force }
@@ -201,16 +201,16 @@ function Warn-NginxInsecureCerts {
     )
 
     if ([string]::IsNullOrWhiteSpace($CertPath) -or [string]::IsNullOrWhiteSpace($KeyPath)) {
-        Write-ColorOutput "[WARNING] ERGO_SSL_CERT / ERGO_SSL_KEY не заданы. HTTPS не пройдёт nginx -t." Yellow
+        Write-ErgomsMessage -Key 'nginx_ssl_vars_missing' -Color Yellow
         return
     }
     if ($CertPath -like '*snakeoil*' -or $KeyPath -like '*snakeoil*') {
-        Write-ColorOutput "[WARNING] Используется самоподписанный сертификат. Для production — Let's Encrypt." Yellow
+        Write-ErgomsMessage -Key 'nginx_ssl_self_signed' -Color Yellow
     }
     if (-not (Test-Path $CertPath)) {
-        Write-ColorOutput "[WARNING] SSL-сертификат не найден: $CertPath" Yellow
+        Write-ErgomsMessage -Key 'nginx_ssl_cert_missing' -Color Yellow -Param @{ path = $CertPath }
     }
     if (-not (Test-Path $KeyPath)) {
-        Write-ColorOutput "[WARNING] Приватный ключ SSL не найден: $KeyPath" Yellow
+        Write-ErgomsMessage -Key 'nginx_ssl_key_missing' -Color Yellow -Param @{ path = $KeyPath }
     }
 }

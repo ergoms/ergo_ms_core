@@ -21,6 +21,7 @@ _NGINX_DIR = DEPLOYMENT_DIR / 'nginx'
 if str(_NGINX_DIR) not in sys.path:
     sys.path.insert(0, str(_NGINX_DIR))
 
+from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402
 from env_resolvers import load_merged_env  # noqa: E402
 from ergo_modes import effective_docker_enabled, effective_nginx_enabled, env_bool_key  # noqa: E402
@@ -178,13 +179,13 @@ def warn_conflicts(raw_env: dict[str, str]) -> None:
     ):
         print(format_console(
             'warning',
-            'REDIS_HOST / redis.host указывает на внешний хост — в Docker host remapped на сервис redis',
+            t('docker_redis_host_remap_warn'),
         ))
     if effective_nginx_enabled(raw_env) and not env_bool_key(raw_env, 'DOCKER_PROFILE_NGINX'):
         print(
             format_console(
                 'warning',
-                'ERGO_PROXY=nginx, но DOCKER_PROFILE_NGINX=false — nginx на хосте и в Docker могут конфликтовать',
+                t('docker_nginx_profile_conflict'),
             )
         )
 
@@ -215,7 +216,7 @@ def build_compose_cmd(
 ) -> tuple[list[str], Path]:
     compose_bin = find_docker_compose()
     if not compose_bin:
-        print(format_console('error', 'Docker не найден. Установите Docker Desktop или docker compose CLI.'), file=sys.stderr)
+        print(format_console('error', t('docker_not_found_install')), file=sys.stderr)
         sys.exit(1)
 
     root = (project_root or PROJECT_ROOT).resolve()
@@ -228,7 +229,7 @@ def build_compose_cmd(
     workers_file = DOCKER_DIR / 'docker-compose.workers.generated.yml'
     if for_clean:
         if not workers_file.is_file():
-            print(format_console('info', 'Подготовка списка Celery worker-сервисов для остановки контейнеров…'))
+            print(format_console('info', t('preparing_worker_services_list')))
             run_generate_workers(quiet=True)
     elif not workers_file.is_file():
         run_generate_workers()
@@ -305,7 +306,7 @@ def wait_bootstrap_infra(mode: str | None, raw_env: dict[str, str], timeout_sec:
             return True
         time.sleep(2)
 
-    print(format_console('error', 'redis/postgres не готовы. Проверьте: ergoms docker-ps'), file=sys.stderr)
+    print(format_console('error', t('redis_postgres_not_ready_check')), file=sys.stderr)
     return False
 
 
@@ -328,7 +329,7 @@ def mark_setup_complete(project_root: Path) -> None:
     marker.parent.mkdir(parents=True, exist_ok=True)
     (marker.parent / 'docker').mkdir(parents=True, exist_ok=True)
     marker.touch()
-    print(format_console('ok', f'Установка завершена: {SETUP_MARKER_REL.as_posix()}'))
+    print(format_console('ok', t('setup_complete_marker', path=SETUP_MARKER_REL.as_posix())))
 
 
 def npm_client_service(mode: str) -> str:
@@ -366,4 +367,4 @@ def remove_compose_artifacts(project_root: Path | None = None) -> None:
     for path in COMPOSE_ARTIFACT_PATHS:
         if path.is_file():
             path.unlink()
-            print(format_console('ok', f'Удалён {path.relative_to(root)}'))
+            print(format_console('ok', t('removed_path', path=path.relative_to(root))))

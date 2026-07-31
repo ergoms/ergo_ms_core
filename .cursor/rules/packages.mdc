@@ -1,0 +1,101 @@
+---
+description: Portable-пакеты virtual_env/packages — реестр ядра, packages.yaml модулей, ergoms package-*
+alwaysApply: false
+---
+# Portable-пакеты (virtual_env/packages)
+
+Централизованная установка бинарников и runtime (redis, nginx, postgres, python, nodejs, nssm, ollama, ffmpeg…) в `virtual_env/packages/`. Работает **вне Django**: YAML + `ModuleCatalog`, как [`host-lifecycle.mdc`](host-lifecycle.mdc).
+
+## Кратко
+
+- Ядро: [`core_packages.yaml`](../../core/deployment/packages/core_packages.yaml)
+- Модуль: `modules/<имя>/packages.yaml`
+- Код: [`core/deployment/packages/`](../../core/deployment/packages/) (`registry`, `installer`, `archive`, `cli`)
+- Пути: [`package_dir`](../../core/deployment/project_layout.py) / `packages_dir`
+- Кэш архивов: `virtual_env/cache/downloads/`; temp: `virtual_env/cache/tmp/`
+- CLI: `ergoms package-list` | `package-status` | `package-install` | `package-uninstall`
+
+## Обязательно
+
+1. Новый portable-бинарник модуля — объяви в `packages.yaml`, не копируй download/extract в Django management.
+2. `kind: archive` — URL/marker/платформа в YAML; общий installer ядра.
+3. `kind: custom` — скрипт относительно корня модуля или `core/deployment`; запуск **subprocess**, без `import modules.<name>.api`.
+4. Пути только через `project_layout` / `package_dir`.
+5. Конфликт имён пакетов (ядро ↔ модуль) — ошибка при discovery, не молчаливое перекрытие.
+6. Службы ОС (NSSM/systemd, конфиг redis/nginx) — отдельно от `package-install` (lifecycle `install-redis` и т.п.).
+7. Vendor git-репозитории (например код Silero для torch.hub) допустимы как `kind: custom` в `packages/`; **веса моделей** — в `trained_models/` / `resources/`, не как отдельный portable-пакет.
+
+## Запрещено
+
+```python
+# BAD — имя модуля в ядре packages/
+if name == '<module>':
+    install_ffmpeg()
+
+# BAD — запись вне virtual_env/packages и cache
+tempfile.mkdtemp()  # без dir=cache_tmp_dir(root)
+```
+
+```yaml
+# BAD — доменный installer через import API модуля
+installer: api.management.commands.install_x:Command
+```
+
+```yaml
+# GOOD — hook модуля
+module: <name>
+packages:
+  ffmpeg:
+    kind: archive
+    dest: ffmpeg
+    platforms:
+      windows:
+        url: "https://…"
+        archive: zip
+        strip_top_dir: true
+        marker: bin/ffmpeg.exe
+```
+
+## Схема модуля
+
+```yaml
+module: <name>
+packages:
+  <pkg>:
+    kind: archive | custom
+    dest: <dir-under-packages>
+    version: "…"
+    # archive:
+    platforms:
+      windows: { url, archive, marker, strip_top_dir?, pick?: { match, as } }
+      linux: { … }
+    # custom:
+    installer: deployment/install_<pkg>.py   # relative to module root
+    pass_root: true                          # false для lifecycle/runner.py
+    installer_args: []
+    marker_windows: …
+    marker_linux: …
+    extra_dirs: []                           # удаляются при package-uninstall --purge-extra
+```
+
+## Команды
+
+| Команда | Назначение |
+|---------|------------|
+| `ergoms package-list` | Реестр + installed |
+| `ergoms package-status [name]` | Детали |
+| `ergoms package-install <name> [--force] [--refresh]` | Установка |
+| `ergoms package-uninstall <name> [--purge-extra]` | Удаление dest (+ extra_dirs) |
+
+Модульные алиасы (`<name>:install-…`) должны вызывать `package-install` / `package-uninstall`, а не дублировать логику.
+
+## Связанные правила
+
+| Тема | Файл |
+|------|------|
+| Артефакты в корне | [`project-root-artifacts.mdc`](project-root-artifacts.mdc) |
+| Redis / nginx / TLS | [`deployment-infra.mdc`](deployment-infra.mdc) |
+| Host lifecycle | [`host-lifecycle.mdc`](host-lifecycle.mdc) |
+| Модули | [`modules.mdc`](modules.mdc) |
+| Hook discovery | [`struct.mdc`](struct.mdc) |
+| Изоляция ядра | [`core-module-isolation.mdc`](core-module-isolation.mdc) |

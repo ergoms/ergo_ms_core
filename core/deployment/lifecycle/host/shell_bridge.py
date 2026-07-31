@@ -10,6 +10,7 @@ _DEPLOYMENT_DIR = Path(__file__).resolve().parents[2]
 if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 
+from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402
 
 from lifecycle.context import DeploymentContext, HostPlatform  # noqa: E402
@@ -38,8 +39,7 @@ def _assert_linux_sh_readable(path: Path) -> int | None:
     print(
         format_console(
             'error',
-            f'{rel}: {", ".join(issues)} — bash не запустит скрипт на Linux. '
-            'Выполните: ergoms sh-encoding-check --fix',
+            t('sh_encoding_broken', rel=rel, issues=', '.join(issues)),
         ),
         file=sys.stderr,
     )
@@ -62,8 +62,7 @@ def _assert_windows_ps1_readable(path: Path) -> int | None:
         print(
             format_console(
                 'error',
-                f'{rel}: нет UTF-8 BOM — PowerShell 5.1 не разберёт кириллицу. '
-                'Выполните: ergoms ps1-encoding-check --fix',
+                t('ps1_bom_missing', rel=rel),
             ),
             file=sys.stderr,
         )

@@ -18,6 +18,7 @@ _DEPLOYMENT_DIR = Path(__file__).resolve().parents[1]
 if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 
+from cli_locale import t
 from console_tags import configure_stdio_utf8, format_console
 
 DEFAULT_BYTES = 32
@@ -27,7 +28,7 @@ def main() -> int:
     configure_stdio_utf8()
 
     parser = argparse.ArgumentParser(
-        description='Сгенерировать секрет для .env (hex, как openssl rand -hex N)',
+        description=t('generate_secret_description'),
     )
     parser.add_argument(
         '-n',
@@ -35,7 +36,7 @@ def main() -> int:
         type=int,
         default=DEFAULT_BYTES,
         metavar='N',
-        help=f'Длина в байтах до hex (по умолчанию {DEFAULT_BYTES}, длина строки 2N)',
+        help=t('help_secret_bytes', default=DEFAULT_BYTES),
     )
     parser.add_argument(
         '-c',
@@ -43,19 +44,19 @@ def main() -> int:
         type=int,
         default=1,
         metavar='N',
-        help='Сколько секретов напечатать (по умолчанию 1)',
+        help=t('help_secret_count'),
     )
     args = parser.parse_args()
 
     if args.bytes < 16:
         print(
-            format_console('error', 'Минимум 16 байт (--bytes)'),
+            format_console('error', t('secret_bytes_min')),
             file=sys.stderr,
         )
         return 1
     if args.count < 1:
         print(
-            format_console('error', 'Число секретов (--count) должно быть >= 1'),
+            format_console('error', t('secret_count_min')),
             file=sys.stderr,
         )
         return 1
@@ -63,8 +64,7 @@ def main() -> int:
     print(
         format_console(
             'info',
-            'Скопируйте значение в .env (API_SECRET_KEY / API_JWT_SIGNING_KEY). '
-            'Файл окружения команда не изменяет.',
+            t('secret_copy_hint'),
         ),
         file=sys.stderr,
     )

@@ -14,6 +14,7 @@ from pathlib import Path
 
 from lifecycle.services.backends import _bootstrap  # noqa: F401
 
+from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402
 from nginx_foreground import _configure_stdio_utf8, is_nginx_running  # noqa: E402
 
@@ -71,7 +72,7 @@ def _main_conf_arg(main_conf: Path) -> str:
 
 def cmd_test(root: Path) -> int:
     if not _nginx_installed(root):
-        print(format_console('error', 'Nginx не установлен'), file=sys.stderr)
+        print(format_console('error', t('nginx_not_installed')), file=sys.stderr)
         return 1
 
     nginx_dir, exe, main_conf = _nginx_paths(root)
@@ -86,38 +87,38 @@ def cmd_test(root: Path) -> int:
 
 def cmd_reload(root: Path) -> int:
     if not _nginx_installed(root):
-        print(format_console('error', 'Nginx не установлен. Выполните: ergoms install-nginx'), file=sys.stderr)
+        print(format_console('error', t('nginx_not_installed_hint')), file=sys.stderr)
         return 1
 
     nginx_dir, exe, main_conf = _nginx_paths(root)
     main_conf_arg = _main_conf_arg(main_conf)
 
-    print(format_console('info', 'Проверка конфигурации...'))
+    print(format_console('info', t('checking_config')))
     test = subprocess.run(
         [str(exe), '-t', '-c', main_conf_arg],
         cwd=str(nginx_dir),
         check=False,
     )
     if test.returncode != 0:
-        print(format_console('error', 'Проверка конфигурации завершилась с ошибкой'), file=sys.stderr)
+        print(format_console('error', t('config_check_failed')), file=sys.stderr)
         return test.returncode
 
     if os.name != 'nt' and _is_nginx_service_active():
-        print(format_console('info', 'Перезагрузка службы nginx...'))
+        print(format_console('info', t('reloading_nginx_service')))
         reload_cmd = ['systemctl', 'reload', NGINX_LINUX_SERVICE]
         if hasattr(os, 'geteuid') and os.geteuid() != 0 and shutil_which('sudo'):
             reload_cmd = ['sudo', *reload_cmd]
         subprocess.run(reload_cmd, check=False)
-        print(format_console('ok', 'Nginx перезагружен'))
+        print(format_console('ok', t('nginx_reloaded')))
         return 0
 
-    print(format_console('info', 'Перезагрузка nginx...'))
+    print(format_console('info', t('reloading_nginx')))
     subprocess.run(
         [str(exe), '-s', 'reload', '-c', main_conf_arg],
         cwd=str(nginx_dir),
         check=False,
     )
-    print(format_console('ok', 'Nginx перезагружен'))
+    print(format_console('ok', t('nginx_reloaded')))
     return 0
 
 
@@ -126,18 +127,18 @@ def cmd_status(root: Path) -> int:
     nginx_dir, exe, _main_conf = _nginx_paths(root)
 
     if not _nginx_installed(root):
-        print('Nginx: не установлен')
-        print(f'  Ожидаемый путь: {nginx_dir}')
+        print(t('nginx_status_not_installed'))
+        print(t('expected_path', path=nginx_dir))
         return 0
 
     print('')
-    print('=== Статус Nginx ===')
+    print(t('nginx_status_heading'))
 
     if _is_nginx_service_active():
         label = NGINX_WINDOWS_SERVICE if os.name == 'nt' else NGINX_LINUX_SERVICE
         print(f'  Service ({label}): Running')
     elif is_nginx_running(nginx_dir, exe):
-        print('  Process: Запущен')
+        print(t('process_running'))
     else:
         print('  Process: Not running')
 
@@ -196,7 +197,7 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_test(root)
     if args.operation == 'render':
         if not args.template:
-            print(format_console('error', 'Для render укажите --template'), file=sys.stderr)
+            print(format_console('error', t('render_needs_template')), file=sys.stderr)
             return 1
         return cmd_render(root, template=args.template, output=args.output)
     return 1

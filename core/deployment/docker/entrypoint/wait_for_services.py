@@ -11,6 +11,13 @@ import os
 import socket
 import sys
 import time
+from pathlib import Path
+
+_DEPLOYMENT_DIR = Path(__file__).resolve().parents[2]
+if str(_DEPLOYMENT_DIR) not in sys.path:
+    sys.path.insert(0, str(_DEPLOYMENT_DIR))
+
+from cli_locale import t  # noqa: E402
 
 
 def _env(name: str, default: str = '') -> str:
@@ -27,11 +34,11 @@ def wait_tcp(host: str, port: int, timeout: float, label: str) -> bool:
     while time.monotonic() < deadline:
         try:
             with socket.create_connection((host, port), timeout=2):
-                print(f'[OK] {label} доступен: {host}:{port}')
+                print(t('wait_service_ok', label=label, host=host, port=port))
                 return True
         except OSError:
             time.sleep(1)
-    print(f'[ERROR] Таймаут ожидания {label}: {host}:{port}', file=sys.stderr)
+    print(t('wait_service_timeout', label=label, host=host, port=port), file=sys.stderr)
     return False
 
 

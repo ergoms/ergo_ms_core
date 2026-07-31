@@ -15,27 +15,29 @@ alwaysApply: false
 | `ergoms help modules` | `modules/*/ergoms.help.yaml` + scan `ergoms.conf` |
 | `ergoms help module <имя>` | `modules/<имя>/ergoms.help.yaml` |
 
-Текст help — **только русский**. Модульная справка описывается в модуле — см. [`ergoms-module-help.mdc`](ergoms-module-help.mdc).
+Текст help — **русский в источнике** (`help.manifest.yaml`, `ergoms.help.yaml`); переводы — overlay в `core/deployment/locales/<lang>/help.manifest.yaml` и `modules/<имя>/locales/<lang>/ergoms.help.yaml` (deep-merge в runtime). Модульная справка — см. [`ergoms-module-help.mdc`](ergoms-module-help.mdc).
 
 ## Язык консольного вывода
 
-Весь **пользовательский** вывод команд ergoms **ядра** — **только русский**:
+Пользовательский вывод ergoms **ядра** — через каталоги `core/deployment/locales/<lang>/cli_messages.yaml`, не литералы в скриптах:
 
-- shell-скрипты `core/deployment/windows/`, `core/deployment/linux/`
+- shell `core/deployment/windows/`, `core/deployment/linux/`
 - Python `core/deployment/scripts/` (кроме docstring и argparse для CI)
-- `Write-ColorOutput`, `Write-ErgomsMessage`, `echo`, `print`, `Read-Host`, `read -rp`
+- `Write-ErgomsMessage -Key`, `write_ergoms_message --key`, `t('key')` в Python
 
-**Допустимый английский:** имена команд (`ergoms setup`), путей, служб (`ergo_ms_api_dev`), флагов CLI, устоявшихся имён инструментов (nginx, Redis, Poetry, Celery).
+**Язык CLI:** `ERGO_CLI_LANGUAGE` → системная локаль → `ru` ([`cli_locale.py`](../../core/deployment/cli_locale.py)). `DEFAULT_LANGUAGE` для CLI не используется.
+
+**Допустимый английский:** имена команд (`ergoms setup`), путей, служб (`ergo_ms_api_dev`), флагов CLI, устоявшихся имён инструментов (nginx, Redis, Poetry, Celery); **метки** `[OK]`, `[ERROR]`, `[WARNING]`, `[SKIP]`, `[INFO]` — см. [`console-output.mdc`](console-output.mdc).
 
 **Обязательно:**
 
-- повторяющиеся шаблоны ошибок и подсказок — ключи в [`ergoms_console.py`](../../core/deployment/scripts/ergoms_console.py) (`_MESSAGES`) и `Write-ErgomsMessage` (Windows); на Linux — тот же каталог через вызов `ergoms_console.py` или идентичный русский текст в `echo`
-- **метки** статуса — только английские: `[OK]`, `[ERROR]`, `[WARNING]`, `[SKIP]`, `[INFO]` — см. [`console-output.mdc`](console-output.mdc) и [`console_tags.py`](../../core/deployment/console_tags.py)
+- новые строки — ключ в `locales/ru/cli_messages.yaml` + overlay для `en`/`fr` (и др. языков с каталогом `locales/<code>/`);
+- повторяющиеся шаблоны — `ergoms_console.py` / `Write-ErgomsMessage` с ключами, не дублировать текст;
 - Windows `.ps1` с кириллицей в строках — **UTF-8 BOM** (PowerShell 5.1)
 
-**Запрещено** в новых и правках сообщений ядра: английские фразы для пользователя (`Failed to`, `Usage:`, `Unknown service`, `Please run` и т.п.).
+**Запрещено:** хардкод пользовательских фраз (`Failed to`, `Usage:`, `Unknown service`) вместо ключей `cli_messages`; вложенные карты `{ru: …, en: …}` в одном YAML.
 
-При добавлении команды ядра — русский текст в скрипте развёртывания и `summary` в `help.manifest.yaml`.
+При добавлении команды ядра — ключи в `cli_messages` и `summary` (русский) в `help.manifest.yaml` + overlay при необходимости.
 
 ## Единый lifecycle-pipeline
 

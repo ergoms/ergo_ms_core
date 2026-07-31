@@ -4,6 +4,9 @@
   ergoms help
   ergoms help modules
   ergoms help module <имя>
+
+Язык: ERGO_CLI_LANGUAGE → системная локаль → ru (cli_locale.py).
+Source of truth — русские строки в help YAML; переводы — locales/<lang>/ overlays.
 """
 
 from __future__ import annotations
@@ -14,9 +17,19 @@ import sys
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 _DEPLOYMENT_DIR = Path(__file__).resolve().parent.parent
+if str(_DEPLOYMENT_DIR) not in sys.path:
+    sys.path.insert(0, str(_DEPLOYMENT_DIR))
+
+from cli_locale import (  # noqa: E402
+    ensure_project_env_loaded,
+    load_localized_yaml,
+    localize_value,
+    module_help_overlay_path,
+    resolve_cli_language,
+    t,
+)
+
 _MANIFEST_PATH = _DEPLOYMENT_DIR / 'help.manifest.yaml'
 
 _CONF_LINE = re.compile(r'^([a-zA-Z0-9_-]+)=(.+)$')
@@ -49,14 +62,14 @@ def _resolve_project_root(explicit: str | None) -> Path:
     if explicit:
         root = Path(explicit).resolve()
         if not root.is_dir():
-            raise SystemExit(f'[ERROR] Корень проекта не найден: {root}')
+            raise SystemExit(t('help_root_not_found', root=root))
         return root
 
     candidate = _DEPLOYMENT_DIR.parent.parent
     if (candidate / 'pyproject.toml').is_file():
         return candidate
 
-    raise SystemExit('[ERROR] Не удалось определить корень проекта; укажите --root')
+    raise SystemExit(t('help_root_resolve_failed'))
 
 
 def _parse_conf_commands(path: Path) -> dict[str, str]:
@@ -74,12 +87,12 @@ def _parse_conf_commands(path: Path) -> dict[str, str]:
     return commands
 
 
-def _load_manifest() -> dict[str, Any]:
+def _load_manifest(lang: str) -> dict[str, Any]:
     if not _MANIFEST_PATH.is_file():
-        raise SystemExit(f'[ERROR] Не найден файл {_MANIFEST_PATH}')
-    data = yaml.safe_load(_MANIFEST_PATH.read_text(encoding='utf-8'))
+        raise SystemExit(t('help_manifest_missing', path=_MANIFEST_PATH))
+    data = load_localized_yaml(_MANIFEST_PATH, lang)
     if not isinstance(data, dict):
-        raise SystemExit('[ERROR] Некорректный формат help.manifest.yaml')
+        raise SystemExit(t('help_manifest_invalid'))
     return data
 
 
@@ -100,11 +113,15 @@ def _discover_module_confs(root: Path) -> dict[str, dict[str, str]]:
     return modules
 
 
-def _load_module_help_yaml(module_dir: Path) -> dict[str, Any] | None:
+def _load_module_help_yaml(module_dir: Path, lang: str) -> dict[str, Any] | None:
     help_path = module_dir / 'ergoms.help.yaml'
     if not help_path.is_file():
         return None
-    data = yaml.safe_load(help_path.read_text(encoding='utf-8'))
+    data = load_localized_yaml(
+        help_path,
+        lang,
+        overlay_path=module_help_overlay_path(module_dir, lang),
+    )
     return data if isinstance(data, dict) else None
 
 
@@ -134,18 +151,28 @@ def _format_command_line(
     return f'  {padded} {summary}'
 
 
+def _as_text(value: Any) -> str:
+    """Строка из уже локализованного YAML (legacy nested map — через localize_value)."""
+    if value is None:
+        return ''
+    if isinstance(value, str):
+        return value
+    return localize_value(value)
+
+
 def _render_section_commands(
     section: dict[str, Any],
     conf_commands: dict[str, str],
     *,
     validate: bool,
+    lang: str,
 ) -> list[str]:
     lines: list[str] = []
-    title = section.get('title')
+    title = _as_text(section.get('title'))
     if title:
-        lines.append(str(title))
+        lines.append(title)
 
-    note = section.get('note')
+    note = _as_text(section.get('note'))
     if note:
         lines.append(f'  {note}')
 
@@ -154,10 +181,10 @@ def _render_section_commands(
             name, summary, entry = item, '', None
         else:
             name = item.get('name', '')
-            summary = item.get('summary', '')
+            summary = _as_text(item.get('summary'))
             entry = item
         if validate and name and not _command_exists(name, conf_commands):
-            _warn(f'[WARNING] Команда «{name}» есть в help.manifest.yaml, но отсутствует в commands.conf и не встроена')
+            _warn(t('help_warn_command_missing', name=name, lang=lang))
         if name:
             lines.append(_format_command_line(
                 name,
@@ -166,115 +193,132 @@ def _render_section_commands(
             ))
 
     for static_line in section.get('static_lines') or []:
-        lines.append(f'  {static_line}')
+        text = _as_text(static_line)
+        if text:
+            lines.append(f'  {text}')
 
     return lines
 
 
-def render_core(root: Path, platform: str) -> str:
-    manifest = _load_manifest()
+def render_core(root: Path, platform: str, lang: str | None = None) -> str:
+    language = lang or resolve_cli_language(project_root=root)
+    manifest = _load_manifest(language)
     conf_commands = _parse_conf_commands(root / 'core' / 'deployment' / 'commands.conf')
     platform_label = _PLATFORM_LABELS.get(platform, platform)
 
     out: list[str] = [
-        f'Справка ergoms ({platform_label})',
+        t('help_title', lang=language, platform=platform_label),
         '=' * (18 + len(platform_label)),
         '',
     ]
 
     for section in manifest.get('sections') or []:
-        block = _render_section_commands(section, conf_commands, validate=True)
+        block = _render_section_commands(
+            section, conf_commands, validate=True, lang=language,
+        )
         if block:
             out.extend(block)
             out.append('')
 
     for section in (manifest.get('platform_sections') or {}).get(platform) or []:
-        block = _render_section_commands(section, conf_commands, validate=True)
+        block = _render_section_commands(
+            section, conf_commands, validate=True, lang=language,
+        )
         if block:
             out.extend(block)
             out.append('')
 
     scenarios = manifest.get('scenarios') or []
     if scenarios:
-        out.append('Типовые сценарии')
+        out.append(t('help_scenarios_heading', lang=language))
         for scenario in scenarios:
-            out.append(f'  {scenario.get("title", "")}')
+            out.append(f'  {_as_text(scenario.get("title"))}')
             for line in scenario.get('lines') or []:
-                out.append(f'    {line}')
+                text = _as_text(line)
+                if text:
+                    out.append(f'    {text}')
         out.append('')
 
     footer = manifest.get('footer') or {}
     doc = footer.get('doc')
     config = footer.get('config')
     if doc:
-        out.append(f'Подробнее: {doc}')
+        out.append(t('help_more', lang=language, doc=doc))
     if config:
-        out.append(f'Конфигурация команд: {config}')
+        out.append(t('help_config', lang=language, config=config))
 
     return '\n'.join(out).rstrip() + '\n'
 
 
-def render_modules(root: Path) -> str:
+def render_modules(root: Path, lang: str | None = None) -> str:
+    language = lang or resolve_cli_language(project_root=root)
     module_confs = _discover_module_confs(root)
     if not module_confs:
-        return 'Модули с ergoms-командами не найдены.\n'
+        return t('help_modules_empty', lang=language) + '\n'
 
     out = [
-        'Модули с командами ergoms',
+        t('help_modules_heading', lang=language),
         '=========================',
         '',
     ]
 
     for module_name, conf_commands in module_confs.items():
         module_dir = root / 'modules' / module_name
-        help_data = _load_module_help_yaml(module_dir)
+        help_data = _load_module_help_yaml(module_dir, language)
         count = len(conf_commands)
 
         if help_data:
-            title = help_data.get('title') or module_name
-            summary = help_data.get('summary') or ''
-            label = f'{title} — {count} команд'
+            title = _as_text(help_data.get('title')) or module_name
+            summary = _as_text(help_data.get('summary')) or ''
+            label = t('help_modules_count', lang=language, title=title, count=count)
             if summary and summary not in label:
-                label = f'{title} — {count} команд ({summary})'
+                label = t(
+                    'help_modules_count_summary',
+                    lang=language,
+                    title=title,
+                    count=count,
+                    summary=summary,
+                )
             out.append(_format_command_line(module_name, label))
         else:
             out.append(_format_command_line(
                 module_name,
-                f'{count} команд (справка не оформлена: добавьте ergoms.help.yaml)',
+                t('help_modules_no_yaml', lang=language, count=count),
             ))
 
     out.extend([
         '',
-        'Подробнее: ergoms help module <имя>',
+        t('help_modules_more', lang=language),
     ])
     return '\n'.join(out) + '\n'
 
 
-def render_module(root: Path, module_name: str) -> str:
+def render_module(root: Path, module_name: str, lang: str | None = None) -> str:
+    language = lang or resolve_cli_language(project_root=root)
     module_confs = _discover_module_confs(root)
     if module_name not in module_confs:
-        names = ', '.join(sorted(module_confs)) or '(нет модулей)'
+        names = ', '.join(sorted(module_confs)) or '—'
         raise SystemExit(
-            f'[ERROR] Модуль не найден: {module_name}\n'
-            f'Доступные модули: {names}\n'
-            f'Выполните: ergoms help modules',
+            t('help_module_not_found', lang=language, name=module_name, names=names),
         )
 
     module_dir = root / 'modules' / module_name
     conf_commands = module_confs[module_name]
-    help_data = _load_module_help_yaml(module_dir) or {}
+    help_data = _load_module_help_yaml(module_dir, language) or {}
 
     if help_data.get('module') and help_data['module'] != module_name:
-        _warn(
-            f'[WARNING] module в ergoms.help.yaml ({help_data["module"]}) '
-            f'не совпадает с каталогом ({module_name})',
-        )
+        _warn(t(
+            'help_warn_module_mismatch',
+            lang=language,
+            declared=help_data['module'],
+            name=module_name,
+        ))
 
-    title = help_data.get('title') or module_name
-    summary = help_data.get('summary') or ''
+    title = _as_text(help_data.get('title')) or module_name
+    summary = _as_text(help_data.get('summary')) or ''
 
     out = [
-        f'Справка: {module_name}',
+        t('help_module_heading', lang=language, name=module_name),
         f'{title}',
         '',
     ]
@@ -290,15 +334,20 @@ def render_module(root: Path, module_name: str) -> str:
         cmd_summary = ''
         entry = help_commands.get(cmd_name)
         if isinstance(entry, dict):
-            cmd_summary = entry.get('summary') or ''
+            cmd_summary = _as_text(entry.get('summary'))
         elif isinstance(entry, str):
             cmd_summary = entry
         elif entry is not None:
             cmd_summary = str(entry)
 
         if not cmd_summary:
-            cmd_summary = '(описание не задано в ergoms.help.yaml)'
-            _warn(f'[WARNING] Нет summary для команды «{cmd_name}» в modules/{module_name}/ergoms.help.yaml')
+            cmd_summary = t('help_summary_missing', lang=language)
+            _warn(t(
+                'help_warn_no_summary',
+                lang=language,
+                cmd=cmd_name,
+                module=module_name,
+            ))
 
         full_name = f'{module_name}:{cmd_name}'
         out.append(_format_command_line(
@@ -310,24 +359,25 @@ def render_module(root: Path, module_name: str) -> str:
 
     for key in sorted(help_commands):
         if key not in conf_commands:
-            _warn(f'[WARNING] В ergoms.help.yaml есть «{key}», но нет в ergoms.conf')
+            _warn(t('help_warn_extra_command', lang=language, key=key))
 
     notes = help_data.get('notes') or []
     if notes:
-        out.append('Примечания')
+        out.append(t('help_notes_heading', lang=language))
         for note in notes:
-            out.append(f'  - {note}')
+            text = _as_text(note)
+            if text:
+                out.append(f'  - {text}')
         out.append('')
 
     if not help_data:
-        out.append(
-            'Добавьте modules/{}/ergoms.help.yaml с описаниями команд.'.format(module_name),
-        )
+        out.append(t('help_add_yaml', lang=language, name=module_name))
 
     return '\n'.join(out).rstrip() + '\n'
 
 
-def resolve_help_subargs(help_subargs: list[str]) -> tuple[str, str | None]:
+def resolve_help_subargs(help_subargs: list[str], lang: str | None = None) -> tuple[str, str | None]:
+    language = lang or resolve_cli_language()
     if not help_subargs:
         return 'core', None
     if len(help_subargs) == 1 and help_subargs[0] == 'modules':
@@ -335,19 +385,17 @@ def resolve_help_subargs(help_subargs: list[str]) -> tuple[str, str | None]:
     if len(help_subargs) >= 2 and help_subargs[0] == 'module':
         return 'module', help_subargs[1]
     if len(help_subargs) == 1 and help_subargs[0] == 'module':
-        raise SystemExit(
-            '[ERROR] Укажите модуль: ergoms help module <имя>\n'
-            'Список модулей: ergoms help modules',
-        )
-    raise SystemExit(
-        f'[ERROR] Неизвестный аргумент help: {" ".join(help_subargs)}\n'
-        '  ergoms help | ergoms help modules | ergoms help module <имя>',
-    )
+        raise SystemExit(t('help_module_name_required', lang=language))
+    raise SystemExit(t(
+        'help_unknown_args',
+        lang=language,
+        args=' '.join(help_subargs),
+    ))
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description='Справка ergoms')
-    parser.add_argument('--root', help='Корень проекта ERGO MS')
+    parser = argparse.ArgumentParser(description='ergoms help')
+    parser.add_argument('--root', help='ERGO MS project root')
     parser.add_argument(
         '--platform',
         choices=('windows', 'linux'),
@@ -356,7 +404,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         'help_subargs',
         nargs='*',
-        help='modules | module <имя>',
+        help='modules | module <name>',
     )
     return parser
 
@@ -379,22 +427,24 @@ def main() -> int:
     parser = _build_parser()
     args = parser.parse_args()
     root = _resolve_project_root(args.root)
-    mode, module_name = resolve_help_subargs(args.help_subargs)
+    ensure_project_env_loaded(root)
+    lang = resolve_cli_language(project_root=root)
+    mode, module_name = resolve_help_subargs(args.help_subargs, lang)
 
     if mode == 'core':
-        sys.stdout.write(render_core(root, args.platform))
+        sys.stdout.write(render_core(root, args.platform, lang))
         return 0
 
     if mode == 'modules':
-        sys.stdout.write(render_modules(root))
+        sys.stdout.write(render_modules(root, lang))
         return 0
 
     if mode == 'module':
         assert module_name is not None
-        sys.stdout.write(render_module(root, module_name))
+        sys.stdout.write(render_module(root, module_name, lang))
         return 0
 
-    raise SystemExit(f'[ERROR] Неизвестный режим: {mode}')
+    raise SystemExit(t('help_unknown_mode', lang=lang, mode=mode))
 
 
 if __name__ == '__main__':

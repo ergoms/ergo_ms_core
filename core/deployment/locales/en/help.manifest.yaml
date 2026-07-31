@@ -1,0 +1,448 @@
+# en overlay for help.manifest.yaml (merged over Russian source)
+sections:
+- id: usage
+  title: Usage
+  static_lines:
+  - ergoms <command> [arguments]
+  - ergoms help                  — core help
+  - ergoms help modules          — list modules with ergoms commands
+  - ergoms help module <name>    — module help
+  - ergoms <module_name>:<command> [arguments] — invoke a module command
+  - 'Composite scenarios (setup, deploy, services, nginx/redis, docker, dev) — lifecycle/runner.py (recipes); list: py -3.12
+    core/deployment/lifecycle/runner.py --list'
+- id: builtin_services
+  title: OS services (built-in)
+  note: Require administrator rights (Windows) or root/sudo (Linux). For development, start-all is enough.
+  commands:
+  - name: install
+    summary: 'Alias for install-services: install and start all services'
+  - name: install-services
+    summary: Install and start all OS services (nginx/redis — when ERGO_PROXY/ERGO_BROKER is set in .env)
+  - name: install-api-service
+    summary: Install and start the API service only
+  - name: install-client-service
+    summary: Install and start the client service only
+  - name: install-worker-service
+    summary: Install and start workers from celery_workers.yaml
+  - name: install-beat-service
+    summary: Install and start Celery beat
+  - name: install-media-service
+    summary: Install and start Media API
+  - name: start
+    summary: Start all services
+  - name: stop
+    summary: Stop all services
+  - name: restart
+    summary: Restart all services
+  - name: status
+    summary: Status of all services
+  - name: uninstall-services
+    invoke: ergoms uninstall-services [-Purge|--purge]
+    summary: Remove services (with --purge — delete data)
+  - name: logs
+    invoke: ergoms logs <имя_службы> [строки]
+    summary: Service log
+  - name: setup-full
+    summary: Full initial setup; Redis/nginx — when ERGO_BROKER=redis / ERGO_PROXY=nginx
+  - name: install-cli
+    summary: Check that local ergoms is on PATH
+  - name: uninstall-cli
+    summary: 'Message: local CLI under core/deployment/bin is not removed'
+- id: development
+  title: Local development
+  commands:
+  - name: dev
+    summary: Start API with cache warmup (mode from ERGO_ENV)
+  - name: start-all
+    summary: API, client, Media API, worker, and beat (without OS services)
+  - name: start-api
+    summary: API only
+  - name: start-module
+    invoke: ergoms start-module --module=<name>
+    summary: HTTP API of a single module (MODULE_RUNTIME=microservice)
+  - name: start-client
+    summary: Client (Vite, or nginx when NGINX_ENABLED=true)
+  - name: start-media
+    summary: Media API
+  - name: start-worker
+    invoke: ergoms start-worker [--worker=<имя>]
+    summary: Celery worker
+  - name: start-beat
+    summary: Celery beat
+  - name: start-jupyter
+    summary: JupyterLab with Django core (modes local/lan/nginx — API_JUPYTER_* in .env)
+  - name: stop-worker
+    summary: Stop all Celery workers
+  - name: stop-beat
+    summary: Stop Celery beat
+  - name: sync-logs-services
+    summary: Sync the service list for VS Code logs
+  - name: rotate-logs
+    summary: Rotate nginx/redis/client-dev logs by size (ERGO_LOG_INFRA_* in .env)
+  - name: install-infra-log-rotate
+    summary: Scheduler for daily infra log rotation (cron / Task Scheduler)
+  - name: resource-usage
+    invoke: ergoms resource-usage [--json] [-w] [--interval N]
+    summary: RAM/CPU usage of ERGO MS processes on the host
+- id: docker
+  title: Docker Compose
+  note: DOCKER_* variables and profiles — Docker section in .env.example. Ports — API_PORT, CLIENT_PORT, etc. DB — databases.yaml.
+  commands:
+  - name: docker-init
+    summary: 'First run: build, worker services, up, install, migrate'
+  - name: docker-clean
+    summary: 'Full cleanup: containers, volumes, local images, compose artifacts (confirmation in terminal)'
+  - name: docker-up
+    summary: Bring the stack up (DOCKER_MODE, profiles from .env)
+  - name: docker-down
+    summary: Stop and remove containers
+  - name: docker-restart
+    summary: down + up
+  - name: docker-dev
+    summary: docker-up in dev mode (Vite, bind-mount)
+  - name: docker-prod
+    summary: docker-up in prod mode (daphne, client-build)
+  - name: docker-build
+    summary: Build api/client images
+  - name: docker-ps
+    summary: Container status
+  - name: docker-stats
+    invoke: ergoms docker-stats [--json] [-w]
+    summary: RAM/CPU usage of Docker Compose containers
+  - name: docker-logs
+    invoke: ergoms docker-logs [-f] [service]
+    summary: Container logs
+  - name: docker-migrate
+    summary: Migrations inside the api container
+  - name: docker-shell-api
+    summary: Interactive shell in the api container
+  - name: docker-gen-workers
+    summary: Regenerate compose from celery_workers.yaml
+  - name: docker-gen-modules
+    summary: Regenerate compose from MICROSERVICE_MODULES (MODULE_RUNTIME=microservice)
+- id: dependencies
+  title: Dependencies and database
+  commands:
+  - name: setup
+    summary: Full initial setup (git, venv, poetry, npm, migrate, static)
+  - name: install-deps
+    summary: Python + npm, migrations, and cache warmup
+  - name: python-install
+    summary: Install Python dependencies, remove unused packages and their cache under virtual_env/cache
+  - name: python-update
+    summary: Update Python dependencies of core and modules (poetry update)
+  - name: db-migrate
+    summary: Apply migrations
+  - name: db-makemigrations
+    summary: Create migration files
+  - name: migrate-all
+    summary: Create and apply migrations
+  - name: update-all
+    summary: Update Python and npm dependencies (core and modules)
+  - name: reinstall
+    summary: Reinstall dependencies (poetry install --sync, npm ci)
+  - name: deps
+    summary: Project dependency report
+- id: build
+  title: Build
+  commands:
+  - name: client-build
+    summary: Build the client (npm run build)
+  - name: client-build-analyze
+    summary: Build the client with rollup-plugin-visualizer report (dist/stats.html)
+  - name: client-build-remote
+    summary: Build a module federated remote (--module=name → virtual_env/client-remotes/)
+  - name: client-build-standalone
+    summary: Build a module standalone SPA (--module=name → virtual_env/client-standalone/)
+  - name: client-shell-pack
+    summary: Package @ergo-ms/client-shell (virtual_env/client-shell/)
+  - name: client-check
+    summary: Full client check (lint, i18n, build, a11y); logs under logs/client-check/
+  - name: client-preview
+    summary: Preview the client build
+  - name: build-all
+    summary: Client build and collectstatic
+  - name: collectstatic
+    summary: Collect Django static files
+- id: cache_env
+  title: Caches and configuration
+  commands:
+  - name: warmup-caches
+    summary: Warm up core caches (apps, celery, modules_env)
+  - name: warmup-caches-if-needed
+    summary: Redis (if enabled) and warmup only when the cache is empty or stale
+  - name: ensure-redis-dev
+    summary: Start Redis for development without a log terminal
+  - name: start-redis-dev
+    summary: Redis in foreground for VS Code (closing the terminal stops Redis)
+  - name: stop-redis-dev
+    summary: Stop portable Redis dev sessions (after closing the terminal)
+  - name: start-nginx-dev
+    summary: Nginx in foreground after API is ready (closing the terminal stops nginx)
+  - name: stop-nginx-dev
+    summary: Stop portable nginx dev sessions (after closing the terminal)
+  - name: start-client-dev
+    summary: Vite client after API is ready (when nginx is disabled)
+  - name: stop-client-dev
+    summary: Stub to stop the Vite client (the process ends with the terminal)
+  - name: wait-api-ready
+    summary: Wait for GET /api/system/ready/ before starting the client or nginx
+  - name: warmup-celery
+    summary: Warm up celery caches only
+  - name: invalidate-caches
+    summary: Invalidate all core caches
+  - name: invalidate-caches-warmup
+    summary: Invalidate caches and warm them up again
+  - name: generate-secret
+    summary: Generate a secret for .env (API_SECRET_KEY / API_JWT_SIGNING_KEY)
+  - name: geoip-download
+    summary: Download the GeoIP database (DB-IP City Lite)
+  - name: geoip-backfill
+    summary: Backfill city/country in sessions from GeoIP
+  - name: i18n-makemessages
+    summary: Extract API gettext strings into .po (ru/en/fr)
+  - name: i18n-compilemessages
+    summary: Compile API .po catalogs into .mo
+- id: maintenance
+  title: Maintenance
+  commands:
+  - name: clean
+    summary: Remove dependencies and static (media is kept)
+  - name: clear-pycache
+    summary: Remove __pycache__ directories
+  - name: maintenance-on
+    summary: Enable maintenance mode
+  - name: maintenance-off
+    summary: Disable maintenance mode
+  - name: maintenance-status
+    summary: Maintenance mode status
+  - name: restore-menu
+    summary: Restore the menu from migrations
+  - name: sq-del-migrations
+    summary: Squash application migrations
+  - name: safe-drop-app
+    summary: Safely drop a Django app
+  - name: core-rules-check
+    summary: 'Core checks: module isolation, bridge contract schemas, console.error, native select, modules.* imports, mid-indent/ast.parse,
+      BOM/LF in deployment scripts'
+  - name: deployment-test
+    invoke: ergoms deployment-test
+    summary: Deployment unit tests (docker_runtime, ergo_modes, env_resolvers, recipes, nginx render) without Docker daemon
+  - name: ps1-encoding-check
+    invoke: ergoms ps1-encoding-check [--fix]
+    summary: Check UTF-8 BOM in deployment .ps1 files with Cyrillic (Windows PowerShell 5.1)
+  - name: sh-encoding-check
+    invoke: ergoms sh-encoding-check [--fix]
+    summary: Check LF without BOM in deployment .sh files (Linux shebang and source)
+  - name: test-smtp
+    summary: Verify SMTP and send a test email
+- id: service_aliases
+  title: OS services (aliases from commands.conf)
+  note: For full control, ergoms start, stop, restart, and status are enough.
+  commands:
+  - name: start-api-service
+    summary: Start the API service
+  - name: stop-api-service
+    summary: Stop the API service
+  - name: restart-api-service
+    summary: Restart the API service
+  - name: status-api-service
+    summary: API service status
+  - name: start-client-service
+    summary: Start the client service
+  - name: stop-client-service
+    summary: Stop the client service
+  - name: restart-client-service
+    summary: Restart the client service
+  - name: status-client-service
+    summary: Client service status
+  - name: start-worker-service
+    summary: Start the worker service
+  - name: stop-worker-service
+    summary: Stop the worker service
+  - name: restart-worker-service
+    summary: Restart the worker service
+  - name: status-worker-service
+    summary: Worker service status
+  - name: start-beat-service
+    summary: Start the beat service
+  - name: stop-beat-service
+    summary: Stop the beat service
+  - name: restart-beat-service
+    summary: Restart the beat service
+  - name: status-beat-service
+    summary: Beat service status
+  - name: start-media-service
+    summary: Start the Media API service
+  - name: stop-media-service
+    summary: Stop the Media API service
+  - name: restart-media-service
+    summary: Restart the Media API service
+  - name: status-media-service
+    summary: Media API service status
+  - name: start-all-services
+    summary: Start all services individually
+  - name: stop-all-services
+    summary: Stop all services
+  - name: restart-all-services
+    summary: Restart all services
+  - name: status-all-services
+    summary: Status of all services
+- id: deploy
+  title: Deployment
+  commands:
+  - name: deploy-api
+    summary: Update API submodules, dependencies, migrations, static
+  - name: deploy-client
+    summary: Update the client submodule, dependencies, build
+  - name: deploy-api-dev
+    summary: Deploy API and start in development mode
+  - name: deploy-client-dev
+    summary: Deploy the client and start the dev server
+  - name: deploy-all
+    summary: Full deployment of API and client
+- id: nginx
+  title: Nginx (optional)
+  note: Automatic in setup-full when NGINX_ENABLED=true. Install requires administrator rights; status-nginx and test-nginx
+    do not.
+  commands:
+  - name: install-nginx
+    summary: Install and start nginx
+  - name: uninstall-nginx
+    summary: Remove nginx configuration
+  - name: start-nginx
+    summary: Start nginx
+  - name: stop-nginx
+    summary: Stop nginx
+  - name: restart-nginx
+    summary: Restart nginx
+  - name: reload-nginx
+    summary: Test the config and reload nginx
+  - name: status-nginx
+    summary: nginx status
+  - name: test-nginx
+    summary: Test nginx configuration
+- id: redis
+  title: Redis (optional)
+  note: Portable under virtual_env/packages/redis. Automatic in setup-full when ERGO_BROKER=redis.
+  commands:
+  - name: install-redis
+    summary: Install and start Redis
+  - name: uninstall-redis
+    summary: Stop Redis (--purge / -Purge removes packages)
+  - name: start-redis
+    summary: Start Redis
+  - name: stop-redis
+    summary: Stop Redis
+  - name: restart-redis
+    summary: Restart Redis
+  - name: status-redis
+    summary: Redis status
+  - name: test-redis
+    summary: Check with redis-cli ping
+- id: packages
+  title: Portable packages
+  note: 'Registry under virtual_env/packages: core (core_packages.yaml) and modules (packages.yaml). redis/nginx services
+    — separate install-* commands.'
+  commands:
+  - name: package-list
+    summary: List registry packages and install status
+  - name: package-status
+    invoke: ergoms package-status [name]
+    summary: Detailed status of one package or all
+  - name: package-install
+    invoke: ergoms package-install <name> [--force] [--refresh]
+    summary: Install a package from the registry
+  - name: package-uninstall
+    invoke: ergoms package-uninstall <name> [--purge-extra]
+    summary: Remove the package directory (--purge-extra also removes extra_dirs)
+- id: postgres
+  title: PostgreSQL (portable)
+  note: Automatic in setup-full when no system service is present. Directory virtual_env/packages/postgres.
+  commands:
+  - name: install-postgres
+    summary: Install portable PostgreSQL, the service, and the ergo_ms database
+  - name: uninstall-postgres
+    summary: Stop PostgreSQL (--purge / -Purge removes packages/postgres)
+  - name: start-postgres
+    summary: Start portable PostgreSQL
+  - name: stop-postgres
+    summary: Stop portable PostgreSQL
+  - name: restart-postgres
+    summary: Restart portable PostgreSQL
+  - name: status-postgres
+    summary: Portable PostgreSQL status
+  - name: test-postgres
+    summary: Connection check (ping)
+  - name: migrate-postgres-to-portable
+    summary: 'Migrate to portable: --source-password is required; yaml = portable; on success updates port in yaml'
+- id: extensions
+  title: VS Code extensions
+  commands:
+  - name: install-extensions
+    summary: Install extensions from the project list
+  - name: update-vsix
+    summary: Update VSIX extensions
+  - name: uninstall-extensions
+    summary: Uninstall project extensions
+- id: submodules
+  title: Git submodules
+  commands:
+  - name: update-submodules
+    summary: Update core submodules and switch to dev
+  - name: update-module-submodules
+    summary: Update module submodules from .gitmodules
+- id: proxy
+  title: Proxies
+  static_lines:
+  - ergoms api <django_command> [arguments]     — Django commands
+  - ergoms poetry <arguments>                   — Poetry
+  - ergoms npm <arguments>                      — npm
+  - ergoms media_api <arguments>                — Media API manage.py
+- id: mcp_cursor
+  title: MCP (Cursor)
+  note: 'MCP pickup — ERGO MS Module Cursor MCP extension after ergoms install-extensions. Servers are added to mcp.json with
+    disabled: true; enable via Settings → Tools & MCP or ERGO MS: Enable MCP Servers.'
+  commands: []
+platform_sections:
+  windows:
+  - id: nginx_service
+    title: Nginx as a Windows service
+    commands:
+    - name: install-nginx-service
+      summary: Install nginx as a Windows service (autostart)
+  - id: redis_service
+    title: Redis as a Windows service
+    commands:
+    - name: install-redis-service
+      summary: Install Redis as a Windows service (autostart)
+  linux:
+  - id: tls
+    title: TLS (Let's Encrypt, Linux only)
+    note: Requires root/sudo; status-tls does not need root.
+    commands:
+    - name: install-tls
+      summary: Issue a certificate and configure HTTPS for nginx
+    - name: renew-tls
+      summary: Renew certificates (certbot renew)
+    - name: status-tls
+      summary: Certificate expiry and paths
+  - id: redis_service
+    title: Redis as a systemd service
+    commands:
+    - name: install-redis-service
+      summary: Install Redis as a systemd unit
+scenarios:
+- title: Initial setup
+  lines:
+  - git submodule update --init --recursive
+  - ergoms setup (or setup-full from README)
+  - Check .env and databases.yaml
+  - ergoms migrate-all
+- title: Development
+  lines:
+  - ergoms start-all
+  - 'or: ergoms dev and ergoms start-client in separate terminals'
+footer:
+  doc: .docs/cli.md
+  config: core/deployment/commands.conf

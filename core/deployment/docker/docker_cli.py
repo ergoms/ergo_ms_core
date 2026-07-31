@@ -20,6 +20,7 @@ if str(DEPLOYMENT_DIR) not in sys.path:
 if str(DOCKER_DIR) not in sys.path:
     sys.path.insert(0, str(DOCKER_DIR))
 
+from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402
 from env_resolvers import load_merged_env  # noqa: E402
 
@@ -69,7 +70,7 @@ def cmd_build(args: argparse.Namespace, *, skip_if_present: bool = False) -> int
     root = PROJECT_ROOT.resolve()
     orchestrator = DeploymentOrchestrator(root)
     if skip_if_present and docker_ops.should_skip_build(load_merged_env(root)):
-        print(format_console('skip', 'Локальные образы уже собраны (DOCKER_BUILD_POLICY=if-missing)'))
+        print(format_console('skip', t('docker_images_already_built')))
         return 0
     extra = list(args.extra or [])
     return orchestrator.run_recipe(
@@ -81,7 +82,7 @@ def cmd_build(args: argparse.Namespace, *, skip_if_present: bool = False) -> int
 
 def cmd_exec_api_shell(_: argparse.Namespace) -> int:
     if not docker_ops.find_docker_compose():
-        print(format_console('error', 'Docker не найден.'), file=sys.stderr)
+        print(format_console('error', t('docker_not_found_dot')), file=sys.stderr)
         return 1
     cmd, cwd = docker_ops.build_compose_cmd('exec', extra_args=['api', 'bash'])
     return subprocess.call(cmd, cwd=str(cwd))
@@ -97,38 +98,33 @@ def cmd_migrate(args: argparse.Namespace | None = None) -> int:
     mode = getattr(args, 'mode', None) if args is not None else None
     return DeploymentOrchestrator(PROJECT_ROOT.resolve()).docker_migrate(docker_mode=mode)
 
-_CLEAN_CONFIRM_TEXT = (
-    'Полная очистка удалит контейнеры, тома (включая PostgreSQL), локальные образы '
-    'и сгенерированные файлы compose.'
-)
-
 def _confirm_docker_clean(*, assume_yes: bool) -> bool:
     if assume_yes:
         return True
 
-    print(format_console('warning', _CLEAN_CONFIRM_TEXT))
+    print(format_console('warning', t('docker_clean_confirm_msg')))
 
     if not sys.stdin.isatty():
         print(
             format_console(
                 'error',
-                'Интерактивное подтверждение недоступно. Повторите с --yes.',
+                t('interactive_confirm_unavailable'),
             ),
             file=sys.stderr,
         )
         return False
 
     try:
-        answer = input('Продолжить? (y/N): ').strip().lower()
+        answer = input(t('continue_yn')).strip().lower()
     except (EOFError, KeyboardInterrupt):
         print()
-        print(format_console('info', 'Очистка отменена.'))
+        print(format_console('info', t('cleanup_cancelled')))
         return False
 
     if answer in ('y', 'yes'):
         return True
 
-    print(format_console('info', 'Очистка отменена.'))
+    print(format_console('info', t('cleanup_cancelled')))
     return False
 
 def cmd_clean(args: argparse.Namespace) -> int:
@@ -136,11 +132,11 @@ def cmd_clean(args: argparse.Namespace) -> int:
         return 1
 
     if not docker_ops.find_docker_compose():
-        print(format_console('error', 'Docker не найден. Установите Docker Desktop или docker compose CLI.'), file=sys.stderr)
+        print(format_console('error', t('docker_not_found_install')), file=sys.stderr)
         return 1
 
     root = PROJECT_ROOT.resolve()
-    print(format_console('info', 'Остановка стека и удаление контейнеров, томов и локальных образов…'))
+    print(format_console('info', t('docker_clean_stopping')))
     cmd, cwd = docker_ops.build_compose_cmd(
         'down',
         extra_args=['--remove-orphans', '-v', '--rmi', 'local'],
@@ -148,12 +144,12 @@ def cmd_clean(args: argparse.Namespace) -> int:
     )
     code = subprocess.call(cmd, cwd=str(cwd))
     if code != 0:
-        print(format_console('warning', f'docker compose down завершился с кодом {code} — продолжаем очистку артефактов'))
+        print(format_console('warning', t('docker_compose_down_warn', code=code)))
 
-    print(format_console('info', 'Удаление сгенерированных файлов compose…'))
+    print(format_console('info', t('removing_compose_artifacts')))
     docker_ops.remove_compose_artifacts(root)
     docker_ops.clear_setup_marker(root)
-    print(format_console('ok', 'Docker-стек ERGO MS полностью удалён. Для нового запуска: ergoms docker-init'))
+    print(format_console('ok', t('docker_stack_fully_removed')))
     return 0
 
 def cmd_init(args: argparse.Namespace) -> int:
@@ -197,7 +193,7 @@ def main() -> int:
     clean_p.add_argument(
         '--yes',
         action='store_true',
-        help='пропустить интерактивное подтверждение (для скриптов и неинтерактивного запуска)',
+        help=t('docker_clean_help_yes'),
     )
     clean_p.set_defaults(handler=cmd_clean)
 

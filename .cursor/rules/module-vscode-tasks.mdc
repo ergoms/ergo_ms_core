@@ -1,5 +1,5 @@
 ---
-description: vscode.tasks.yaml — модульные задачи Run Task как hook модульности; не раздувать корневой tasks.json
+description: vscode.tasks.yaml — модульные задачи Run Task и include_in для setup-full / start-all
 globs:
   - "**/vscode.tasks.yaml"
 alwaysApply: false
@@ -14,16 +14,18 @@ alwaysApply: false
 ## Кратко
 
 - Hook: `modules/<name>/vscode.tasks.yaml`
-- Discovery: расширение [`ergo-ms-tasks`](../../.vscode/extensions/tasks) (`provideTasks`, тип `ergo-module`)
+- Discovery Run Task: расширение [`ergo-ms-tasks`](../../.vscode/extensions/tasks) (`provideTasks`, тип `ergo-module`)
+- Агрегаты `setup-full` / `start-all`: поле `include_in` → [`module_tasks_loader.py`](../../core/deployment/scripts/module_tasks_loader.py)
 - Учитываются только включённые модули (есть `api/` или `client/`; нет в `DISABLED_MODULES`)
 - Команда задачи — только `ergoms …` (обычно `ergoms <name>:<команда>`)
-- Корневой `.vscode/tasks.json` — **только** инфраструктура ядра (API, Redis, Docker, Start All…); не модульные команды
+- Корневой `.vscode/tasks.json` — **только** инфраструктура ядра; модульные команды — в hook
 
 ## Обязательно
 
 - Нужна точка в Run Task для сценария модуля — добавь `vscode.tasks.yaml`, не правь `.vscode/tasks.json`
 - У каждой задачи: уникальный `label`, `detail` на русском, `command` с `ergoms`
 - Поле `module` = имя каталога модуля
+- Установка / долгоживущий процесс модуля в **Setup Full** / **Start All** — только через `include_in`, не правкой compound в `tasks.json`
 
 ## Запрещено
 
@@ -46,7 +48,36 @@ tasks:
     command: "ergoms <name>:parse"
 ```
 
-Не врезай модульные сервисы в compound `Start All Services` / `Logs` ядра без отдельного согласованного агрегирующего hook (как у `host_lifecycle` для stop/install).
+Не добавляй имена модулей в `dependsOn` у `Start All Services` / `Setup Full System` — используй `include_in`.
+
+## include_in (агрегаты)
+
+| Значение | Куда попадает |
+|----------|----------------|
+| `setup-full` | шаг `ModuleSetupTasksStep` в рецепте `ergoms setup` / Setup Full System |
+| `start-all` | `ergoms start-all` и multi-terminal **Module Services** в Start All Services |
+
+- `hide: true` скрывает задачу из Run Task, но **не** исключает из агрегата
+- Порядок: `order` (число), затем имя модуля, затем `label`
+- Потребители: [`module_tasks_loader.py`](../../core/deployment/scripts/module_tasks_loader.py), [`start_all_dev.py`](../../core/deployment/scripts/start_all_dev.py), runtime `.vscode/module-start-services.runtime.yaml`
+
+```yaml
+module: <name>
+tasks:
+  - label: "My Module: Install"
+    detail: "Установить зависимости модуля"
+    command: "ergoms <name>:install"
+    hide: true
+    include_in:
+      - setup-full
+
+  - label: "My Module: Start"
+    detail: "Запустить демон модуля в терминале"
+    command: "ergoms <name>:start-daemon"
+    panel: new
+    include_in:
+      - start-all
+```
 
 ## Схема
 
@@ -58,6 +89,10 @@ tasks:
     command: "ergoms <name>:<команда>"
     # panel: shared   # или new
     # hide: false
+    # order: 0
+    # include_in:
+    #   - setup-full
+    #   - start-all
 ```
 
 | Поле | Смысл |
@@ -66,7 +101,10 @@ tasks:
 | `label` | Уникален в workspace; коллизия — первое объявление |
 | `detail` | Подпись в Run Task |
 | `command` | Только `ergoms …` |
-| `hide` | `true` — не показывать в Run Task |
+| `hide` | `true` — не показывать в Run Task (агрегаты всё равно видят задачу) |
+| `include_in` | Список: `setup-full` и/или `start-all` |
+| `order` | Порядок внутри агрегата (меньше — раньше) |
+| `panel` | `shared` или `new` (терминал Run Task) |
 
 Эталон: `modules/<name>/vscode.tasks.yaml` рядом с `ergoms.conf` (шаблон модуля в репозитории).
 

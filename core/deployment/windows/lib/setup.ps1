@@ -13,27 +13,27 @@ function Update-Submodules {
         & git submodule update --init --remote core/api core/client core/media_api
         if ($LASTEXITCODE -ne 0) { throw "Git submodule update failed" }
         
-        Write-ColorOutput "-> Переключение submodule на ветку dev..." Yellow
+        Write-ErgomsMessage -Key 'setup_switch_dev_branch' -Color Yellow
         
         Push-Location "core\api"
         & git checkout dev
-        if ($LASTEXITCODE -ne 0) { Write-ColorOutput "[WARNING] Не удалось переключить ветку dev в core/api" Yellow }
+        if ($LASTEXITCODE -ne 0) { Write-ErgomsMessage -Key 'setup_warn_dev_branch' -Color Yellow -Param @{ path = 'core/api' } }
         Pop-Location
         
         Push-Location "core\client"
         & git checkout dev
-        if ($LASTEXITCODE -ne 0) { Write-ColorOutput "[WARNING] Не удалось переключить ветку dev в core/client" Yellow }
+        if ($LASTEXITCODE -ne 0) { Write-ErgomsMessage -Key 'setup_warn_dev_branch' -Color Yellow -Param @{ path = 'core/client' } }
         Pop-Location
         
         Push-Location "core\media_api"
         & git checkout dev
-        if ($LASTEXITCODE -ne 0) { Write-ColorOutput "[WARNING] Не удалось переключить ветку dev в core/media_api" Yellow }
+        if ($LASTEXITCODE -ne 0) { Write-ErgomsMessage -Key 'setup_warn_dev_branch' -Color Yellow -Param @{ path = 'core/media_api' } }
         Pop-Location
         
-        Write-ColorOutput "[OK] Git submodule обновлены" Green
+        Write-ErgomsMessage -Key 'setup_ok_submodules' -Color Green
     }
     catch {
-        Write-ColorOutput "[ERROR] Не удалось обновить git submodule: $($_.Exception.Message)" Red
+        Write-ErgomsMessage -Key 'setup_error_submodules' -Color Red -Stderr -Param @{ error = $_.Exception.Message }
         Pop-Location
         exit 1
     }
@@ -89,18 +89,18 @@ function Update-ModuleSubmodules {
         [string]$Root
     )
 
-    Write-ColorOutput "`n=== Обновление git submodule модулей ===" Cyan
+    Write-Host ""; Write-ErgomsMessage -Key 'setup_heading_modules' -Color Cyan
     Write-ColorOutput ""
 
     Push-Location $Root
     try {
         $entries = Get-ModuleSubmoduleEntries -Root $Root
         if ($entries.Count -eq 0) {
-            Write-ColorOutput "[WARNING] В .gitmodules не найдено submodule модулей" Yellow
+            Write-ErgomsMessage -Key 'setup_warn_no_module_submodules' -Color Yellow
             return
         }
 
-        Write-ColorOutput "-> Обновление submodule модулей ($($entries.Count))..." Yellow
+        Write-ErgomsMessage -Key 'setup_updating_modules' -Color Yellow -Param @{ count = $entries.Count }
 
         $succeeded = @()
         $failed = @()
@@ -109,7 +109,7 @@ function Update-ModuleSubmodules {
         foreach ($entry in $entries) {
             $known = & git ls-files -s -- $entry.Path
             if (-not $known) {
-                Write-ColorOutput "[SKIP] $($entry.Path) не зарегистрирован в git (нет в индексе)" Gray
+                Write-ErgomsMessage -Key 'setup_skip_not_in_index' -Color Gray -Param @{ path = $entry.Path }
                 $skipped += $entry.Path
                 continue
             }
@@ -117,7 +117,7 @@ function Update-ModuleSubmodules {
             Write-ColorOutput "  $($entry.Path)..." Gray
             & git submodule update --init --remote $entry.Path
             if ($LASTEXITCODE -ne 0) {
-                Write-ColorOutput "[WARNING] Не удалось обновить $($entry.Path)" Yellow
+                Write-ErgomsMessage -Key 'setup_warn_update_failed' -Color Yellow -Param @{ path = $entry.Path }
                 $failed += $entry.Path
                 continue
             }
@@ -125,7 +125,7 @@ function Update-ModuleSubmodules {
             Push-Location $entry.Path
             & git checkout $entry.Branch
             if ($LASTEXITCODE -ne 0) {
-                Write-ColorOutput "[WARNING] Не удалось переключить $($entry.Branch) в $($entry.Path)" Yellow
+                Write-ErgomsMessage -Key 'setup_warn_switch_branch' -Color Yellow -Param @{ branch = $entry.Branch; path = $entry.Path }
             }
             Pop-Location
 
@@ -133,28 +133,28 @@ function Update-ModuleSubmodules {
         }
 
         if ($succeeded.Count -gt 0) {
-            $summary = "[OK] Обновлено модулей: $($succeeded.Count)"
             if ($skipped.Count -gt 0 -or $failed.Count -gt 0) {
-                $summary += ". Пропущено: $($skipped.Count). С ошибкой: $($failed.Count)"
+                Write-ErgomsMessage -Key 'setup_ok_modules_summary_full' -Color Green -Param @{ succeeded = $succeeded.Count; skipped = $skipped.Count; failed = $failed.Count }
+            } else {
+                Write-ErgomsMessage -Key 'setup_ok_modules_summary' -Color Green -Param @{ succeeded = $succeeded.Count }
             }
-            Write-ColorOutput $summary Green
             foreach ($path in $failed) {
                 Write-ColorOutput "  - $path" Yellow
             }
         }
         elseif ($failed.Count -gt 0) {
-            Write-ColorOutput "[ERROR] Не удалось обновить ни одного модуля ($($failed.Count))" Red
+            Write-ErgomsMessage -Key 'setup_error_no_modules' -Color Red -Stderr -Param @{ failed = $failed.Count }
             foreach ($path in $failed) {
                 Write-ColorOutput "  - $path" Red
             }
             exit 1
         }
         else {
-            Write-ColorOutput "[WARNING] Нет модулей для обновления" Yellow
+            Write-ErgomsMessage -Key 'setup_warn_no_modules' -Color Yellow
         }
     }
     catch {
-        Write-ColorOutput "[ERROR] Не удалось обновить git submodule модулей: $($_.Exception.Message)" Red
+        Write-ErgomsMessage -Key 'setup_error_modules_exception' -Color Red -Stderr -Param @{ error = $_.Exception.Message }
         exit 1
     }
     finally {
@@ -178,12 +178,12 @@ function Invoke-ConfigScaffold {
     }
 
     if (-not $pythonCmd) {
-        Write-ColorOutput "    [WARNING] Python не найден, невозможно создать конфигурационные файлы из примеров" Yellow
+        Write-ErgomsMessage -Key 'setup_warn_python_missing_config' -Color Yellow
         return $false
     }
 
     if (-not (Test-Path $script)) {
-        Write-ColorOutput "    [WARNING] Скрипт создания конфигурации не найден: $script" Yellow
+        Write-ErgomsMessage -Key 'setup_warn_config_script_missing' -Color Yellow -Param @{ path = $script }
         return $false
     }
 

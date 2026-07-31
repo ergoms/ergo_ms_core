@@ -16,9 +16,10 @@ alwaysApply: false
 ## Кратко
 
 - **Регистрация пунктов модуля** — миграция данных API через `MenuMigrationHelper` (`core/api/src/core/cms/adp/menu/migration_utils.py`)
+- **Каталог vs layout** — `MenuItem`/`MenuSeparator` (seed) + `MenuLayoutPlacement`/`MenuSeparatorLayout` (порядок, parent, видимость, якоря разделителей). Ключ — `catalog_key`, не PK/`public_id`
 - **Маршруты Vue** — `modules/<имя>/client/js/routes.js` (обязательно для навигации)
-- **Рантайм** — `UserMenuView` → `getUserMenu()` → `MenuList`
-- Порядок, видимость, разделители — в CMS (`MenuPanel.vue`), поверх данных в БД
+- **Рантайм** — `UserMenuView` → `getUserMenu()` → `MenuList` (поля order/parent материализованы из layout)
+- Порядок, видимость, разделители — в CMS (`MenuPanel.vue`); при reorder/restore layout сохраняется
 - Свёрнутость sidebar — UI-преференс в `localStorage` (`menu-sidebar-collapsed`), см. [`security-details.mdc`](security-details.mdc)
 - Тип `offcanvas` — боковая панель через `openOffcanvasSidebar`, не отдельный маршрут
 
@@ -48,12 +49,25 @@ router.push(`/users/${user.id}`)
 
 ## Цепочка данных
 
-1. **Миграция**: `MenuItem` / `MenuSeparator` в PostgreSQL
-2. **API**: `UserMenuView` — фильтр по правам, дерево через `MenuItemTreeSerializer`
-3. **Клиент**: `getUserMenu()` → `transformMenuData()` → `MenuList` → `MenuGroup` / `MenuItem`
-4. In-memory кеш прогревается в `main.js`; `peekCachedMenu()` — отрисовка без мигания
+1. **Миграция / restore**: upsert каталога по `catalog_key`; layout-таблицы не wipe’атся
+2. **Материализация**: `layout_service.materialize_all_layouts` / helper при create — order/parent/`before_catalog_key` на каталог
+3. **API**: `UserMenuView` — фильтр по правам (`user_menu_builder`); админ CRUD пишет и каталог, и layout
+4. **Клиент**: `getUserMenu()` → `transformMenuData()` / `transformSeparators` (якорь `before_catalog_key`) → `MenuList`
+5. In-memory кеш прогревается в `main.js`; `peekCachedMenu()` — отрисовка без мигания
 
-Composables layout: `useMenuWidth`, `useMenuNavigation`, `useMenuCollapsedPreference`, `menuLayoutMeasure.js`.
+Composables UI sidebar: `useMenuWidth`, `useMenuNavigation`, `useMenuCollapsedPreference`, `menuLayoutMeasure.js`.
+
+### catalog_key
+
+| Источник | Формат |
+|---|---|
+| Seed route | `{module_source}::route::{route_name}` |
+| Seed offcanvas | `{module_source}::offcanvas::{page}` |
+| Seed folder | `{module_source}::folder::…` |
+| Seed separator | `{module_source}::separator::{slug(name)}` |
+| Админ | `admin::{public_id}` / `admin::separator::{public_id}` |
+
+`restore_menu` и `clear_module_items` удаляют seed-каталог, но не `MenuLayoutPlacement` / `MenuSeparatorLayout`; админские `admin::*` пункты сохраняются.
 
 ## Миграция меню — базовый пример
 
@@ -82,6 +96,10 @@ class Migration(migrations.Migration):
     dependencies = [('cms_adp', '0007_populate_core_menu')]
     operations = [migrations.RunPython(populate_menu, reverse_populate_menu)]
 ```
+
+## Меню приложений (AppsMenu)
+
+Не путать с боковым меню. Сетка приложений в toolbar — ModuleBridge-группа `apps.menu.items` ([`appsMenu.js`](../../core/client/src/integrations/appsMenu.js)). Модули регистрируют пункты из `client/js/integrations.js`. По умолчанию в toolbar показывается Apps (`actionButton=apps`), не уведомления.
 
 ## Админка меню
 
