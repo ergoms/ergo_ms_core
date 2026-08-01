@@ -220,6 +220,8 @@ sections:
     summary: Restaurer le menu depuis les migrations
   - name: sq-del-migrations
     summary: Fusion des migrations en 2 phases (create / finalize)
+  - name: sync-squashed-migrations
+    summary: Synchroniser les migrations squash dans django_migrations (fake)
   - name: safe-drop-app
     summary: Supprimer une application Django en toute sécurité
   - name: core-rules-check

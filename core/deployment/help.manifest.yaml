@@ -220,6 +220,8 @@ sections:
     summary: Восстановить меню из миграций
   - name: sq-del-migrations
     summary: Squash миграций в 2 фазы (create / finalize)
+  - name: sync-squashed-migrations
+    summary: Синхронизировать squash в django_migrations (fake)
   - name: safe-drop-app
     summary: Безопасно удалить Django-приложение
   - name: core-rules-check
