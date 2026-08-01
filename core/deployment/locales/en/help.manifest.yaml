@@ -219,7 +219,7 @@ sections:
   - name: restore-menu
     summary: Restore the menu from migrations
   - name: sq-del-migrations
-    summary: Squash application migrations
+    summary: Squash migrations in 2 phases (create / finalize)
   - name: safe-drop-app
     summary: Safely drop a Django app
   - name: core-rules-check

@@ -219,7 +219,7 @@ sections:
   - name: restore-menu
     summary: Восстановить меню из миграций
   - name: sq-del-migrations
-    summary: Объединить миграции приложения (squash)
+    summary: Squash миграций в 2 фазы (create / finalize)
   - name: safe-drop-app
     summary: Безопасно удалить Django-приложение
   - name: core-rules-check
