@@ -9,27 +9,21 @@ Django и DRF — пакеты Poetry (`pyproject.toml`), устанавлива
 
 ## Модель пользователя
 
-`AUTH_USER_MODEL = 'cms_adp.ErgoUser'` — [`ergo_user.py`](../../core/api/src/core/cms/adp/ergo_user.py).
+`AUTH_USER_MODEL = 'cms_adp.ErgoUser'` всегда — [`auth.py`](../../core/api/src/config/settings/auth.py), модель [`ergo_user.py`](../../core/api/src/core/cms/adp/ergo_user.py).
 
-Поля `middle_name`, `public_id`, методы `get_full_name` / `get_initials_name` — в `ErgoUser`. Физическая таблица — **`auth_user`** (`Meta.db_table`).
+Поля `middle_name`, `public_id`, методы `get_full_name` / `get_initials_name` — в `ErgoUser`. Физическая таблица — **`auth_user`** (`Meta.db_table`). В `Meta` — `swappable = 'AUTH_USER_MODEL'`.
 
-Перед правками auth смотри `ErgoUser` и миграции ниже. В новом API для пользователей в URL и клиенте — **`public_id`**, не числовой pk ([`security.mdc`](security.mdc)).
+Перед правками auth смотри `ErgoUser` и squash `cms_adp`. В новом API для пользователей в URL и клиенте — **`public_id`**, не числовой pk ([`security.mdc`](security.mdc)).
 
-Pre-flight перед деплоем: `ergoms api verify_user_schema`.
-
-Переход на ErgoUser на существующей БД: `ergoms db-migrate` (применяет `0038`–`0040`), затем **перезапуск** API/worker. Перед prod — backup и `verify_user_schema`.
-
-`AUTH_USER_MODEL` включается в [`user_swappable.py`](../../core/api/src/config/settings/user_swappable.py) после записи `0039` **или** squash `0001_initial_squashed_0042_...` в `django_migrations` (после squash sync запись `0039` может быть очищена).
+Pre-flight: `ergoms api verify_user_schema`. Отстающая БД (ещё без ErgoUser в истории): `ergoms db-migrate` — данные в `auth_user` сохраняются.
 
 ## Миграции User
 
 | Миграция | Назначение |
 |----------|------------|
-| `cms_adp.0038_user_extension_fields` | Колонки `middle_name`, `public_id` в `auth_user` (идемпотентно) |
-| `cms_adp.0039_ergo_user_swappable` | `ErgoUser` в state Django, **без** изменений БД |
-| `cms_adp.0040_migrate_user_content_type` | ContentType `auth.user` → `cms_adp.ergouser` |
+| squash `cms_adp.0001_initial_squashed_0042_...` | `ErgoUser` в state (в начале ops), идемпотентное создание `auth_user`, колонки, ContentType |
+| линейные `0038`–`0040` | могут остаться в старых БД до squash sync |
 
-- Колонки в `auth_user` — только через `0038`, **не** через миграции приложения `auth`.
 - Новые поля `ErgoUser` — миграция в `cms_adp`, не в `auth`.
 - Если autodetector предложил `auth.*` — проверь `virtual_env/python/Lib/site-packages/django/contrib/auth/migrations/`; ложные файлы форка удалить, **не применять** migrate для `auth`.
 
