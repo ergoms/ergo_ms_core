@@ -154,6 +154,7 @@ execute_command_string() {
         ;;
       shell|linux)
         cd "$root" || exit 1
+        _ergoms_prepend_nodejs_path "$root"
         # Execute shell command as-is
         local full_command="$cmd_args"
         if [[ ${#user_args[@]} -gt 0 ]]; then

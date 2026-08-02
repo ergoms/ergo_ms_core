@@ -8,6 +8,33 @@
             ],
             "disabled": true
         },
+        "ergo-database-celery": {
+            "command": "node",
+            "args": [
+                ".cursor/mcp_launcher.js",
+                ".cursor/mcp_database_wrapper.py",
+                "celery"
+            ],
+            "disabled": true
+        },
+        "ergo-database-celery-beat": {
+            "command": "node",
+            "args": [
+                ".cursor/mcp_launcher.js",
+                ".cursor/mcp_database_wrapper.py",
+                "celery_beat"
+            ],
+            "disabled": true
+        },
+        "ergo-database-celery-worker": {
+            "command": "node",
+            "args": [
+                ".cursor/mcp_launcher.js",
+                ".cursor/mcp_database_wrapper.py",
+                "celery_worker"
+            ],
+            "disabled": true
+        },
         "ergo-database-default": {
             "command": "node",
             "args": [
@@ -31,14 +58,6 @@
             "args": [
                 ".cursor/mcp_launcher.js",
                 ".cursor/mcp_media_api_server.py"
-            ],
-            "disabled": true
-        },
-        "ergo-module-ollama-framework": {
-            "command": "node",
-            "args": [
-                ".cursor/mcp_launcher.js",
-                "modules/ollama_framework/mcp/server.py"
             ],
             "disabled": true
         }

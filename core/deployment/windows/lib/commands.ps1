@@ -59,6 +59,15 @@ function Test-ShouldRunOnThisPlatform {
     return $true
 }
 
+function Add-PortableNodejsToPath {
+    param([Parameter(Mandatory = $true)][string]$Root)
+    $nodeDir = Join-Path $Root 'virtual_env\packages\nodejs'
+    if (Test-Path -LiteralPath $nodeDir) {
+        $env:PATH = "$nodeDir;$env:PATH"
+    }
+    return $nodeDir
+}
+
 function Invoke-CustomCommand {
     param(
         [string]$CommandName,
@@ -193,10 +202,7 @@ function Execute-CommandString {
                     New-Item -ItemType Directory -Path $npmCache -Force | Out-Null
                     $env:npm_config_cache = $npmCache
                     $env:NPM_CONFIG_CACHE = $npmCache
-                    $nodeDir = Join-Path $ProjectRoot "virtual_env\packages\nodejs"
-                    if (Test-Path -LiteralPath $nodeDir) {
-                        $env:PATH = "$nodeDir;$env:PATH"
-                    }
+                    $nodeDir = Add-PortableNodejsToPath -Root $ProjectRoot
                     $npmBin = Join-Path $nodeDir "npm.cmd"
                     if (-not (Test-Path -LiteralPath $npmBin)) {
                         $npmBin = "npm"
@@ -215,6 +221,7 @@ function Execute-CommandString {
             'shell' {
                 Push-Location $ProjectRoot
                 try {
+                    Add-PortableNodejsToPath -Root $ProjectRoot | Out-Null
                     $fullCommand = $cmdArgs
                     if ($UserArgs.Count -gt 0) {
                         $fullCommand += " " + ($UserArgs -join ' ')
@@ -228,6 +235,7 @@ function Execute-CommandString {
             'win' {
                 Push-Location $ProjectRoot
                 try {
+                    Add-PortableNodejsToPath -Root $ProjectRoot | Out-Null
                     $fullCommand = $cmdArgs
                     if ($UserArgs.Count -gt 0) {
                         $fullCommand += " " + ($UserArgs -join ' ')
@@ -411,10 +419,7 @@ function Invoke-NpmCommand {
         New-Item -ItemType Directory -Path $npmCache -Force | Out-Null
         $env:npm_config_cache = $npmCache
         $env:NPM_CONFIG_CACHE = $npmCache
-        $nodeDir = Join-Path $Root "virtual_env\packages\nodejs"
-        if (Test-Path -LiteralPath $nodeDir) {
-            $env:PATH = "$nodeDir;$env:PATH"
-        }
+        $nodeDir = Add-PortableNodejsToPath -Root $Root
         $npmBin = Join-Path $nodeDir "npm.cmd"
         if (-not (Test-Path -LiteralPath $npmBin)) {
             $npmBin = "npm"
