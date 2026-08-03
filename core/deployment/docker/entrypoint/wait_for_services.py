@@ -13,7 +13,20 @@ import sys
 import time
 from pathlib import Path
 
-_DEPLOYMENT_DIR = Path(__file__).resolve().parents[2]
+
+def _deployment_dir() -> Path:
+    """Каталог core/deployment: bind-mount /app или исходный путь в дереве проекта."""
+    mounted = Path('/app/core/deployment')
+    if (mounted / 'cli_locale.py').is_file():
+        return mounted
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        if (parent / 'cli_locale.py').is_file():
+            return parent
+    return mounted
+
+
+_DEPLOYMENT_DIR = _deployment_dir()
 if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 

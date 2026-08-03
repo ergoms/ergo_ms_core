@@ -14,8 +14,7 @@ x-python-volumes: &python_volumes
 services:
   redis:
     image: ${DOCKER_REDIS_IMAGE:-redis:7-alpine}
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
+    # Публикация на хост — docker-compose.publish.generated.yml (если порт свободен).
     networks:
       - ergo_net
     restart: unless-stopped

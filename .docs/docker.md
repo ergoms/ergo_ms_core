@@ -208,7 +208,7 @@ ergoms docker-init
 При `DOCKER_DATABASE=container` и `DOCKER_PROFILE_POSTGRES=true`:
 
 1. Параметры контейнера (`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`) берутся из `databases.yaml` → `default`
-2. Порт на хост — `port` из секции `default` (часто 5432)
+2. Порт на хост — только если свободен (`port` из `default`, часто 5432). Если занят (системный PostgreSQL и т.п.), публикация пропускается; контейнеры ходят по сети compose на `postgres:5432`. Принудительно: `DOCKER_POSTGRES_PUBLISH_PORT` (`none` или другой порт)
 3. Дополнительные БД для Celery (`celery`, `celery_worker`, `celery_beat`) создаются скриптом `02-celery-databases.sql` при первой инициализации тома
 
 Перед сменой пароля или имени БД в уже инициализированном томе может понадобиться `ergoms docker-down` с удалением volume `*_postgres_data` — **это удалит данные**.

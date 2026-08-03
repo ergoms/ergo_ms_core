@@ -120,6 +120,7 @@ proxy_pass http://127.0.0.1:8000;
 | `docker-compose.nginx.yml` | profile `nginx` |
 | `docker-compose.jupyter.yml` | profile `jupyter` |
 | `docker-compose.workers.generated.yml` | Celery workers (автоген) |
+| `docker-compose.publish.generated.yml` | публикация postgres/redis на хост (пропуск, если порт занят) |
 | `modules.dockerignore.generated` | фрагмент ignore для disabled modules |
 | `Dockerfile.python.dockerignore` / `Dockerfile.client.dockerignore` | эффективный ignore (база + disabled); BuildKit, корневой `.dockerignore` не трогает |
 | `docker-compose.build.generated.yml` | local BuildKit cache (`DOCKER_DEPS_CACHE=project`) |

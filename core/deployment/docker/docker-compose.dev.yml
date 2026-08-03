@@ -32,6 +32,7 @@ services:
       && exec >>/app/logs/docker/client.log 2>&1
       && /usr/local/bin/ergo-ensure-npm-deps.sh
       && cd /app/virtual_env/npm
+      && export PATH=\"/app/virtual_env/npm/node_modules/.bin:$${PATH}\"
       && npm run dev -w @ergo-ms/core-client -- --host 0.0.0.0 --port ${CLIENT_PORT:-8001}"
     restart: unless-stopped
 

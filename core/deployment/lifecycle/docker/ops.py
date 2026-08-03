@@ -47,6 +47,7 @@ COMPOSE_ARTIFACT_PATHS = (
     DOCKER_DIR / 'docker-compose.workers.generated.yml',
     DOCKER_DIR / 'docker-compose.modules.generated.yml',
     DOCKER_DIR / 'docker-compose.build.generated.yml',
+    DOCKER_DIR / 'docker-compose.publish.generated.yml',
     DOCKER_DIR / 'init' / 'postgres' / '02-celery-databases.sql',
     DOCKER_DIR / 'nginx' / 'ergo_ms.conf.rendered',
     *DOCKERIGNORE_ARTIFACT_PATHS,
@@ -86,6 +87,12 @@ def compose_file_list(mode: str, raw_env: dict[str, str]) -> list[Path]:
     runtime = (raw_env.get('MODULE_RUNTIME') or 'monolith').strip().lower()
     if runtime in ('microservice', 'split') and modules.is_file():
         files.append(modules)
+    publish = DOCKER_DIR / 'docker-compose.publish.generated.yml'
+    if publish.is_file():
+        files.append(publish)
+    dns_fix = DOCKER_DIR / 'docker-compose.dns-fix.generated.yml'
+    if dns_fix.is_file():
+        files.append(dns_fix)
     return files
 
 
@@ -106,6 +113,12 @@ def compose_file_list_full() -> list[Path]:
     modules = DOCKER_DIR / 'docker-compose.modules.generated.yml'
     if modules.is_file():
         files.append(modules)
+    publish = DOCKER_DIR / 'docker-compose.publish.generated.yml'
+    if publish.is_file():
+        files.append(publish)
+    dns_fix = DOCKER_DIR / 'docker-compose.dns-fix.generated.yml'
+    if dns_fix.is_file():
+        files.append(dns_fix)
     return files
 
 
