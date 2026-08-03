@@ -19,7 +19,7 @@ ergoms status
 ergoms uninstall-services --purge
 ```
 
-Команда **`install-services`** создаёт unit-файлы systemd (Linux) или службы Windows и подготавливает окружение. **`uninstall-services --purge`** снимает службы и связанные данные конфигурации — используйте только если уверены, что конфигурацию можно удалить.
+Команды **`install-services`** и **`uninstall-services`** управляют службами ОС одной логикой: ядро ставит/снимает свои unit’ы, а подключённые модули с `host_lifecycle.yaml` — свои (`install_service_commands` / `uninstall_service_commands`) без правок ядра под каждый модуль. Флаг **`--purge`** у uninstall дополнительно удаляет связанные данные конфигурации — используйте только если уверены, что конфигурацию можно удалить. Portable-пакет модуля (бинарник) uninstall-services не трогает.
 
 Для первичной настройки CLI в PATH:
 

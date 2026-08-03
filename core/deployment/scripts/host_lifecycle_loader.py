@@ -1,5 +1,5 @@
 """
-Загрузка modules/*/host_lifecycle.yaml для тестовых и stop-all сценариев.
+Загрузка modules/*/host_lifecycle.yaml для install/uninstall-services и тестов.
 
 Discovery через ModuleCatalog. Вне Django — только YAML.
 CLI: python host_lifecycle_loader.py --root PATH --json
@@ -34,6 +34,7 @@ class HostLifecycleEntry:
     module: str
     stop_commands: tuple[str, ...] = ()
     install_service_commands: tuple[str, ...] = ()
+    uninstall_service_commands: tuple[str, ...] = ()
     service_units: tuple[str, ...] = ()
 
 
@@ -41,6 +42,7 @@ class HostLifecycleEntry:
 class HostLifecycleAggregate:
     stop_commands: list[str] = field(default_factory=list)
     install_service_commands: list[str] = field(default_factory=list)
+    uninstall_service_commands: list[str] = field(default_factory=list)
     service_units: list[str] = field(default_factory=list)
     modules: list[str] = field(default_factory=list)
 
@@ -95,6 +97,7 @@ def _parse_file(path: Path, *, module_dir_name: str) -> HostLifecycleEntry | Non
         host = {
             'stop_commands': data.get('stop_commands'),
             'install_service_commands': data.get('install_service_commands'),
+            'uninstall_service_commands': data.get('uninstall_service_commands'),
             'service_units': data.get('service_units'),
         }
     if not isinstance(host, dict):
@@ -103,16 +106,35 @@ def _parse_file(path: Path, *, module_dir_name: str) -> HostLifecycleEntry | Non
 
     stop = tuple(_as_str_list(host.get('stop_commands')))
     install = tuple(_as_str_list(host.get('install_service_commands')))
+    uninstall = tuple(_as_str_list(host.get('uninstall_service_commands')))
     units = tuple(_as_str_list(host.get('service_units')))
 
-    if not stop and not install and not units:
+    if not stop and not install and not uninstall and not units:
         _warn(t('host_section_empty', path=path))
         return None
+
+    if install and not uninstall:
+        _warn(
+            t(
+                'host_lifecycle_install_without_uninstall',
+                path=path,
+                module=module,
+            )
+        )
+    if uninstall and not install:
+        _warn(
+            t(
+                'host_lifecycle_uninstall_without_install',
+                path=path,
+                module=module,
+            )
+        )
 
     return HostLifecycleEntry(
         module=module,
         stop_commands=stop,
         install_service_commands=install,
+        uninstall_service_commands=uninstall,
         service_units=units,
     )
 
@@ -139,6 +161,7 @@ def aggregate_host_lifecycle(project_root: Path | str) -> HostLifecycleAggregate
     agg = HostLifecycleAggregate()
     seen_stop: set[str] = set()
     seen_install: set[str] = set()
+    seen_uninstall: set[str] = set()
     seen_units: set[str] = set()
 
     for entry in entries:
@@ -151,6 +174,10 @@ def aggregate_host_lifecycle(project_root: Path | str) -> HostLifecycleAggregate
             if cmd not in seen_install:
                 seen_install.add(cmd)
                 agg.install_service_commands.append(cmd)
+        for cmd in entry.uninstall_service_commands:
+            if cmd not in seen_uninstall:
+                seen_uninstall.add(cmd)
+                agg.uninstall_service_commands.append(cmd)
         for unit in entry.service_units:
             if unit not in seen_units:
                 seen_units.add(unit)
@@ -190,6 +217,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f'  - {cmd}')
     print(f'install_service_commands: {len(agg.install_service_commands)}')
     for cmd in agg.install_service_commands:
+        print(f'  - {cmd}')
+    print(f'uninstall_service_commands: {len(agg.uninstall_service_commands)}')
+    for cmd in agg.uninstall_service_commands:
         print(f'  - {cmd}')
     return 0
 

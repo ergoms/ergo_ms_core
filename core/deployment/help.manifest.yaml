@@ -17,7 +17,7 @@ sections:
   - name: install
     summary: 'Алиас install-services: установить и запустить все службы'
   - name: install-services
-    summary: Установить и запустить все службы ОС (nginx/redis — при ERGO_PROXY/ERGO_BROKER в .env)
+    summary: Установить и запустить все службы ОС (модули из host_lifecycle.yaml; nginx/redis — при ERGO_PROXY/ERGO_BROKER в .env)
   - name: install-api-service
     summary: Установить и запустить только службу API
   - name: install-client-service
@@ -38,7 +38,7 @@ sections:
     summary: Статус всех служб
   - name: uninstall-services
     invoke: ergoms uninstall-services [-Purge|--purge]
-    summary: Удалить службы (с --purge — удалить данные)
+    summary: Удалить службы ОС (модули из host_lifecycle.yaml; с --purge — удалить данные)
   - name: logs
     invoke: ergoms logs <имя_службы> [строки]
     summary: Журнал службы

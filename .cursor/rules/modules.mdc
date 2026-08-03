@@ -34,7 +34,7 @@ modules/<имя>/
 ├── ergoms.conf              # команды модуля (необязательно)
 ├── ergoms.help.yaml         # справка для ergoms help module (если есть ergoms.conf)
 ├── process_roles.yaml       # роли процессов для ergoms resource-usage (если есть свой демон)
-├── host_lifecycle.yaml      # stop/install демона в тестах deployment (если есть служба/процесс)
+├── host_lifecycle.yaml      # install/uninstall/stop демона в install-services и тестах (если есть служба/процесс)
 ├── packages.yaml            # portable-пакеты в virtual_env/packages (если модуль ставит бинарники)
 ├── vscode.tasks.yaml        # задачи Run Task + include_in setup-full/start-all (необязательно)
 └── README.md
@@ -46,7 +46,7 @@ modules/<имя>/
 
 Учёт модульного процесса в `ergoms resource-usage` — только через `process_roles.yaml` ([`process-roles.mdc`](process-roles.mdc)); не правь классификатор ядра ради одного модуля.
 
-Stop/install модульного демона в Windows-тестах deployment — только через `host_lifecycle.yaml` ([`host-lifecycle.mdc`](host-lifecycle.mdc)).
+Install/uninstall/stop модульного демона в `ergoms install-services` / `uninstall-services` и Windows-тестах deployment — только через `host_lifecycle.yaml` ([`host-lifecycle.mdc`](host-lifecycle.mdc)).
 
 Portable-бинарники модуля (ollama, ffmpeg и т.п.) — только через `packages.yaml` и `ergoms package-install` ([`packages.mdc`](packages.mdc)); не дублируй download в Django management и не хардкодь имена модулей в ядре.
 

@@ -99,6 +99,7 @@ function Get-ModuleHostLifecycle {
         return [pscustomobject]@{
             stop_commands = @()
             install_service_commands = @()
+            uninstall_service_commands = @()
             service_units = @()
             modules = @()
         }
@@ -109,6 +110,7 @@ function Get-ModuleHostLifecycle {
             return [pscustomobject]@{
                 stop_commands = @()
                 install_service_commands = @()
+                uninstall_service_commands = @()
                 service_units = @()
                 modules = @()
             }
@@ -117,6 +119,7 @@ function Get-ModuleHostLifecycle {
         return [pscustomobject]@{
             stop_commands = @($data.stop_commands)
             install_service_commands = @($data.install_service_commands)
+            uninstall_service_commands = @($data.uninstall_service_commands)
             service_units = @($data.service_units)
             modules = @($data.modules)
         }
@@ -125,6 +128,7 @@ function Get-ModuleHostLifecycle {
         return [pscustomobject]@{
             stop_commands = @()
             install_service_commands = @()
+            uninstall_service_commands = @()
             service_units = @()
             modules = @()
         }
@@ -150,6 +154,21 @@ function Invoke-ModuleHostInstallServiceCommands {
     foreach ($cmd in @($lifecycle.install_service_commands)) {
         if (-not $cmd) { continue }
         Log "Установка службы модуля через утилиту ergoms: ergoms $cmd"
+        try {
+            ergoms $cmd
+            Log "=== Проверка ergoms $cmd завершена. ==="
+        } catch {
+            Log "[WARNING] ergoms $cmd завершился с ошибкой. Continuing."
+        }
+    }
+}
+
+function Invoke-ModuleHostUninstallServiceCommands {
+    if (-not (Get-Command ergoms -ErrorAction SilentlyContinue)) { return }
+    $lifecycle = Get-ModuleHostLifecycle
+    foreach ($cmd in @($lifecycle.uninstall_service_commands)) {
+        if (-not $cmd) { continue }
+        Log "Удаление службы модуля через утилиту ergoms: ergoms $cmd"
         try {
             ergoms $cmd
             Log "=== Проверка ergoms $cmd завершена. ==="

@@ -51,7 +51,7 @@ ergoms / tasks.json / ergo_ms.ps1|sh / commands.conf / docker_cli.py
 | Группа (`target`) | Примеры | Аналог ergoms |
 |-------------------|---------|---------------|
 | `deployment` | `setup-full`, `install-deps`, `deploy-*`, `build-all` | `ergoms setup`, `install-deps`, `deploy-api` |
-| `service` | `service-install-all`, `service-start-api`, … | `install-services`, `start`, `*-api-service` |
+| `service` | `service-install-all` / `service-uninstall-all` (+ `ModuleHostServicesStep` из `host_lifecycle.yaml`), `service-start-api`, … | `install-services`, `uninstall-services`, `start`, `*-api-service` |
 | `infra` | `nginx-install`, `redis-start`, `tls-renew` | `install-nginx`, `start-redis`, `renew-tls` |
 | `compose` | `docker-init`, `docker-up`, `docker-migrate` | `ergoms docker-*` |
 | `foreground` | `dev-api`, `start-worker`, `warmup-caches-if-needed` | `ergoms dev`, `start-worker` |

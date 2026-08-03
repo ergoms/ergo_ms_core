@@ -17,7 +17,7 @@ sections:
   - name: install
     summary: 'Alias for install-services: install and start all services'
   - name: install-services
-    summary: Install and start all OS services (nginx/redis — when ERGO_PROXY/ERGO_BROKER is set in .env)
+    summary: Install and start all OS services (modules from host_lifecycle.yaml; nginx/redis — when ERGO_PROXY/ERGO_BROKER is set in .env)
   - name: install-api-service
     summary: Install and start the API service only
   - name: install-client-service
@@ -38,7 +38,7 @@ sections:
     summary: Status of all services
   - name: uninstall-services
     invoke: ergoms uninstall-services [-Purge|--purge]
-    summary: Remove services (with --purge — delete data)
+    summary: Remove OS services (modules from host_lifecycle.yaml; with --purge — delete data)
   - name: logs
     invoke: ergoms logs <имя_службы> [строки]
     summary: Service log

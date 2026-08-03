@@ -58,6 +58,7 @@ from lifecycle.steps.infra_steps import (  # noqa: E402
     EnsureRedisStep,
     InfraOperationStep,
 )
+from lifecycle.steps.host_lifecycle_steps import ModuleHostServicesStep
 from lifecycle.steps.module_tasks_steps import ModuleSetupTasksStep
 from lifecycle.steps.postgres_steps import EnsurePostgresStep
 from lifecycle.steps.service_steps import ServiceOperationStep
@@ -355,18 +356,34 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
                 continue
             name = f'service-{op}-{sid}'
             if name == 'service-install-all':
-                # Redis → app-службы → nginx (если включены в .env)
+                # Redis → app-службы → модули (host_lifecycle) → nginx
                 specs.append(
                     RecipeSpec(
                         name,
                         (
                             EnsureRedisOsServiceStep(),
                             ServiceOperationStep(op, sid),
+                            ModuleHostServicesStep('install'),
                             EnsureNginxOsServiceStep(),
                         ),
                         target='service',
                         needs_sudo=True,
                         description=t('recipe_service_install_all'),
+                    )
+                )
+                continue
+            if name == 'service-uninstall-all':
+                # Модули сначала (явный uninstall), затем службы ядра
+                specs.append(
+                    RecipeSpec(
+                        name,
+                        (
+                            ModuleHostServicesStep('uninstall'),
+                            ServiceOperationStep(op, sid),
+                        ),
+                        target='service',
+                        needs_sudo=True,
+                        description=t('recipe_service_uninstall_all'),
                     )
                 )
                 continue
