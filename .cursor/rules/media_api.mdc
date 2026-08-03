@@ -26,6 +26,26 @@ import { mediaApiClient } from '@/js/api/media-api-client'
 const { path } = await mediaApiClient.upload(file, { targetDir: 'tasks/attachments' })
 ```
 
+## Скачивание (клиент)
+
+Единый хелпер — [`mediaDownload.js`](../../core/client/src/js/utils/mediaDownload.js). **Не** открывай signed URL через `target=_blank` для attachment (вкладка мигает и закрывается).
+
+```javascript
+import { downloadMedia, downloadMediaFromResult, MEDIA_DOWNLOAD_MODE } from '@/js/utils/mediaDownload.js'
+
+// по умолчанию: тихое скачивание (iframe + ?download=1)
+await downloadMediaFromResult({ download_url, filename })
+
+// режимы: attachment | blob | new_tab
+await downloadMedia(url, { mode: MEDIA_DOWNLOAD_MODE.NEW_TAB })
+```
+
+| Режим | Когда |
+|-------|--------|
+| `attachment` | скачать файл без ухода со SPA |
+| `blob` | fetch → `downloadBlob` (контроль имени; не для очень больших файлов) |
+| `new_tab` | открыть для просмотра (без force `download=1`) |
+
 ## Три слоя (не смешивать)
 
 | Слой | Назначение |
