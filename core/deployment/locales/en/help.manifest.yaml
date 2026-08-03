@@ -403,8 +403,9 @@ sections:
   - ergoms media_api <arguments>                — Media API manage.py
 - id: mcp_cursor
   title: MCP (Cursor)
-  note: 'MCP pickup — ERGO MS Module Cursor MCP extension after ergoms install-extensions. Servers are added to mcp.json with
-    disabled: true; enable via Settings → Tools & MCP or ERGO MS: Enable MCP Servers.'
+  note: 'MCP pickup — ERGO MS Module Cursor MCP extension after ergoms install-extensions. Primary path — Cursor
+    registerServer API (mcp.json is not rewritten); fallback — mcp.json only when content changes. Enable via ERGO MS:
+    Enable MCP Servers.'
   commands: []
 platform_sections:
   windows:

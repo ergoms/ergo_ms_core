@@ -1,6 +1,6 @@
 {
   "extension.displayName": "ERGO MS Module Cursor MCP",
-  "extension.description": "Устанавливает MCP ядра и modules/*/mcp в mcp.json; по умолчанию disabled: true",
+  "extension.description": "Регистрирует MCP ядра и modules/*/mcp через Cursor API; mcp.json только как fallback",
   "command.sync.title": "ERGO MS: Синхронизировать Module Cursor MCP",
   "command.enable.title": "ERGO MS: Включить MCP-серверы",
   "command.disable.title": "ERGO MS: Выключить MCP-серверы"

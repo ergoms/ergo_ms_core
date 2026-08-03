@@ -2,12 +2,14 @@
 Сборка списка MCP-серверов из ядерного реестра и manifest модулей.
 
 Внутренняя библиотека для расширения ERGO MS Module Cursor MCP
-(.vscode/extensions/module-mcp). Пользовательских команд ergoms нет —
-регистрация через vscode.cursor.mcp.registerServer или fallback-запись .cursor/mcp.json.
+(.vscode/extensions/module-mcp). Пользовательских команд ergoms нет.
+
+Основной путь расширения — vscode.cursor.mcp.registerServer (без постоянной
+записи mcp.json). Команда sync здесь — ручной fallback для среды без Cursor API.
 
   python .cursor/mcp_sync.py list          — текстовый список
   python .cursor/mcp_sync.py list --json   — JSON для расширения
-  python .cursor/mcp_sync.py sync          — записать .cursor/mcp.json (fallback)
+  python .cursor/mcp_sync.py sync          — записать .cursor/mcp.json (только если изменилось)
 """
 
 from __future__ import annotations
@@ -23,7 +25,7 @@ from typing import Any
 import yaml
 
 # Windows: stdout часто cp1252 — русские description в JSON ломают list --json
-# (расширение module-mcp тогда пишет пустой mcp.json).
+# (расширение module-mcp тогда получает пустой каталог).
 for _stream in (sys.stdout, sys.stderr):
     try:
         _stream.reconfigure(encoding='utf-8')
@@ -325,20 +327,29 @@ def cmd_list(*, as_json: bool = False) -> int:
 
 
 def cmd_sync() -> int:
-    """Записывает все серверы в mcp.json с disabled: true для новых (merge сохраняет флаги)."""
+    """Fallback: записывает mcp.json только если содержимое изменилось (merge сохраняет disabled)."""
     entries = collect_entries()
     payload = build_mcp_json(entries, disabled_by_default=True)
-    MCP_JSON_PATH.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=4) + '\n',
-        encoding='utf-8',
-    )
+    next_text = json.dumps(payload, ensure_ascii=False, indent=4) + '\n'
+    if MCP_JSON_PATH.is_file() and MCP_JSON_PATH.read_text(encoding='utf-8') == next_text:
+        total = len(payload['mcpServers'])
+        print(
+            f'[SKIP] {MCP_JSON_PATH.relative_to(PROJECT_ROOT)} без изменений '
+            f'({total} серверов)'
+        )
+        print('[INFO] Основной путь — расширение Module Cursor MCP (registerServer)')
+        return 0
+
+    MCP_JSON_PATH.write_text(next_text, encoding='utf-8')
     enabled = sum(1 for s in payload['mcpServers'].values() if s.get('disabled') is False)
     total = len(payload['mcpServers'])
     print(
         f'[OK] Записан {MCP_JSON_PATH.relative_to(PROJECT_ROOT)} '
         f'({total} установлено, {enabled} включено, {total - enabled} выключено)'
     )
-    print('[INFO] По умолчанию disabled: true. Включение — Settings → Tools & MCP или Enable MCP Servers')
+    print(
+        '[INFO] Это fallback без Cursor API. Обычно регистрация — расширение Module Cursor MCP'
+    )
     return 0
 
 

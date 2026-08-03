@@ -402,8 +402,9 @@ sections:
   - ergoms media_api <аргументы>                — Media API manage.py
 - id: mcp_cursor
   title: MCP (Cursor)
-  note: 'Подхват MCP — расширение ERGO MS Module Cursor MCP после ergoms install-extensions. Серверы ставятся в mcp.json с
-    disabled: true; включение — Settings → Tools & MCP или ERGO MS: Enable MCP Servers.'
+  note: 'Подхват MCP — расширение ERGO MS Module Cursor MCP после ergoms install-extensions. Основной путь —
+    registerServer Cursor API (mcp.json не перезаписывается); fallback — mcp.json только при изменении. Включение —
+    ERGO MS: Enable MCP Servers.'
   commands: []
 platform_sections:
   windows:

@@ -1,6 +1,12 @@
 # ERGO MS Module Cursor MCP
 
-Ставит в `.cursor/mcp.json` все MCP ядра и модулей. **Установлены сразу, по умолчанию выключены** (`"disabled": true`).
+Подхватывает MCP ядра и `modules/*/mcp` в Cursor.
+
+**Основной путь:** `vscode.cursor.mcp.registerServer` — `.cursor/mcp.json` **не перезаписывается**.
+
+**Fallback** (если API Cursor недоступен): запись в `.cursor/mcp.json` **только при реальном изменении** содержимого.
+
+Включённые серверы хранятся в `workspaceState` расширения (не в постоянно обновляемом файле). При первом запуске флаги мигрируют из существующего `mcp.json`.
 
 ## Установка
 
@@ -8,26 +14,27 @@
 ergoms install-extensions
 ```
 
-Reload Window → sync запишет серверы в mcp.json с `disabled: true`.
+Reload Window → при доступном Cursor MCP API серверы регистрируются через API; `mcp.json` больше не «сам обновляется» на каждый activate.
 
 ## Поведение
 
-| Состояние | Что происходит |
-|-----------|----------------|
-| Новый сервер в каталоге | Попадает в mcp.json с `disabled: true` |
-| Уже был `disabled: false` | При sync флаг сохраняется |
-| `registerServer` | Только для серверов с `disabled: false` |
+| Ситуация | Что происходит |
+|----------|----------------|
+| Есть Cursor MCP API | `registerServer` для включённых; `mcp.json` не трогаем (кроме однократной очистки серверов ERGO из файла) |
+| API нет | Fallback: `mcp.json` пишется только если JSON изменился |
+| Watcher (manifest / registry / databases.yaml) | Sync с пропуском, если каталог и список включённых не изменились |
+| Activate | Регистрация через API при необходимости; без лишней записи файла |
 
-Включение:
+Включение / выключение:
 
-- Settings → Tools & MCP (если Cursor уважает `disabled`), или
-- **ERGO MS: Enable MCP Servers** (ставит `disabled: false` в mcp.json и регистрирует)
+- **ERGO MS: Enable MCP Servers**
+- **ERGO MS: Disable MCP Servers**
 
 ## Команды
 
 | Команда | Назначение |
 |---------|------------|
-| **Sync Module Cursor MCP** | Обновить каталог в mcp.json |
+| **Sync Module Cursor MCP** | Принудительно обновить каталог и регистрацию |
 | **Enable MCP Servers** | Выбрать, какие включить |
 | **Disable MCP Servers** | Выбрать, какие выключить |
 

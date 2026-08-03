@@ -405,8 +405,9 @@ sections:
   - ergoms media_api <arguments>                — Media API manage.py
 - id: mcp_cursor
   title: MCP (Cursor)
-  note: 'Prise en charge MCP — extension ERGO MS Module Cursor MCP après ergoms install-extensions. Les serveurs sont ajoutés
-    à mcp.json avec disabled: true ; activation via Settings → Tools & MCP ou ERGO MS: Enable MCP Servers.'
+  note: 'Prise en charge MCP — extension ERGO MS Module Cursor MCP après ergoms install-extensions. Chemin principal —
+    API registerServer Cursor (mcp.json non réécrit) ; secours — mcp.json uniquement en cas de changement. Activation —
+    ERGO MS : Enable MCP Servers.'
   commands: []
 platform_sections:
   windows:
