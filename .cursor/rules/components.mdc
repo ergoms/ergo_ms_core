@@ -1,5 +1,5 @@
 ---
-description: Индекс UI-компонентов ядра — SelectBox, SearchInput, FilterMenu, DropDown, DataTable, UserAvatar
+description: Индекс UI-компонентов ядра — SelectBox, SearchInput, DecimalInput, FilterMenu, DropDown, DataTable, UserAvatar
 alwaysApply: false
 ---
 
@@ -13,6 +13,7 @@ alwaysApply: false
 |--------|-----------|---------|
 | Выбор из списка | `SelectBox` | [`select-box.mdc`](select-box.mdc) |
 | Текстовый поиск | `SearchInput` | [`search-input.mdc`](search-input.mdc) |
+| Ввод десятичного числа (цифры, `.`/`,`) | `DecimalInput` | этот раздел |
 | Несколько фильтров в toolbar | `FilterMenu` | [`filter-menu.mdc`](filter-menu.mdc) |
 | Меню действий (⋯, контекст) | `DropDown` | этот раздел |
 | Боковое меню приложения | `MenuList`, миграции `MenuItem` | [`menu.mdc`](menu.mdc) |
@@ -26,6 +27,19 @@ alwaysApply: false
 | Skip-link / landmarks | `SkipLink`, `<main id="main-content">` | [`client-a11y.mdc`](client-a11y.mdc) |
 
 Режимы анимаций, картинок и помощи диктору — [`client-a11y.mdc`](client-a11y.mdc) (`useUiModes`, `data-ergo-*`).
+
+## Ввод числа — DecimalInput
+
+Компонент: `@/components/DecimalInput.vue`.
+
+`v-model` — **строка**. Допускает цифры и один разделитель `.` или `,`. Без минуса и без денежного форматирования. Парсинг числа — у потребителя.
+
+| Prop | Когда |
+|------|-------|
+| `allowDecimal` | `false` — только целые |
+| `maxDecimalPlaces` | ограничить дробную часть |
+| `showSteppers` | стрелки вверх/вниз (`step`, опционально `min`/`max`); по умолчанию выкл. |
+| `inputClass` | классы на `<input>` (`form-control-sm` и т.п.) |
 
 ## Меню действий — DropDown
 
