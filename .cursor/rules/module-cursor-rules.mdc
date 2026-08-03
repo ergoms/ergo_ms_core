@@ -48,7 +48,7 @@ alwaysApply: false
 4. Открыт файл под `modules/<name>/` — правило модуля в контексте агента
 5. Если `vscode.cursor.plugins` недоступен — warning; остаётся `AGENTS.md`
 
-Эталон: [`modules/module_template/.cursor/rules/`](../../modules/module_template/.cursor/rules/), [`AGENTS.md`](../../modules/module_template/AGENTS.md).
+Эталон: [`modules/module_template/.cursor/rules/`](../../modules/module_template/.cursor/rules/) (в т.ч. living template), [`AGENTS.md`](../../modules/module_template/AGENTS.md). Новый паттерн ядра для модулей — демо в шаблоне + `ergoms module_template:patterns-check`.
 
 ## Связанные правила
 

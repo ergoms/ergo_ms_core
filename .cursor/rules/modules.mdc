@@ -82,6 +82,14 @@ class MyModuleConfig(AppConfig):
 
 Не все файлы обязательны: бывает только API, только права на маршруты, маршруты без меню.
 
+## Живой шаблон модуля
+
+Канонический эталон структуры и UI модуля — `modules/module_template`.
+
+Если в ядре появляется **новый переиспользуемый паттерн для модулей** (компонент из [`components.mdc`](components.mdc), composable списков, confirm/toast, hook-файл, platform-контракт bridge), добавь **рабочее демо** в `module_template` и запись в `client/js/core_patterns.json`. Проверка: `ergoms module_template:patterns-check`. Правило модуля: `modules/module_template/.cursor/rules/module-template-living.mdc`.
+
+Не считай README достаточным демо — нужен исполняемый пример в шаблоне.
+
 ## UI на клиенте
 
 Выпадающие списки — **только** `SelectBox` из ядра (`@/components/SelectBox.vue`). Не создавай в модуле свой `<select>` или выпадающий список для обычного выбора. Подробности: [`select-box.mdc`](select-box.mdc).
