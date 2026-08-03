@@ -6,7 +6,7 @@
 
 **`core/api/`**, **`core/client/`**, **`core/media_api/`** — части ядра как **git-submodule** (отдельные репозитории в `.gitmodules`). **`core/deployment/`** — в корневом репозитории: скрипты установки и запуска, файл `commands.conf` с командами ergoms.
 
-**`modules/<имя>/`** — доменные модули. Каждый модуль — submodule со своим git-репозиторием; внутри типично пары `api/` и `client/`.
+**`modules/<имя>/`** — доменные модули. Каждый модуль — submodule со своим git-репозиторием; внутри типично пары `api/` и `client/`. Каталог точек расширения — [modules.md](modules.md).
 
 **`virtual_env/`** — Python-окружение (`python/`), portable-пакеты (**`packages/redis/`**, **`packages/nginx/`**), кэш Celery, ресурсы GeoIP. Второй venv в проекте создавать не нужно.
 
@@ -47,6 +47,7 @@
 | Вопрос | Документ |
 |--------|----------|
 | Как устроена система в целом | [architecture.md](architecture.md) |
+| Чем модуль может расширять ядро | [modules.md](modules.md) |
 | Как настроить `.env` и базы данных | [configuration.md](configuration.md) |
 | Как запускать проект при разработке | [development.md](development.md) |
 | Справочник команд ergoms | [cli.md](cli.md) |

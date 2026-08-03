@@ -279,6 +279,7 @@ install-deps=api:install && npm:run install:all && api:migrate && api:warmup_cac
 | Вопрос | Документ |
 |--------|----------|
 | Как устроена система в целом | [architecture.md](architecture.md) |
+| Возможности модулей (hook’и, службы, packages) | [modules.md](modules.md) |
 | Запуск для разработки, логи | [development.md](development.md) |
 | Настройка `.env` и баз данных | [configuration.md](configuration.md) |
 | Если команда завершилась с ошибкой | [troubleshooting.md](troubleshooting.md) |

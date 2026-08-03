@@ -6,6 +6,8 @@ alwaysApply: false
 ---
 # Модули
 
+Пользовательский каталог возможностей модуля (hook’и, мост, install-services, packages): [`.docs/modules.md`](../../.docs/modules.md).
+
 ## Структура
 
 ```

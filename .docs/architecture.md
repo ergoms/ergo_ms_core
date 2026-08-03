@@ -91,6 +91,7 @@ Portable Redis: `ergoms install-redis`, затем `REDIS_ENABLED=true` в `.env
 
 | Вопрос | Документ |
 |--------|----------|
+| Каталог возможностей модуля (hook’и, мост, службы, packages) | [modules.md](modules.md) |
 | Структура каталогов и конфигурации | [structure.md](structure.md) |
 | Справочник команд ergoms | [cli.md](cli.md) |
 | Настройка `.env` и баз данных | [configuration.md](configuration.md) |
