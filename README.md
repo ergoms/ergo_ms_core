@@ -10,6 +10,8 @@ ERGO MS — модульный фреймворк для корпоративн�
 - [Возможности модулей](.docs/modules.md) — каталог hook’ов и точек расширения без правок ядра
 - [Структура проекта](.docs/structure.md) — каталоги и конфигурация
 - [Настройка .env и БД](.docs/configuration.md) — первичная конфигурация
+- [Режимы безопасности](.docs/security-modes.md) — уровни ERGO_SECURITY, каталог контролей, требования модулей
+- [Аудит безопасности ядра](.docs/security-audit.md) — состояние ядра и перечень отклонений
 - [Разработка](.docs/development.md) — запуск для разработки и логи
 - [Команды ergoms](.docs/cli.md) — справочник команд
 - [Lifecycle-pipeline](.docs/lifecycle-pipeline.md) — единая цепочка setup, deploy, служб, Docker и dev
