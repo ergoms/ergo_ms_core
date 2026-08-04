@@ -1045,57 +1045,20 @@
             "problemMatcher": []
         },
         {
-            "label": "Logs: All Services Terminals",
-            "detail": "Открыть терминалы логов всех сервисов и Celery worker'ов",
-            "hide": true,
+            "label": "Logs: All Services",
+            "detail": "Открыть терминалы логов ядра, Celery и модулей (sync runtime автоматически)",
             "type": "multi-terminal",
             "sources": [
                 {
-                    "file": ".vscode/logs-services.runtime.yaml",
+                    "file": ".vscode/logs-all.runtime.yaml",
                     "path": "services",
                     "commandTemplate": "ergoms logs ${key} 500",
                     "nameTemplate": "Logs: ${key}"
-                },
-                {
-                    "file": "celery_workers.yaml",
-                    "path": "workers",
-                    "commandTemplate": "ergoms logs ergo_ms_celery_worker_${key} 500",
-                    "nameTemplate": "Logs: Celery Worker-${key}"
                 }
             ],
-            "group": "logs",
-            "delay": 300,
+            "group": "logs-all",
+            "delay": 400,
             "hideControlTerminal": true,
-            "problemMatcher": [],
-            "windows": {
-                "options": {
-                    "env": {
-                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:PATH}"
-                    }
-                }
-            },
-            "linux": {
-                "options": {
-                    "env": {
-                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
-                    }
-                }
-            }
-        },
-        {
-            "label": "Logs: All Services",
-            "detail": "Синхронизировать конфиг и открыть логи всех сервисов",
-            "dependsOrder": "sequence",
-            "dependsOn": [
-                "Sync Logs Services Config",
-                "Logs: All Services Terminals"
-            ],
-            "presentation": {
-                "reveal": "silent",
-                "panel": "shared",
-                "showReuseMessage": false,
-                "close": true
-            },
             "problemMatcher": [],
             "windows": {
                 "options": {

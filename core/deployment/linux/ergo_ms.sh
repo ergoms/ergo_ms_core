@@ -396,9 +396,11 @@ main() {
         exit 0
       fi
       
-      [[ "$service_name" == "media_api" ]] && service_name="ergo_ms_media_api"
-
       set_service_project_root "$ERGO_ROOT"
+
+      # shellcheck source=lib/logs_paths.sh
+      source "$ERGO_ROOT/core/deployment/linux/lib/logs_paths.sh"
+      service_name="$(normalize_service_name "$service_name" "$ERGO_ROOT")"
 
       # При NGINX_ENABLED Vite-служба не ставится — не открываем её логи с ошибкой
       if [[ "$service_name" == "ergo_ms_client_dev" || "$service_name" == "ergo_ms_client_dev.service" ]]; then

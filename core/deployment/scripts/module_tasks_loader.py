@@ -30,7 +30,12 @@ from lifecycle.modules.catalog import ModuleCatalog  # noqa: E402
 MODULE_TASKS_FILENAME = 'vscode.tasks.yaml'
 INCLUDE_SETUP_FULL = 'setup-full'
 INCLUDE_START_ALL = 'start-all'
-VALID_INCLUDE_TARGETS = frozenset({INCLUDE_SETUP_FULL, INCLUDE_START_ALL})
+INCLUDE_LOGS_ALL = 'logs-all'
+VALID_INCLUDE_TARGETS = frozenset({
+    INCLUDE_SETUP_FULL,
+    INCLUDE_START_ALL,
+    INCLUDE_LOGS_ALL,
+})
 _ERGOMS_COMMAND_RE = re.compile(r'^ergoms(\s|$)')
 
 
@@ -52,6 +57,7 @@ class ModuleTaskEntry:
 class ModuleTasksAggregate:
     setup_full: list[ModuleTaskEntry] = field(default_factory=list)
     start_all: list[ModuleTaskEntry] = field(default_factory=list)
+    logs_all: list[ModuleTaskEntry] = field(default_factory=list)
     modules: list[str] = field(default_factory=list)
 
 
@@ -222,10 +228,13 @@ def aggregate_module_tasks(project_root: Path | str) -> ModuleTasksAggregate:
             agg.setup_full.append(entry)
         if INCLUDE_START_ALL in entry.include_in:
             agg.start_all.append(entry)
+        if INCLUDE_LOGS_ALL in entry.include_in:
+            agg.logs_all.append(entry)
 
     agg.modules.sort()
     agg.setup_full.sort(key=_sort_key)
     agg.start_all.sort(key=_sort_key)
+    agg.logs_all.sort(key=_sort_key)
     return agg
 
 
@@ -235,6 +244,8 @@ def tasks_for_target(project_root: Path | str, target: str) -> list[ModuleTaskEn
         return list(agg.setup_full)
     if target == INCLUDE_START_ALL:
         return list(agg.start_all)
+    if target == INCLUDE_LOGS_ALL:
+        return list(agg.logs_all)
     return []
 
 
@@ -251,6 +262,7 @@ def dump_module_tasks_json(project_root: Path | str, *, target: str | None = Non
             'modules': agg.modules,
             'setup_full': [asdict(t) for t in agg.setup_full],
             'start_all': [asdict(t) for t in agg.start_all],
+            'logs_all': [asdict(t) for t in agg.logs_all],
         }
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
@@ -286,6 +298,9 @@ def main(argv: list[str] | None = None) -> int:
         print(t('module_task_entry', module=entry.module, label=entry.label, command=entry.command))
     print(t('start_all_label', count=len(agg.start_all)))
     for entry in agg.start_all:
+        print(t('module_task_entry', module=entry.module, label=entry.label, command=entry.command))
+    print(t('logs_all_label', count=len(agg.logs_all)))
+    for entry in agg.logs_all:
         print(t('module_task_entry', module=entry.module, label=entry.label, command=entry.command))
     return 0
 

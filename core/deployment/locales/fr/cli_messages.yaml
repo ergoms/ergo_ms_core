@@ -798,6 +798,7 @@ module_tasks_unknown_include_in: "{path} : « {label} » — include_in inconnu 
 module_tasks_stop_command_ignored: "{path} : « {label} » — stop_command doit commencer par ergoms — ignoré"
 setup_full_label: "setup-full : {count}"
 start_all_label: "start-all : {count}"
+logs_all_label: "logs-all : {count}"
 module_task_entry: "  - [{module}] {label} : {command}"
 
 # --- redis dev / warmup ---
@@ -842,6 +843,8 @@ tls_cert_not_found: "  Certificate : introuvable"
 # --- vscode sync ---
 vscode_sync_updated: "[INFO] Mis à jour {path} (mode : {mode}, {redis})"
 vscode_sync_module_start: "[INFO] Mis à jour {path} (module start-all : {count})"
+vscode_sync_module_logs: "[INFO] Mis à jour {path} (module logs-all : {count})"
+vscode_sync_logs_all: "[INFO] Mis à jour {path} (logs-all : {count}, mode : {mode}, {redis})"
 
 # --- portable runtime ---
 portable_unsupported_arch_node: "[ERROR] Architecture non prise en charge pour Node.js portable : {arch}"

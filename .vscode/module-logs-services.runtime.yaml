@@ -1,0 +1,7 @@
+# Сгенерировано sync_vscode_logs_services.py — не редактировать вручную.
+# Модульные логи из vscode.tasks.yaml (include_in: logs-all).
+
+services:
+  ollama_logs:
+    description: "Ollama: Logs"
+    command: "ergoms ollama_framework:logs-ollama 500"

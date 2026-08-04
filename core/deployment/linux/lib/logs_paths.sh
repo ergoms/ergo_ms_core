@@ -41,8 +41,25 @@ resolve_service_stderr_log() {
   "$py" "$script" stderr "$service_name" "$root" 2>/dev/null
 }
 
+# legacy ergo-* → ergo_ms_* (и media_api → ergo_ms_media_api)
+normalize_service_name() {
+  local service_name="$1"
+  local root="$2"
+  local py script normalized
+  py="$(_ergo_logs_python "$root")" || { printf '%s' "$service_name"; return 0; }
+  script="$root/core/deployment/scripts/service_names.py"
+  [[ -f "$script" ]] || { printf '%s' "$service_name"; return 0; }
+  normalized="$("$py" "$script" normalize "$service_name" 2>/dev/null || true)"
+  if [[ -n "$normalized" ]]; then
+    printf '%s' "$normalized"
+  else
+    printf '%s' "$service_name"
+  fi
+}
+
 export -f _logs_paths_script
 export -f _ergo_logs_python
 export -f resolve_ergo_logs_dir
 export -f resolve_service_log_files
 export -f resolve_service_stderr_log
+export -f normalize_service_name

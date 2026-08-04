@@ -132,10 +132,23 @@ function ensureLogsServicesRuntime(workspaceRoot) {
 
 /**
  * Исключает службы, несовместимые с NGINX_ENABLED / REDIS_ENABLED.
- * При nginx не открываем терминал логов ergo_ms_client_dev (Vite не ставится).
+ * Runtime YAML уже собран sync_vscode_logs_services.py — не фильтруем повторно
+ * (иначе JS и Python могут разойтись и выкинуть redis/nginx).
  */
 function filterServiceKeys(workspaceRoot, items, sourceFile) {
     const file = String(sourceFile || '').replace(/\\/g, '/');
+    if (
+        file.includes('logs-all.runtime.yaml')
+        || file.includes('logs-services.runtime.yaml')
+        || file.includes('optional-services.runtime.yaml')
+        || file.includes('redis-dev.runtime.yaml')
+        || file.includes('client-dev.runtime.yaml')
+        || file.includes('module-start-services.runtime.yaml')
+        || file.includes('module-logs-services.runtime.yaml')
+    ) {
+        return items;
+    }
+
     const nginx = readEnvFlag(workspaceRoot, 'NGINX_ENABLED');
     const redis = readEnvFlag(workspaceRoot, 'REDIS_ENABLED');
 
@@ -152,11 +165,7 @@ function filterServiceKeys(workspaceRoot, items, sourceFile) {
             }
             return true;
         }
-        if (
-            file.includes('optional-services')
-            || file.includes('redis-dev.runtime')
-            || file.includes('client-dev.runtime')
-        ) {
+        if (file.includes('optional-services')) {
             if (key === 'client' && nginx) {
                 return false;
             }
@@ -179,11 +188,13 @@ function filterServiceKeys(workspaceRoot, items, sourceFile) {
 function readSourceEntries(workspaceRoot, sourceConfig, silent = false) {
     const relFile = String(sourceConfig.file || '').replace(/\\/g, '/');
     if (
-        relFile.includes('logs-services.runtime.yaml')
+        relFile.includes('logs-all.runtime.yaml')
+        || relFile.includes('logs-services.runtime.yaml')
         || relFile.includes('optional-services.runtime.yaml')
         || relFile.includes('redis-dev.runtime.yaml')
         || relFile.includes('client-dev.runtime.yaml')
         || relFile.includes('module-start-services.runtime.yaml')
+        || relFile.includes('module-logs-services.runtime.yaml')
     ) {
         ensureLogsServicesRuntime(workspaceRoot);
     }
@@ -291,8 +302,16 @@ async function runTask(name, command, cwd, group, stopCommand) {
         type: 'shell',
         task: name
     };
+
+    const workspaceRoot = cwd || getWorkspaceRoot();
+    const env = { ...process.env };
+    if (workspaceRoot) {
+        const bin = path.join(workspaceRoot, 'core', 'deployment', 'bin');
+        const sep = process.platform === 'win32' ? ';' : ':';
+        env.PATH = `${bin}${sep}${env.PATH || ''}`;
+    }
     
-    const { executable, args, options } = osAbstraction.getProcessExecution(command, cwd);
+    const { executable, args, options } = osAbstraction.getProcessExecution(command, cwd, env);
     const processExecution = new vscode.ProcessExecution(executable, args, options);
 
     const task = new vscode.Task(
@@ -494,7 +513,11 @@ function processSource(workspaceRoot, sourceConfig, defaultCwd, silent = false, 
         const sourceFile = String(sourceConfig.file || '').replace(/\\/g, '/');
         const useDescriptionName = (
             entry.description
-            && sourceFile.includes('module-start-services.runtime.yaml')
+            && (
+                sourceFile.includes('logs-all.runtime.yaml')
+                || sourceFile.includes('module-start-services.runtime.yaml')
+                || sourceFile.includes('module-logs-services.runtime.yaml')
+            )
         );
         return {
             name: useDescriptionName ? entry.description : templatedName,
@@ -560,6 +583,12 @@ async function executeMultiTerminalTask(task) {
             vscode.window.showWarningMessage('Нет задач для запуска');
         }
         return;
+    }
+
+    if (String(group || '').startsWith('logs')) {
+        vscode.window.showInformationMessage(
+            `ERGO MS Logs: открываю ${tasks.length} терминал(ов)…`
+        );
     }
     
     // Останавливаем старые задачи этой группы

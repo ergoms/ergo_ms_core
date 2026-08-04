@@ -622,12 +622,19 @@ function Main {
 
             $serviceNames = Get-ServiceNames -ProjectRoot $projectRoot
 
-            $serviceName = switch ($serviceName) {
-
-                'media_api' { 'ergo_ms_media_api' }
-
-                default { $serviceName }
-
+            $pythonExe = Join-Path $projectRoot 'virtual_env\python\Scripts\python.exe'
+            $normalizeScript = Join-Path $projectRoot 'core\deployment\scripts\service_names.py'
+            if ((Test-Path -LiteralPath $pythonExe) -and (Test-Path -LiteralPath $normalizeScript)) {
+                $normalized = & $pythonExe $normalizeScript normalize $serviceName 2>$null
+                if (-not [string]::IsNullOrWhiteSpace($normalized)) {
+                    $serviceName = $normalized.Trim()
+                }
+            }
+            else {
+                $serviceName = switch ($serviceName) {
+                    'media_api' { 'ergo_ms_media_api' }
+                    default { $serviceName }
+                }
             }
 
             if ($serviceName -eq 'ergo_ms_client_dev' -and (Test-NginxEnabled -ProjectRoot $projectRoot)) {
