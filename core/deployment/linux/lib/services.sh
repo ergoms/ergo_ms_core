@@ -12,10 +12,29 @@ set_service_project_root() {
   reset_units_cache
 }
 
+_unit_is_present() {
+  local unit="$1"
+  [[ "$unit" == *.service ]] || unit="${unit}.service"
+  [[ -f "/etc/systemd/system/$unit" || -L "/etc/systemd/system/$unit" ]] && return 0
+  systemctl list-unit-files --type=service --no-legend "$unit" 2>/dev/null | grep -q .
+}
+
 start_all() {
   local root="${SERVICE_PROJECT_ROOT:-}"
   local u
-  for u in $(units_list "$root"); do systemctl_do start "$u"; done
+
+  # Redis при ERGO_BROKER=redis — через redis_start (служба или процесс)
+  if is_redis_enabled "$root" && declare -F redis_start >/dev/null 2>&1; then
+    redis_start "$root" || true
+  fi
+
+  for u in $(units_list "$root"); do
+    # Redis уже обработан redis_start
+    [[ "$u" == "ergo_ms_redis.service" || "$u" == "ergo_ms_redis" ]] && continue
+    if _unit_is_present "$u"; then
+      systemctl_do start "$u" || true
+    fi
+  done
 }
 
 # Собирает PID текущего процесса и всех предков (чтобы не завершить shell, запустивший ergoms stop).
@@ -77,7 +96,25 @@ kill_ergo_project_session_processes() {
 stop_all() {
   local root="${SERVICE_PROJECT_ROOT:-}"
   local u
-  for u in $(units_list "$root"); do systemctl_do stop "$u" || true; done
+  local cmd
+
+  # Модульные stop_commands (процесс без службы / доп. очистка) — до systemctl
+  if [[ -n "$root" && -d "$root" ]] && command -v ergoms >/dev/null 2>&1; then
+    while IFS= read -r cmd; do
+      [[ -z "$cmd" ]] && continue
+      ( cd "$root" && ergoms "$cmd" ) || true
+    done < <(list_module_host_stop_commands "$root")
+  fi
+
+  for u in $(units_list "$root"); do
+    [[ "$u" == "ergo_ms_redis.service" || "$u" == "ergo_ms_redis" ]] && continue
+    systemctl_do stop "$u" || true
+  done
+
+  if is_redis_enabled "$root" && declare -F redis_stop >/dev/null 2>&1; then
+    redis_stop "$root" || true
+  fi
+
   # Иначе kill_ergo_project_session_processes рвёт node/vite — npm печатает ERR на «упавший» lifecycle.
   if [[ -n "$root" && -d "$root" ]] && command -v ergoms >/dev/null 2>&1; then
     ( cd "$root" && ergoms npm run stop-dev ) || true
@@ -88,13 +125,35 @@ stop_all() {
 restart_all() {
   local root="${SERVICE_PROJECT_ROOT:-}"
   local u
-  for u in $(units_list "$root"); do systemctl_do restart "$u"; done
+
+  if is_redis_enabled "$root" && declare -F redis_restart >/dev/null 2>&1; then
+    redis_restart "$root" || true
+  fi
+
+  for u in $(units_list "$root"); do
+    [[ "$u" == "ergo_ms_redis.service" || "$u" == "ergo_ms_redis" ]] && continue
+    if _unit_is_present "$u"; then
+      systemctl_do restart "$u" || true
+    fi
+  done
 }
 
 status_all() {
   local root="${SERVICE_PROJECT_ROOT:-}"
   local u
-  for u in $(units_list "$root"); do systemctl_do status "$u" | cat; done
+  for u in $(units_list "$root"); do
+    if _unit_is_present "$u"; then
+      systemctl_do status "$u" | cat
+    else
+      echo "[SKIP] $u — unit не установлен"
+    fi
+  done
+  if is_redis_enabled "$root" && declare -F redis_status >/dev/null 2>&1; then
+    # Если unit уже выведен выше — redis_status дублирует; ок для процесса без unit
+    if ! _unit_is_present "ergo_ms_redis"; then
+      redis_status "$root" || true
+    fi
+  fi
 }
 
 show_celery_tasks_logs() {

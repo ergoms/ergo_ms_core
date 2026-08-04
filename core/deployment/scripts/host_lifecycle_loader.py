@@ -195,6 +195,16 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=t('host_lifecycle_description'))
     parser.add_argument('--root', type=Path, default=None, help=t('help_root_path'))
     parser.add_argument('--json', action='store_true', help=t('help_json_stdout'))
+    parser.add_argument(
+        '--units',
+        action='store_true',
+        help='Вывести service_units по одному на строку (для start/stop)',
+    )
+    parser.add_argument(
+        '--stop-commands',
+        action='store_true',
+        help='Вывести stop_commands по одному на строку',
+    )
     args = parser.parse_args(argv)
 
     root = args.root
@@ -211,6 +221,15 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     agg = aggregate_host_lifecycle(root)
+    if args.units:
+        for unit in agg.service_units:
+            print(unit)
+        return 0
+    if args.stop_commands:
+        for cmd in agg.stop_commands:
+            print(cmd)
+        return 0
+
     print(t('modules_list', items=', '.join(agg.modules) or t('modules_none')))
     print(f'stop_commands: {len(agg.stop_commands)}')
     for cmd in agg.stop_commands:
@@ -221,6 +240,9 @@ def main(argv: list[str] | None = None) -> int:
     print(f'uninstall_service_commands: {len(agg.uninstall_service_commands)}')
     for cmd in agg.uninstall_service_commands:
         print(f'  - {cmd}')
+    print(f'service_units: {len(agg.service_units)}')
+    for unit in agg.service_units:
+        print(f'  - {unit}')
     return 0
 
 

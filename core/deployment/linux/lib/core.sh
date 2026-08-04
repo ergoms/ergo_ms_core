@@ -17,6 +17,8 @@ export -f _ergoms_trim
 source "$SCRIPT_DIR_CORE/console_tags.sh"
 # shellcheck source=nginx_env.sh
 source "$SCRIPT_DIR_CORE/nginx_env.sh"
+# shellcheck source=redis_env.sh
+source "$SCRIPT_DIR_CORE/redis_env.sh"
 # shellcheck source=portable_env.sh
 source "$SCRIPT_DIR_CORE/portable_env.sh"
 
@@ -176,17 +178,44 @@ _postgres_portable_enabled() {
   return 1
 }
 
+# OS-службы модулей из host_lifecycle.yaml (service_units)
+list_module_host_units() {
+  local project_root="${1:-}"
+  local py script
+  [[ -n "$project_root" ]] || return 0
+  py="$project_root/virtual_env/python/bin/python"
+  script="$project_root/core/deployment/scripts/host_lifecycle_loader.py"
+  [[ -x "$py" && -f "$script" ]] || return 0
+  "$py" "$script" --root "$project_root" --units 2>/dev/null || true
+}
+
+list_module_host_stop_commands() {
+  local project_root="${1:-}"
+  local py script
+  [[ -n "$project_root" ]] || return 0
+  py="$project_root/virtual_env/python/bin/python"
+  script="$project_root/core/deployment/scripts/host_lifecycle_loader.py"
+  [[ -x "$py" && -f "$script" ]] || return 0
+  "$py" "$script" --root "$project_root" --stop-commands 2>/dev/null || true
+}
+
 # Генерация списка служб на основе конфигурации воркеров
 generate_units_list() {
   local project_root="${1:-}"
   local units="ergo_ms_api_dev.service ergo_ms_media_api.service ergo_ms_celery_beat.service"
   local postgres_svc='ergo_ms_postgres'
   local from_env
+  local unit
+  local module_unit
 
   if is_nginx_enabled "$project_root"; then
     units="$units ergo_ms_nginx.service"
   else
     units="ergo_ms_api_dev.service ergo_ms_client_dev.service ergo_ms_media_api.service ergo_ms_celery_beat.service"
+  fi
+
+  if is_redis_enabled "$project_root"; then
+    units="ergo_ms_redis.service $units"
   fi
 
   if _postgres_portable_enabled "$project_root"; then
@@ -207,6 +236,17 @@ generate_units_list() {
     # Если конфиг не найден, используем один общий воркер
     units="$units ergo_ms_celery_worker.service"
   fi
+
+  while IFS= read -r module_unit; do
+    [[ -z "$module_unit" ]] && continue
+    unit="$module_unit"
+    [[ "$unit" == *.service ]] || unit="${unit}.service"
+    # Не дублировать ядровые имена
+    case " $units " in
+      *" $unit "*) continue ;;
+    esac
+    units="$units $unit"
+  done < <(list_module_host_units "$project_root")
   
   echo "$units"
 }
@@ -275,6 +315,8 @@ export -f write_ergoms_text
 export -f detect_project_root
 export -f parse_workers_from_yaml
 export -f get_celery_workers
+export -f list_module_host_units
+export -f list_module_host_stop_commands
 export -f generate_units_list
 export -f get_worker_service_names
 export -f units_list

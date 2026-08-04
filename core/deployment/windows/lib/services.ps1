@@ -373,138 +373,121 @@ function Install-WorkerServices {
 
 
 function Start-AllServices {
-
     param([string]$ProjectRoot)
-
-    
 
     Write-ErgomsMessage -Key 'svc_starting_all' -Color Cyan
 
-    $serviceNames = Get-ServiceNames -ProjectRoot $ProjectRoot
-
-    foreach ($serviceName in $serviceNames) {
-
-        try {
-
-            $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-
-            if ($service) {
-
-                Start-Service -Name $serviceName
-
-                Write-ErgomsMessage -Key 'svc_started_ok' -Color Green -Param @{ name = $serviceName }
-
+    if (Test-RedisEnabled -ProjectRoot $ProjectRoot) {
+        if (Get-Command Start-RedisProcess -ErrorAction SilentlyContinue) {
+            try {
+                Start-RedisProcess -Root $ProjectRoot
+            } catch {
+                Write-ErgomsMessage -Key 'svc_start_failed' -Color Red -Stderr -Param @{ name = 'ergo_ms_redis'; error = $_.Exception.Message }
             }
-
-            else {
-
-                Write-ErgomsMessage -Key 'svc_not_installed_dash' -Color Gray -Param @{ name = $serviceName }
-
-            }
-
         }
-
-        catch {
-
-            Write-ErgomsMessage -Key 'svc_start_failed' -Color Red -Stderr -Param @{ name = $serviceName; error = $_.Exception.Message }
-
-        }
-
     }
 
+    $serviceNames = Get-ServiceNames -ProjectRoot $ProjectRoot
+    foreach ($serviceName in $serviceNames) {
+        if ($serviceName -eq 'ergo_ms_redis') { continue }
+        try {
+            $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+            if ($service) {
+                Start-Service -Name $serviceName
+                Write-ErgomsMessage -Key 'svc_started_ok' -Color Green -Param @{ name = $serviceName }
+            }
+            else {
+                Write-ErgomsMessage -Key 'svc_not_installed_dash' -Color Gray -Param @{ name = $serviceName }
+            }
+        }
+        catch {
+            Write-ErgomsMessage -Key 'svc_start_failed' -Color Red -Stderr -Param @{ name = $serviceName; error = $_.Exception.Message }
+        }
+    }
 }
-
 
 
 function Stop-AllServices {
-
     param([string]$ProjectRoot)
-
-    
 
     Write-ErgomsMessage -Key 'svc_stopping_all' -Color Cyan
 
-    $serviceNames = Get-ServiceNames -ProjectRoot $ProjectRoot
-
-    foreach ($serviceName in $serviceNames) {
-
-        try {
-
-            $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-
-            if ($service -and $service.Status -ne 'Stopped') {
-
-                Stop-Service -Name $serviceName -Force
-
-                Write-ErgomsMessage -Key 'svc_stopped_ok' -Color Green -Param @{ name = $serviceName }
-
+    if (Get-Command ergoms -ErrorAction SilentlyContinue) {
+        foreach ($cmd in @(Get-ModuleHostStopCommands -ProjectRoot $ProjectRoot)) {
+            if (-not $cmd) { continue }
+            try {
+                Push-Location $ProjectRoot
+                try { ergoms $cmd } finally { Pop-Location }
+            } catch {
+                Write-ErgomsMessage -Key 'svc_stop_failed' -Color Red -Stderr -Param @{ name = $cmd; error = $_.Exception.Message }
             }
-
-            else {
-
-                Write-ErgomsMessage -Key 'svc_already_stopped_or_missing' -Color Gray -Param @{ name = $serviceName }
-
-            }
-
         }
-
-        catch {
-
-            Write-ErgomsMessage -Key 'svc_stop_failed' -Color Red -Stderr -Param @{ name = $serviceName; error = $_.Exception.Message }
-
-        }
-
     }
 
-}
+    $serviceNames = Get-ServiceNames -ProjectRoot $ProjectRoot
+    foreach ($serviceName in $serviceNames) {
+        if ($serviceName -eq 'ergo_ms_redis') { continue }
+        try {
+            $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+            if ($service -and $service.Status -ne 'Stopped') {
+                Stop-Service -Name $serviceName -Force
+                Write-ErgomsMessage -Key 'svc_stopped_ok' -Color Green -Param @{ name = $serviceName }
+            }
+            else {
+                Write-ErgomsMessage -Key 'svc_already_stopped_or_missing' -Color Gray -Param @{ name = $serviceName }
+            }
+        }
+        catch {
+            Write-ErgomsMessage -Key 'svc_stop_failed' -Color Red -Stderr -Param @{ name = $serviceName; error = $_.Exception.Message }
+        }
+    }
 
+    if (Test-RedisEnabled -ProjectRoot $ProjectRoot) {
+        if (Get-Command Stop-RedisProcess -ErrorAction SilentlyContinue) {
+            try {
+                Stop-RedisProcess -Root $ProjectRoot -Quiet
+            } catch {
+                Write-ErgomsMessage -Key 'svc_stop_failed' -Color Red -Stderr -Param @{ name = 'ergo_ms_redis'; error = $_.Exception.Message }
+            }
+        }
+    }
+}
 
 
 function Restart-AllServices {
-
     param([string]$ProjectRoot)
-
-    
 
     Write-ErgomsMessage -Key 'svc_restarting_all' -Color Cyan
 
-    $serviceNames = Get-ServiceNames -ProjectRoot $ProjectRoot
-
-    foreach ($serviceName in $serviceNames) {
-
-        try {
-
-            $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-
-            if ($service) {
-
-                Restart-Service -Name $serviceName -Force
-
-                Write-ErgomsMessage -Key 'svc_restarted_ok' -Color Green -Param @{ name = $serviceName }
-
+    if (Test-RedisEnabled -ProjectRoot $ProjectRoot) {
+        if (Get-Command Restart-RedisProcess -ErrorAction SilentlyContinue) {
+            try {
+                Restart-RedisProcess -Root $ProjectRoot
+            } catch {
+                Write-ErgomsMessage -Key 'svc_restart_failed' -Color Red -Stderr -Param @{ name = 'ergo_ms_redis'; error = $_.Exception.Message }
             }
-
-            else {
-
-                Write-ErgomsMessage -Key 'svc_not_installed_dash' -Color Gray -Param @{ name = $serviceName }
-
-            }
-
         }
-
-        catch {
-
-            Write-ErgomsMessage -Key 'svc_restart_failed' -Color Red -Stderr -Param @{ name = $serviceName; error = $_.Exception.Message }
-
-        }
-
     }
 
+    $serviceNames = Get-ServiceNames -ProjectRoot $ProjectRoot
+    foreach ($serviceName in $serviceNames) {
+        if ($serviceName -eq 'ergo_ms_redis') { continue }
+        try {
+            $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+            if ($service) {
+                Restart-Service -Name $serviceName -Force
+                Write-ErgomsMessage -Key 'svc_restarted_ok' -Color Green -Param @{ name = $serviceName }
+            }
+            else {
+                Write-ErgomsMessage -Key 'svc_not_installed_dash' -Color Gray -Param @{ name = $serviceName }
+            }
+        }
+        catch {
+            Write-ErgomsMessage -Key 'svc_restart_failed' -Color Red -Stderr -Param @{ name = $serviceName; error = $_.Exception.Message }
+        }
+    }
 }
 
-
-
-# Внутренняя функция для запуска воркеров (используется при install-worker-service)
 
 function Start-WorkerServices {
 
@@ -551,60 +534,53 @@ function Start-WorkerServices {
 
 
 function Show-ServicesStatus {
-
     param([string]$ProjectRoot)
 
-    
-
     Write-Host ""; Write-ErgomsMessage -Key 'svc_status_heading' -Color Cyan
-
     Write-ColorOutput ""
-
-    
 
     $serviceNames = Get-ServiceNames -ProjectRoot $ProjectRoot
-
     foreach ($serviceName in $serviceNames) {
+        if ($serviceName -eq 'ergo_ms_redis') {
+            $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+            if ($service) {
+                $statusColor = switch ($service.Status) {
+                    'Running' { 'Green' }
+                    'Stopped' { 'Red' }
+                    default { 'Yellow' }
+                }
+                Write-Host "  $serviceName : " -NoNewline
+                Write-ColorOutput "$($service.Status)" $statusColor
+            }
+            elseif (Get-Command Show-RedisStatus -ErrorAction SilentlyContinue) {
+                Show-RedisStatus -Root $ProjectRoot
+            }
+            else {
+                Write-Host "  $serviceName : " -NoNewline
+                Write-ErgomsMessage -Key 'svc_status_not_installed' -Color DarkGray
+            }
+            continue
+        }
 
         $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-
         if ($service) {
-
             $statusColor = switch ($service.Status) {
-
                 'Running' { 'Green' }
-
                 'Stopped' { 'Red' }
-
                 default { 'Yellow' }
-
             }
-
             Write-Host "  $serviceName : " -NoNewline
-
             Write-ColorOutput "$($service.Status)" $statusColor
-
         }
-
         else {
-
             Write-Host "  $serviceName : " -NoNewline
-
             Write-ErgomsMessage -Key 'svc_status_not_installed' -Color DarkGray
-
         }
-
     }
 
-    
-
     Write-ColorOutput ""
-
     Write-ErgomsMessage -Key 'label_logs_short' -Color Cyan -Param @{ path = 'logs\' }
-
 }
-
-
 
 function Show-ServiceLogs {
 

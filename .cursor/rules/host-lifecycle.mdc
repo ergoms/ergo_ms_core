@@ -14,10 +14,11 @@ alwaysApply: false
 - Загрузка: [`host_lifecycle_loader.py`](../../core/deployment/scripts/host_lifecycle_loader.py)
 - Потребители:
   - `ergoms install-services` / `uninstall-services` → [`ModuleHostServicesStep`](../../core/deployment/lifecycle/steps/host_lifecycle_steps.py) (`install` / `uninstall`)
+  - `ergoms start` / `stop` / `restart` / `status` — `service_units` в списке OS-служб; `stop_commands` перед остановкой служб
   - тесты deployment [`lib.ps1`](../../core/deployment/windows/lib/test/lib.ps1) (`Stop-AllErgoms`, `Invoke-ModuleHostInstallServiceCommands`)
 - `DISABLED_MODULES` — модуль не участвует
 
-Аналог для setup-full / start-all — `vscode.tasks.yaml` (`include_in`), не этот hook.
+Аналог для setup-full / start-all (dev-процессы) — `vscode.tasks.yaml` (`include_in`), не этот hook.
 
 ## Обязательно
 
@@ -54,17 +55,18 @@ host:
   uninstall_service_commands:
     - <name>:uninstall-daemon-service
   service_units:
-    - ergo_ms_my_daemon              # для справки; Stop-AllErgoms уже гасит ergo_ms_* / ergo-*
+    - ergo_ms_my_daemon              # OS-служба: start/stop/restart/status + Stop-AllErgoms
 ```
 
 | Поле | Смысл |
 |------|--------|
-| `stop_commands` | после `ergoms stop` в `Stop-AllErgoms` (процесс без службы) |
+| `stop_commands` | `ergoms stop` / `Stop-AllErgoms` — доп. остановка (процесс без службы или очистка) |
 | `install_service_commands` | шаг модульных служб в `ergoms install-services` и в `install_test.ps1` |
 | `uninstall_service_commands` | шаг модульных служб в `ergoms uninstall-services` (парно с install) |
-| `service_units` | имена OS-служб (документация / будущий catalog) |
+| `service_units` | имена OS-служб в `ergoms start` / `stop` / `restart` / `status` (если unit установлен) |
 
-CLI: `virtual_env/python/Scripts/python.exe core/deployment/scripts/host_lifecycle_loader.py --root . --json`
+CLI: `virtual_env/python/bin/python core/deployment/scripts/host_lifecycle_loader.py --root . --json`  
+(на Windows — `virtual_env\python\Scripts\python.exe …`)
 
 ## Эталон
 

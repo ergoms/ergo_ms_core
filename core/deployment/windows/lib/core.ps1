@@ -4,6 +4,7 @@
 
 . (Join-Path $PSScriptRoot 'portable_env.ps1')
 . (Join-Path $PSScriptRoot 'nginx_env.ps1')
+. (Join-Path $PSScriptRoot 'redis_env.ps1')
 
 # Константы (базовые службы)
 
@@ -511,95 +512,100 @@ function Test-PostgresPortableEnabled {
 
 
 
-function Get-ServiceNames {
 
+function Get-ModuleHostServiceUnits {
+    param([string]$ProjectRoot)
+    $python = Join-Path $ProjectRoot 'virtual_env\python\Scripts\python.exe'
+    $script = Join-Path $ProjectRoot 'core\deployment\scripts\host_lifecycle_loader.py'
+    if (-not (Test-Path -LiteralPath $python) -or -not (Test-Path -LiteralPath $script)) {
+        return @()
+    }
+    try {
+        $out = & $python $script --root $ProjectRoot --units 2>$null
+        if (-not $out) { return @() }
+        return @($out | ForEach-Object { "$_".Trim() } | Where-Object { $_ })
+    } catch {
+        return @()
+    }
+}
+
+function Get-ModuleHostStopCommands {
+    param([string]$ProjectRoot)
+    $python = Join-Path $ProjectRoot 'virtual_env\python\Scripts\python.exe'
+    $script = Join-Path $ProjectRoot 'core\deployment\scripts\host_lifecycle_loader.py'
+    if (-not (Test-Path -LiteralPath $python) -or -not (Test-Path -LiteralPath $script)) {
+        return @()
+    }
+    try {
+        $out = & $python $script --root $ProjectRoot --stop-commands 2>$null
+        if (-not $out) { return @() }
+        return @($out | ForEach-Object { "$_".Trim() } | Where-Object { $_ })
+    } catch {
+        return @()
+    }
+}
+
+function Get-ServiceNames {
     param([string]$ProjectRoot)
 
-    
-
-    # Используем кэш если проект / nginx / postgres не изменились
-
     $nginxEnabled = Test-NginxEnabled -ProjectRoot $ProjectRoot
-
+    $redisEnabled = Test-RedisEnabled -ProjectRoot $ProjectRoot
     $postgresEnabled = Test-PostgresPortableEnabled -ProjectRoot $ProjectRoot
 
-    if ($script:CachedServiceNames -and $script:CachedProjectRoot -eq $ProjectRoot -and $script:CachedNginxEnabled -eq $nginxEnabled -and $script:CachedPostgresEnabled -eq $postgresEnabled) {
-
+    if (
+        $script:CachedServiceNames -and
+        $script:CachedProjectRoot -eq $ProjectRoot -and
+        $script:CachedNginxEnabled -eq $nginxEnabled -and
+        $script:CachedRedisEnabled -eq $redisEnabled -and
+        $script:CachedPostgresEnabled -eq $postgresEnabled
+    ) {
         return $script:CachedServiceNames
-
     }
-
-    
 
     $services = @() + $script:BaseServices
 
-
-
     if ($postgresEnabled) {
-
         $postgresServiceName = 'ergo_ms_postgres'
         $fromEnv = Get-ErgoEnvValue -Root $ProjectRoot -Name 'POSTGRES_SERVICE_WINDOWS'
         if ($fromEnv) { $postgresServiceName = $fromEnv }
-
         $services = @($postgresServiceName) + $services
-
     }
 
-
+    if ($redisEnabled) {
+        $services = @('ergo_ms_redis') + $services
+    }
 
     if ($nginxEnabled) {
-
         $services = $services | Where-Object { $_ -ne 'ergo_ms_client_dev' }
-
+        if ($services -notcontains 'ergo_ms_nginx') {
+            $services += 'ergo_ms_nginx'
+        }
     }
-
-    
 
     $workers = Get-CeleryWorkers -ProjectRoot $ProjectRoot
-
-    
-
     if ($workers.Count -gt 0) {
-
-        # Добавляем службы для каждого воркера из конфига
-
         foreach ($worker in $workers) {
-
             $services += "ergo_ms_celery_worker_$worker"
-
         }
-
     }
-
     else {
-
-        # Если конфиг не найден, используем один общий воркер
-
         $services += "ergo_ms_celery_worker"
-
     }
 
-    
+    foreach ($unit in @(Get-ModuleHostServiceUnits -ProjectRoot $ProjectRoot)) {
+        if ($unit -and ($services -notcontains $unit)) {
+            $services += $unit
+        }
+    }
 
-    # Кэшируем результат
-
-    $script:CachedServiceNames = $services
-
+    $script:CachedServiceNames = @($services)
     $script:CachedProjectRoot = $ProjectRoot
-
     $script:CachedNginxEnabled = $nginxEnabled
-
+    $script:CachedRedisEnabled = $redisEnabled
     $script:CachedPostgresEnabled = $postgresEnabled
 
-    
-
-    return $services
-
+    return $script:CachedServiceNames
 }
-
-
-
-# Получение только имён воркеров (службы celery-worker-*)
 
 function Get-WorkerServiceNames {
 
@@ -642,13 +648,11 @@ function Get-WorkerServiceNames {
 # Сброс кэша списка служб
 
 function Reset-ServiceNamesCache {
-
     $script:CachedServiceNames = $null
-
     $script:CachedProjectRoot = $null
-
     $script:CachedNginxEnabled = $null
-
+    $script:CachedRedisEnabled = $null
+    $script:CachedPostgresEnabled = $null
 }
 
 # Export-ModuleMember -Function *  # Удалено, так как это не модуль
