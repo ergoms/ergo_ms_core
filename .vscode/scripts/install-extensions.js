@@ -22,6 +22,19 @@ const extensionsDir = join(projectRoot, 'local-extensions');
 const sourceExtensionsDir = join(projectRoot, 'extensions');
 const tempRoot = join(projectRoot, '.temp-extract');
 
+/** @returns {number} negative if a<b, 0 if equal, positive if a>b */
+function compareSemver(a, b) {
+  const pa = String(a).split('.').map((x) => Number.parseInt(x, 10) || 0);
+  const pb = String(b).split('.').map((x) => Number.parseInt(x, 10) || 0);
+  for (let i = 0; i < 3; i += 1) {
+    const d = (pa[i] || 0) - (pb[i] || 0);
+    if (d !== 0) {
+      return d;
+    }
+  }
+  return 0;
+}
+
 async function installFromSourceDir(sourceExtensionDir, homeDir) {
   const packageJsonPath = join(sourceExtensionDir, 'package.json');
   if (!existsSync(packageJsonPath)) {
@@ -138,7 +151,20 @@ async function installExtensions() {
 
     if (existsSync(extensionsDir)) {
       const files = await readdir(extensionsDir);
-      vsixFiles = files.filter((file) => file.endsWith('.vsix'));
+      // При нескольких версиях одного расширения — только максимальная semver.
+      const byName = new Map();
+      for (const file of files.filter((f) => f.endsWith('.vsix'))) {
+        const m = file.match(/^(.*)-(\d+\.\d+\.\d+)\.vsix$/i);
+        if (!m) {
+          continue;
+        }
+        const [, base, ver] = m;
+        const prev = byName.get(base);
+        if (!prev || compareSemver(ver, prev.ver) > 0) {
+          byName.set(base, { file, ver });
+        }
+      }
+      vsixFiles = [...byName.values()].map((x) => x.file).sort();
     }
 
     if (vsixFiles.length === 0) {

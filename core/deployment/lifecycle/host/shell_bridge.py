@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -81,8 +82,14 @@ def invoke_dispatch(
         bom_err = _assert_windows_ps1_readable(_WINDOWS_DISPATCH)
         if bom_err is not None:
             return bom_err
+        system_root = os.environ.get('SystemRoot') or r'C:\Windows'
+        powershell = str(
+            Path(system_root) / 'System32' / 'WindowsPowerShell' / 'v1.0' / 'powershell.exe'
+        )
+        if not Path(powershell).is_file():
+            powershell = 'powershell.exe'
         cmd = [
-            'powershell.exe',
+            powershell,
             '-ExecutionPolicy',
             'Bypass',
             '-NoProfile',
@@ -105,8 +112,6 @@ def invoke_dispatch(
 
     argv = ['bash', str(_LINUX_DISPATCH), category, operation, root, *extra_args]
     if ctx.option_bool('needs_sudo') and sys.platform != 'win32':
-        import os
-
         if hasattr(os, 'geteuid') and os.geteuid() != 0:
             argv = ['sudo', *argv]
     return subprocess.call(argv, cwd=root)

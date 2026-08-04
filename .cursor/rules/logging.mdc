@@ -194,7 +194,7 @@ ergoms logs celery-beat [module] [lines]
 - `virtual_env/packages/nginx/logs/*.log` (после `reload-nginx`)
 - `virtual_env/packages/redis/logs/redis.log` (после `install-redis`)
 
-После смены конфигурации: `ergoms install-services`, `ergoms sync-logs-services`, перезапуск worker/beat.
+После смены конфигурации: `ergoms install-services`, перезапуск worker/beat. Списки multi-terminal подхватываются на лету (`ergoms sync-logs-services --json logs-all`).
 
 ---
 

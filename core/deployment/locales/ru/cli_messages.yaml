@@ -843,10 +843,7 @@ tls_suggest_env_heading: "Рекомендуемые переменные для
 tls_cert_not_found: "  Certificate: не найден"
 
 # --- vscode sync ---
-vscode_sync_updated: "[INFO] Updated {path} (mode: {mode}, {redis})"
-vscode_sync_module_start: "[INFO] Updated {path} (module start-all: {count})"
-vscode_sync_module_logs: "[INFO] Updated {path} (module logs-all: {count})"
-vscode_sync_logs_all: "[INFO] Updated {path} (logs-all: {count}, mode: {mode}, {redis})"
+vscode_sync_target: "[INFO] {target}: {count} сервис(ов) (режим: {mode}, {redis})"
 
 # --- portable runtime ---
 portable_unsupported_arch_node: "[ERROR] Неподдерживаемая архитектура для portable Node.js: {arch}"

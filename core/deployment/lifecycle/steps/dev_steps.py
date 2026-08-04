@@ -55,9 +55,15 @@ class DevForegroundStep(DeploymentStep):
             os.environ.setdefault(_API_START_WALL_ENV, str(time.time()))
         elif self._recipe_key == 'dev-media':
             os.environ.setdefault(_MEDIA_START_WALL_ENV, str(time.time()))
+        script_args: list[str] = []
+        if self._recipe_key == 'sync-logs-services':
+            # ergoms sync-logs-services --json logs-all → runner parse_known_args
+            script_args = [str(a) for a in (ctx.options.get('compose_extra_args') or [])]
         code = 0
         for rel in scripts:
-            code = host_ops.run_python_script(ctx, rel, prefer_venv=True)
+            code = host_ops.run_python_script(
+                ctx, rel, prefer_venv=True, script_args=script_args
+            )
             if code != 0:
                 return StepResult(exit_code=code)
         return StepResult()

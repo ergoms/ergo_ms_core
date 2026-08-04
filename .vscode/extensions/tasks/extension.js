@@ -100,11 +100,20 @@ function readEnvFlag(workspaceRoot, name) {
     return envTruthy(env[name]);
 }
 
+const ERGO_SYNC_PROVIDER = 'ergo-sync';
+
+/** Targets where terminal name comes from service description (not nameTemplate). */
+const ERGO_SYNC_USE_DESCRIPTION = new Set([
+    'logs-all',
+    'module-start',
+    'module-logs',
+]);
+
 /**
- * Обновляет runtime YAML (nginx/client/redis) перед чтением источников.
+ * Путь к venv Python и sync_vscode_logs_services.py.
+ * @returns {{ python: string, script: string }|null}
  */
-function ensureLogsServicesRuntime(workspaceRoot) {
-    const { spawnSync } = require('child_process');
+function resolveErgoSyncPaths(workspaceRoot) {
     const isWin = process.platform === 'win32';
     const python = isWin
         ? path.join(workspaceRoot, 'virtual_env', 'python', 'Scripts', 'python.exe')
@@ -117,38 +126,78 @@ function ensureLogsServicesRuntime(workspaceRoot) {
         'sync_vscode_logs_services.py'
     );
     if (!fs.existsSync(python) || !fs.existsSync(script)) {
-        return;
+        return null;
     }
-    try {
-        spawnSync(python, [script], {
-            cwd: workspaceRoot,
-            encoding: 'utf8',
-            windowsHide: true
-        });
-    } catch (_) {
-        // runtime YAML мог остаться от прошлого sync — дальше сработает фильтр по .env
-    }
+    return { python, script };
 }
 
 /**
- * Исключает службы, несовместимые с NGINX_ENABLED / REDIS_ENABLED.
- * Runtime YAML уже собран sync_vscode_logs_services.py — не фильтруем повторно
- * (иначе JS и Python могут разойтись и выкинуть redis/nginx).
+ * Список сервисов из Python (JSON stdout), без записи в .vscode/.
+ * @returns {{ key: string, command: string, stopCommand: string, description: string }[]}
+ */
+function fetchErgoSyncEntries(workspaceRoot, target, silent = false) {
+    const { spawnSync } = require('child_process');
+    const paths = resolveErgoSyncPaths(workspaceRoot);
+    if (!paths) {
+        if (!silent) {
+            vscode.window.showErrorMessage(
+                'Не найден virtual_env/python или sync_vscode_logs_services.py'
+            );
+        }
+        return [];
+    }
+    let result;
+    try {
+        result = spawnSync(paths.python, [paths.script, '--json', String(target)], {
+            cwd: workspaceRoot,
+            encoding: 'utf8',
+            windowsHide: true,
+        });
+    } catch (err) {
+        if (!silent) {
+            vscode.window.showErrorMessage(
+                `ergo-sync (${target}): ${err && err.message ? err.message : String(err)}`
+            );
+        }
+        return [];
+    }
+    if (result.status !== 0) {
+        const errText = String(result.stderr || result.stdout || '').trim();
+        if (!silent) {
+            vscode.window.showErrorMessage(
+                `ergo-sync (${target}) завершился с ошибкой`
+                + (errText ? `: ${errText.slice(0, 300)}` : '')
+            );
+        }
+        return [];
+    }
+    let payload;
+    try {
+        payload = JSON.parse(String(result.stdout || '').trim());
+    } catch (_) {
+        if (!silent) {
+            vscode.window.showErrorMessage(`ergo-sync (${target}): некорректный JSON`);
+        }
+        return [];
+    }
+    const services = Array.isArray(payload && payload.services) ? payload.services : [];
+    return services.map((item) => {
+        const row = item && typeof item === 'object' ? item : {};
+        return {
+            key: String(row.key || '').trim(),
+            command: String(row.command || '').trim(),
+            stopCommand: String(row.stop_command || '').trim(),
+            description: String(row.description || '').trim(),
+        };
+    }).filter((e) => e.key);
+}
+
+/**
+ * Исключает службы, несовместимые с NGINX_ENABLED / REDIS_ENABLED (только file-источники).
+ * Списки ergo-sync уже собраны в Python — повторно не фильтруем.
  */
 function filterServiceKeys(workspaceRoot, items, sourceFile) {
     const file = String(sourceFile || '').replace(/\\/g, '/');
-    if (
-        file.includes('logs-all.runtime.yaml')
-        || file.includes('logs-services.runtime.yaml')
-        || file.includes('optional-services.runtime.yaml')
-        || file.includes('redis-dev.runtime.yaml')
-        || file.includes('client-dev.runtime.yaml')
-        || file.includes('module-start-services.runtime.yaml')
-        || file.includes('module-logs-services.runtime.yaml')
-    ) {
-        return items;
-    }
-
     const nginx = readEnvFlag(workspaceRoot, 'NGINX_ENABLED');
     const redis = readEnvFlag(workspaceRoot, 'REDIS_ENABLED');
 
@@ -182,21 +231,26 @@ function filterServiceKeys(workspaceRoot, items, sourceFile) {
 }
 
 /**
- * Читает источник: ключи + опциональные command / stop_command из map.
- * @returns {{ key: string, command: string, stopCommand: string }[]}
+ * Читает источник: ergo-sync (JSON) или YAML/JSON файл.
+ * @returns {{ key: string, command: string, stopCommand: string, description: string }[]}
  */
 function readSourceEntries(workspaceRoot, sourceConfig, silent = false) {
-    const relFile = String(sourceConfig.file || '').replace(/\\/g, '/');
-    if (
-        relFile.includes('logs-all.runtime.yaml')
-        || relFile.includes('logs-services.runtime.yaml')
-        || relFile.includes('optional-services.runtime.yaml')
-        || relFile.includes('redis-dev.runtime.yaml')
-        || relFile.includes('client-dev.runtime.yaml')
-        || relFile.includes('module-start-services.runtime.yaml')
-        || relFile.includes('module-logs-services.runtime.yaml')
-    ) {
-        ensureLogsServicesRuntime(workspaceRoot);
+    if (sourceConfig.provider === ERGO_SYNC_PROVIDER) {
+        const target = String(sourceConfig.target || '').trim();
+        if (!target) {
+            if (!silent) {
+                vscode.window.showErrorMessage('ergo-sync: не указан target');
+            }
+            return [];
+        }
+        return fetchErgoSyncEntries(workspaceRoot, target, silent);
+    }
+
+    if (!sourceConfig.file) {
+        if (!silent) {
+            vscode.window.showErrorMessage('Источник multi-terminal: нужен file или provider');
+        }
+        return [];
     }
 
     const filePath = path.join(workspaceRoot, sourceConfig.file);
@@ -224,7 +278,6 @@ function readSourceEntries(workspaceRoot, sourceConfig, silent = false) {
     const items = getValueByPath(data, sourceConfig.path);
 
     if (!items) {
-        // Пустой services: в runtime.yaml (Redis выключен) — не ошибка.
         if (!silent) {
             vscode.window.showWarningMessage(`Путь "${sourceConfig.path}" не найден в ${sourceConfig.file}`);
         }
@@ -304,12 +357,9 @@ async function runTask(name, command, cwd, group, stopCommand) {
     };
 
     const workspaceRoot = cwd || getWorkspaceRoot();
-    const env = { ...process.env };
-    if (workspaceRoot) {
-        const bin = path.join(workspaceRoot, 'core', 'deployment', 'bin');
-        const sep = process.platform === 'win32' ? ';' : ':';
-        env.PATH = `${bin}${sep}${env.PATH || ''}`;
-    }
+    const env = workspaceRoot
+        ? withErgomsPath({ ...process.env }, workspaceRoot)
+        : { ...process.env };
     
     const { executable, args, options } = osAbstraction.getProcessExecution(command, cwd, env);
     const processExecution = new vscode.ProcessExecution(executable, args, options);
@@ -417,11 +467,9 @@ function runStopCommand(stopCommand, cwd) {
     const { spawnSync } = require('child_process');
     const workspaceRoot = cwd || getWorkspaceRoot();
     const invocation = resolveStopInvocation(stopCommand, workspaceRoot);
-    const env = { ...process.env, ...invocation.envExtra };
+    let env = { ...process.env, ...invocation.envExtra };
     if (workspaceRoot) {
-        const bin = path.join(workspaceRoot, 'core', 'deployment', 'bin');
-        const sep = process.platform === 'win32' ? ';' : ':';
-        env.PATH = `${bin}${sep}${env.PATH || ''}`;
+        env = withErgomsPath(env, workspaceRoot);
         env.PYTHONIOENCODING = env.PYTHONIOENCODING || 'utf-8';
         env.PYTHONUTF8 = env.PYTHONUTF8 || '1';
     }
@@ -510,14 +558,11 @@ function processSource(workspaceRoot, sourceConfig, defaultCwd, silent = false, 
         const command = entry.command
             || applyTemplate(commandTemplate, { key: item, item: item });
         const templatedName = applyTemplate(nameTemplate, { key: item, item: item });
-        const sourceFile = String(sourceConfig.file || '').replace(/\\/g, '/');
+        const syncTarget = String(sourceConfig.target || '').trim();
         const useDescriptionName = (
             entry.description
-            && (
-                sourceFile.includes('logs-all.runtime.yaml')
-                || sourceFile.includes('module-start-services.runtime.yaml')
-                || sourceFile.includes('module-logs-services.runtime.yaml')
-            )
+            && sourceConfig.provider === ERGO_SYNC_PROVIDER
+            && ERGO_SYNC_USE_DESCRIPTION.has(syncTarget)
         );
         return {
             name: useDescriptionName ? entry.description : templatedName,
@@ -557,8 +602,11 @@ async function executeMultiTerminalTask(task) {
         }));
     }
     
-    // Вариант 2: Один источник из файла (обратная совместимость)
-    if (definition.source && definition.source.file) {
+    // Вариант 2: Один источник (файл или provider ergo-sync)
+    if (
+        definition.source
+        && (definition.source.file || definition.source.provider === ERGO_SYNC_PROVIDER)
+    ) {
         const sourceWithTemplates = {
             ...definition.source,
             commandTemplate: definition.commandTemplate || 'echo ${key}',
@@ -652,17 +700,47 @@ function invalidateModuleTasksCache() {
 }
 
 /**
+ * На Windows в task-env часто остаётся только bin (${env:PATH} пуст, живёт Path).
+ * Без System32 ломаются powershell.exe / cmd.exe.
+ */
+function withErgomsPath(env, workspaceRoot) {
+    const next = { ...env };
+    const bin = path.join(workspaceRoot, 'core', 'deployment', 'bin');
+    const sep = process.platform === 'win32' ? ';' : ':';
+    let currentPath = next.PATH || next.Path || '';
+    if (process.platform === 'win32') {
+        const systemRoot = process.env.SystemRoot || 'C:\\Windows';
+        const required = [
+            path.join(systemRoot, 'System32'),
+            path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0'),
+            path.join(systemRoot, 'System32', 'Wbem'),
+        ];
+        const parts = currentPath.split(sep).filter(Boolean);
+        const lower = new Set(parts.map((p) => p.toLowerCase()));
+        for (let i = required.length - 1; i >= 0; i -= 1) {
+            const dir = required[i];
+            if (!lower.has(dir.toLowerCase())) {
+                parts.unshift(dir);
+            }
+        }
+        currentPath = parts.join(sep);
+    }
+    const pathValue = `${bin}${sep}${currentPath}`;
+    next.PATH = pathValue;
+    if (process.platform === 'win32') {
+        next.Path = pathValue;
+    }
+    return next;
+}
+
+/**
  * PATH с core/deployment/bin — как в .vscode/tasks.json.
  */
 function buildErgomsEnv(workspaceRoot) {
-    const bin = path.join(workspaceRoot, 'core', 'deployment', 'bin');
-    const sep = process.platform === 'win32' ? ';' : ':';
-    return {
-        ...process.env,
-        PATH: `${bin}${sep}${process.env.PATH || ''}`,
-        PYTHONIOENCODING: process.env.PYTHONIOENCODING || 'utf-8',
-        PYTHONUTF8: process.env.PYTHONUTF8 || '1'
-    };
+    const env = withErgomsPath({ ...process.env }, workspaceRoot);
+    env.PYTHONIOENCODING = process.env.PYTHONIOENCODING || 'utf-8';
+    env.PYTHONUTF8 = process.env.PYTHONUTF8 || '1';
+    return env;
 }
 
 /**

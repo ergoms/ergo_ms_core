@@ -1,4 +1,4 @@
-import { readdir, mkdir, readFile, copyFile } from 'fs/promises';
+import { readdir, mkdir, readFile, copyFile, unlink } from 'fs/promises';
 import { join, dirname } from 'path';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
@@ -82,6 +82,20 @@ async function updateVsixFiles() {
             shell: true
           }
         );
+
+        // Удаляем устаревшие VSIX того же расширения (иначе install ставит старую версию первой).
+        if (existsSync(localExtensionsDir)) {
+          const stale = (await readdir(localExtensionsDir)).filter((file) => {
+            if (!file.endsWith('.vsix') || file === vsixFileName) {
+              return false;
+            }
+            return file.startsWith(`${name}-`) && /-\d+\.\d+\.\d+\.vsix$/i.test(file);
+          });
+          for (const file of stale) {
+            await unlink(join(localExtensionsDir, file));
+            console.log(`  [OK] Удалён устаревший VSIX: ${file}`);
+          }
+        }
 
         console.log(`✅ Успешно обновлено: ${vsixFileName}`);
       } catch (error) {

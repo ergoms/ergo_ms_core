@@ -841,10 +841,7 @@ tls_suggest_env_heading: "Variables recommandées pour env/nginx.env après inst
 tls_cert_not_found: "  Certificate : introuvable"
 
 # --- vscode sync ---
-vscode_sync_updated: "[INFO] Mis à jour {path} (mode : {mode}, {redis})"
-vscode_sync_module_start: "[INFO] Mis à jour {path} (module start-all : {count})"
-vscode_sync_module_logs: "[INFO] Mis à jour {path} (module logs-all : {count})"
-vscode_sync_logs_all: "[INFO] Mis à jour {path} (logs-all : {count}, mode : {mode}, {redis})"
+vscode_sync_target: "[INFO] {target} : {count} service(s) (mode : {mode}, {redis})"
 
 # --- portable runtime ---
 portable_unsupported_arch_node: "[ERROR] Architecture non prise en charge pour Node.js portable : {arch}"

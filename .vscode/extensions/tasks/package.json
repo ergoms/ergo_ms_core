@@ -2,7 +2,7 @@
   "name": "ergo-ms-tasks",
   "displayName": "%extension.displayName%",
   "description": "%extension.description%",
-  "version": "1.4.4",
+  "version": "1.4.6",
   "publisher": "ergo-ms",
   "icon": "icon.png",
   "engines": {
@@ -62,6 +62,14 @@
             "type": "object",
             "description": "%task.multiTerminal.source%",
             "properties": {
+              "provider": {
+                "type": "string",
+                "description": "%task.multiTerminal.source.provider%"
+              },
+              "target": {
+                "type": "string",
+                "description": "%task.multiTerminal.source.target%"
+              },
               "file": {
                 "type": "string",
                 "description": "%task.multiTerminal.source.file%"
@@ -78,6 +86,14 @@
             "items": {
               "type": "object",
               "properties": {
+                "provider": {
+                  "type": "string",
+                  "description": "%task.multiTerminal.sources.provider%"
+                },
+                "target": {
+                  "type": "string",
+                  "description": "%task.multiTerminal.sources.target%"
+                },
                 "file": {
                   "type": "string",
                   "description": "%task.multiTerminal.sources.file%"

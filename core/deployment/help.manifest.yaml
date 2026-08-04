@@ -76,7 +76,8 @@ sections:
   - name: stop-beat
     summary: Остановить Celery beat
   - name: sync-logs-services
-    summary: Синхронизировать список служб для журналов VS Code
+    invoke: ergoms sync-logs-services [--json TARGET | --json-all]
+    summary: Показать списки сервисов multi-terminal (--json TARGET для JSON)
   - name: rotate-logs
     summary: Ротировать nginx/redis/client-dev по размеру (ERGO_LOG_INFRA_* в .env)
   - name: install-infra-log-rotate

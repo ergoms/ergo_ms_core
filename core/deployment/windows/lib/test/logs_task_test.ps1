@@ -4,6 +4,28 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 
 Set-Location $RootDir
 
+function Get-ServicesFromErgoSync {
+    param([Parameter(Mandatory=$true)][string]$Target)
+    $syncScript = Join-Path $RootDir "core\deployment\scripts\sync_vscode_logs_services.py"
+    $python = Join-Path $RootDir "virtual_env\python\Scripts\python.exe"
+    if (-not (Test-Path $python) -or -not (Test-Path $syncScript)) {
+        return @()
+    }
+    $jsonText = & $python $syncScript --json $Target 2>$null
+    if (-not $jsonText) { return @() }
+    try {
+        $payload = $jsonText | ConvertFrom-Json
+    } catch {
+        return @()
+    }
+    if (-not $payload.services) { return @() }
+    $out = New-Object System.Collections.Generic.List[string]
+    foreach ($item in $payload.services) {
+        if ($item.key) { $out.Add([string]$item.key) | Out-Null }
+    }
+    return ,$out.ToArray()
+}
+
 function Get-KeysFromYamlMap {
     param(
         [Parameter(Mandatory=$true)][string]$YamlPath,
@@ -22,25 +44,10 @@ function Get-KeysFromYamlMap {
     foreach ($line in $lines) {
         if ($line -match $reRoot) { $inRoot = $true; continue }
         if (-not $inRoot) { continue }
-        # Выходим, когда начинается новый корневой ключ (0 пробелов + word + :)
         if ($line -match '^[A-Za-z0-9_-]+:\s*$') { break }
         if ($line -match $reKey) { $out.Add($Matches[1]) | Out-Null }
     }
     return ,$out.ToArray()
-}
-
-function Get-ServicesFromLogsYaml {
-    $runtimePath = Join-Path $RootDir ".vscode\logs-services.runtime.yaml"
-    $syncScript = Join-Path $RootDir "core\deployment\scripts\sync_vscode_logs_services.py"
-    $python = Join-Path $RootDir "virtual_env\python\Scripts\python.exe"
-    if ((Test-Path $python) -and (Test-Path $syncScript)) {
-        & $python $syncScript | Out-Null
-    }
-    if (Test-Path $runtimePath) {
-        return Get-KeysFromYamlMap -YamlPath $runtimePath -RootKey "services" -Indent 2
-    }
-    $yamlPath = Join-Path $RootDir ".vscode\logs-services.yaml"
-    return Get-KeysFromYamlMap -YamlPath $yamlPath -RootKey "services" -Indent 2
 }
 
 function Get-WorkersFromWorkersYaml {
@@ -49,13 +56,13 @@ function Get-WorkersFromWorkersYaml {
 }
 
 function Test-VsCodeTaskLogsAllServices {
-    $services = Get-ServicesFromLogsYaml
+    $services = Get-ServicesFromErgoSync -Target "logs"
     $workers = Get-WorkersFromWorkersYaml
 
     if (-not $services -or $services.Count -eq 0) {
-        Log "[WARNING] В .vscode/logs-services.runtime.yaml не найдено services: ключей"
+        Log "[WARNING] В ergo-sync target logs не найдено services"
     } else {
-        Log ("Services из logs-services.runtime.yaml: " + ($services -join ", "))
+        Log ("Services из ergo-sync logs: " + ($services -join ", "))
     }
 
     if (-not $workers -or $workers.Count -eq 0) {
@@ -92,4 +99,3 @@ if (Test-VsCodeTaskLogsAllServices) {
 } else {
     Log "[WARNING] Logs: All Services: есть ошибки"
 }
-

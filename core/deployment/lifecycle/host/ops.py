@@ -177,6 +177,7 @@ def run_python_script(
     *,
     prefer_venv: bool = True,
     cwd: Path | None = None,
+    script_args: Sequence[str] = (),
 ) -> int:
     py_argv = pick_python_for_ctx(ctx, prefer_venv=prefer_venv)
     script = ctx.project_root / script_rel
@@ -184,7 +185,11 @@ def run_python_script(
         print(format_console('error', t('script_not_found', script_rel=script_rel)), file=sys.stderr)
         return 1
     env = api_env(ctx) if prefer_venv else os.environ.copy()
-    return subprocess.call([*py_argv, str(script)], cwd=str(cwd or ctx.project_root), env=env)
+    return subprocess.call(
+        [*py_argv, str(script), *script_args],
+        cwd=str(cwd or ctx.project_root),
+        env=env,
+    )
 
 
 def ensure_portable_python(ctx: DeploymentContext, *, force: bool = False) -> int:

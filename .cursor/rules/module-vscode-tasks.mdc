@@ -56,11 +56,11 @@ tasks:
 |----------|----------------|
 | `setup-full` | шаг `ModuleSetupTasksStep` в рецепте `ergoms setup` / Setup Full System |
 | `start-all` | `ergoms start-all` и multi-terminal **Module Services** в Start All Services |
-| `logs-all` | multi-terminal **Logs: All Services** (runtime `.vscode/module-logs-services.runtime.yaml`) |
+| `logs-all` | multi-terminal **Logs: All Services** (`provider: ergo-sync`, `target: logs-all`) |
 
 - `hide: true` скрывает задачу из Run Task, но **не** исключает из агрегата
 - Порядок: `order` (число), затем имя модуля, затем `label`
-- Потребители: [`module_tasks_loader.py`](../../core/deployment/scripts/module_tasks_loader.py), [`start_all_dev.py`](../../core/deployment/scripts/start_all_dev.py), runtime `.vscode/module-start-services.runtime.yaml` / `module-logs-services.runtime.yaml`
+- Потребители: [`module_tasks_loader.py`](../../core/deployment/scripts/module_tasks_loader.py), [`start_all_dev.py`](../../core/deployment/scripts/start_all_dev.py), расширение [`ergo-ms-tasks`](../../.vscode/extensions/tasks) (`sync_vscode_logs_services.py --json`)
 
 ```yaml
 module: <name>

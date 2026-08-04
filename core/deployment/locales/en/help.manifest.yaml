@@ -76,7 +76,7 @@ sections:
   - name: stop-beat
     summary: Stop Celery beat
   - name: sync-logs-services
-    summary: Sync the service list for VS Code logs
+    summary: Show multi-terminal service lists (--json TARGET for JSON)
   - name: rotate-logs
     summary: Rotate nginx/redis/client-dev logs by size (ERGO_LOG_INFRA_* in .env)
   - name: install-infra-log-rotate
