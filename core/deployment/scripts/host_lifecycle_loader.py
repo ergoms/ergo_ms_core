@@ -23,7 +23,7 @@ if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 
 from cli_locale import t  # noqa: E402
-from console_tags import format_console  # noqa: E402
+from console_tags import configure_stdio_utf8, format_console  # noqa: E402
 from lifecycle.modules.catalog import ModuleCatalog  # noqa: E402
 
 HOST_LIFECYCLE_FILENAME = 'host_lifecycle.yaml'
@@ -192,6 +192,7 @@ def dump_host_lifecycle_json(project_root: Path | str) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
+    configure_stdio_utf8()
     parser = argparse.ArgumentParser(description=t('host_lifecycle_description'))
     parser.add_argument('--root', type=Path, default=None, help=t('help_root_path'))
     parser.add_argument('--json', action='store_true', help=t('help_json_stdout'))
