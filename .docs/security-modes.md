@@ -128,11 +128,13 @@ controls:
 |---|---|---|---|---|
 | `transport.https_required` | нет | нет | да, вместе с HSTS и защищёнными cookie | да, включая перенаправление с HTTP |
 | `cors.explicit_origins` | список для разработки | явный список в production | явный список всегда | явный список, шаблоны запрещены |
-
-Контроль `cors.explicit_origins` на уровне `standard` уже отражён в коде: [`cors.py`](../core/api/src/config/settings/cors.py) подставляет localhost только при `ERGO_ENV=development` и прерывает запуск в production без `CORS_ALLOWED_ORIGINS` / `CORS_ALLOWED_ORIGIN_REGEXES` (пока без отдельной переменной `ERGO_SECURITY`).
-| `csrf.trusted_origins` | не требуется | не требуется | обязателен за обратным прокси | обязателен |
+| `csrf.trusted_origins` | можно пусто | явный список в production | явный список в production | явный список всегда |
 | `csp.strict` | как есть | как есть | без `unsafe-eval` и `unsafe-inline` | плюс явный список внешних источников |
 | `headers.baseline` | включены | включены | включены | включены |
+
+Контроль `cors.explicit_origins` на уровне `standard` уже отражён в коде: [`cors.py`](../core/api/src/config/settings/cors.py) подставляет localhost только при `ERGO_ENV=development` и прерывает запуск в production без `CORS_ALLOWED_ORIGINS` / `CORS_ALLOWED_ORIGIN_REGEXES` (пока без отдельной переменной `ERGO_SECURITY`).
+
+Контроль `csrf.trusted_origins` — аналогично: [`csrf.py`](../core/api/src/config/settings/csrf.py) допускает пустой список только в development; вне development без `CSRF_TRUSTED_ORIGINS` — `ImproperlyConfigured`.
 
 ### Realtime
 
