@@ -109,6 +109,8 @@ ADMIN_PASSWORD=admin
 
 **Как исправить.** Добавить `rest_framework.throttling.ScopedRateThrottle` в список классов ограничения на этих представлениях (либо в общие настройки) и снизить лимит для гостей в шаблоне.
 
+**Исправлено.** `ScopedRateThrottle` подключён на `UserAuthorizationView`, `SendConfirmationCodeView` и `ResetPasswordView` — теперь для входа и восстановления пароля действует лимит `5/minute` из `throttle_scope`, а не только общий anon-лимит. Лимит для гостей в `.env.example` снижен с `100/minute` до `20/minute`.
+
 ### В2. Восстановление пароля: короткий код без срока годности и без лимита попыток
 
 **Где:** [core/api/src/core/cms/adp/views_auth.py](../core/api/src/core/cms/adp/views_auth.py), представления отправки кода, проверки кода и сброса пароля.
