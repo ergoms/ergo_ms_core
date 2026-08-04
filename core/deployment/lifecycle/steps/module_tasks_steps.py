@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -19,6 +20,9 @@ from lifecycle.context import DeploymentContext  # noqa: E402
 from lifecycle.host import ops as host_ops  # noqa: E402
 from lifecycle.steps.base import DeploymentStep, StepResult  # noqa: E402
 
+_MODULE_TASKS_LOADER = _SCRIPTS_DIR / 'module_tasks_loader.py'
+_INCLUDE_SETUP_FULL = 'setup-full'
+
 
 class ModuleSetupTasksStep(DeploymentStep):
     """Выполнить задачи модулей с include_in: setup-full (только host)."""
@@ -31,10 +35,14 @@ class ModuleSetupTasksStep(DeploymentStep):
         return ctx.runtime == 'host'
 
     def run(self, ctx: DeploymentContext) -> StepResult:
-        # Ленивый import: избегаем цикла recipes → step → module_tasks_loader → lifecycle
-        from module_tasks_loader import INCLUDE_SETUP_FULL, tasks_for_target  # noqa: WPS433
+        if not host_ops.venv_exists(ctx.project_root, ctx.platform):
+            venv_py = host_ops.venv_python_exe(ctx.project_root, ctx.platform)
+            print(format_console('error', t('venv_not_found_at', path=venv_py)), file=sys.stderr)
+            return StepResult(exit_code=1, message=t('venv_not_found_msg'))
 
-        tasks = tasks_for_target(ctx.project_root, INCLUDE_SETUP_FULL)
+        tasks = self._load_tasks(ctx)
+        if tasks is None:
+            return StepResult(exit_code=1, message=t('module_tasks_loader_failed'))
         if not tasks:
             print(format_console('skip', t('no_module_setup_tasks')))
             return StepResult()
@@ -53,9 +61,11 @@ class ModuleSetupTasksStep(DeploymentStep):
             env['PATH'] = f'{bin_dir}{sep}{existing}' if existing else str(bin_dir)
 
         for entry in tasks:
-            print(format_console('info', f'{entry.label}: {entry.command}'))
+            label = entry.get('label', '')
+            command = entry.get('command', '')
+            print(format_console('info', f'{label}: {command}'))
             code = subprocess.call(
-                entry.command,
+                command,
                 shell=True,
                 cwd=str(ctx.project_root),
                 env=env,
@@ -64,14 +74,40 @@ class ModuleSetupTasksStep(DeploymentStep):
                 print(
                     format_console(
                         'error',
-                        t('module_task_failed', label=entry.label, code=code),
+                        t('module_task_failed', label=label, code=code),
                     ),
                     file=sys.stderr,
                 )
                 return StepResult(
                     exit_code=code,
-                    message=t('module_task_exec_failed', command=entry.command),
+                    message=t('module_task_exec_failed', command=command),
                 )
-            print(format_console('ok', entry.label))
+            print(format_console('ok', label))
 
         return StepResult()
+
+    def _load_tasks(self, ctx: DeploymentContext) -> list[dict] | None:
+        """Задачи из vscode.tasks.yaml через venv (PyYAML недоступен в portable Python)."""
+        venv_py = host_ops.venv_python_exe(ctx.project_root, ctx.platform)
+        result = subprocess.run(
+            [
+                str(venv_py), str(_MODULE_TASKS_LOADER),
+                '--root', str(ctx.project_root),
+                '--json', '--target', _INCLUDE_SETUP_FULL,
+            ],
+            cwd=str(ctx.project_root),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            if result.stderr:
+                print(result.stderr, file=sys.stderr, end='')
+            return None
+        try:
+            payload = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            print(format_console('error', t('module_tasks_loader_failed')), file=sys.stderr)
+            return None
+        tasks = payload.get('tasks')
+        return tasks if isinstance(tasks, list) else None

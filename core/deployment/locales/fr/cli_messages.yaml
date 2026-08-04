@@ -171,6 +171,7 @@ preparing_worker_services_list: "Préparation de la liste des services worker Ce
 redis_postgres_not_ready_check: "redis/postgres ne sont pas prêts. Vérifiez : ergoms docker-ps"
 setup_complete_marker: "Installation terminée : {path}"
 removed_path: "Supprimé {path}"
+module_tasks_loader_failed: "Échec du chargement des tâches module setup-full (module_tasks_loader.py)"
 no_module_setup_tasks: "Aucune tâche de module avec include_in: setup-full"
 module_setup_tasks_running: "Tâches module setup-full ({count})…"
 module_task_failed: "La tâche module « {label} » s'est terminée avec le code {code}"

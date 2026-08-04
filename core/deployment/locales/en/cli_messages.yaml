@@ -171,6 +171,7 @@ preparing_worker_services_list: "Preparing Celery worker service list for contai
 redis_postgres_not_ready_check: "redis/postgres are not ready. Check: ergoms docker-ps"
 setup_complete_marker: "Setup complete: {path}"
 removed_path: "Removed {path}"
+module_tasks_loader_failed: "Failed to load module setup-full tasks (module_tasks_loader.py)"
 no_module_setup_tasks: "No module tasks with include_in: setup-full"
 module_setup_tasks_running: "Module setup-full tasks ({count})…"
 module_task_failed: "Module task \"{label}\" exited with code {code}"

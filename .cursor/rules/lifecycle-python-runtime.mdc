@@ -1,0 +1,79 @@
+---
+description: lifecycle/runner.py — portable Python (bootstrap, без сторонних пакетов) vs venv Python (PyYAML, Poetry-зависимости); когда шаг должен идти в subprocess venv, а не import в процессе runner
+globs:
+  - core/deployment/lifecycle/**
+  - core/deployment/scripts/**
+alwaysApply: false
+---
+
+# Два Python в lifecycle-pipeline
+
+`ergoms setup` и другие рецепты `setup-full` запускаются **до того**, как в проекте появится venv с зависимостями. [`runner.py`](../../core/deployment/lifecycle/runner.py) стартует на любом доступном интерпретаторе — portable CPython (`virtual_env/packages/python/`) или системном — и только по ходу пайплайна создаёт venv ([`CreateVenvStep`](../../core/deployment/lifecycle/steps/host_steps.py)) и ставит туда зависимости, включая PyYAML.
+
+Если шаг **после** `CreateVenvStep` делает `import yaml` (или другой сторонний пакет) прямо в процессе runner — это `ModuleNotFoundError`, потому что runner всё ещё исполняется на **portable**, а не venv Python. Django-команды (`migrate`, `collectstatic`) этой проблемы не имеют: они запускаются **отдельным** subprocess'ом на venv Python через [`host_ops.run_api_command`](../../core/deployment/lifecycle/host/ops.py).
+
+## Кратко
+
+- Portable/системный Python — **bootstrap**: argparse, orchestrator, `cli_locale`, простые файловые операции. Сторонних пакетов может не быть.
+- venv Python (`virtual_env/python/…`) — появляется после `CreateVenvStep`; там же PyYAML, Poetry-зависимости.
+- Любой шаг, которому нужен пакет вроде `yaml` **после** создания venv в этом же рецепте — вызывает его **subprocess'ом на venv Python**, не `import` в процессе runner.
+- Проверка перед вызовом — `host_ops.venv_exists(project_root, platform)`; путь — `host_ops.venv_python_exe(project_root, platform)`.
+- Скрипты в `core/deployment/scripts/`, которые читает шаг (например [`module_tasks_loader.py`](../../core/deployment/scripts/module_tasks_loader.py), `host_lifecycle_loader.py`, `process_roles_loader.py`), уже умеют работать как самостоятельный CLI (`--root`, `--json`) — используй этот CLI из subprocess, не импортируй модуль напрямую.
+
+## Обязательно
+
+- Перед subprocess-вызовом на venv — `if not host_ops.venv_exists(...):` и явный `[ERROR]` (`StepResult(exit_code=1, ...)`), не тихий пропуск.
+- Результат subprocess с `--json` — разбирать через `json.loads` с `try/except json.JSONDecodeError`, а не доверять stdout напрямую.
+- Ошибку subprocess (`returncode != 0`) — пробрасывать в консоль (`stderr`) и завершать шаг ненулевым кодом, не проглатывать.
+
+## Запрещено
+
+```python
+# BAD — импорт пакета с зависимостью от PyYAML внутри процесса runner
+class SomeSetupStep(DeploymentStep):
+    def run(self, ctx: DeploymentContext) -> StepResult:
+        from some_loader import aggregate  # тянет `import yaml` на верхнем уровне
+        data = aggregate(ctx.project_root)  # ModuleNotFoundError на portable Python
+        ...
+```
+
+## Базовый пример
+
+Эталон — [`ModuleSetupTasksStep`](../../core/deployment/lifecycle/steps/module_tasks_steps.py): список задач модулей грузится через venv Python и CLI `module_tasks_loader.py --json`, а не через `from module_tasks_loader import tasks_for_target`.
+
+```python
+# GOOD — subprocess на venv Python, без import стороннего пакета в процессе runner
+def _load_tasks(self, ctx: DeploymentContext) -> list[dict] | None:
+    venv_py = host_ops.venv_python_exe(ctx.project_root, ctx.platform)
+    result = subprocess.run(
+        [str(venv_py), str(_MODULE_TASKS_LOADER), '--root', str(ctx.project_root),
+         '--json', '--target', _INCLUDE_SETUP_FULL],
+        cwd=str(ctx.project_root),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return None
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return None
+    tasks = payload.get('tasks')
+    return tasks if isinstance(tasks, list) else None
+```
+
+## Когда import в процессе runner допустим
+
+- Модуль использует только стандартную библиотеку (`json`, `re`, `pathlib`) — без сторонних пакетов.
+- Шаг гарантированно выполняется **после** re-exec / отдельного вызова на venv Python (например, шаги, вызываемые только через `ergoms api …` или `run_api_command`, которые уже в venv).
+- `cli_locale.py` и аналогичные модули bootstrap-уровня уже обрабатывают отсутствие PyYAML через `try: import yaml except ImportError: yaml = None` — следуй этому паттерну, если модуль обязан работать **и** на portable, **и** на venv Python.
+
+## Связанные правила
+
+| Тема | Файл |
+|---|---|
+| Пайплайн, шаги, рецепты | [`lifecycle-pipeline.mdc`](lifecycle-pipeline.mdc) |
+| venv, portable Python | [`virtual-env.mdc`](virtual-env.mdc) |
+| Модульные задачи `vscode.tasks.yaml` | [`module-vscode-tasks.mdc`](module-vscode-tasks.mdc) |
+| Windows / Linux | [`oc.mdc`](oc.mdc) |

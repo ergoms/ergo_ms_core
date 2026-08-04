@@ -173,6 +173,7 @@ preparing_worker_services_list: "Подготовка списка Celery worker
 redis_postgres_not_ready_check: "redis/postgres не готовы. Проверьте: ergoms docker-ps"
 setup_complete_marker: "Установка завершена: {path}"
 removed_path: "Удалён {path}"
+module_tasks_loader_failed: "Не удалось загрузить модульные задачи setup-full (module_tasks_loader.py)"
 no_module_setup_tasks: "Нет модульных задач include_in: setup-full"
 module_setup_tasks_running: "Модульные задачи setup-full ({count})…"
 module_task_failed: "Модульная задача «{label}» завершилась с кодом {code}"
