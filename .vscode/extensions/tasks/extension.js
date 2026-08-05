@@ -424,6 +424,11 @@ const STOP_MODULE_SCRIPTS = {
     )
 };
 
+/** Порты, которые при stop нужно снять с auto-forward Cursor/VS Code. */
+const STOP_MODULE_PORTS = {
+    'ollama_framework:stop-ollama': 11434
+};
+
 function resolvePythonExecutable(workspaceRoot) {
     if (!workspaceRoot) {
         return null;
@@ -440,6 +445,38 @@ function resolvePythonExecutable(workspaceRoot) {
         }
     }
     return null;
+}
+
+/**
+ * Best-effort: снять проброс порта в панели Ports (Cursor/VS Code).
+ */
+function requestCloseForwardedPort(port) {
+    if (!port || !vscode.commands) {
+        return;
+    }
+    const hosts = ['localhost', '127.0.0.1'];
+    const commandIds = [
+        'remote.tunnel.close',
+        'tunnel.close',
+        'forwardedPorts.close',
+        'ports.stopForwarding'
+    ];
+    for (const commandId of commandIds) {
+        for (const host of hosts) {
+            const payloads = [
+                { host, port },
+                { remoteHost: host, remotePort: port },
+                { id: `${host}:${port}` },
+                port
+            ];
+            for (const args of payloads) {
+                vscode.commands.executeCommand(commandId, args).then(
+                    () => {},
+                    () => {}
+                );
+            }
+        }
+    }
 }
 
 /**
@@ -492,6 +529,15 @@ function resolveStopInvocation(stopCommand, workspaceRoot) {
 function runStopCommand(stopCommand, cwd) {
     if (!stopCommand) {
         return;
+    }
+    const trimmed = String(stopCommand || '').trim();
+    const moduleMatch = trimmed.match(/^ergoms\s+([a-z0-9_]+):([a-z0-9-]+)\s*$/i);
+    if (moduleMatch) {
+        const moduleKey = `${moduleMatch[1]}:${moduleMatch[2]}`.toLowerCase();
+        const forwardedPort = STOP_MODULE_PORTS[moduleKey];
+        if (forwardedPort) {
+            requestCloseForwardedPort(forwardedPort);
+        }
     }
     const { spawnSync } = require('child_process');
     const workspaceRoot = cwd || getWorkspaceRoot();

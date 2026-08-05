@@ -75,5 +75,15 @@
     "python.terminal.activateEnvironment": true,
     "git.detectSubmodules": true,
     "git.autoRepositoryDetection": true,
-    "git.detectSubmodulesLimit": 100
+    "git.detectSubmodulesLimit": 100,
+
+    // Ollama: не перехватывать 11434 авто-forward'ом Cursor/VS Code (конфликт с ergoms start-ollama).
+    "remote.autoForwardPortsSource": "process",
+    "remote.restoreForwardedPorts": false,
+    "remote.portsAttributes": {
+        "11434": {
+            "label": "Ollama",
+            "onAutoForward": "ignore"
+        }
+    }
 }
