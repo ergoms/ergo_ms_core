@@ -2,7 +2,11 @@ When Cursor auto-generates a Git commit message for this repository:
 
 - Always write the commit message in Russian (subject and body).
 - Use Conventional Commits prefixes in English: feat, fix, docs, chore, refactor, test, perf, ci, build, style.
-- Format: `<type>: <краткое описание на русском>`.
-- Keep the subject to a single concise line (preferably under ~72 characters).
-- Only add a short body if the change is non-obvious; never restate the diff line by line.
+- Format: `<type>: <описание на русском>` — only the type prefix, then a colon and description.
+- Do NOT add a scope in parentheses after the type: no `feat(video_analysis):`, `fix(api):`, `refactor(client):`, module names, `api`/`client`/`server`, or any path segment between type and colon.
+- Write the whole message in **one or two short, clear sentences** — no more.
+- Describe **only functional change**: what the user or system can do now, what bug or behavior was fixed, what was added or removed. Not layout, styles, refactoring, or «обновление интерфейса» without saying what actually works differently.
+- Be laconic: no filler, no restating the diff file by file, no vague wording («улучшения», «доработки», «новый макет»).
+- Put the main sentence in the subject after `<type>:`. Add a second sentence in the body only if one sentence is not enough.
+- Good: `feat: На странице анализа видео добавлен фильтр по дате загрузки.` Bad: `feat: Обновление интерфейса страниц анализа видео с новым макетом и стилями.`
 - Prefer the style of recent commits in this repository.
