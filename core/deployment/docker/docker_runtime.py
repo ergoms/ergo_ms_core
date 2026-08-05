@@ -9,6 +9,7 @@ Effective env и конфигурация для Docker Compose (read-only, не
 
 from __future__ import annotations
 
+import os
 import socket
 import subprocess
 import sys
@@ -29,6 +30,7 @@ from console_tags import format_console  # noqa: E402
 from env_resolvers import load_merged_env  # noqa: E402
 from ergo_modes import (  # noqa: E402
     effective_docker_profile_jupyter,
+    effective_docker_profile_loadtest,
     effective_docker_profile_postgres,
     effective_nginx_enabled,
     effective_redis_enabled,
@@ -112,6 +114,31 @@ def write_compose_databases(path: Path, databases: dict[str, Any]) -> None:
         _yaml().safe_dump(payload, allow_unicode=True, default_flow_style=False, sort_keys=False),
         encoding='utf-8',
     )
+
+
+def build_compose_databases_loadtest(
+    project_root: Path | None,
+    raw_env: dict[str, str],
+) -> dict[str, Any]:
+    """databases.yaml для api-loadtest: host=postgres-loadtest, name=*_loadtest."""
+    base = build_compose_databases(project_root, raw_env)
+    if not base:
+        return {}
+    result = deepcopy(base)
+    default = result.get('default')
+    if isinstance(default, dict):
+        src_name = str(default.get('name') or 'ergo_ms').strip() or 'ergo_ms'
+        loadtest_name = _env(raw_env, 'LOADTEST_POSTGRES_DB', f'{src_name}_loadtest')
+        default['host'] = 'postgres-loadtest'
+        default['name'] = loadtest_name
+        default['port'] = 5432
+    redis_section = result.get('redis')
+    if isinstance(redis_section, dict):
+        redis_section['host'] = effective_redis_compose_host(
+            raw_env,
+            str(redis_section.get('host', '')),
+        )
+    return result
 
 
 def effective_docker_deps_cache(raw_env: dict[str, str]) -> str:
@@ -286,6 +313,8 @@ def compose_profiles(raw_env: dict[str, str]) -> list[str]:
     db_mode = _env(raw_env, 'DOCKER_DATABASE', 'container').lower()
     if db_mode == 'container' and effective_docker_profile_postgres(raw_env):
         profiles.append('postgres')
+    if effective_docker_profile_loadtest(raw_env):
+        profiles.append('loadtest')
     return profiles
 
 
@@ -687,7 +716,12 @@ def resolve_volume_binds(project_root: Path, raw_env: dict[str, str]) -> dict[st
 
 def prepare_compose_artifacts(project_root: Path | None = None) -> dict[str, Path]:
     root = (project_root or PROJECT_ROOT).resolve()
-    raw = load_merged_env(root)
+    raw = dict(load_merged_env(root))
+    for key, value in os.environ.items():
+        if not value or not str(value).strip():
+            continue
+        if key.startswith('DOCKER_PROFILE_') or key.startswith('LOADTEST_'):
+            raw[key] = value
     compose_env_path = _DOCKER_DIR / '.compose.env'
     compose_db_path = _DOCKER_DIR / '.compose.databases.yaml'
 
@@ -712,11 +746,25 @@ def prepare_compose_artifacts(project_root: Path | None = None) -> dict[str, Pat
 
     binds = resolve_volume_binds(root, raw)
     merged.update(binds)
-    write_compose_env(compose_env_path, merged)
 
     databases = build_compose_databases(root, raw)
     if databases:
         write_compose_databases(compose_db_path, databases)
+
+    compose_db_loadtest_path = _DOCKER_DIR / '.compose.databases.loadtest.yaml'
+    loadtest_dbs = build_compose_databases_loadtest(root, raw)
+    if loadtest_dbs:
+        write_compose_databases(compose_db_loadtest_path, loadtest_dbs)
+
+    # Порты ephemeral loadtest API / published postgres-loadtest (host provision).
+    merged.setdefault('LOADTEST_API_PORT', _env(raw, 'LOADTEST_API_PORT', '18000'))
+    merged.setdefault('LOADTEST_POSTGRES_PORT', _env(raw, 'LOADTEST_POSTGRES_PORT', '15432'))
+    if isinstance(loadtest_dbs.get('default'), dict):
+        merged.setdefault(
+            'LOADTEST_POSTGRES_DB',
+            str(loadtest_dbs['default'].get('name') or 'ergo_ms_loadtest'),
+        )
+    write_compose_env(compose_env_path, merged)
 
     celery_sql = _DOCKER_DIR / 'init' / 'postgres' / '02-celery-databases.sql'
     write_celery_init_sql(celery_sql, root)

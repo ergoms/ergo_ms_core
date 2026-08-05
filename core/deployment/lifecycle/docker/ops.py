@@ -44,6 +44,7 @@ from lifecycle.docker.ignore import DOCKERIGNORE_ARTIFACT_PATHS  # noqa: E402
 COMPOSE_ARTIFACT_PATHS = (
     DOCKER_DIR / '.compose.env',
     DOCKER_DIR / '.compose.databases.yaml',
+    DOCKER_DIR / '.compose.databases.loadtest.yaml',
     DOCKER_DIR / 'docker-compose.workers.generated.yml',
     DOCKER_DIR / 'docker-compose.modules.generated.yml',
     DOCKER_DIR / 'docker-compose.build.generated.yml',
@@ -80,6 +81,8 @@ def compose_file_list(mode: str, raw_env: dict[str, str]) -> list[Path]:
         files.append(DOCKER_DIR / 'docker-compose.nginx.yml')
     if env_bool_key(raw_env, 'DOCKER_PROFILE_JUPYTER'):
         files.append(DOCKER_DIR / 'docker-compose.jupyter.yml')
+    if env_bool_key(raw_env, 'DOCKER_PROFILE_LOADTEST'):
+        files.append(DOCKER_DIR / 'docker-compose.loadtest.yml')
     workers = DOCKER_DIR / 'docker-compose.workers.generated.yml'
     if workers.is_file():
         files.append(workers)
@@ -101,6 +104,7 @@ def compose_file_list_full() -> list[Path]:
         DOCKER_DIR / 'docker-compose.postgres.yml',
         DOCKER_DIR / 'docker-compose.nginx.yml',
         DOCKER_DIR / 'docker-compose.jupyter.yml',
+        DOCKER_DIR / 'docker-compose.loadtest.yml',
     ]
     if BUILD_CACHE_OUTPUT.is_file():
         files.append(BUILD_CACHE_OUTPUT)
@@ -227,9 +231,14 @@ def build_compose_cmd(
         sys.exit(1)
 
     root = (project_root or PROJECT_ROOT).resolve()
-    raw = load_merged_env(root)
+    raw = dict(load_merged_env(root))
+    # Процессное окружение перекрывает .env для профилей / loadtest портов.
+    for key, value in os.environ.items():
+        if not value or not value.strip():
+            continue
+        if key.startswith('DOCKER_PROFILE_') or key.startswith('LOADTEST_'):
+            raw[key] = value
     if mode:
-        raw = dict(raw)
         raw['DOCKER_MODE'] = mode
 
     prepare_compose_artifacts(root)
@@ -255,7 +264,11 @@ def build_compose_cmd(
     for compose_file in compose_files:
         cmd.extend(['-f', str(compose_file)])
 
-    profiles = ['postgres', 'nginx', 'jupyter'] if for_clean else compose_profiles(raw)
+    profiles = (
+        ['postgres', 'nginx', 'jupyter', 'loadtest']
+        if for_clean
+        else compose_profiles(raw)
+    )
     for profile in profiles:
         cmd.extend(['--profile', profile])
 

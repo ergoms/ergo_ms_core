@@ -244,3 +244,10 @@ def effective_docker_profile_jupyter(values: Mapping[str, str]) -> bool:
     if _has_explicit(values, 'DOCKER_PROFILE_JUPYTER'):
         return env_bool(_get(values, 'DOCKER_PROFILE_JUPYTER'))
     return effective_jupyter_enabled(values)
+
+
+def effective_docker_profile_loadtest(values: Mapping[str, str]) -> bool:
+    """Явный DOCKER_PROFILE_LOADTEST (по умолчанию выкл.)."""
+    if _has_explicit(values, 'DOCKER_PROFILE_LOADTEST'):
+        return env_bool(_get(values, 'DOCKER_PROFILE_LOADTEST'))
+    return False

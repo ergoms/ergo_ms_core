@@ -53,6 +53,11 @@ def cache_tmp_dir(root: Path) -> Path:
     return cache_dir(root) / 'tmp'
 
 
+def cache_loadtest_dir(root: Path) -> Path:
+    """Артефакты loadtest (temp databases.yaml, ephemeral)."""
+    return cache_dir(root) / 'loadtest'
+
+
 def nssm_dir(root: Path) -> Path:
     return packages_dir(root) / 'nssm'
 
