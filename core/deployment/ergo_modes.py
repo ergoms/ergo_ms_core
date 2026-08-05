@@ -24,6 +24,14 @@ ERGO_EMAIL_VALUES = frozenset({'none', 'smtp'})
 ERGO_MEDIA_VALUES = frozenset({'local', 'remote'})
 ERGO_ENV_VALUES = frozenset({'development', 'production'})
 ERGO_REALTIME_VALUES = frozenset({'websocket', 'sse', 'http_polling'})
+ERGO_SECURITY_VALUES = frozenset({'open', 'standard', 'hardened', 'maximum'})
+ERGO_SECURITY_ENFORCE_VALUES = frozenset({'off', 'warn', 'raise'})
+_ERGO_SECURITY_RANKS = {
+    'open': 0,
+    'standard': 1,
+    'hardened': 2,
+    'maximum': 3,
+}
 _ERGO_ENV_ALIASES = {
     'dev': 'development',
     'prod': 'production',
@@ -109,6 +117,27 @@ def normalize_deploy_type(raw: str, default: str = 'development') -> str:
 def ergo_env(values: Mapping[str, str]) -> str:
     """development | production (допускаются alias: dev | prod)."""
     return normalize_deploy_type(_get(values, 'ERGO_ENV', 'development'))
+
+
+def ergo_security(values: Mapping[str, str]) -> str:
+    """Уровень безопасности: open | standard | hardened | maximum (default standard)."""
+    value = _get(values, 'ERGO_SECURITY', 'standard').lower()
+    return value if value in ERGO_SECURITY_VALUES else 'standard'
+
+
+def ergo_security_enforce(values: Mapping[str, str]) -> str:
+    """Реакция CLI на нарушения: off | warn | raise (default warn)."""
+    value = _get(values, 'ERGO_SECURITY_ENFORCE', 'warn').lower()
+    return value if value in ERGO_SECURITY_ENFORCE_VALUES else 'warn'
+
+
+def security_level_rank(level: str) -> int:
+    """Ранг уровня; неизвестный уровень → rank of standard."""
+    return _ERGO_SECURITY_RANKS.get((level or '').strip().lower(), 1)
+
+
+def ergo_security_is_explicit(values: Mapping[str, str]) -> bool:
+    return _has_explicit(values, 'ERGO_SECURITY')
 
 
 def effective_deploy_type(

@@ -240,6 +240,10 @@ sections:
   - name: core-rules-check
     summary: 'Vérifications du noyau : isolation des modules, schémas de contrats du pont, console.error, select natif, imports
       modules.*, mid-indent/ast.parse, BOM/LF dans les scripts de déploiement'
+  - name: security-modes
+    summary: Référence des niveaux ERGO_SECURITY (étape 0, sans effet runtime)
+  - name: security-check
+    summary: Rapport de conformité au niveau de sécurité (étape 0, rapport seul)
   - name: deployment-test
     invoke: ergoms deployment-test
     summary: Tests unitaires de déploiement (docker_runtime, ergo_modes, env_resolvers, recipes, nginx render) sans démon

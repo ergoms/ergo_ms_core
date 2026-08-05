@@ -241,6 +241,10 @@ sections:
   - name: core-rules-check
     summary: 'Проверка ядра: изоляция модулей, схемы контрактов моста, console.error, native select, импорты modules.*, mid-indent/ast.parse,
       BOM/LF в deployment-скриптах'
+  - name: security-modes
+    summary: Справка по уровням ERGO_SECURITY (этап 0, без изменения работы системы)
+  - name: security-check
+    summary: Отчёт о соответствии установки уровню безопасности (этап 0, только проверка)
   - name: deployment-test
     invoke: ergoms deployment-test
     summary: Unit-тесты deployment (docker_runtime, ergo_modes, env_resolvers, recipes, nginx render) без Docker daemon

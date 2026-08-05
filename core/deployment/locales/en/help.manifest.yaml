@@ -240,6 +240,10 @@ sections:
   - name: core-rules-check
     summary: 'Core checks: module isolation, bridge contract schemas, console.error, native select, modules.* imports, mid-indent/ast.parse,
       BOM/LF in deployment scripts'
+  - name: security-modes
+    summary: ERGO_SECURITY levels reference (stage 0, does not change runtime)
+  - name: security-check
+    summary: Report whether the install matches the security level (stage 0, report only)
   - name: deployment-test
     invoke: ergoms deployment-test
     summary: Deployment unit tests (docker_runtime, ergo_modes, env_resolvers, recipes, nginx render) without Docker daemon

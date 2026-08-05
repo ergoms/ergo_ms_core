@@ -101,6 +101,18 @@ ergoms help module video_analysis
 
 Общая справка по ядру: `ergoms help`.
 
+## Режимы безопасности (этап 0)
+
+Отчёт без изменения работы системы. Подробности — [security-modes.md](security-modes.md).
+
+```cmd
+ergoms security-modes
+ergoms security-modes --controls
+ergoms security-check
+ergoms security-check --profile hardened
+ergoms security-check --enforce off
+```
+
 ## Зависимости модулей (Python)
 
 Пакеты для модуля прописывают не в корневом `pyproject.toml`, а в `modules/<имя>/pyproject.toml`. Управляют этим через прокси `ergoms api`:
