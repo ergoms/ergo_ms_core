@@ -616,6 +616,30 @@ function Show-ServiceLogs {
 
     
 
+    # Portable / default DB logs live outside logs/; follow via start-db-dev.
+
+    if ($ServiceName -eq 'ergo_ms_postgres' -or $ServiceName -eq 'ergo_ms_db' -or $ServiceName -eq 'ergo-postgres' -or $ServiceName -eq 'ergo_ms_sqlite' -or $ServiceName -eq 'ergo_ms_mysql' -or $ServiceName -eq 'ergo_ms_mssql') {
+
+        $py = Join-Path $ProjectRoot 'virtual_env\python\Scripts\python.exe'
+
+        $script = Join-Path $ProjectRoot 'core\deployment\scripts\start_db_logs_dev.py'
+
+        if (-not (Test-Path $py)) {
+
+            Write-ErgomsMessage -Key 'svc_log_file_not_found' -Color Red -Stderr -Param @{ path = $script }
+
+            exit 1
+
+        }
+
+        & $py $script
+
+        exit $LASTEXITCODE
+
+    }
+
+    
+
     $logsDir = Get-ProjectLogsDir -ProjectRoot $ProjectRoot
 
     $logPath = Join-Path $logsDir "${ServiceName}.log"

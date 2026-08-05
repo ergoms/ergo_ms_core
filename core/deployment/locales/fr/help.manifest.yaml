@@ -54,7 +54,7 @@ sections:
   - name: dev
     summary: Démarrer l'API avec préchauffage des caches (mode depuis ERGO_ENV)
   - name: start-all
-    summary: API, client, Media API, worker et beat (sans services OS)
+    summary: Journaux DB, Redis (si activé), API, client, Media API, worker et beat (sans services OS)
   - name: start-api
     summary: API uniquement
   - name: start-module
@@ -181,6 +181,8 @@ sections:
     summary: Redis en avant-plan pour VS Code (fermer le terminal arrête Redis)
   - name: stop-redis-dev
     summary: Arrêter les sessions Redis portable de dev (après fermeture du terminal)
+  - name: start-db-dev
+    summary: Journaux de la base default selon ERGO_DB pour VS Code Start All Services
   - name: start-nginx-dev
     summary: Nginx en avant-plan après disponibilité de l'API (fermer le terminal arrête nginx)
   - name: stop-nginx-dev

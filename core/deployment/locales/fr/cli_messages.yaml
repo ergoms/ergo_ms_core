@@ -840,8 +840,20 @@ tls_error_domain_missing: "[ERROR] Domaine non spécifié et introuvable dans .e
 tls_suggest_env_heading: "Variables recommandées pour env/nginx.env après install-tls :"
 tls_cert_not_found: "  Certificate : introuvable"
 
+# --- db logs / start-db-dev ---
+db_logs_header: "Base par défaut : {label} (ERGO_DB={mode})"
+db_logs_connection: "Connexion : {user}@{host}:{port}/{name}"
+db_logs_sqlite_path: "Fichier SQLite : {path}"
+db_logs_sqlite_api_hint: "SQLite n'a pas de journaux serveur ; flux de api.log ci-dessous (erreurs ORM/SQL)."
+db_logs_portable_not_installed: "PostgreSQL portable non installé. Exécutez : ergoms install-postgres"
+db_logs_docker_follow: "Docker Compose : suivi des journaux du service « {service} »..."
+db_logs_docker_no_service: "Aucun service DB Docker Compose pour ERGO_DB={mode}."
+db_logs_system_postgres_hint: "Journaux PostgreSQL système introuvables. Vérifiez le journal du service OS / data/log."
+db_logs_system_mysql_hint: "Journaux MySQL système introuvables. Vérifiez error.log MySQL."
+db_logs_system_mssql_hint: "ERRORLOG SQL Server introuvable. Vérifiez le répertoire LOG de l'instance."
+
 # --- vscode sync ---
-vscode_sync_target: "[INFO] {target} : {count} service(s) (mode : {mode}, {redis})"
+vscode_sync_target: "[INFO] {target} : {count} service(s) (mode : {mode}, {redis}, db={db})"
 
 # --- portable runtime ---
 portable_unsupported_arch_node: "[ERROR] Architecture non prise en charge pour Node.js portable : {arch}"

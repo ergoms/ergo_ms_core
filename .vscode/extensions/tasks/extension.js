@@ -105,6 +105,10 @@ const ERGO_SYNC_PROVIDER = 'ergo-sync';
 /** Targets where terminal name comes from service description (not nameTemplate). */
 const ERGO_SYNC_USE_DESCRIPTION = new Set([
     'logs-all',
+    'db-dev',
+    'redis-dev',
+    'client-dev',
+    'optional-services',
     'module-start',
     'module-logs',
 ]);

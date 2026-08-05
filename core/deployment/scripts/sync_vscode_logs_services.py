@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from deployment_env import PROJECT_ROOT, is_nginx_enabled, is_redis_enabled
+from deployment_env import PROJECT_ROOT, get_ergo_db, is_nginx_enabled, is_redis_enabled
 
 _SCRIPTS_DIR = Path(__file__).resolve().parent
 _DEPLOYMENT_DIR = _SCRIPTS_DIR.parent
@@ -30,6 +30,7 @@ TARGET_LOGS = 'logs'
 TARGET_LOGS_ALL = 'logs-all'
 TARGET_OPTIONAL = 'optional-services'
 TARGET_REDIS_DEV = 'redis-dev'
+TARGET_DB_DEV = 'db-dev'
 TARGET_CLIENT_DEV = 'client-dev'
 TARGET_MODULE_START = 'module-start'
 TARGET_MODULE_LOGS = 'module-logs'
@@ -39,6 +40,7 @@ ALL_TARGETS = (
     TARGET_LOGS_ALL,
     TARGET_OPTIONAL,
     TARGET_REDIS_DEV,
+    TARGET_DB_DEV,
     TARGET_CLIENT_DEV,
     TARGET_MODULE_START,
     TARGET_MODULE_LOGS,
@@ -106,6 +108,17 @@ def _core_log_services(*, with_commands: bool) -> list[dict[str, str]]:
                 command='ergoms logs ergo_ms_redis 500' if with_commands else '',
             )
         )
+    db_mode = get_ergo_db()
+    from start_db_logs_dev import db_service_label, db_terminal_key  # noqa: WPS433
+
+    db_key = db_terminal_key(db_mode)
+    items.append(
+        _svc(
+            f'ergo_ms_{db_key}',
+            db_service_label(db_mode),
+            command='ergoms start-db-dev' if with_commands else '',
+        )
+    )
     return items
 
 
@@ -169,24 +182,80 @@ def build_logs_all_services() -> list[dict[str, str]]:
 def build_optional_services() -> list[dict[str, str]]:
     items: list[dict[str, str]] = []
     if is_redis_enabled():
-        items.append(_svc('redis', 'Redis'))
+        items.append(
+            _svc(
+                'Redis',
+                'Redis',
+                command='ergoms start-redis-dev',
+                stop_command='ergoms stop-redis-dev',
+            )
+        )
     if is_nginx_enabled():
-        items.append(_svc('nginx', 'Nginx reverse proxy'))
+        items.append(
+            _svc(
+                'Nginx',
+                'Nginx',
+                command='ergoms start-nginx-dev',
+                stop_command='ergoms stop-nginx-dev',
+            )
+        )
     else:
-        items.append(_svc('client', 'Vue.js client dev server'))
+        items.append(
+            _svc(
+                'Client',
+                'Client',
+                command='ergoms start-client-dev',
+                stop_command='ergoms stop-client-dev',
+            )
+        )
     return items
 
 
 def build_redis_dev_services() -> list[dict[str, str]]:
     if is_redis_enabled():
-        return [_svc('redis', 'Redis')]
+        return [
+            _svc(
+                'Redis',
+                'Redis',
+                command='ergoms start-redis-dev',
+                stop_command='ergoms stop-redis-dev',
+            )
+        ]
     return []
+
+
+def build_db_dev_services() -> list[dict[str, str]]:
+    from start_db_logs_dev import db_service_label, db_terminal_title  # noqa: WPS433
+
+    db_mode = get_ergo_db()
+    title = db_terminal_title(db_mode)
+    return [
+        _svc(
+            title,
+            db_service_label(db_mode),
+            command='ergoms start-db-dev',
+        )
+    ]
 
 
 def build_client_dev_services() -> list[dict[str, str]]:
     if is_nginx_enabled():
-        return [_svc('nginx', 'Nginx reverse proxy')]
-    return [_svc('client', 'Vue.js client dev server')]
+        return [
+            _svc(
+                'Nginx',
+                'Nginx',
+                command='ergoms start-nginx-dev',
+                stop_command='ergoms stop-nginx-dev',
+            )
+        ]
+    return [
+        _svc(
+            'Client',
+            'Client',
+            command='ergoms start-client-dev',
+            stop_command='ergoms stop-client-dev',
+        )
+    ]
 
 
 def build_module_start_services() -> list[dict[str, str]]:
@@ -202,6 +271,7 @@ _BUILDERS = {
     TARGET_LOGS_ALL: build_logs_all_services,
     TARGET_OPTIONAL: build_optional_services,
     TARGET_REDIS_DEV: build_redis_dev_services,
+    TARGET_DB_DEV: build_db_dev_services,
     TARGET_CLIENT_DEV: build_client_dev_services,
     TARGET_MODULE_START: build_module_start_services,
     TARGET_MODULE_LOGS: build_module_logs_services,
@@ -222,6 +292,7 @@ def build_all_payloads() -> dict[str, Any]:
 def _print_summary() -> None:
     mode = 'nginx' if is_nginx_enabled() else 'client'
     redis = 'redis' if is_redis_enabled() else 'no-redis'
+    db = get_ergo_db()
     for name in ALL_TARGETS:
         payload = build_target_payload(name)
         count = len(payload['services'])
@@ -232,6 +303,7 @@ def _print_summary() -> None:
                 count=count,
                 mode=mode,
                 redis=redis,
+                db=db,
             )
         )
 

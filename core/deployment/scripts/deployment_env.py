@@ -20,6 +20,7 @@ from ergo_modes import (  # noqa: E402
     effective_nginx_enabled,
     effective_postgres_force_install,
     effective_redis_enabled,
+    ergo_db,
     should_install_portable_postgres,
 )
 
@@ -100,6 +101,11 @@ def is_nginx_enabled() -> bool:
 
 def is_redis_enabled() -> bool:
     return effective_redis_enabled(_values_for_modes())
+
+
+def get_ergo_db() -> str:
+    """Режим default БД из ERGO_DB (sqlite|postgres|portable_postgres|mysql|mssql)."""
+    return ergo_db(_values_for_modes())
 
 
 def is_docker_enabled() -> bool:

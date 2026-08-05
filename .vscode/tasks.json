@@ -209,10 +209,11 @@
         },
         {
             "label": "Services",
-            "detail": "Внутренняя композиция: Redis Dev → backend → модули → клиент",
+            "detail": "Внутренняя композиция: логи БД → Redis Dev → backend → модули → клиент",
             "hide": true,
             "dependsOrder": "sequence",
             "dependsOn": [
+                "Database Dev",
                 "Redis Dev",
                 "Backend Services",
                 "Module Services",
@@ -222,6 +223,35 @@
                 "reveal": "silent",
                 "panel": "shared"
             },
+            "windows": {
+                "options": {
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:Path};${env:PATH};${env:SystemRoot}\\System32;${env:SystemRoot}\\System32\\WindowsPowerShell\\v1.0"
+                    }
+                }
+            },
+            "linux": {
+                "options": {
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
+                }
+            }
+        },
+        {
+            "label": "Database Dev",
+            "detail": "Открыть логи default БД по ERGO_DB (sqlite, postgres, portable_postgres, mysql, mssql)",
+            "hide": true,
+            "type": "multi-terminal",
+            "source": {
+                "provider": "ergo-sync",
+                "target": "db-dev"
+            },
+            "commandTemplate": "ergoms start-db-dev",
+            "nameTemplate": "${key}",
+            "group": "db-dev",
+            "delay": 300,
+            "hideControlTerminal": true,
             "windows": {
                 "options": {
                     "env": {
@@ -373,7 +403,7 @@
         },
         {
             "label": "Start All Services",
-            "detail": "Запустить все службы разработки: прогрев кэшей, Redis, API, Media API, Celery, модули и клиент после готовности API",
+            "detail": "Запустить все службы разработки: прогрев кэшей, логи БД, Redis, API, Media API, Celery, модули и клиент после готовности API",
             "dependsOrder": "sequence",
             "dependsOn": [
                 "Cache Warmup",
@@ -1002,7 +1032,7 @@
         },
         {
             "label": "Logs: All Services",
-            "detail": "Открыть терминалы логов ядра, Celery и модулей",
+            "detail": "Открыть терминалы логов ядра, default БД, Celery и модулей",
             "type": "multi-terminal",
             "sources": [
                 {

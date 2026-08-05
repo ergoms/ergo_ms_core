@@ -31,12 +31,27 @@ def resolve_service_log_files(service_name: str, project_root: Path | None = Non
     base = service_name.replace('.service', '')
     logs_dir = resolve_logs_dir(project_root)
     mapping = service_log_map(project_root)
+    root = project_root or PROJECT_ROOT
 
     if (
         base.startswith('ergo_ms_celery_worker_')
         or base.startswith('ergo-celery-worker-')
     ):
         return [logs_dir / log_basename('CELERY_WORKER', project_root)]
+
+    if base in (
+        'ergo_ms_postgres',
+        'ergo-postgres',
+        'ergo_ms_db',
+        'ergo_ms_sqlite',
+        'ergo_ms_mysql',
+        'ergo_ms_mssql',
+    ):
+        from start_db_logs_dev import resolve_default_db_log_paths  # noqa: WPS433
+
+        paths = resolve_default_db_log_paths(root=root)
+        existing = [path for path in paths if path.is_file()]
+        return existing or (paths[:1] if paths else [logs_dir / f'{base}.log'])
 
     names = mapping.get(base)
     if names:

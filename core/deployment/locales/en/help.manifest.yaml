@@ -54,7 +54,7 @@ sections:
   - name: dev
     summary: Start API with cache warmup (mode from ERGO_ENV)
   - name: start-all
-    summary: API, client, Media API, worker, and beat (without OS services)
+    summary: DB logs, Redis (if enabled), API, client, Media API, worker, and beat (without OS services)
   - name: start-api
     summary: API only
   - name: start-module
@@ -181,6 +181,8 @@ sections:
     summary: Redis in foreground for VS Code (closing the terminal stops Redis)
   - name: stop-redis-dev
     summary: Stop portable Redis dev sessions (after closing the terminal)
+  - name: start-db-dev
+    summary: Tail default database logs by ERGO_DB for VS Code Start All Services
   - name: start-nginx-dev
     summary: Nginx in foreground after API is ready (closing the terminal stops nginx)
   - name: stop-nginx-dev

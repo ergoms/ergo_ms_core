@@ -71,6 +71,8 @@ try { ... } catch (e) { await handleApiError(e, tGlobal('errors.api.generic')) }
 
 Полезные функции: `showWarning`, `showInfo`, `showToast`, `normalizeToastMessage`, `getToast`, `showValidationError`, `showSaveSuccess`, `showDeleteSuccess`.
 
+Мягкая отмена через кнопку в success-toast — `showUndoableSuccess` (флаг `CLIENT_TOAST_UNDO_ENABLED`, по умолчанию выкл.): [`toast-undo.mdc`](toast-undo.mdc).
+
 Разбор ошибок API: `@/js/utils/apiErrorMessage.js` (`extractApiError`, `parseApiErrorData`); toast — `handleApiError`.
 
 ## Подтверждения действий
@@ -173,6 +175,7 @@ watchState(() => {
 | Компоненты UI | [`components.mdc`](components.mdc) |
 | Темы, шрифты | [`themes.mdc`](themes.mdc) |
 | Модалки, confirm | [`modal-center.mdc`](modal-center.mdc) |
+| Undo в toast | [`toast-undo.mdc`](toast-undo.mdc) |
 | Ошибки API | [`log-error.mdc`](log-error.mdc) |
 | Права маршрутов (UX) | [`permission_rules.mdc`](permission_rules.mdc) |
 | Модули, мост | [`modules.mdc`](modules.mdc) |

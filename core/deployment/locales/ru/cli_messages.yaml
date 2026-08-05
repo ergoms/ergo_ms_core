@@ -842,8 +842,20 @@ tls_error_domain_missing: "[ERROR] Домен не указан и не найд
 tls_suggest_env_heading: "Рекомендуемые переменные для env/nginx.env после install-tls:"
 tls_cert_not_found: "  Certificate: не найден"
 
+# --- db logs / start-db-dev ---
+db_logs_header: "Default БД: {label} (ERGO_DB={mode})"
+db_logs_connection: "Подключение: {user}@{host}:{port}/{name}"
+db_logs_sqlite_path: "Файл SQLite: {path}"
+db_logs_sqlite_api_hint: "У SQLite нет серверных логов; ниже — api.log (ошибки ORM и SQL)."
+db_logs_portable_not_installed: "Portable PostgreSQL не установлен. Выполните: ergoms install-postgres"
+db_logs_docker_follow: "Docker Compose: потоковый вывод логов сервиса «{service}»..."
+db_logs_docker_no_service: "Для ERGO_DB={mode} нет сервиса БД в Docker Compose."
+db_logs_system_postgres_hint: "Системные логи PostgreSQL не найдены в типичных путях. Смотрите журнал службы ОС / data/log."
+db_logs_system_mysql_hint: "Системные логи MySQL не найдены в типичных путях. Смотрите error.log службы MySQL."
+db_logs_system_mssql_hint: "Логи SQL Server (ERRORLOG) не найдены в типичных путях. Смотрите каталог LOG экземпляра."
+
 # --- vscode sync ---
-vscode_sync_target: "[INFO] {target}: {count} сервис(ов) (режим: {mode}, {redis})"
+vscode_sync_target: "[INFO] {target}: {count} сервис(ов) (режим: {mode}, {redis}, db={db})"
 
 # --- portable runtime ---
 portable_unsupported_arch_node: "[ERROR] Неподдерживаемая архитектура для portable Node.js: {arch}"

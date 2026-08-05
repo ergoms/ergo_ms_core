@@ -54,7 +54,7 @@ sections:
   - name: dev
     summary: Запуск API с прогревом кэшей (режим из ERGO_ENV)
   - name: start-all
-    summary: API, клиент, Media API, worker и beat (без служб ОС)
+    summary: Логи БД, Redis (если включён), API, клиент, Media API, worker и beat (без служб ОС)
   - name: start-api
     summary: Только API
   - name: start-module
@@ -182,6 +182,8 @@ sections:
     summary: Redis в foreground для VS Code (закрытие терминала останавливает Redis)
   - name: stop-redis-dev
     summary: Остановить portable Redis dev-сессии (после закрытия терминала)
+  - name: start-db-dev
+    summary: Логи default БД по ERGO_DB для VS Code Start All Services
   - name: start-nginx-dev
     summary: Nginx в foreground после готовности API (закрытие терминала останавливает nginx)
   - name: stop-nginx-dev

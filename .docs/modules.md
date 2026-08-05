@@ -54,6 +54,7 @@ modules/<имя>/
 ├── host_lifecycle.yaml         # install/uninstall/stop OS-службы
 ├── process_roles.yaml          # роли в ergoms resource-usage
 ├── vscode.tasks.yaml           # Run Task + setup-full / start-all
+├── integrations.yaml           # requires / extends между модулями
 ├── pyproject.toml              # Python-зависимости модуля
 └── client/package.json         # npm-зависимости клиента модуля
 ```
@@ -67,6 +68,7 @@ modules/<имя>/
 | Права модуля в ADP | `api/permission_catalog.py` |
 | Фоновые задачи | `api/tasks.py` + `celery_config.py` |
 | Вызов из другого модуля / ядра | ModuleBridge в `integrations.py` |
+| Обязательная / расширяющая зависимость модуля | `integrations.yaml` (`requires` / `extends`) |
 | Свои команды CLI | `ergoms.conf` + `ergoms.help.yaml` |
 | Участие в Setup Full / Start All | `vscode.tasks.yaml` → `include_in` |
 | OS-служба вместе с install-services | `host_lifecycle.yaml` (install **и** uninstall) |
@@ -81,7 +83,7 @@ modules/<имя>/
 
 ### Регистрация приложения
 
-Файл `api/apps.py` обязателен для модулей с серверной частью. `ModuleDiscoverer` находит его сам; вручную в `INSTALLED_APPS` модуль не добавляют. Зависимость порядка загрузки от другого модуля — поле `module_requires` (имена папок в `modules/`).
+Файл `api/apps.py` обязателен для модулей с серверной частью. `ModuleDiscoverer` находит его сам; вручную в `INSTALLED_APPS` модуль не добавляют. Зависимости от других модулей — корневой `integrations.yaml`: `requires` (обязательные, порядок загрузки) и `extends` (опциональные расширяющие; отсутствие не мешает старту).
 
 При командах схемы БД (`migrate` / `makemigrations`) у модулей пропускается `ready()` и не подключаются URL — схема строится без runtime-моста.
 

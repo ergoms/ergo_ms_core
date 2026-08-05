@@ -39,6 +39,7 @@ modules/<имя>/
 ├── host_lifecycle.yaml      # install/uninstall/stop демона в install-services и тестах (если есть служба/процесс)
 ├── packages.yaml            # portable-пакеты в virtual_env/packages (если модуль ставит бинарники)
 ├── vscode.tasks.yaml        # задачи Run Task + include_in setup-full/start-all (необязательно)
+├── integrations.yaml        # depends: requires (обязательные) / extends (опциональные)
 └── README.md
 ```
 
@@ -58,15 +59,24 @@ Portable-бинарники модуля (ollama, ffmpeg и т.п.) — толь
 
 ## Регистрация на сервере
 
+Зависимости модулей — корневой [`integrations.yaml`](../../core/api/src/core/utils/auto_api/module_integrations.py) (имена папок `modules/<name>`):
+
+```yaml
+# modules/<name>/integrations.yaml
+requires:          # обязательные: нет модуля → ImproperlyConfigured; топсорт INSTALLED_APPS
+  - <provider>
+extends:           # опциональные: нет модуля → старт OK; фичи через bridge.has / default
+  - <optional_enhancer>
+```
+
+- `requires` — обязательная интеграция и дуга порядка загрузки (зависимость раньше потребителя).
+- `extends` — расширяющая интеграция; в топсорт **не** входит (иначе цикл, когда A.`extends` B и B.`requires` A).
+- Только односторонние `requires`: мягкий `bridge.has` в обе стороны не дублируй в `requires`.
+
 ```python
 # api/apps.py
 class MyModuleConfig(AppConfig):
     name = 'modules.<name>.api'
-    # Если ready()/import нужен bridge другого модуля — объяви зависимость
-    # (имена папок modules/<name>). Discovery топологически упорядочит INSTALLED_APPS.
-    # Только односторонние дуги: мягкий bridge.has в обе стороны не дублируй
-    # (иначе цикл <name_a>↔<name_b>).
-    module_requires = ('<provider>',)
 
     def ready(self):
         from . import integrations  # если есть мост

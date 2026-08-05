@@ -840,8 +840,20 @@ tls_error_domain_missing: "[ERROR] Domain not specified and not found in .env / 
 tls_suggest_env_heading: "Recommended variables for env/nginx.env after install-tls:"
 tls_cert_not_found: "  Certificate: not found"
 
+# --- db logs / start-db-dev ---
+db_logs_header: "Default DB: {label} (ERGO_DB={mode})"
+db_logs_connection: "Connection: {user}@{host}:{port}/{name}"
+db_logs_sqlite_path: "SQLite file: {path}"
+db_logs_sqlite_api_hint: "SQLite has no server logs; streaming api.log below (ORM/SQL errors)."
+db_logs_portable_not_installed: "Portable PostgreSQL is not installed. Run: ergoms install-postgres"
+db_logs_docker_follow: "Docker Compose: following logs for service \"{service}\"..."
+db_logs_docker_no_service: "No Docker Compose DB service for ERGO_DB={mode}."
+db_logs_system_postgres_hint: "System PostgreSQL logs not found in common paths. Check the OS service journal / data/log."
+db_logs_system_mysql_hint: "System MySQL logs not found in common paths. Check the MySQL error.log."
+db_logs_system_mssql_hint: "SQL Server ERRORLOG not found in common paths. Check the instance LOG directory."
+
 # --- vscode sync ---
-vscode_sync_target: "[INFO] {target}: {count} service(s) (mode: {mode}, {redis})"
+vscode_sync_target: "[INFO] {target}: {count} service(s) (mode: {mode}, {redis}, db={db})"
 
 # --- portable runtime ---
 portable_unsupported_arch_node: "[ERROR] Unsupported architecture for portable Node.js: {arch}"
