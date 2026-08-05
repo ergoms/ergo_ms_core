@@ -414,6 +414,16 @@ const STOP_DEV_SCRIPTS = {
     'stop-client-dev': path.join('core', 'deployment', 'scripts', 'stop_client_if_enabled.py')
 };
 
+/** Модульные stop-команды ergoms → deployment-скрипт (без обёртки ergoms). */
+const STOP_MODULE_SCRIPTS = {
+    'ollama_framework:stop-ollama': path.join(
+        'modules',
+        'ollama_framework',
+        'deployment',
+        'stop_ollama.py'
+    )
+};
+
 function resolvePythonExecutable(workspaceRoot) {
     if (!workspaceRoot) {
         return null;
@@ -437,10 +447,25 @@ function resolvePythonExecutable(workspaceRoot) {
  */
 function resolveStopInvocation(stopCommand, workspaceRoot) {
     const trimmed = String(stopCommand || '').trim();
-    const match = trimmed.match(/^ergoms\s+(stop-[a-z0-9-]+-dev)\s*$/i);
-    if (match && workspaceRoot) {
-        const scriptRel = STOP_DEV_SCRIPTS[match[1].toLowerCase()];
-        const pythonExe = resolvePythonExecutable(workspaceRoot);
+    const pythonExe = workspaceRoot ? resolvePythonExecutable(workspaceRoot) : null;
+    const devMatch = trimmed.match(/^ergoms\s+(stop-[a-z0-9-]+-dev)\s*$/i);
+    if (devMatch && workspaceRoot) {
+        const scriptRel = STOP_DEV_SCRIPTS[devMatch[1].toLowerCase()];
+        if (scriptRel && pythonExe) {
+            return {
+                executable: pythonExe,
+                args: [path.join(workspaceRoot, scriptRel)],
+                envExtra: {
+                    PYTHONIOENCODING: 'utf-8',
+                    PYTHONUTF8: '1'
+                }
+            };
+        }
+    }
+    const moduleMatch = trimmed.match(/^ergoms\s+([a-z0-9_]+):([a-z0-9-]+)\s*$/i);
+    if (moduleMatch && workspaceRoot) {
+        const moduleKey = `${moduleMatch[1]}:${moduleMatch[2]}`.toLowerCase();
+        const scriptRel = STOP_MODULE_SCRIPTS[moduleKey];
         if (scriptRel && pythonExe) {
             return {
                 executable: pythonExe,
@@ -637,12 +662,6 @@ async function executeMultiTerminalTask(task) {
         return;
     }
 
-    if (String(group || '').startsWith('logs')) {
-        vscode.window.showInformationMessage(
-            `ERGO MS Logs: открываю ${tasks.length} терминал(ов)…`
-        );
-    }
-    
     // Останавливаем старые задачи этой группы
     if (taskGroups.has(group)) {
         for (const item of taskGroups.get(group)) {
