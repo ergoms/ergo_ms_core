@@ -1,4 +1,4 @@
-﻿"""Реестр runners контролей безопасности (этап 0–1)."""
+"""Реестр runners контролей безопасности (этап 0–1)."""
 
 from __future__ import annotations
 
@@ -8,8 +8,11 @@ from security.catalog import Control, SecurityCatalog
 from security.report import Finding
 
 from . import (
+    anonymous_endpoints,
     deferred,
     env_value,
+    jupyter_exposure,
+    password_policy,
     presence,
     secrets,
 )
@@ -27,6 +30,9 @@ _REGISTRY: dict[str, Checker] = {
     'docs_exposure': env_value.docs_exposure,
     'nonempty_outside_dev': presence.nonempty_outside_dev,
     'secrets_no_defaults': secrets.secrets_no_defaults,
+    'password_policy': password_policy.run,
+    'jupyter_exposure': jupyter_exposure.run,
+    'anonymous_endpoints': anonymous_endpoints.run,
     'code_fixed': deferred.code_fixed,
     'deferred': deferred.deferred,
 }
