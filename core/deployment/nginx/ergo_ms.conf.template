@@ -59,8 +59,9 @@ server {
     root ${ERGO_ROOT}/core/client/dist;
     index index.html;
 
-    # modules/tasks/.env.example (TASKS_MAX_ATTACHMENT_SIZE_MB) — client_max_body_size с запасом
-    client_max_body_size 610m;
+    # Вычисляется из MEDIA_UPLOAD_MAX_SIZE + direct-upload (tasks и др.) + margin
+    # (core/deployment/upload_limits.py → ergoms upload-limits-check)
+    client_max_body_size ${ERGO_CLIENT_MAX_BODY_SIZE};
 
     include ${ERGO_NGINX_SNIPPETS}/proxy_params.conf;
 

@@ -96,6 +96,53 @@ class NginxRenderTests(unittest.TestCase):
                     render_nginx_docker_config({'API_PORT': '8000'})
                     mocked.assert_called_once()
 
+    def test_client_max_body_size_from_upload_limits(self) -> None:
+        """tasks 600 MiB + 10% margin → 660m (hard не выше tasks)."""
+        deployment_dir = Path(__file__).resolve().parents[1]
+        docker_template = deployment_dir / 'docker' / 'nginx' / 'ergo_ms.docker.conf.template'
+        host_template = deployment_dir / 'nginx' / 'ergo_ms_http.conf.template'
+        raw_env = {
+            'DOCKER_SERVICE_API': 'api',
+            'DOCKER_SERVICE_MEDIA': 'media-api',
+            'API_PORT': '8000',
+            'MEDIA_API_BIND_PORT': '8003',
+            'MEDIA_UPLOAD_MAX_SIZE': '524288000',
+            'MEDIA_UPLOAD_HARD_MAX_SIZE': '524288000',
+            'TASKS_MAX_ATTACHMENT_SIZE_MB': '600',
+            'CLIENT_VIDEO_UPLOAD_MAX_SIZE_MB': '100',
+            'NGINX_UPLOAD_BODY_MARGIN_PERCENT': '10',
+            'NGINX_LISTEN_PORT': '80',
+            'NGINX_SERVER_NAME': 'localhost',
+        }
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / '.env').write_text(
+                'MEDIA_UPLOAD_MAX_SIZE=524288000\n'
+                'MEDIA_UPLOAD_HARD_MAX_SIZE=524288000\n'
+                'TASKS_MAX_ATTACHMENT_SIZE_MB=600\n'
+                'CLIENT_VIDEO_UPLOAD_MAX_SIZE_MB=100\n',
+                encoding='utf-8',
+            )
+            out = Path(tmp) / 'docker.conf'
+            render_docker_nginx_config(raw_env, template_path=docker_template, output_path=out)
+            docker_rendered = out.read_text(encoding='utf-8')
+            host_rendered = render_nginx_config.render_template(
+                host_template,
+                root=root,
+                server_name='localhost',
+                listen_host='0.0.0.0',
+                listen_port='80',
+                use_https=False,
+            )
+
+        self.assertIn('client_max_body_size 660m;', docker_rendered)
+        self.assertIn('client_max_body_size 660m;', host_rendered)
+        self.assertNotIn('610m', docker_rendered)
+        self.assertNotIn('610m', host_rendered)
+        self.assertNotIn('${ERGO_CLIENT_MAX_BODY_SIZE}', docker_rendered)
+        self.assertNotIn('${ERGO_CLIENT_MAX_BODY_SIZE}', host_rendered)
+
 
 if __name__ == '__main__':
     unittest.main()

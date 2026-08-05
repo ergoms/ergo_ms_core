@@ -243,6 +243,9 @@ sections:
   - name: sh-encoding-check
     invoke: ergoms sh-encoding-check [--fix]
     summary: Vérifier LF sans BOM dans les .sh de déploiement (shebang et source Linux)
+  - name: upload-limits-check
+    invoke: ergoms upload-limits-check
+    summary: Rapport des limites de téléversement (MEDIA_UPLOAD_MAX_SIZE, direct-upload, nginx client_max_body_size)
   - name: test-smtp
     summary: Vérifier SMTP et envoyer un e-mail de test
 - id: service_aliases

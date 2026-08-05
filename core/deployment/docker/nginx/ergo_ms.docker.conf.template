@@ -14,7 +14,8 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
-    client_max_body_size 610m;
+    # Вычисляется из MEDIA_UPLOAD_MAX_SIZE + direct-upload env (upload_limits.py)
+    client_max_body_size ${ERGO_CLIENT_MAX_BODY_SIZE};
 
     access_log /var/log/ergo/nginx-access.log;
     error_log /var/log/ergo/nginx-error.log warn;

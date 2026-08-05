@@ -16,6 +16,7 @@ if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 
 from ergo_modes import env_bool
+from upload_limits import compute_client_max_body_bytes, format_nginx_body_size
 
 
 def use_https(values: Mapping[str, str], listen_port: str = '') -> bool:
@@ -27,6 +28,11 @@ def use_https(values: Mapping[str, str], listen_port: str = '') -> bool:
 
 def _env(values: Mapping[str, str], key: str, default: str = '') -> str:
     return (values.get(key) or default).strip() or default
+
+
+def resolve_client_max_body_size(values: Mapping[str, str]) -> str:
+    """nginx client_max_body_size из MEDIA_UPLOAD_MAX_SIZE + direct-upload env."""
+    return format_nginx_body_size(compute_client_max_body_bytes(values))
 
 
 def render_upstream_block(
@@ -121,7 +127,7 @@ def build_host_media_locations() -> str:
         limit_req zone=ergo_upload burst=10 nodelay;
         limit_conn ergo_conn 10;
         proxy_pass http://ergo_media;
-        client_max_body_size 610m;
+        client_max_body_size ${ERGO_CLIENT_MAX_BODY_SIZE};
     }
 
     location /health/ {
@@ -163,7 +169,7 @@ def build_docker_core_proxy_locations() -> str:
     location /upload/ {
         proxy_pass http://ergo_media;
         proxy_set_header Host $host;
-        client_max_body_size 610m;
+        client_max_body_size ${ERGO_CLIENT_MAX_BODY_SIZE};
     }
 
     location /health/ {
@@ -192,28 +198,34 @@ CORE_PROXY_MARKER = 'proxy_pass http://ergo_api'
 
 
 def apply_template_replacements(content: str, replacements: Mapping[str, str]) -> str:
-    for needle, value in replacements.items():
-        content = content.replace(needle, value)
+    # Два прохода: вложенные плейсхолдеры (body size внутри location-блоков).
+    for _ in range(2):
+        for needle, value in replacements.items():
+            content = content.replace(needle, value)
     return content
 
 
 def build_host_nginx_shared_replacements(values: Mapping[str, str]) -> dict[str, str]:
     api_upstream, media_upstream = build_host_upstream_blocks(values)
+    body_size = resolve_client_max_body_size(values)
     return {
         '${ERGO_API_UPSTREAM_BLOCK}': api_upstream,
         '${ERGO_MEDIA_UPSTREAM_BLOCK}': media_upstream,
         '${ERGO_REALTIME_STREAM_LOCATION}': build_realtime_stream_location(variant='host'),
         '${ERGO_HOST_API_WS_PROXY}': build_host_api_ws_locations(),
         '${ERGO_HOST_MEDIA_PROXY}': build_host_media_locations(),
+        '${ERGO_CLIENT_MAX_BODY_SIZE}': body_size,
     }
 
 
 def build_docker_nginx_shared_replacements(values: Mapping[str, str]) -> dict[str, str]:
     api_upstream, media_upstream = build_docker_upstream_blocks(values)
+    body_size = resolve_client_max_body_size(values)
     return {
         '${ERGO_API_UPSTREAM_BLOCK}': api_upstream,
         '${ERGO_MEDIA_UPSTREAM_BLOCK}': media_upstream,
         '${ERGO_CORE_PROXY_LOCATIONS}': build_core_proxy_locations(variant='docker'),
+        '${ERGO_CLIENT_MAX_BODY_SIZE}': body_size,
         '${NGINX_LISTEN_PORT}': _env(values, 'NGINX_LISTEN_PORT', '80'),
         '${NGINX_SERVER_NAME}': _env(values, 'NGINX_SERVER_NAME', 'localhost'),
         '${API_JUPYTER_BIND_PORT}': _env(values, 'API_JUPYTER_BIND_PORT', '8002'),

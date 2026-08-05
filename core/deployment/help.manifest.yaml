@@ -243,6 +243,9 @@ sections:
   - name: sh-encoding-check
     invoke: ergoms sh-encoding-check [--fix]
     summary: Проверка LF без BOM в .sh deployment (Linux shebang и source)
+  - name: upload-limits-check
+    invoke: ergoms upload-limits-check
+    summary: Отчёт по лимитам загрузки (MEDIA_UPLOAD_MAX_SIZE, direct-upload, nginx client_max_body_size)
   - name: test-smtp
     summary: Проверка SMTP и отправка тестового письма
 - id: service_aliases
