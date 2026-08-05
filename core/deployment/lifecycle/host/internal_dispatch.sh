@@ -22,6 +22,8 @@ source "$LIB_DIR/cli.sh"
 source "$LIB_DIR/nginx.sh"
 # shellcheck source=../../linux/lib/redis.sh
 source "$LIB_DIR/redis.sh"
+# shellcheck source=../../linux/lib/meilisearch.sh
+source "$LIB_DIR/meilisearch.sh"
 # shellcheck source=../../linux/lib/postgres.sh
 source "$LIB_DIR/postgres.sh"
 # shellcheck source=../../linux/lib/tls.sh
@@ -195,6 +197,31 @@ case "$category" in
       status) postgres_status "$root" ;;
       test) postgres_test "$root" ;;
       *) echo "[ERROR] Неизвестная операция postgres: $operation" >&2; exit 1 ;;
+    esac
+    ;;
+  meilisearch)
+    purge=false
+    for arg in "$@"; do
+      case "$arg" in
+        --purge) purge=true ;;
+      esac
+    done
+    case "$operation" in
+      install) meilisearch_install "$root" "false" ;;
+      install-service)
+        if _meilisearch_is_installed "$root"; then
+          meilisearch_install_service "$root"
+        else
+          meilisearch_install "$root" "true"
+        fi
+        ;;
+      uninstall) meilisearch_uninstall "$root" "$purge" ;;
+      start) meilisearch_start "$root" ;;
+      stop) meilisearch_stop "$root" ;;
+      restart) meilisearch_restart "$root" ;;
+      status) _invoke_infra_backend meilisearch status ;;
+      test) _invoke_infra_backend meilisearch test ;;
+      *) echo "[ERROR] Неизвестная операция meilisearch: $operation" >&2; exit 1 ;;
     esac
     ;;
   tls)

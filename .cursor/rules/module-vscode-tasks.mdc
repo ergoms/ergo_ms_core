@@ -54,12 +54,13 @@ tasks:
 
 | Значение | Куда попадает |
 |----------|----------------|
-| `setup-full` | шаг `ModuleSetupTasksStep` в рецепте `ergoms setup` / Setup Full System |
+| `setup-full` | шаг `ModuleSetupTasksStep` в рецепте `ergoms setup` / Setup Full System (**до** `MigrateStep`) |
 | `start-all` | `ergoms start-all` и multi-terminal **Module Services** в Start All Services |
 | `logs-all` | multi-terminal **Logs: All Services** (`provider: ergo-sync`, `target: logs-all`) |
 
 - `hide: true` скрывает задачу из Run Task, но **не** исключает из агрегата
 - Порядок: `order` (число), затем имя модуля, затем `label`
+- Задачи `setup-full` выполняют **до** миграций (после EnsurePostgres/Redis/Meilisearch/Nginx): расширения БД и portable-пакеты модулей должны быть готовы к `CREATE EXTENSION` / схеме
 - Потребители: [`module_tasks_loader.py`](../../core/deployment/scripts/module_tasks_loader.py), [`start_all_dev.py`](../../core/deployment/scripts/start_all_dev.py), расширение [`ergo-ms-tasks`](../../.vscode/extensions/tasks) (`sync_vscode_logs_services.py --json`)
 
 ```yaml

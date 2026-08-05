@@ -387,9 +387,19 @@ function Start-AllServices {
         }
     }
 
+    if (Test-SearchEnabled -ProjectRoot $ProjectRoot) {
+        if (Get-Command Start-MeilisearchProcess -ErrorAction SilentlyContinue) {
+            try {
+                Start-MeilisearchProcess -Root $ProjectRoot
+            } catch {
+                Write-ErgomsMessage -Key 'svc_start_failed' -Color Red -Stderr -Param @{ name = 'ergo_ms_meilisearch'; error = $_.Exception.Message }
+            }
+        }
+    }
+
     $serviceNames = Get-ServiceNames -ProjectRoot $ProjectRoot
     foreach ($serviceName in $serviceNames) {
-        if ($serviceName -eq 'ergo_ms_redis') { continue }
+        if ($serviceName -eq 'ergo_ms_redis' -or $serviceName -eq 'ergo_ms_meilisearch') { continue }
         try {
             $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
             if ($service) {
@@ -426,7 +436,7 @@ function Stop-AllServices {
 
     $serviceNames = Get-ServiceNames -ProjectRoot $ProjectRoot
     foreach ($serviceName in $serviceNames) {
-        if ($serviceName -eq 'ergo_ms_redis') { continue }
+        if ($serviceName -eq 'ergo_ms_redis' -or $serviceName -eq 'ergo_ms_meilisearch') { continue }
         try {
             $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
             if ($service -and $service.Status -ne 'Stopped') {
@@ -439,6 +449,16 @@ function Stop-AllServices {
         }
         catch {
             Write-ErgomsMessage -Key 'svc_stop_failed' -Color Red -Stderr -Param @{ name = $serviceName; error = $_.Exception.Message }
+        }
+    }
+
+    if (Test-SearchEnabled -ProjectRoot $ProjectRoot) {
+        if (Get-Command Stop-MeilisearchProcess -ErrorAction SilentlyContinue) {
+            try {
+                Stop-MeilisearchProcess -Root $ProjectRoot -Quiet
+            } catch {
+                Write-ErgomsMessage -Key 'svc_stop_failed' -Color Red -Stderr -Param @{ name = 'ergo_ms_meilisearch'; error = $_.Exception.Message }
+            }
         }
     }
 
@@ -469,9 +489,19 @@ function Restart-AllServices {
         }
     }
 
+    if (Test-SearchEnabled -ProjectRoot $ProjectRoot) {
+        if (Get-Command Restart-MeilisearchProcess -ErrorAction SilentlyContinue) {
+            try {
+                Restart-MeilisearchProcess -Root $ProjectRoot
+            } catch {
+                Write-ErgomsMessage -Key 'svc_restart_failed' -Color Red -Stderr -Param @{ name = 'ergo_ms_meilisearch'; error = $_.Exception.Message }
+            }
+        }
+    }
+
     $serviceNames = Get-ServiceNames -ProjectRoot $ProjectRoot
     foreach ($serviceName in $serviceNames) {
-        if ($serviceName -eq 'ergo_ms_redis') { continue }
+        if ($serviceName -eq 'ergo_ms_redis' -or $serviceName -eq 'ergo_ms_meilisearch') { continue }
         try {
             $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
             if ($service) {
@@ -541,6 +571,23 @@ function Show-ServicesStatus {
 
     $serviceNames = Get-ServiceNames -ProjectRoot $ProjectRoot
     foreach ($serviceName in $serviceNames) {
+        if ($serviceName -eq 'ergo_ms_meilisearch') {
+            $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+            if ($service) {
+                $statusColor = switch ($service.Status) {
+                    'Running' { 'Green' }
+                    'Stopped' { 'Red' }
+                    default { 'Yellow' }
+                }
+                Write-Host "  $serviceName : " -NoNewline
+                Write-ColorOutput "$($service.Status)" $statusColor
+            }
+            else {
+                Write-Host "  $serviceName : " -NoNewline
+                Write-ColorOutput 'NotInstalled' Gray
+            }
+            continue
+        }
         if ($serviceName -eq 'ergo_ms_redis') {
             $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
             if ($service) {
@@ -641,8 +688,21 @@ function Show-ServiceLogs {
     
 
     $logsDir = Get-ProjectLogsDir -ProjectRoot $ProjectRoot
-
-    $logPath = Join-Path $logsDir "${ServiceName}.log"
+    $logPath = $null
+    $pythonExe = Join-Path $ProjectRoot 'virtual_env\python\Scripts\python.exe'
+    $pathsScript = Join-Path $ProjectRoot 'core\deployment\scripts\logs_paths.py'
+    if ((Test-Path -LiteralPath $pythonExe) -and (Test-Path -LiteralPath $pathsScript)) {
+        $resolved = & $pythonExe $pathsScript service $ServiceName $ProjectRoot 2>$null
+        if ($resolved) {
+            $first = @($resolved | Where-Object { $_ -and $_.Trim() }) | Select-Object -First 1
+            if ($first) {
+                $logPath = $first.Trim()
+            }
+        }
+    }
+    if (-not $logPath) {
+        $logPath = Join-Path $logsDir "${ServiceName}.log"
+    }
 
     
 

@@ -24,7 +24,7 @@ if str(_NGINX_DIR) not in sys.path:
 from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402
 from env_resolvers import load_merged_env  # noqa: E402
-from ergo_modes import effective_docker_enabled, effective_nginx_enabled, env_bool_key  # noqa: E402
+from ergo_modes import effective_docker_enabled, effective_docker_profile_meilisearch, effective_nginx_enabled, env_bool_key  # noqa: E402
 from docker_runtime import (  # noqa: E402
     BUILD_CACHE_OUTPUT,
     compose_profiles,
@@ -83,6 +83,8 @@ def compose_file_list(mode: str, raw_env: dict[str, str]) -> list[Path]:
         files.append(DOCKER_DIR / 'docker-compose.jupyter.yml')
     if env_bool_key(raw_env, 'DOCKER_PROFILE_LOADTEST'):
         files.append(DOCKER_DIR / 'docker-compose.loadtest.yml')
+    if env_bool_key(raw_env, 'DOCKER_PROFILE_MEILISEARCH') or effective_docker_profile_meilisearch(raw_env):
+        files.append(DOCKER_DIR / 'docker-compose.meilisearch.yml')
     workers = DOCKER_DIR / 'docker-compose.workers.generated.yml'
     if workers.is_file():
         files.append(workers)
@@ -105,6 +107,7 @@ def compose_file_list_full() -> list[Path]:
         DOCKER_DIR / 'docker-compose.nginx.yml',
         DOCKER_DIR / 'docker-compose.jupyter.yml',
         DOCKER_DIR / 'docker-compose.loadtest.yml',
+        DOCKER_DIR / 'docker-compose.meilisearch.yml',
     ]
     if BUILD_CACHE_OUTPUT.is_file():
         files.append(BUILD_CACHE_OUTPUT)
@@ -265,7 +268,7 @@ def build_compose_cmd(
         cmd.extend(['-f', str(compose_file)])
 
     profiles = (
-        ['postgres', 'nginx', 'jupyter', 'loadtest']
+        ['postgres', 'nginx', 'jupyter', 'loadtest', 'meilisearch']
         if for_clean
         else compose_profiles(raw)
     )

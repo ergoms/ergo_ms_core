@@ -240,7 +240,7 @@ tasks:
 
 | `include_in` | Куда попадает |
 |--------------|---------------|
-| `setup-full` | шаг модульных задач в `ergoms setup` / Setup Full System |
+| `setup-full` | шаг модульных задач в `ergoms setup` / Setup Full System (**до** миграций) |
 | `start-all` | `ergoms start-all` и multi-terminal Module Services |
 
 Корневой `.vscode/tasks.json` для модульных команд **не** правят. Правило: [`.cursor/rules/module-vscode-tasks.mdc`](../.cursor/rules/module-vscode-tasks.mdc).

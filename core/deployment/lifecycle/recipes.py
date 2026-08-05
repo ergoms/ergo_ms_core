@@ -52,6 +52,8 @@ from lifecycle.steps.host_steps import (
     UpdateModuleSubmodulesStep,
 )
 from lifecycle.steps.infra_steps import (  # noqa: E402
+    EnsureMeilisearchOsServiceStep,
+    EnsureMeilisearchStep,
     EnsureNginxOsServiceStep,
     EnsureNginxStep,
     EnsureRedisOsServiceStep,
@@ -92,7 +94,7 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
             'setup-full',
             (
                 HostExecutionPolicyStep(),
-                GitSubmoduleUpdateStep(),
+                GitSubmoduleUpdateStep(remote=False),
                 ConfigScaffoldStep(),
                 EnsurePortablePythonStep(),
                 EnsurePortableNodejsStep(),
@@ -104,11 +106,13 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
                 ClientBuildStep(),
                 EnsurePostgresStep(),
                 EnsureRedisStep(),
+                EnsureMeilisearchStep(),
                 EnsureNginxStep(),
-                MigrateStep(),
-                WarmupCachesStep(),
-                CollectStaticStep(),
+                # До migrate: модульные portable (pgvector и т.п.) должны быть в БД до CREATE EXTENSION.
                 ModuleSetupTasksStep(),
+                MigrateStep(),
+                WarmupCachesStep(if_needed=True),
+                CollectStaticStep(),
             ),
             description=t('recipe_setup_full'),
         ),
@@ -362,6 +366,7 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
                         name,
                         (
                             EnsureRedisOsServiceStep(),
+                            EnsureMeilisearchOsServiceStep(),
                             ServiceOperationStep(op, sid),
                             ModuleHostServicesStep('install'),
                             EnsureNginxOsServiceStep(),
@@ -422,6 +427,14 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
         ('postgres', 'status'),
         ('postgres', 'test'),
         ('postgres', 'migrate-to-portable'),
+        ('meilisearch', 'install'),
+        ('meilisearch', 'install-service'),
+        ('meilisearch', 'uninstall'),
+        ('meilisearch', 'start'),
+        ('meilisearch', 'stop'),
+        ('meilisearch', 'restart'),
+        ('meilisearch', 'status'),
+        ('meilisearch', 'test'),
         ('tls', 'install'),
         ('tls', 'renew'),
         ('tls', 'status'),
@@ -433,7 +446,7 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
                 (InfraOperationStep(component, op),),
                 target='infra',
                 needs_sudo=(
-                    component in ('nginx', 'redis', 'postgres', 'tls')
+                    component in ('nginx', 'redis', 'postgres', 'tls', 'meilisearch')
                     and op not in ('status', 'test', 'migrate-to-portable')
                 ),
                 description=t('recipe_infra_op', component=component, op=op),
@@ -476,6 +489,14 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
         'restart-redis': 'redis-restart',
         'status-redis': 'redis-status',
         'test-redis': 'redis-test',
+        'install-meilisearch': 'meilisearch-install',
+        'install-meilisearch-service': 'meilisearch-install-service',
+        'uninstall-meilisearch': 'meilisearch-uninstall',
+        'start-meilisearch': 'meilisearch-start',
+        'stop-meilisearch': 'meilisearch-stop',
+        'restart-meilisearch': 'meilisearch-restart',
+        'status-meilisearch': 'meilisearch-status',
+        'test-meilisearch': 'meilisearch-test',
         'install-postgres': 'postgres-install',
         'uninstall-postgres': 'postgres-uninstall',
         'start-postgres': 'postgres-start',

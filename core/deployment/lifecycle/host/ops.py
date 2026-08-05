@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import shutil
 import subprocess
@@ -18,6 +19,7 @@ from console_tags import format_console  # noqa: E402
 from project_layout import (  # noqa: E402
     nodejs_bin_dir,
     npm_exe,
+    npm_node_modules_dir,
     npm_root_dir,
     portable_python_exe,
     tool_cache_environ,
@@ -221,6 +223,37 @@ def upgrade_pip_in_venv(ctx: DeploymentContext) -> int:
     return code
 
 
+def poetry_available_in_venv(ctx: DeploymentContext) -> bool:
+    """True, если в project venv уже есть рабочий `poetry`."""
+    py = venv_python_exe(ctx.project_root, ctx.platform)
+    if not py.is_file():
+        return False
+    check = subprocess.run(
+        [str(py), '-m', 'poetry', '--version'],
+        cwd=str(ctx.project_root),
+        env=api_env(ctx),
+        capture_output=True,
+        check=False,
+    )
+    if check.returncode == 0:
+        return True
+    poetry_exe = (
+        venv_dir(ctx.project_root) / 'Scripts' / 'poetry.exe'
+        if ctx.platform == HostPlatform.WIN32
+        else venv_dir(ctx.project_root) / 'bin' / 'poetry'
+    )
+    if not poetry_exe.is_file():
+        return False
+    check = subprocess.run(
+        [str(poetry_exe), '--version'],
+        cwd=str(ctx.project_root),
+        env=api_env(ctx),
+        capture_output=True,
+        check=False,
+    )
+    return check.returncode == 0
+
+
 def create_or_validate_venv(ctx: DeploymentContext, *, recreate: bool = False) -> int:
     root = ctx.project_root
     platform = ctx.platform
@@ -260,6 +293,7 @@ def create_or_validate_venv(ctx: DeploymentContext, *, recreate: bool = False) -
         if check.returncode != 0:
             needs_recreation = True
 
+    created_now = False
     if needs_recreation:
         if vpath.exists():
             contents = list(vpath.iterdir()) if vpath.is_dir() else []
@@ -277,6 +311,7 @@ def create_or_validate_venv(ctx: DeploymentContext, *, recreate: bool = False) -
             print(format_console('error', t('venv_create_failed')), file=sys.stderr)
             return code
         print(format_console('ok', t('venv_created')))
+        created_now = True
     else:
         print(format_console('info', t('venv_already_exists')))
 
@@ -286,6 +321,11 @@ def create_or_validate_venv(ctx: DeploymentContext, *, recreate: bool = False) -
         if ensure != 0 or not pip_exe.is_file():
             print(format_console('error', t('pip_not_in_venv')), file=sys.stderr)
             return 1
+
+    # Повторный setup: не гонять pip upgrade, если venv уже был валиден.
+    if not created_now and not recreate and not ctx.option_bool('force'):
+        print(format_console('skip', t('pip_upgrade_skip_existing')))
+        return 0
 
     pip_code = upgrade_pip_in_venv(ctx)
     if pip_code != 0:
@@ -298,12 +338,179 @@ def install_poetry_in_venv(ctx: DeploymentContext) -> int:
     if not py.is_file():
         print(format_console('error', t('venv_not_found_msg')), file=sys.stderr)
         return 1
+    force = ctx.option_bool('force')
+    if not force and poetry_available_in_venv(ctx):
+        print(format_console('skip', t('poetry_already_installed_skip')))
+        return 0
     if ctx.platform == HostPlatform.WIN32:
         pip = venv_dir(ctx.project_root) / 'Scripts' / 'pip.exe'
         cmd = [str(pip), 'install', 'poetry']
+        if force:
+            cmd = [str(pip), 'install', '--upgrade', '--force-reinstall', 'poetry']
     else:
-        cmd = [str(py), '-m', 'pip', 'install', '--upgrade', '--force-reinstall', 'poetry']
+        cmd = [str(py), '-m', 'pip', 'install', '--upgrade', 'poetry']
+        if force:
+            cmd = [str(py), '-m', 'pip', 'install', '--upgrade', '--force-reinstall', 'poetry']
     code = subprocess.call(cmd, cwd=str(ctx.project_root), env=api_env(ctx))
     if code == 0:
         print(format_console('ok', t('poetry_installed')))
     return code
+
+
+HOST_NPM_DEPS_MARKER = Path('node_modules/.ergo-host-deps-ok')
+CLIENT_BUILD_STAMP_REL = Path('virtual_env/cache/.ergo-client-build-ok')
+
+
+def host_npm_deps_marker(project_root: Path) -> Path:
+    return npm_root_dir(project_root) / HOST_NPM_DEPS_MARKER
+
+
+def npm_deps_input_paths(project_root: Path) -> list[Path]:
+    """Файлы, при изменении которых нужен повторный npm install:all."""
+    npm_root = npm_root_dir(project_root)
+    paths: list[Path] = [
+        npm_root / 'package.json',
+        npm_root / 'package-lock.json',
+        project_root / 'core' / 'client' / 'package.json',
+    ]
+    modules = project_root / 'modules'
+    if modules.is_dir():
+        for pkg in sorted(modules.glob('*/client/package.json')):
+            paths.append(pkg)
+    return paths
+
+
+def host_npm_deps_up_to_date(project_root: Path) -> bool:
+    """Smart-skip для host npm (аналог DOCKER_NPM_INSTALL=smart)."""
+    marker = host_npm_deps_marker(project_root)
+    node_modules = npm_node_modules_dir(project_root)
+    if not marker.is_file() or not node_modules.is_dir():
+        return False
+    try:
+        next(node_modules.iterdir())
+    except StopIteration:
+        return False
+    try:
+        marker_mtime = marker.stat().st_mtime
+    except OSError:
+        return False
+    for path in npm_deps_input_paths(project_root):
+        if not path.is_file():
+            continue
+        try:
+            if path.stat().st_mtime > marker_mtime:
+                return False
+        except OSError:
+            return False
+    return True
+
+
+def touch_host_npm_deps_marker(project_root: Path) -> None:
+    marker = host_npm_deps_marker(project_root)
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text('ok\n', encoding='utf-8')
+
+
+_CLIENT_BUILD_ENV_KEYS = (
+    'CLIENT_API_HOST',
+    'CLIENT_API_PORT',
+    'CLIENT_USE_RELATIVE_API',
+    'CLIENT_DEFAULT_LANGUAGE',
+    'DEFAULT_LANGUAGE',
+    'CLIENT_LOG_LEVEL',
+    'CLIENT_BROWSER_LOG_ENABLED',
+    'CLIENT_MONITORING_ENABLED',
+    'CLIENT_MODULARITY',
+    'CLIENT_MODULES',
+    'CLIENT_MODULE_REMOTES',
+    'CLIENT_FEDERATION_SHARED',
+    'CLIENT_DEPLOY_TYPE',
+    'CLIENT_STANDALONE_MODULE_CHUNKS',
+    'DISABLED_MODULES',
+    'ERGO_PROXY',
+    'NGINX_ENABLED',
+    'ERGO_ENV',
+    'API_PORT',
+    'API_PASSWORD_MIN_LENGTH',
+    'API_PASSWORD_MAX_LENGTH',
+    'API_PASSWORD_REQUIRE_LOWERCASE',
+    'API_PASSWORD_REQUIRE_UPPERCASE',
+    'API_PASSWORD_REQUIRE_DIGIT',
+    'API_PASSWORD_REQUIRE_SPECIAL',
+    'REALTIME_TRANSPORT',
+    'REALTIME_POLL_PRESENCE_INTERVAL',
+    'REALTIME_POLL_NOTIFICATIONS_INTERVAL',
+    'REALTIME_POLL_ADMIN_PRESENCE_INTERVAL',
+    'REALTIME_POLL_MESSENGER_INTERVAL',
+    'MEDIA_UPLOAD_MAX_SIZE',
+    'VERSION',
+)
+
+
+def client_dist_index(project_root: Path) -> Path:
+    return project_root / 'core' / 'client' / 'dist' / 'index.html'
+
+
+def client_build_stamp_path(project_root: Path) -> Path:
+    return project_root / CLIENT_BUILD_STAMP_REL
+
+
+def _git_head(repo_dir: Path) -> str:
+    if not repo_dir.is_dir():
+        return ''
+    result = subprocess.run(
+        ['git', 'rev-parse', 'HEAD'],
+        cwd=str(repo_dir),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return ''
+    return (result.stdout or '').strip()
+
+
+def client_build_fingerprint(project_root: Path, raw_env: dict[str, str]) -> str:
+    digest = hashlib.sha256()
+    for path in npm_deps_input_paths(project_root):
+        if not path.is_file():
+            continue
+        digest.update(str(path.relative_to(project_root)).encode('utf-8'))
+        digest.update(path.read_bytes())
+    for key in _CLIENT_BUILD_ENV_KEYS:
+        digest.update(f'{key}={raw_env.get(key, "")}\n'.encode('utf-8'))
+    # Любые CLIENT_* из env сверх списка
+    for key in sorted(k for k in raw_env if k.startswith('CLIENT_') and k not in _CLIENT_BUILD_ENV_KEYS):
+        digest.update(f'{key}={raw_env.get(key, "")}\n'.encode('utf-8'))
+    # Код клиента / модулей: commit submodule, иначе setup/deploy после pull не пропустит build
+    digest.update(f'client_head={_git_head(project_root / "core" / "client")}\n'.encode('utf-8'))
+    modules = project_root / 'modules'
+    if modules.is_dir():
+        for client_dir in sorted(modules.glob('*/client')):
+            if not client_dir.is_dir():
+                continue
+            mod_root = client_dir.parent
+            digest.update(
+                f'module_client_head={mod_root.name}:{_git_head(mod_root)}\n'.encode('utf-8')
+            )
+    return digest.hexdigest()
+
+
+def client_build_up_to_date(project_root: Path, raw_env: dict[str, str]) -> bool:
+    if not client_dist_index(project_root).is_file():
+        return False
+    stamp = client_build_stamp_path(project_root)
+    if not stamp.is_file():
+        return False
+    try:
+        return stamp.read_text(encoding='utf-8').strip() == client_build_fingerprint(
+            project_root, raw_env
+        )
+    except OSError:
+        return False
+
+
+def write_client_build_stamp(project_root: Path, raw_env: dict[str, str]) -> None:
+    stamp = client_build_stamp_path(project_root)
+    stamp.parent.mkdir(parents=True, exist_ok=True)
+    stamp.write_text(client_build_fingerprint(project_root, raw_env) + '\n', encoding='utf-8')

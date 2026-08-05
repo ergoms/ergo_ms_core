@@ -251,3 +251,15 @@ def effective_docker_profile_loadtest(values: Mapping[str, str]) -> bool:
     if _has_explicit(values, 'DOCKER_PROFILE_LOADTEST'):
         return env_bool(_get(values, 'DOCKER_PROFILE_LOADTEST'))
     return False
+
+
+def effective_search_enabled(values: Mapping[str, str]) -> bool:
+    if _has_explicit(values, 'ERGO_SEARCH_ENABLED'):
+        return env_bool(_get(values, 'ERGO_SEARCH_ENABLED'))
+    return True
+
+
+def effective_docker_profile_meilisearch(values: Mapping[str, str]) -> bool:
+    if _has_explicit(values, 'DOCKER_PROFILE_MEILISEARCH'):
+        return env_bool(_get(values, 'DOCKER_PROFILE_MEILISEARCH'))
+    return effective_search_enabled(values)

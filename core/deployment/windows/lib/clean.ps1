@@ -464,7 +464,8 @@ function Clear-ProjectDependencies {
         @{Path = "virtual_env\resources";       Label = "virtual_env/resources";       FullRemove = $false},
         @{Path = "virtual_env\trained_models";  Label = "virtual_env/trained_models";  FullRemove = $false},
         @{Path = "virtual_env\cache";           Label = "virtual_env/cache";           FullRemove = $false},
-        @{Path = "virtual_env\docker-cache";    Label = "virtual_env/docker-cache";    FullRemove = $false}
+        # Legacy sibling path (до переноса в virtual_env/cache/docker-cache)
+        @{Path = "virtual_env\docker-cache";    Label = "virtual_env/docker-cache (legacy)"; FullRemove = $true}
     )
 
     Write-Host ""; Write-ErgomsMessage -Key 'clean_heading' -Color Cyan

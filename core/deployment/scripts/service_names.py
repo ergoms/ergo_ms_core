@@ -17,6 +17,7 @@ CELERY_WORKER = 'ergo_ms_celery_worker'
 
 # Portable infra
 REDIS = 'ergo_ms_redis'
+MEILISEARCH = 'ergo_ms_meilisearch'
 NGINX = 'ergo_ms_nginx'
 POSTGRES = 'ergo_ms_postgres'
 

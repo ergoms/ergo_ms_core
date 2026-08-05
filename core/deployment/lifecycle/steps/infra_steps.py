@@ -78,7 +78,10 @@ class InfraOperationStep(DeploymentStep):
         if self._component == 'postgres' and self._operation == 'migrate-to-portable':
             ctx.options['needs_sudo'] = False
         else:
-            ctx.options.setdefault('needs_sudo', self._component in ('nginx', 'redis', 'postgres', 'tls'))
+            ctx.options.setdefault(
+                'needs_sudo',
+                self._component in ('nginx', 'redis', 'postgres', 'tls', 'meilisearch'),
+            )
         code = invoke_dispatch(ctx, self._component, self._operation, *extra)
         return StepResult(exit_code=code)
 
@@ -138,6 +141,57 @@ class EnsureNginxStep(DeploymentStep):
         if code != 0:
             return StepResult(exit_code=code, message=t('nginx_install_failed'))
         print(format_console('ok', t('nginx_ready')))
+        return StepResult()
+
+
+class EnsureMeilisearchStep(DeploymentStep):
+    """При ERGO_SEARCH_ENABLED — установить portable Meilisearch (setup-full)."""
+
+    @property
+    def name(self) -> str:
+        return 'ensure_meilisearch'
+
+    def should_run(self, ctx: DeploymentContext) -> bool:
+        return ctx.runtime == 'host'
+
+    def run(self, ctx: DeploymentContext) -> StepResult:
+        from deployment_env import is_search_enabled  # noqa: WPS433
+
+        if not is_search_enabled():
+            print(format_console('skip', t('meilisearch_skip_search')))
+            return StepResult()
+
+        print(format_console('info', t('installing_meilisearch')))
+        code = invoke_dispatch(ctx, 'meilisearch', 'install')
+        if code != 0:
+            return StepResult(exit_code=code, message=t('meilisearch_install_failed'))
+        print(format_console('ok', t('meilisearch_ready')))
+        return StepResult()
+
+
+class EnsureMeilisearchOsServiceStep(DeploymentStep):
+    """При ERGO_SEARCH_ENABLED — зарегистрировать Meilisearch как службу ОС (install-services)."""
+
+    @property
+    def name(self) -> str:
+        return 'ensure_meilisearch_os_service'
+
+    def should_run(self, ctx: DeploymentContext) -> bool:
+        return ctx.runtime == 'host'
+
+    def run(self, ctx: DeploymentContext) -> StepResult:
+        from deployment_env import is_search_enabled  # noqa: WPS433
+
+        if not is_search_enabled():
+            print(format_console('skip', t('meilisearch_service_skip')))
+            return StepResult()
+
+        print(format_console('info', t('installing_meilisearch_service')))
+        ctx.options.setdefault('needs_sudo', True)
+        code = invoke_dispatch(ctx, 'meilisearch', 'install-service')
+        if code != 0:
+            return StepResult(exit_code=code, message=t('meilisearch_service_install_failed'))
+        print(format_console('ok', t('meilisearch_service_ready')))
         return StepResult()
 
 

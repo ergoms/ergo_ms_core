@@ -67,7 +67,7 @@ import EntityList from '../../../../modules/<name>/client/pages/EntityList.vue'
 **Запрещено в ядре:**
 
 - `from modules.<имя>.api...` models / views / serializers / services / tasks в бизнес-логике
-- **Hardcoded имена модулей** в runtime-коде (`'<name>'`, палитры модуля в Python и т.п.) — только generic hook discovery и ModuleBridge; проверка: `ergoms core-rules-check`
+- **Hardcoded имена модулей** в runtime-коде (`'<name>'`, палитры модуля в Python и т.п.) — только generic hook discovery и ModuleBridge; проверка: `ergoms core-rules-check` (сканирует `core/api`, `core/client`, `core/deployment`)
 - Прямые static import из submodule в клиентских страницах и composables ядра (кроме инфраструктуры загрузки: `ModuleLoader`, glob в `LayoutMenu.vue`)
 - Обход ModuleBridge ради «удобного» доступа к данным или операциям модуля
 

@@ -20,7 +20,7 @@ ERGO MS можно запустить в контейнерах через **Doc
 
    - `DOCKER_ENABLED=true`
    - `DOCKER_MODE=dev` (разработка) или `prod` (запуск как на сервере)
-   - при необходимости profiles: `DOCKER_PROFILE_POSTGRES`, `DOCKER_PROFILE_NGINX`, `DOCKER_PROFILE_JUPYTER`
+   - при необходимости profiles: `DOCKER_PROFILE_POSTGRES`, `DOCKER_PROFILE_NGINX`, `DOCKER_PROFILE_JUPYTER`, `DOCKER_PROFILE_MEILISEARCH` (Meili по умолчанию из `ERGO_SEARCH_ENABLED`)
 
 2. Проверьте **`databases.yaml`**. При `DOCKER_DATABASE=container` (по умолчанию) хост `localhost` / `127.0.0.1` в yaml автоматически заменяется на имя сервиса `postgres` внутри сети compose. Параметры пользователя, пароля и имени БД берутся из секции `default`.
 
@@ -84,6 +84,7 @@ ERGO MS можно запустить в контейнерах через **Doc
 | `postgres` | `docker-compose.postgres.yml` | PostgreSQL 16 |
 | `nginx` | `docker-compose.nginx.yml` | nginx (единая точка входа) |
 | `jupyter` | `docker-compose.jupyter.yml` | JupyterLab |
+| `meilisearch` | `docker-compose.meilisearch.yml` | Meilisearch (BM25); публикация на хост — `DOCKER_MEILI_PUBLISH_PORT` |
 | `dev` | `docker-compose.dev.yml` | `client` (Vite) |
 | `prod` | `docker-compose.prod.yml` | `client-build` |
 | workers | `docker-compose.workers.generated.yml` | Celery worker'ы из `celery_workers.yaml` |
@@ -148,7 +149,7 @@ ergoms api createsuperuser --noinput
 | `DOCKER_VOLUME_MEDIA` | `bind` | `bind` — каталог `media/` проекта |
 | `DOCKER_VOLUME_CELERY_CACHE` | `named` | `named` — том Docker; `bind` — `virtual_env/cache` на хосте |
 | `DOCKER_BUILD_CACHE` | `true` | BuildKit при `ergoms docker-build` |
-| `DOCKER_DEPS_CACHE` | `internal` | `internal` / `project` (ещё `virtual_env/docker-cache/`) / `off` — кэш загрузок Poetry/npm |
+| `DOCKER_DEPS_CACHE` | `internal` | `internal` / `project` (ещё `virtual_env/cache/docker-cache/`) / `off` — кэш загрузок Poetry/npm |
 | `DOCKER_BUILD_POLICY` | `if-missing` | `if-missing` — пропуск build в `docker-init`, если образы есть; `always` — всегда |
 | `DOCKER_NPM_INSTALL` | `smart` | `smart` — npm только при изменении lock/package.json; `always` — каждый старт client |
 
@@ -189,7 +190,7 @@ ergoms api createsuperuser --noinput
 | Режим `DOCKER_DEPS_CACHE` | Поведение |
 |---------------------------|-----------|
 | `internal` (по умолчанию) | BuildKit cache mount (wheel/npm внутри Docker) |
-| `project` | дополнительно каталог `virtual_env/docker-cache/` |
+| `project` | дополнительно каталог `virtual_env/cache/docker-cache/` |
 | `off` | без cache mount — каждый build качает пакеты заново |
 
 **Скачать всё заново:**
@@ -205,7 +206,7 @@ ergoms docker-build -- --no-cache
 ergoms docker-init
 ```
 
-Очистка: удалите `virtual_env/docker-cache/`, тома `*_poetry_venv`, `*_node_modules` или выполните `ergoms docker-clean --yes`. Internal BuildKit-кэш — `docker builder prune` (вручную).
+Очистка: удалите `virtual_env/cache/docker-cache/`, тома `*_poetry_venv`, `*_node_modules` или выполните `ergoms docker-clean --yes`. Internal BuildKit-кэш — `docker builder prune` (вручную).
 
 ## PostgreSQL в контейнере
 

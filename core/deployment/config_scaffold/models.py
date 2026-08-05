@@ -147,6 +147,11 @@ class ConfigTemplateRegistry:
                 FullCopyStrategy(),
             ),
             ConfigTemplate(
+                'env/search.env.example',
+                'env/search.env',
+                FullCopyStrategy(),
+            ),
+            ConfigTemplate(
                 'env/modules.env.example',
                 'env/modules.env',
                 FullCopyStrategy(),

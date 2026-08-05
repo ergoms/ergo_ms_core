@@ -42,10 +42,23 @@ class HostExecutionPolicyStep(DeploymentStep):
         return StepResult(exit_code=code)
 
 
+def _submodule_initialized(root: Path, rel: str) -> bool:
+    """True, если submodule уже клонирован (.git — файл или каталог)."""
+    sub = root / rel
+    return (sub / '.git').exists() and sub.is_dir()
+
+
 class GitSubmoduleUpdateStep(DeploymentStep):
-    def __init__(self, paths: tuple[str, ...] = DEFAULT_CORE_SUBMODULES, branch: str = 'dev') -> None:
+    def __init__(
+        self,
+        paths: tuple[str, ...] = DEFAULT_CORE_SUBMODULES,
+        branch: str = 'dev',
+        *,
+        remote: bool = True,
+    ) -> None:
         self._paths = paths
         self._branch = branch
+        self._remote = remote
 
     @property
     def name(self) -> str:
@@ -55,7 +68,14 @@ class GitSubmoduleUpdateStep(DeploymentStep):
         root = ctx.project_root
         paths = ctx.options.get('submodule_paths', self._paths)
         branch = ctx.option_str('checkout_branch', self._branch)
-        cmd = ['git', 'submodule', 'update', '--init', '--remote', *paths]
+        force = ctx.option_bool('force')
+        already_init = bool(paths) and all(_submodule_initialized(root, rel) for rel in paths)
+        # setup-full (remote=False): без --remote при уже инициализированных submodule
+        use_remote = bool(force or self._remote)
+        cmd = ['git', 'submodule', 'update', '--init']
+        if use_remote:
+            cmd.append('--remote')
+        cmd.extend(paths)
         code = subprocess.call(cmd, cwd=str(root))
         if code != 0:
             return StepResult(exit_code=code, message=t('git_submodule_update_failed'))
@@ -63,7 +83,10 @@ class GitSubmoduleUpdateStep(DeploymentStep):
             sub = root / rel
             if sub.is_dir():
                 subprocess.call(['git', 'checkout', branch], cwd=str(sub))
-        print(format_console('ok', t('git_submodules_updated')))
+        if not use_remote and already_init:
+            print(format_console('ok', t('git_submodules_local_ok')))
+        else:
+            print(format_console('ok', t('git_submodules_updated')))
         return StepResult()
 
 

@@ -27,6 +27,7 @@ LOG_FILE_DEFAULTS: dict[str, str] = {
     'NGINX_ACCESS': 'nginx-access.log',
     'NGINX_ERROR': 'nginx-error.log',
     'REDIS': 'redis.log',
+    'MEILISEARCH': 'meilisearch.log',
     'CLIENT_DEV': 'client-dev.log',
     'CLIENT_BROWSER': 'client-browser.log',
     'CLIENT_MONITOR': 'client-monitor.log',
@@ -272,6 +273,7 @@ def service_log_map(project_root: Path | None = None) -> dict[str, list[str]]:
             log_basename('NGINX_ACCESS', project_root),
         ],
         'ergo_ms_redis': [log_basename('REDIS', project_root)],
+        'ergo_ms_meilisearch': [log_basename('MEILISEARCH', project_root)],
         # legacy имена до унификации префикса ergo_ms_
         'ergo-api-dev': [log_basename('API', project_root)],
         'ergo-media-api': [log_basename('MEDIA_API', project_root)],

@@ -25,6 +25,8 @@ source "$LIB_DIR/commands.sh"
 source "$LIB_DIR/nginx.sh"
 # shellcheck source=lib/redis.sh
 source "$LIB_DIR/redis.sh"
+# shellcheck source=lib/meilisearch.sh
+source "$LIB_DIR/meilisearch.sh"
 # shellcheck source=lib/postgres.sh
 source "$LIB_DIR/postgres.sh"
 # shellcheck source=lib/tls.sh
@@ -416,7 +418,7 @@ main() {
       postgres_from_env="$(_ergo_env_value "$ERGO_ROOT" 'POSTGRES_SERVICE_LINUX' 2>/dev/null || true)"
       [[ -n "${postgres_from_env:-}" ]] && postgres_svc="$postgres_from_env"
       case "$service_name" in
-        ergo_ms_nginx|ergo_ms_nginx.service|ergo_ms_redis|ergo_ms_redis.service|ergo_ms_redis|"$postgres_svc"|"${postgres_svc}.service"|ergo_ms_postgres|ergo_ms_postgres.service)
+        ergo_ms_nginx|ergo_ms_nginx.service|ergo_ms_redis|ergo_ms_redis.service|ergo_ms_redis|ergo_ms_meilisearch|ergo_ms_meilisearch.service|"$postgres_svc"|"${postgres_svc}.service"|ergo_ms_postgres|ergo_ms_postgres.service)
           valid=true
           ;;
       esac
@@ -433,7 +435,7 @@ main() {
 
       if [[ "$valid" == false ]]; then
         write_ergoms_message 'unknown_service' red stderr "name=$service_name"
-        write_ergoms_message available_services yellow --stderr "items=$(units_list "$ERGO_ROOT" | tr '\n' ' ') ergo_ms_nginx ergo_ms_redis $postgres_svc celery-tasks celery-beat"
+        write_ergoms_message available_services yellow --stderr "items=$(units_list "$ERGO_ROOT" | tr '\n' ' ') ergo_ms_nginx ergo_ms_redis ergo_ms_meilisearch $postgres_svc celery-tasks celery-beat"
         exit 1
       fi
 

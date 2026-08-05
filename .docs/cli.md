@@ -188,6 +188,24 @@ ergoms stop-redis
 
 В `.env`: `ERGO_BROKER=redis`, перезапустите API. Служба: `ergoms install-redis-service`.
 
+## Meilisearch (поиск BM25) {#meilisearch}
+
+Portable-сборка в `virtual_env/packages/meilisearch/`. При `ERGO_SEARCH_ENABLED=true` ставит `setup-full`. Переменные — `env/search.env.example`.
+
+```cmd
+ergoms install-meilisearch
+ergoms install-meilisearch-service
+ergoms test-meilisearch
+ergoms status-meilisearch
+ergoms start-meilisearch
+ergoms stop-meilisearch
+ergoms search-reindex
+```
+
+При `ERGO_SEARCH_ENABLED=true` (по умолчанию) `setup-full` ставит бинарник; `ergoms install-services` регистрирует OS-службу `ergo_ms_meilisearch`; `ergoms start` / Start All Services поднимают её вместе с остальными.
+
+Переиндексация одного индекса: `ergoms search-reindex --index=core_users`. При недоступном Meilisearch API использует fallback (icontains/trigram) и пишет `[WARNING]` в лог.
+
 ## Docker Compose {#docker-compose}
 
 Запуск API, клиента, Redis, PostgreSQL, Celery и опционально nginx/Jupyter в контейнерах. Команды в `commands.conf`; режим `ERGO_RUNTIME=docker`, детали — `env/docker.env`, БД — `databases.yaml`.

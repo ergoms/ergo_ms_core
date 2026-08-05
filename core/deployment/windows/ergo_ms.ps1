@@ -130,6 +130,8 @@ function Load-HeavyModules {
 
     . (Join-Path $LibPath "redis.ps1")
 
+    . (Join-Path $LibPath "meilisearch.ps1")
+
     . (Join-Path $LibPath "postgres.ps1")
 
     $script:HeavyModulesLoaded = $true

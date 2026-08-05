@@ -103,6 +103,12 @@ def is_redis_enabled() -> bool:
     return effective_redis_enabled(_values_for_modes())
 
 
+def is_search_enabled() -> bool:
+    from ergo_modes import effective_search_enabled  # noqa: WPS433
+
+    return effective_search_enabled(_values_for_modes())
+
+
 def get_ergo_db() -> str:
     """Режим default БД из ERGO_DB (sqlite|postgres|portable_postgres|mysql|mssql)."""
     return ergo_db(_values_for_modes())

@@ -31,7 +31,10 @@ class PythonInstallStep(DeploymentStep):
 
     def _run_host(self, ctx: DeploymentContext) -> StepResult:
         print(format_console('info', t('installing_python_deps')))
-        code = host_ops.run_api_command(ctx, 'install')
+        args: list[str] = ['install']
+        if ctx.option_bool('force'):
+            args.append('--force')
+        code = host_ops.run_api_command(ctx, *args)
         return StepResult(exit_code=code)
 
     def _run_docker(self, ctx: DeploymentContext) -> StepResult:
@@ -67,8 +70,13 @@ class NpmInstallStep(DeploymentStep):
         return self._run_host(ctx)
 
     def _run_host(self, ctx: DeploymentContext) -> StepResult:
+        if not ctx.option_bool('force') and host_ops.host_npm_deps_up_to_date(ctx.project_root):
+            print(format_console('skip', t('npm_deps_already_installed_skip')))
+            return StepResult()
         print(format_console('info', t('installing_npm_deps')))
         code = host_ops.run_npm(ctx, 'install:all')
+        if code == 0:
+            host_ops.touch_host_npm_deps_marker(ctx.project_root)
         return StepResult(exit_code=code)
 
     def _run_docker(self, ctx: DeploymentContext) -> StepResult:
@@ -118,6 +126,9 @@ class MigrateStep(DeploymentStep):
 
 
 class WarmupCachesStep(DeploymentStep):
+    def __init__(self, *, if_needed: bool = False) -> None:
+        self._if_needed = if_needed
+
     @property
     def name(self) -> str:
         return 'warmup_caches'
@@ -127,6 +138,12 @@ class WarmupCachesStep(DeploymentStep):
             if not docker_ops.find_docker_compose():
                 return StepResult(exit_code=1, message=t('docker_not_found_short'))
             code = docker_ops.run_api_oneoff(docker_ops.api_warmup_shell(), mode=ctx.docker_mode)
+            return StepResult(exit_code=code)
+        if self._if_needed:
+            code = host_ops.run_python_script(
+                ctx,
+                'core/api/scripts/warmup_caches_if_needed.py',
+            )
             return StepResult(exit_code=code)
         code = host_ops.run_api_command(ctx, 'warmup_caches')
         return StepResult(exit_code=code)
@@ -141,8 +158,15 @@ class ClientBuildStep(DeploymentStep):
         return 'client_build'
 
     def run(self, ctx: DeploymentContext) -> StepResult:
+        if not ctx.option_bool('force') and host_ops.client_build_up_to_date(
+            ctx.project_root, ctx.raw_env
+        ):
+            print(format_console('skip', t('client_build_already_fresh_skip')))
+            return StepResult()
         print(format_console('info', t('building_client')))
         code = host_ops.run_npm(ctx, 'build')
+        if code == 0:
+            host_ops.write_client_build_stamp(ctx.project_root, ctx.raw_env)
         return StepResult(exit_code=code)
 
 

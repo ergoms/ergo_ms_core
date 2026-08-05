@@ -359,6 +359,29 @@ sections:
     summary: État de Redis
   - name: test-redis
     summary: Vérification via redis-cli ping
+- id: meilisearch
+  title: Meilisearch (recherche BM25)
+  note: Portable sous virtual_env/packages/meilisearch. Automatique dans setup-full si ERGO_SEARCH_ENABLED=true ; service OS via install-services. Voir env/search.env.example.
+  commands:
+  - name: install-meilisearch
+    summary: Installer Meilisearch portable
+  - name: install-meilisearch-service
+    summary: Installer Meilisearch comme service OS (NSSM / systemd)
+  - name: uninstall-meilisearch
+    summary: Arrêter Meilisearch (--purge supprime les paquets et les données)
+  - name: start-meilisearch
+    summary: Démarrer Meilisearch (service ou processus)
+  - name: stop-meilisearch
+    summary: Arrêter Meilisearch
+  - name: restart-meilisearch
+    summary: Redémarrer Meilisearch
+  - name: status-meilisearch
+    summary: État de Meilisearch
+  - name: test-meilisearch
+    summary: Vérification /health de Meilisearch
+  - name: search-reindex
+    invoke: ergoms search-reindex [--index=core_users]
+    summary: Réindexation Meilisearch (tous les index ou un seul)
 - id: packages
   title: Paquets portables
   note: 'Registre sous virtual_env/packages : noyau (core_packages.yaml) et modules (packages.yaml). Services redis/nginx

@@ -132,6 +132,7 @@ def _classify_by_cmdline(
     project_bound = (
         _in_project(text, root_text)
         or 'virtual_env/packages/redis' in text
+        or 'virtual_env/packages/meilisearch' in text
         or 'core/deployment/nginx' in text
     )
     if not project_bound:
@@ -160,6 +161,10 @@ def _classify_by_cmdline(
         return 'postgres'
     if 'nginx' in text and 'core/deployment/nginx' in text:
         return 'nginx'
+    if 'meilisearch' in text and (
+        'virtual_env/packages/meilisearch' in text or _in_project(text, root_text)
+    ):
+        return 'meilisearch'
     if ('runserver' in text or 'daphne' in text) and 'core/api' in text:
         return 'api'
 

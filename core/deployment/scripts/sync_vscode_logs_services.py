@@ -8,7 +8,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from deployment_env import PROJECT_ROOT, get_ergo_db, is_nginx_enabled, is_redis_enabled
+from deployment_env import (
+    PROJECT_ROOT,
+    get_ergo_db,
+    is_nginx_enabled,
+    is_redis_enabled,
+    is_search_enabled,
+)
 
 _SCRIPTS_DIR = Path(__file__).resolve().parent
 _DEPLOYMENT_DIR = _SCRIPTS_DIR.parent
@@ -108,6 +114,14 @@ def _core_log_services(*, with_commands: bool) -> list[dict[str, str]]:
                 command='ergoms logs ergo_ms_redis 500' if with_commands else '',
             )
         )
+    if is_search_enabled():
+        items.append(
+            _svc(
+                'ergo_ms_meilisearch',
+                'Meilisearch',
+                command='ergoms logs ergo_ms_meilisearch 500' if with_commands else '',
+            )
+        )
     db_mode = get_ergo_db()
     from start_db_logs_dev import db_service_label, db_terminal_key  # noqa: WPS433
 
@@ -188,6 +202,15 @@ def build_optional_services() -> list[dict[str, str]]:
                 'Redis',
                 command='ergoms start-redis-dev',
                 stop_command='ergoms stop-redis-dev',
+            )
+        )
+    if is_search_enabled():
+        items.append(
+            _svc(
+                'Meilisearch',
+                'Meilisearch',
+                command='ergoms start-meilisearch-dev',
+                stop_command='ergoms stop-meilisearch',
             )
         )
     if is_nginx_enabled():

@@ -5,6 +5,7 @@
 . (Join-Path $PSScriptRoot 'portable_env.ps1')
 . (Join-Path $PSScriptRoot 'nginx_env.ps1')
 . (Join-Path $PSScriptRoot 'redis_env.ps1')
+. (Join-Path $PSScriptRoot 'search_env.ps1')
 
 # Константы (базовые службы)
 
@@ -550,6 +551,7 @@ function Get-ServiceNames {
 
     $nginxEnabled = Test-NginxEnabled -ProjectRoot $ProjectRoot
     $redisEnabled = Test-RedisEnabled -ProjectRoot $ProjectRoot
+    $searchEnabled = Test-SearchEnabled -ProjectRoot $ProjectRoot
     $postgresEnabled = Test-PostgresPortableEnabled -ProjectRoot $ProjectRoot
 
     if (
@@ -557,6 +559,7 @@ function Get-ServiceNames {
         $script:CachedProjectRoot -eq $ProjectRoot -and
         $script:CachedNginxEnabled -eq $nginxEnabled -and
         $script:CachedRedisEnabled -eq $redisEnabled -and
+        $script:CachedSearchEnabled -eq $searchEnabled -and
         $script:CachedPostgresEnabled -eq $postgresEnabled
     ) {
         return $script:CachedServiceNames
@@ -573,6 +576,10 @@ function Get-ServiceNames {
 
     if ($redisEnabled) {
         $services = @('ergo_ms_redis') + $services
+    }
+
+    if ($searchEnabled) {
+        $services = @('ergo_ms_meilisearch') + $services
     }
 
     if ($nginxEnabled) {
@@ -602,6 +609,7 @@ function Get-ServiceNames {
     $script:CachedProjectRoot = $ProjectRoot
     $script:CachedNginxEnabled = $nginxEnabled
     $script:CachedRedisEnabled = $redisEnabled
+    $script:CachedSearchEnabled = $searchEnabled
     $script:CachedPostgresEnabled = $postgresEnabled
 
     return $script:CachedServiceNames

@@ -166,6 +166,24 @@ switch ($Category) {
             default { throw "Неизвестная операция postgres: $Operation" }
         }
     }
+    'meilisearch' {
+        . (Join-Path $LibPath 'nssm.ps1')
+        . (Join-Path $LibPath 'meilisearch.ps1')
+        switch ($Operation) {
+            'install' { Install-Meilisearch -Root $Root }
+            'install-service' { Install-Meilisearch -Root $Root -AsService }
+            'uninstall' {
+                $purge = $Extra -contains '--purge'
+                Uninstall-Meilisearch -Root $Root -PurgeData:$purge
+            }
+            'start' { Start-MeilisearchProcess -Root $Root }
+            'stop' { Stop-MeilisearchProcess -Root $Root }
+            'restart' { Restart-MeilisearchProcess -Root $Root }
+            'status' { Invoke-InfraBackend -Root $Root -Service 'meilisearch' -Operation 'status' }
+            'test' { Invoke-InfraBackend -Root $Root -Service 'meilisearch' -Operation 'test' }
+            default { throw "Неизвестная операция meilisearch: $Operation" }
+        }
+    }
     'tls' {
         if ($Operation -eq 'status') {
             Write-ColorOutput '[WARNING] TLS на Windows не поддерживается; используйте Linux или nginx вручную' Yellow

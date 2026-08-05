@@ -3,8 +3,8 @@ Effective env и конфигурация для Docker Compose (read-only, не
 
 Порты приложений — из существующих ключей .env (API_PORT, CLIENT_PORT, …).
 Параметры БД — из databases.yaml; для контейнеров генерируется .compose.databases.yaml.
-Публикация postgres/redis на хост — docker-compose.publish.generated.yml
-(пропуск, если порт занят; внутри сети compose порты всегда 5432/6379).
+Публикация postgres/redis/meilisearch на хост — docker-compose.publish.generated.yml
+(пропуск, если порт занят; внутри сети compose: 5432/6379/7700).
 """
 
 from __future__ import annotations
@@ -31,11 +31,13 @@ from env_resolvers import load_merged_env  # noqa: E402
 from ergo_modes import (  # noqa: E402
     effective_docker_profile_jupyter,
     effective_docker_profile_loadtest,
+    effective_docker_profile_meilisearch,
     effective_docker_profile_postgres,
     effective_nginx_enabled,
     effective_redis_enabled,
     env_bool,
 )
+from project_layout import cache_dir, cache_docker_dir, ensure_dir  # noqa: E402
 
 LOCAL_DB_HOSTS = frozenset({'localhost', '127.0.0.1', '::1', ''})
 CELERY_DB_SECTIONS = ('default', 'celery', 'celery_worker', 'celery_beat')
@@ -159,16 +161,14 @@ def effective_docker_npm_install(raw_env: dict[str, str]) -> str:
 def resolve_celery_cache_bind(project_root: Path, raw_env: dict[str, str]) -> str:
     mode = _env(raw_env, 'DOCKER_VOLUME_CELERY_CACHE', 'named').lower()
     if mode == 'bind':
-        cache_path = (project_root / 'virtual_env' / 'cache').resolve()
-        cache_path.mkdir(parents=True, exist_ok=True)
+        cache_path = ensure_dir(cache_dir(project_root)).resolve()
         return str(cache_path).replace('\\', '/')
     return 'celery_cache'
 
 
 def resolve_docker_cache_dir(project_root: Path) -> str:
-    cache_dir = (project_root / 'virtual_env' / 'docker-cache').resolve()
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    return str(cache_dir).replace('\\', '/')
+    docker_cache = ensure_dir(cache_docker_dir(project_root)).resolve()
+    return str(docker_cache).replace('\\', '/')
 
 
 def build_compose_build_cache_content(cache_dir: str) -> str:
@@ -315,6 +315,8 @@ def compose_profiles(raw_env: dict[str, str]) -> list[str]:
         profiles.append('postgres')
     if effective_docker_profile_loadtest(raw_env):
         profiles.append('loadtest')
+    if effective_docker_profile_meilisearch(raw_env):
+        profiles.append('meilisearch')
     return profiles
 
 
@@ -610,14 +612,34 @@ def resolve_infra_publish_ports(raw_env: dict[str, str], *, warn: bool = False) 
         )
         if pg_host is not None:
             published[pg_service] = pg_host
+
+    if effective_docker_profile_meilisearch(raw_env):
+        meili_service = _env(raw_env, 'DOCKER_SERVICE_MEILISEARCH', 'meilisearch')
+        meili_preferred = int(_env(raw_env, 'MEILI_PUBLISH_PORT', '8004') or '8004')
+        # Host MEILI_HTTP_ADDR / MEILI_HOST часто 8004 — предпочитаем тот же порт на хост.
+        http_addr = _env(raw_env, 'MEILI_HTTP_ADDR', '')
+        if ':' in http_addr:
+            try:
+                meili_preferred = int(http_addr.rsplit(':', 1)[-1].strip() or meili_preferred)
+            except ValueError:
+                pass
+        meili_explicit = _env(raw_env, 'DOCKER_MEILI_PUBLISH_PORT', '')
+        meili_host = resolve_infra_host_publish_port(
+            preferred=meili_preferred,
+            explicit_raw=meili_explicit,
+            service_key=meili_service,
+            warn=warn,
+        )
+        if meili_host is not None:
+            published[meili_service] = meili_host
     return published
 
 
 def build_publish_compose_content(published: dict[str, int]) -> str:
     lines = [
         '# Автогенерация: prepare_compose_artifacts',
-        '# Публикация postgres/redis на хост (пропуск при занятом порте).',
-        '# Внутри сети compose: postgres:5432, redis:6379.',
+        '# Публикация postgres/redis/meilisearch на хост (пропуск при занятом порте).',
+        '# Внутри сети compose: postgres:5432, redis:6379, meilisearch:7700.',
     ]
     if not published:
         lines.extend(['services: {}', ''])
@@ -626,6 +648,7 @@ def build_publish_compose_content(published: dict[str, int]) -> str:
     container_ports = {
         'postgres': 5432,
         'redis': 6379,
+        'meilisearch': 7700,
     }
     for service, host_port in sorted(published.items()):
         container_port = container_ports.get(service, host_port)

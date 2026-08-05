@@ -19,6 +19,8 @@ source "$SCRIPT_DIR_CORE/console_tags.sh"
 source "$SCRIPT_DIR_CORE/nginx_env.sh"
 # shellcheck source=redis_env.sh
 source "$SCRIPT_DIR_CORE/redis_env.sh"
+# shellcheck source=search_env.sh
+source "$SCRIPT_DIR_CORE/search_env.sh"
 # shellcheck source=portable_env.sh
 source "$SCRIPT_DIR_CORE/portable_env.sh"
 
@@ -216,6 +218,10 @@ generate_units_list() {
 
   if is_redis_enabled "$project_root"; then
     units="ergo_ms_redis.service $units"
+  fi
+
+  if is_search_enabled "$project_root"; then
+    units="ergo_ms_meilisearch.service $units"
   fi
 
   if _postgres_portable_enabled "$project_root"; then

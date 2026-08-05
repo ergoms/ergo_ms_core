@@ -291,6 +291,7 @@ clear_project_dependencies() {
     "virtual_env/resources"
     "virtual_env/trained_models"
     "virtual_env/cache"
+    # legacy sibling (до переноса в cache/docker-cache)
     "virtual_env/docker-cache"
   )
 

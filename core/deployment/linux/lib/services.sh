@@ -28,9 +28,15 @@ start_all() {
     redis_start "$root" || true
   fi
 
+  # Meilisearch при ERGO_SEARCH_ENABLED — через meilisearch_start
+  if is_search_enabled "$root" && declare -F meilisearch_start >/dev/null 2>&1; then
+    meilisearch_start "$root" || true
+  fi
+
   for u in $(units_list "$root"); do
-    # Redis уже обработан redis_start
+    # Redis / Meilisearch уже обработаны отдельно
     [[ "$u" == "ergo_ms_redis.service" || "$u" == "ergo_ms_redis" ]] && continue
+    [[ "$u" == "ergo_ms_meilisearch.service" || "$u" == "ergo_ms_meilisearch" ]] && continue
     if _unit_is_present "$u"; then
       systemctl_do start "$u" || true
     fi
@@ -108,8 +114,13 @@ stop_all() {
 
   for u in $(units_list "$root"); do
     [[ "$u" == "ergo_ms_redis.service" || "$u" == "ergo_ms_redis" ]] && continue
+    [[ "$u" == "ergo_ms_meilisearch.service" || "$u" == "ergo_ms_meilisearch" ]] && continue
     systemctl_do stop "$u" || true
   done
+
+  if is_search_enabled "$root" && declare -F meilisearch_stop >/dev/null 2>&1; then
+    meilisearch_stop "$root" || true
+  fi
 
   if is_redis_enabled "$root" && declare -F redis_stop >/dev/null 2>&1; then
     redis_stop "$root" || true
@@ -130,8 +141,13 @@ restart_all() {
     redis_restart "$root" || true
   fi
 
+  if is_search_enabled "$root" && declare -F meilisearch_restart >/dev/null 2>&1; then
+    meilisearch_restart "$root" || true
+  fi
+
   for u in $(units_list "$root"); do
     [[ "$u" == "ergo_ms_redis.service" || "$u" == "ergo_ms_redis" ]] && continue
+    [[ "$u" == "ergo_ms_meilisearch.service" || "$u" == "ergo_ms_meilisearch" ]] && continue
     if _unit_is_present "$u"; then
       systemctl_do restart "$u" || true
     fi
@@ -254,6 +270,10 @@ show_service_logs() {
 
   if [[ "$service_name" == "ergo_ms_redis" || "$service_name" == "ergo_ms_redis.service" || "$service_name" == "ergo-redis" || "$service_name" == "ergo-redis.service" ]]; then
     service_name="ergo_ms_redis"
+  fi
+
+  if [[ "$service_name" == "ergo_ms_meilisearch" || "$service_name" == "ergo_ms_meilisearch.service" ]]; then
+    service_name="ergo_ms_meilisearch"
   fi
 
   local -a log_files=()

@@ -32,12 +32,12 @@ KNOWN_FEATURE_LIMITS_BYTES: dict[str, int] = {
     'lmsResource': 100 * 1024 * 1024,
 }
 
-# Модульные media-лимиты (env МБ).
+# Env media-лимиты (МБ). Имена модулей не хардкодим — только CLIENT_* ключи из .env.
 # zero_means_hard: 0 / пусто при default 0 → MEDIA_UPLOAD_HARD_MAX_SIZE
-# (module, env_key, default_mb, zero_means_hard)
-MODULE_MEDIA_LIMIT_KEYS: tuple[tuple[str, str, int, bool], ...] = (
-    ('bi_analysis', 'CLIENT_BI_UPLOAD_MAX_SIZE_MB', 200, False),
-    ('video_analysis', 'CLIENT_VIDEO_UPLOAD_MAX_SIZE_MB', 0, True),
+# (env_key, default_mb, zero_means_hard)
+MODULE_MEDIA_LIMIT_KEYS: tuple[tuple[str, int, bool], ...] = (
+    ('CLIENT_BI_UPLOAD_MAX_SIZE_MB', 200, False),
+    ('CLIENT_VIDEO_UPLOAD_MAX_SIZE_MB', 0, True),
 )
 
 
@@ -134,7 +134,7 @@ def parse_module_ceiling_bytes(
 
 def parse_modules_max_bytes(env: Mapping[str, str]) -> int:
     max_bytes = 0
-    for _name, key, default_mb, zero_means_hard in MODULE_MEDIA_LIMIT_KEYS:
+    for key, default_mb, zero_means_hard in MODULE_MEDIA_LIMIT_KEYS:
         max_bytes = max(
             max_bytes,
             parse_module_ceiling_bytes(
@@ -199,14 +199,14 @@ def build_upload_limits_report(env: Mapping[str, str]) -> dict[str, Any]:
     warnings: list[str] = []
     errors: list[str] = []
 
-    for module_name, key, default_mb, zero_means_hard in MODULE_MEDIA_LIMIT_KEYS:
+    for key, default_mb, zero_means_hard in MODULE_MEDIA_LIMIT_KEYS:
         module_bytes = parse_module_ceiling_bytes(
             env, key, default_mb, zero_means_hard=zero_means_hard,
         )
         ok = module_bytes <= hard_bytes
         above_default = module_bytes > media_bytes
         entry = {
-            'module': module_name,
+            'module': key,
             'key': key,
             'bytes': module_bytes,
             'ok': ok,
@@ -215,18 +215,18 @@ def build_upload_limits_report(env: Mapping[str, str]) -> dict[str, Any]:
         module_ok.append(entry)
         if not ok:
             errors.append(
-                f'{module_name}: {key} превышает MEDIA_UPLOAD_HARD_MAX_SIZE '
+                f'{key} превышает MEDIA_UPLOAD_HARD_MAX_SIZE '
                 f'({format_mib(hard_bytes)})'
             )
         elif above_default:
             warnings.append(
-                f'{module_name}: {format_mib(module_bytes)} выше дефолта '
+                f'{key}: {format_mib(module_bytes)} выше дефолта '
                 f'MEDIA_UPLOAD_MAX_SIZE ({format_mib(media_bytes)}), '
                 f'в пределах hard ({format_mib(hard_bytes)})'
             )
 
     warnings.append(
-        'impuls_analysis: клиентский лимит 50 MiB (feature impulsExcel), '
+        'feature impulsExcel: клиентский лимит 50 MiB, '
         'на API validate_file не проверяет размер'
     )
 

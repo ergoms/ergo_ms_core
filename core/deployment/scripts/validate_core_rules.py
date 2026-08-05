@@ -9,6 +9,7 @@
 - validate_module_isolation --scope=all (отчёт по modules/, без падения CI)
 - validate_bridge_contracts --fail-on-warning (схемы дескрипторов моста)
 - запрет hardcoded имён модулей в runtime-коде ядра
+  (core/api/src, core/client, core/deployment — не только API/клиент)
 - запрет console.error в прикладном коде клиента (кроме logError.js / logger.js)
 - запрет нативного <select> / b-form-select в .vue ядра
 - запрет from modules. в core/api/src (дополнительный текстовый grep)
@@ -49,6 +50,7 @@ API_DIR = PROJECT_ROOT / 'core' / 'api'
 CLIENT_SRC = PROJECT_ROOT / 'core' / 'client' / 'src'
 CORE_CLIENT = PROJECT_ROOT / 'core' / 'client'
 CORE_API_SRC = PROJECT_ROOT / 'core' / 'api' / 'src'
+CORE_DEPLOYMENT = PROJECT_ROOT / 'core' / 'deployment'
 MODULES_DIR = PROJECT_ROOT / 'modules'
 
 CONSOLE_ERROR_ALLOWLIST = {
@@ -88,9 +90,14 @@ HARDCODED_MODULE_LINE_ALLOWLIST = (
     re.compile(r'modules\.'),
     re.compile(r'module_source\s*='),
     re.compile(r'MODULE_SOURCE\s*='),
-    re.compile(r"\.get\('workers'"),
+    # Служебные ключи YAML/JSON/рецептов, совпадающие с именами модулей workers/tasks
+    re.compile(r"\.get\(['\"](?:workers|tasks)['\"]"),
+    re.compile(r"['\"]tasks['\"]:\s*(?:logging|\[)"),
+    re.compile(
+        r"['\"]workers['\"]:\s*['\"](?:install|start|stop|restart|status)-workers['\"]"
+    ),
+    re.compile(r"['\"]beat['\"],\s*['\"]workers['\"]"),
     re.compile(r'__pycache__'),
-    re.compile(r"'tasks':\s*logging"),
 )
 
 CLIENT_MODULE_LITERAL_ALLOWLIST = (
@@ -218,7 +225,12 @@ def check_hardcoded_module_names() -> list[str]:
     literal_pattern = re.compile(
         r"(['\"])(" + "|".join(re.escape(name) for name in module_names) + r")\1"
     )
-    scan_roots = [CORE_API_SRC, CLIENT_SRC, CORE_CLIENT / 'vite.config.js']
+    scan_roots = [
+        CORE_API_SRC,
+        CLIENT_SRC,
+        CORE_CLIENT / 'vite.config.js',
+        CORE_DEPLOYMENT,
+    ]
     violations: list[str] = []
     seen: set[str] = set()
 
@@ -236,6 +248,9 @@ def check_hardcoded_module_names() -> list[str]:
                 continue
             seen.add(rel)
             if _is_hardcoded_module_allowlisted(path):
+                continue
+            # Тесты deployment могут упоминать модули в фикстурах — не runtime ядра
+            if rel.startswith('core/deployment/tests/'):
                 continue
             try:
                 lines = path.read_text(encoding='utf-8').splitlines()

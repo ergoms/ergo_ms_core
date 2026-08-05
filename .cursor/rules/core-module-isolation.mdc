@@ -7,12 +7,12 @@ alwaysApply: true
 
 Ядро (`core/api`, `core/client`, `core/media_api`, `core/deployment`) **не знает** домен модулей. Связь только через **generic** ModuleBridge и hook discovery.
 
-Проверка: `ergoms core-rules-check`. Подробности — [`struct.mdc`](struct.mdc), контракты — [`module-contracts.mdc`](module-contracts.mdc).
+Проверка: `ergoms core-rules-check` (hardcoded имена — `core/api/src`, `core/client`, **`core/deployment`**). Подробности — [`struct.mdc`](struct.mdc), контракты — [`module-contracts.mdc`](module-contracts.mdc).
 
 ## Кратко
 
 - В ядре **нет** `from modules.<имя>...` и static import из `modules/` в бизнес-коде
-- В ядре **нет** строк имён модулей (`'<name>'`, `'<other_module>'`, …) в runtime
+- В ядре **нет** строк имён модулей (`'<name>'`, `'<other_module>'`, …) в runtime — включая `core/deployment/scripts/` и lifecycle
 - В ядре **нет** зашитых доменных claim/моделей/маршрутов модуля (конкретные ключи JWT декларирует модуль)
 - Нужны данные/поведение модуля **в сценарии ядра** → **platform**-контракт в `module_contracts` + `bridge.call` / `provide` / hook-файл
 - Связь **только между модулями** (ядро группу не читает) → **не** в `moduleContracts` / `module_contracts` и не в `core/…/integrations/`; константа у хоста, у провайдера — та же строка ([`module-contracts.mdc`](module-contracts.mdc) → «Что класть в каталог ядра»)
@@ -89,11 +89,12 @@ def _restore_session_claims(*, user=None, **_):
 ## Чеклист перед merge правок в `core/`
 
 1. Нет `modules.` в import бизнес-кода ядра
-2. Нет литералов имён модулей в runtime (кроме allowlist `core-rules-check`)
+2. Нет литералов имён модулей в runtime API/клиента/**deployment** (кроме allowlist `core-rules-check`)
 3. Нет доменных моделей/сервисов модулей и зашитых ключей их JWT claims
 4. Новая связь **ядро↔модуль** — сначала platform-контракт в каталоге, потом `bridge` / hook
 5. Связь **только модуль↔модуль** — **не** добавлять в каталог ядра и не класть хелперы в `core/…/integrations/`
-6. `ergoms core-rules-check` без ошибок по isolation
+6. Доменный loader/ops модуля — в `modules/<name>/`, не в `core/deployment/scripts/`
+7. `ergoms core-rules-check` без ошибок по isolation
 
 ## Связанные правила
 

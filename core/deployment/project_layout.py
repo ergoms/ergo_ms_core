@@ -58,6 +58,11 @@ def cache_loadtest_dir(root: Path) -> Path:
     return cache_dir(root) / 'loadtest'
 
 
+def cache_docker_dir(root: Path) -> Path:
+    """BuildKit local cache (DOCKER_DEPS_CACHE=project)."""
+    return cache_dir(root) / 'docker-cache'
+
+
 def nssm_dir(root: Path) -> Path:
     return packages_dir(root) / 'nssm'
 
@@ -120,6 +125,16 @@ def certbot_bin(root: Path) -> Path:
 
 def certbot_webroot_dir(root: Path) -> Path:
     return packages_dir(root) / 'certbot' / 'webroot'
+
+
+def meilisearch_runtime_dir(root: Path) -> Path:
+    """Runtime Meilisearch (pid, dumps) в cache."""
+    return cache_dir(root) / 'meilisearch'
+
+
+def meilisearch_data_dir(root: Path) -> Path:
+    """Индексы Meilisearch (LMDB) в cache."""
+    return meilisearch_runtime_dir(root) / 'data.ms'
 
 
 def wrappers_dir(root: Path) -> Path:

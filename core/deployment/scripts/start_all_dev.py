@@ -39,7 +39,7 @@ def _module_start_commands() -> list[tuple[str, str]]:
 
 def _ordered_dev_commands() -> list[tuple[str, str]]:
     """Порядок: DB logs → Redis → API / media / celery → модули → client|nginx."""
-    from deployment_env import is_nginx_enabled, is_redis_enabled
+    from deployment_env import is_nginx_enabled, is_redis_enabled, is_search_enabled
     from start_db_logs_dev import db_service_label
 
     commands: list[tuple[str, str]] = [
@@ -47,6 +47,8 @@ def _ordered_dev_commands() -> list[tuple[str, str]]:
     ]
     if is_redis_enabled():
         commands.append(('Redis', 'ergoms start-redis-dev'))
+    if is_search_enabled():
+        commands.append(('Meilisearch', 'ergoms start-meilisearch-dev'))
     commands.extend([
         ('API', 'ergoms dev'),
         ('Media API', 'ergoms start-media'),
