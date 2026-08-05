@@ -9,6 +9,7 @@ from security.report import Finding
 
 from . import (
     anonymous_endpoints,
+    client_browser_log,
     deferred,
     env_value,
     jupyter_exposure,
@@ -33,6 +34,7 @@ _REGISTRY: dict[str, Checker] = {
     'password_policy': password_policy.run,
     'jupyter_exposure': jupyter_exposure.run,
     'anonymous_endpoints': anonymous_endpoints.run,
+    'client_browser_log': client_browser_log.run,
     'code_fixed': deferred.code_fixed,
     'deferred': deferred.deferred,
 }
