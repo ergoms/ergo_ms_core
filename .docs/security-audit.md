@@ -190,13 +190,15 @@ ADMIN_PASSWORD=admin
 
 ### С1. Состояние фоновой задачи импорта доступно постороннему
 
-`ImportUsersTaskStatusView` в [views_import.py](../core/api/src/core/cms/adp/views_import.py) (строка 166) принимает идентификатор задачи и возвращает её состояние без проверки инициатора. Идентификаторы задач непредсказуемы, поэтому риск ограничен, но утечка хода импорта и сообщений об ошибках возможна. Проверять инициатора так же, как при выдаче паролей.
+`ImportUsersTaskStatusView` в [views_import.py](../core/api/src/core/cms/adp/views_import.py) принимает идентификатор задачи и возвращает её состояние без проверки инициатора. Идентификаторы задач непредсказуемы, поэтому риск ограничен, но утечка хода импорта и сообщений об ошибках возможна.
+
+**Исправлено (вместе с К1).** Представление на `BaseAPIViewGlobalAdminMixin` и сверяет `initiated_by_user_id` из состояния задачи с текущим пользователем.
 
 ### С2. Не задан список доверенных источников для защиты от подделки запросов
 
 В настройках нет `CSRF_TRUSTED_ORIGINS`. Основной API работает на токенах, но refresh-токен хранится в cookie, и эндпоинт обновления сессии принимает его именно оттуда. Для сценариев за обратным прокси с несколькими именами узла список доверенных источников нужен.
 
-**Исправлено.** Модуль [`csrf.py`](../core/api/src/config/settings/csrf.py): `CSRF_TRUSTED_ORIGINS` из env; в development пустой список допустим; вне development без списка — `ImproperlyConfigured`. При nginx публичный origin добавляется через `effective_cors_origins` (как у CORS).
+**Исправлено.** Модуль [`csrf.py`](../core/api/src/config/settings/csrf.py): `CSRF_TRUSTED_ORIGINS` из env; в development пустой список допустим; вне development без списка — `ImproperlyConfigured`. При nginx публичный origin добавляется через `effective_cors_origins` (как у CORS). Контроль `csrf.trusted_origins` обязателен с уровня `standard` (вне development).
 
 ### С3. Внутренний API media доверяет заголовку `X-Forwarded-For`
 
@@ -294,7 +296,7 @@ ADMIN_PASSWORD=admin
 | В6 | `token.lifetime_required`, `token.rotate_refresh`, `token.revoke_on_logout` | `standard` |
 | В7 | `cors.explicit_origins` | `standard` |
 | С1 | `api.task_status_owner` | `standard` |
-| С2 | `csrf.trusted_origins` | `hardened` |
+| С2 | `csrf.trusted_origins` | `standard` |
 | С3 | `internal.trusted_proxies` | `hardened` |
 | С4 | `internal.write_size_limit` | `standard` |
 | С5 | `media.content_validation` | `hardened` (проверка сигнатуры), `maximum` (антивирусная проверка) |
