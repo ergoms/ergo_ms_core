@@ -55,8 +55,8 @@ def run_security_modes(
             for name in LEVEL_ORDER
         ],
         'open_in_production_forbidden': effective == 'open' and deploy == 'production',
-        'stage': 1,
-        'runtime_effect': False,
+        'stage': 2,
+        'runtime_effect': True,
     }
 
     if show_controls:
@@ -89,7 +89,7 @@ def run_security_modes(
                 ),
             )
         )
-        print(format_console('info', t('security_modes_stage1_note')))
+        print(format_console('info', t('security_modes_stage2_note')))
         if payload['open_in_production_forbidden']:
             print(format_console('error', t('security_modes_open_in_production')))
         print(format_console('info', t('security_modes_levels_title')))
