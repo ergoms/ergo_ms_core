@@ -128,6 +128,10 @@ controls:
 | `registration.mode` | любой | любой | по приглашению или закрыта | закрыта |
 | `password.policy` | не менее 6 знаков | не менее 8, цифра и строчная буква | не менее 12, заглавная и специальный знак | не менее 14 и проверка по списку скомпрометированных |
 
+Контроль `api.object_permissions` (**phase 1, status `partial`**): в ядре есть `ObjectPermissionMixin` / `filter_queryset_for_user`; ViewSet ещё не мигрированы массово. На `hardened`/`maximum` `security-check` даёт warning, не ложный OK.
+
+Контроль `adp.default_role_view_grants`: env `API_ADP_DEFAULT_VIEW_GRANTS` (`granted`/`denied`); при unset runtime подставляет значение профиля. На `hardened`/`maximum` явный `granted` — нарушение.
+
 ### Транспорт и заголовки
 
 | Контроль | `open` | `standard` | `hardened` | `maximum` |

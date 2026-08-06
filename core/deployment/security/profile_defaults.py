@@ -22,6 +22,7 @@ APPLYABLE_CONTROL_IDS: tuple[str, ...] = (
     'media.upload_rate',
     'media.content_validation',
     'logging.client_browser',
+    'adp.default_role_view_grants',
 )
 
 # Check-only: потолок access TTL не инжектим (дефолт кода 30 мин).
@@ -65,6 +66,8 @@ def _requirement_to_env_str(control_id: str, requirement: Any) -> str | None:
         if lower in ('true', 'false'):
             return lower
         if lower in ('extension', 'extension_and_magic', 'extension_magic_av'):
+            return lower
+        if lower in ('granted', 'denied'):
             return lower
         if '/' in text:
             return text

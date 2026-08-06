@@ -230,9 +230,13 @@ ADMIN_PASSWORD=admin
 
 В [core/api/src/core/cms/adp/services/permissions.py](../core/api/src/core/cms/adp/services/permissions.py) (строки 562–594) при отсутствии у пользователя групп роли любой ключ права, оканчивающийся на `_view`, считается выданным. Это удобно при первичной настройке, но означает, что незаполненная конфигурация групп не ограничивает просмотр, а открывает его.
 
+**Исправлено.** Авто-выдача `_view` для роли «Пользователь» без групп зависит от `API_ADP_DEFAULT_VIEW_GRANTS` (`granted` | `denied`). Профиль: `open`/`standard` → `granted`, `hardened`/`maximum` → `denied`. Контроль `adp.default_role_view_grants`, check `adp_default_role_view_grants`, status `implemented`.
+
 ### С8. Объектные проверки прав нигде не формализованы
 
 Метод `has_object_permission` не встречается в `core/api/src` ни разу. Проверки конкретного объекта выполняются вручную в `get_queryset` и `get_object` отдельных представлений. Работает это только там, где автор об этом помнил; для новых представлений нет ни базового класса, ни автоматической проверки.
+
+**Исправлено (phase 1, partial).** Добавлен `ObjectPermissionMixin` и `filter_queryset_for_user` в [core/api/src/core/utils/permissions/](../core/api/src/core/utils/permissions/) — точки расширения с дефолтом «разрешено». Массовая миграция ViewSet не входит в phase 1. Контроль `api.object_permissions`, check `object_permissions`, status `partial`; на `hardened`/`maximum` checker даёт warning, пока views не переведены.
 
 ### С9. Шаблон `.env` ослабляет настройки по сравнению с кодом
 

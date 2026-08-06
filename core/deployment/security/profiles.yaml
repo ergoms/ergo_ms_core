@@ -279,8 +279,8 @@ controls:
       maximum: required_auto
     violation: error
     waivable: false
-    status: planned
-    check: deferred
+    status: partial
+    check: object_permissions
     audit: [C8]
 
   - id: api.docs_exposure
@@ -317,6 +317,7 @@ controls:
     layer: api
     title: Права _view у роли без групп
     kind: policy
+    env_key: API_ADP_DEFAULT_VIEW_GRANTS
     profiles:
       open: granted
       standard: granted
@@ -324,8 +325,8 @@ controls:
       maximum: denied
     violation: error
     waivable: false
-    status: planned
-    check: deferred
+    status: implemented
+    check: adp_default_role_view_grants
     audit: [C7]
 
   - id: registration.mode

@@ -8,6 +8,7 @@ from security.catalog import Control, SecurityCatalog
 from security.report import Finding
 
 from . import (
+    adp_default_role_view_grants,
     anonymous_endpoints,
     broker_redis,
     client_browser_log,
@@ -17,6 +18,7 @@ from . import (
     internal_trusted_proxies,
     jupyter_exposure,
     media_content_validation,
+    object_permissions,
     password_policy,
     presence,
     secrets,
@@ -43,6 +45,8 @@ _REGISTRY: dict[str, Checker] = {
     'internal_trusted_proxies': internal_trusted_proxies.run,
     'media_content_validation': media_content_validation.run,
     'docker_nginx_parity': docker_nginx_parity.run,
+    'adp_default_role_view_grants': adp_default_role_view_grants.run,
+    'object_permissions': object_permissions.run,
     'code_fixed': deferred.code_fixed,
     'deferred': deferred.deferred,
 }
