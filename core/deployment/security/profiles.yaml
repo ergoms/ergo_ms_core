@@ -1,5 +1,5 @@
-# Каталог контролей режимов безопасности ERGO MS (этап 0 — только отчёт).
-# Профиль не записывает .env и не меняет Django. См. .docs/security-modes.md
+# Каталог контролей режимов безопасности ERGO MS (этап 2 — merge unset в runtime).
+# Профиль не записывает .env. См. .docs/security-modes.md
 
 version: 1
 
