@@ -195,7 +195,8 @@ class LoginThrottleDefaultTests(unittest.TestCase):
             / 'auth.py'
         )
         source = auth_path.read_text(encoding='utf-8')
-        self.assertIn("env.str('API_THROTTLE_RATES_LOGIN', default='5/minute')", source)
+        self.assertIn('login_throttle_rate()', source)
+        self.assertIn('security_profile_runtime', source)
         self.assertIn(
             "env.str(\n    'API_THROTTLE_RATES_PASSWORD_RESET',\n    default='5/minute',\n)",
             source,
