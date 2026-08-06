@@ -34,8 +34,9 @@ from docker_runtime import (  # noqa: E402
     postgres_container_env,
     prepare_compose_artifacts,
 )
-from render_common import render_docker_nginx_config  # noqa: E402
 
+# render_common → security → PyYAML; не импортировать на уровне модуля —
+# setup-full / scaffold идут на portable Python до python-install.
 SETUP_MARKER_REL = Path('logs/.ergo-docker-setup-ok')
 DOCKER_PYTHON_INSTALL_LOG = 'logs/docker/python-install.log'
 DOCKER_NPM_INSTALL_LOG = 'logs/docker/npm-install.log'
@@ -179,6 +180,8 @@ def bootstrap_service_names(raw_env: dict[str, str]) -> list[str]:
 
 
 def render_nginx_docker_config(raw_env: dict[str, str]) -> Path:
+    from render_common import render_docker_nginx_config  # noqa: WPS433
+
     template = DOCKER_DIR / 'nginx' / 'ergo_ms.docker.conf.template'
     output = DOCKER_DIR / 'nginx' / 'ergo_ms.conf.rendered'
     return render_docker_nginx_config(
