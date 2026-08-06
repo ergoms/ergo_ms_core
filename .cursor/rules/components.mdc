@@ -26,6 +26,7 @@ alwaysApply: false
 | Аватар пользователя | `UserAvatar` | этот раздел |
 | Контентное изображение (режим без картинок) | `ContentImage` | [`client-a11y.mdc`](client-a11y.mdc) |
 | Skip-link / landmarks | `SkipLink`, `<main id="main-content">` | [`client-a11y.mdc`](client-a11y.mdc) |
+| Динамические Lucide-иконки | `LucideIcon` (имя PascalCase) | [`icons.mdc`](icons.mdc) |
 
 Режимы анимаций, картинок и помощи диктору — [`client-a11y.mdc`](client-a11y.mdc) (`useUiModes`, `data-ergo-*`).
 

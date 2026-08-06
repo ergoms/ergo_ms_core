@@ -114,9 +114,9 @@ class MyModuleConfig(AppConfig):
 
 Пункты бокового меню — **миграция API** (`MenuMigrationHelper`, эталон `modules/<name>/api/migrations/*_add_menu.py`); маршруты — `client/js/routes.js`. Порядок и видимость — в CMS. Подробности: [`menu.mdc`](menu.mdc).
 
-Пункты выпадающего меню пользователя в шапке (`UserMenu`) — через `bridge.provideMany` в группе `header.userMenu.items`. Эталон: `modules/<name>/client/js/headerUserMenu.js`, подключается из `integrations.js`. Сбор в ядре — [`headerUserMenu.js`](../../core/client/src/integrations/headerUserMenu.js). Это **не** боковое меню: sidebar — миграции API, шапка — ModuleBridge.
+Пункты выпадающего меню пользователя в шапке (`UserMenu`) — через `bridge.provideMany` в группе `header.userMenu.items`. Эталон: `modules/<name>/client/js/headerUserMenu.js`, подключается из `integrations.js`. Сбор в ядре — [`headerUserMenu.js`](../../core/client/src/integrations/headerUserMenu.js). Это **не** боковое меню: sidebar — миграции API, шапка — ModuleBridge. Иконка — строка Lucide PascalCase (`icon: 'Building2'`), не Vue-компонент — [`icons.mdc`](icons.mdc).
 
-Пункты меню приложений (`AppsMenu` в toolbar) — через `bridge.provideMany` в группе `apps.menu.items`. Эталон: `modules/<name>/client/js/appsMenu.js`, подключается из `integrations.js`. Сбор в ядре — [`appsMenu.js`](../../core/client/src/integrations/appsMenu.js). В toolbar AppsMenu и уведомления показываются одновременно.
+Пункты меню приложений (`AppsMenu` в toolbar) — через `bridge.provideMany` в группе `apps.menu.items`. Эталон: `modules/<name>/client/js/appsMenu.js`, подключается из `integrations.js`. Сбор в ядре — [`appsMenu.js`](../../core/client/src/integrations/appsMenu.js). В toolbar AppsMenu и уведомления показываются одновременно. Иконка — строка (`icon: 'Bot'`), рендер в ядре через `LucideIcon`.
 
 Бренд в шапке сайдбара / mobile header — опционально через `shell.sidebar_brand` ([`sidebarBrand.js`](../../core/client/src/integrations/sidebarBrand.js)): модуль регистрирует `{ id, component, match?, to?, measureText? }`; без match ядро оставляет `SiteWordmark`.
 
@@ -239,6 +239,7 @@ def get_my_serializer_class():
 | Уведомления, аудит | [`notifications.mdc`](notifications.mdc), [`audit.mdc`](audit.mdc) |
 | Человекочитаемо | [`.docs/architecture.md`](../../.docs/architecture.md) |
 | Боковое меню | [`menu.mdc`](menu.mdc) |
+| Иконки Lucide | [`icons.mdc`](icons.mdc) |
 | Справка ergoms модуля | [`ergoms-module-help.mdc`](ergoms-module-help.mdc) |
 | Роли процессов (resource-usage) | [`process-roles.mdc`](process-roles.mdc) |
 | Host lifecycle (тесты deployment) | [`host-lifecycle.mdc`](host-lifecycle.mdc) |

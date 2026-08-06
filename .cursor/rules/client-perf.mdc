@@ -22,7 +22,7 @@ alwaysApply: false
 - Независимые запросы на mount — `Promise.all`, не цепочка `await`
 - Hover/focus пункта меню / breadcrumbs / auth-ссылок — `prefetchRouteByName` (`@/js/utils/prefetchRoute.js`)
 - i18n — только активный locale (+ fallback) на старте; остальные через `ensureLocaleLoaded` / `setAppLocale`
-- Иконки меню — per-icon через `lucideIconLoader` (не `import('lucide-vue-next')` barrel)
+- Иконки меню и декларативные UI — per-icon через `LucideIcon` / `lucideIconLoader` (не barrel); см. [`icons.mdc`](icons.mdc)
 - Post-boot (client_monitor, theme manifests, syncSiteTheme) — `requestIdleCallback` / idle после mount
 - Индикация загрузки списков — [`loading-content-area.mdc`](loading-content-area.mdc), не свой overlay
 
@@ -119,4 +119,5 @@ await preloadLucideIconNames(['Home', 'Settings'])
 | Загрузка списков | [`loading-content-area.mdc`](loading-content-area.mdc) |
 | Модалки | [`modal-center.mdc`](modal-center.mdc) |
 | Меню | [`menu.mdc`](menu.mdc) |
+| Иконки Lucide | [`icons.mdc`](icons.mdc) |
 | Диагностика «старый dist» | [`diagnose-before-code.mdc`](diagnose-before-code.mdc) |

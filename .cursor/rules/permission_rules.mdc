@@ -6,6 +6,8 @@ alwaysApply: false
 
 Проверка на клиенте — **только для UX**. Сервер всё равно должен проверять права в API.
 
+API path ACL в ядре: `Policy(policy_type='api')` + `ApiAccessPolicyMiddleware` / `PermissionService.check_api_access` (семантика как у URL-политик). Allow политики не заменяет `permission_classes` / `ModulePermission` на view.
+
 ## Файл правил
 
 `modules/<имя>/client/js/permission-rules.js` — только в этой папке (вложенные пути не подхватываются).
