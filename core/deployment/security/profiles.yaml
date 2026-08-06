@@ -535,6 +535,7 @@ controls:
     layer: media
     title: Проверка содержимого загружаемых файлов
     kind: policy
+    env_key: MEDIA_API_CONTENT_VALIDATION
     profiles:
       open: extension
       standard: extension
@@ -542,8 +543,8 @@ controls:
       maximum: extension_magic_av
     violation: error
     waivable: true
-    status: planned
-    check: deferred
+    status: partial
+    check: media_content_validation
     audit: [C5]
 
   - id: media.upload_rate

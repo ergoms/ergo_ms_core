@@ -162,6 +162,8 @@ controls:
 | `internal.write_size_limit` | нет | обязателен | обязателен | обязателен |
 | `internal.trusted_proxies` | не проверяется | не проверяется | XFF только от доверенных прокси (пустой список = игнорировать XFF) | плюс отдельный ключ для внутреннего API |
 
+Контроль `media.content_validation` в media_api (**phase 1, status `partial`**): режимы `extension` / `extension_and_magic` работают; `extension_magic_av` — stub без ClamAV (`security-check` даёт SKIP/warning, не ложный OK). Env: `MEDIA_API_CONTENT_VALIDATION`.
+
 ### Инфраструктура и данные
 
 | Контроль | `open` | `standard` | `hardened` | `maximum` |

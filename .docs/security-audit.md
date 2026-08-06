@@ -218,6 +218,8 @@ ADMIN_PASSWORD=admin
 
 Проверяется только расширение файла — при выдаче токена загрузки на стороне API и, если в токене указан список типов, на стороне media_api. Сигнатура содержимого не сверяется, антивирусной проверки нет. Файл с безобидным расширением может содержать что угодно.
 
+**Исправлено (phase 1, partial).** В media_api добавлена проверка `MEDIA_API_CONTENT_VALIDATION`: режимы `extension` (дефолт) и `extension_and_magic` (профиль `hardened`). Upload и InternalWrite отклоняют несовпадение расширения и сигнатуры (filetype), опасные sniff (html/exe) и SVG без svg/xml. Режим `extension_magic_av` (`maximum`) — stub без реального сканера: runtime отказывает честно (503), checker даёт SKIP/warning, не `[OK]`. Контроль каталога: `media.content_validation`, status `partial`.
+
 ### С6. Конфигурация nginx для Docker слабее, чем для обычной установки
 
 Шаблон [core/deployment/docker/nginx/ergo_ms.docker.conf.template](../core/deployment/docker/nginx/ergo_ms.docker.conf.template) работает только по HTTP, не подключает набор защитных заголовков и ограничения частоты запросов, а служебный адрес проверки состояния media_api открыт без ограничения по адресу — в отличие от шаблона для обычной установки. Нужно привести конфигурации к одному уровню.

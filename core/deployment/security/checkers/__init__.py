@@ -15,6 +15,7 @@ from . import (
     env_value,
     internal_trusted_proxies,
     jupyter_exposure,
+    media_content_validation,
     password_policy,
     presence,
     secrets,
@@ -39,6 +40,7 @@ _REGISTRY: dict[str, Checker] = {
     'client_browser_log': client_browser_log.run,
     'broker_redis_password': broker_redis.run,
     'internal_trusted_proxies': internal_trusted_proxies.run,
+    'media_content_validation': media_content_validation.run,
     'code_fixed': deferred.code_fixed,
     'deferred': deferred.deferred,
 }

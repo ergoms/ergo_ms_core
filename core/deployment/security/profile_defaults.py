@@ -20,6 +20,7 @@ APPLYABLE_CONTROL_IDS: tuple[str, ...] = (
     'token.remember_me_max',
     'media.signed_urls_ttl',
     'media.upload_rate',
+    'media.content_validation',
     'logging.client_browser',
 )
 
@@ -62,6 +63,8 @@ def _requirement_to_env_str(control_id: str, requirement: Any) -> str | None:
             return None
         lower = text.lower()
         if lower in ('true', 'false'):
+            return lower
+        if lower in ('extension', 'extension_and_magic', 'extension_magic_av'):
             return lower
         if '/' in text:
             return text

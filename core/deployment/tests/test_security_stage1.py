@@ -235,8 +235,12 @@ class CatalogTruthUpTests(unittest.TestCase):
         catalog = load_security_catalog()
         signed = catalog.control_by_id('media.signed_urls_ttl')
         upload = catalog.control_by_id('media.upload_rate')
+        content = catalog.control_by_id('media.content_validation')
         self.assertEqual(signed.env_key, 'MEDIA_URL_EXPIRATION')
         self.assertEqual(upload.env_key, 'MEDIA_API_UPLOAD_RATE')
+        self.assertEqual(content.env_key, 'MEDIA_API_CONTENT_VALIDATION')
+        self.assertEqual(content.check, 'media_content_validation')
+        self.assertEqual(content.status, 'partial')
 
 
 class SecurityCheckSmokeTests(unittest.TestCase):

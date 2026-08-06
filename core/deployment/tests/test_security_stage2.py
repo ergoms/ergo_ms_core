@@ -19,6 +19,7 @@ class MergeSecurityProfileDefaultsTests(unittest.TestCase):
         self.assertEqual(merged['API_REMEMBER_ME_REFRESH_TOKEN_LIFETIME'], '10080')
         self.assertEqual(merged['MEDIA_URL_EXPIRATION'], '3600')
         self.assertEqual(merged['MEDIA_API_UPLOAD_RATE'], '30/minute')
+        self.assertEqual(merged['MEDIA_API_CONTENT_VALIDATION'], 'extension')
         self.assertEqual(merged['CLIENT_BROWSER_LOG_ENABLED'], 'true')
 
     def test_explicit_values_kept(self) -> None:
@@ -83,6 +84,7 @@ class MergeSecurityProfileDefaultsTests(unittest.TestCase):
         self.assertEqual(merged['API_REMEMBER_ME_REFRESH_TOKEN_LIFETIME'], '1440')
         self.assertEqual(merged['MEDIA_URL_EXPIRATION'], '900')
         self.assertEqual(merged['MEDIA_API_UPLOAD_RATE'], '15/minute')
+        self.assertEqual(merged['MEDIA_API_CONTENT_VALIDATION'], 'extension_and_magic')
         self.assertEqual(merged['API_JWT_LIFETIME_ENABLED'], 'true')
 
     def test_input_not_mutated(self) -> None:
