@@ -3,8 +3,10 @@ Effective env и конфигурация для Docker Compose (read-only, не
 
 Порты приложений — из существующих ключей .env (API_PORT, CLIENT_PORT, …).
 Параметры БД — из databases.yaml; для контейнеров генерируется .compose.databases.yaml.
-Публикация postgres/redis/meilisearch на хост — docker-compose.publish.generated.yml
+Публикация postgres/meilisearch на хост — docker-compose.publish.generated.yml
 (пропуск, если порт занят; внутри сети compose: 5432/6379/7700).
+Redis на хост — только при явном DOCKER_REDIS_PUBLISH_PORT (пусто = не публиковать).
+AUTH Redis — docker-compose.redis-auth.generated.yml при непустом redis.password.
 """
 
 from __future__ import annotations
@@ -44,6 +46,7 @@ CELERY_DB_SECTIONS = ('default', 'celery', 'celery_worker', 'celery_beat')
 DOCKER_DEPS_CACHE_VALUES = frozenset({'internal', 'project', 'off'})
 BUILD_CACHE_OUTPUT = _DOCKER_DIR / 'docker-compose.build.generated.yml'
 PUBLISH_COMPOSE_OUTPUT = _DOCKER_DIR / 'docker-compose.publish.generated.yml'
+REDIS_AUTH_COMPOSE_OUTPUT = _DOCKER_DIR / 'docker-compose.redis-auth.generated.yml'
 _PUBLISH_DISABLED = frozenset({'none', 'off', 'false', '0', '-', 'disabled'})
 _PUBLISH_WARNED: set[str] = set()
 
@@ -70,6 +73,17 @@ def load_databases_config(project_root: Path | None = None) -> dict[str, Any]:
     with open(path, encoding='utf-8') as handle:
         data = _yaml().safe_load(handle) or {}
     return data.get('databases') or {}
+
+
+def load_redis_password(project_root: Path | None = None) -> str:
+    """databases.yaml → redis.password; пусто = без AUTH."""
+    section = load_databases_config(project_root).get('redis') or {}
+    if not isinstance(section, dict):
+        return ''
+    raw = section.get('password', '')
+    if raw is None:
+        return ''
+    return str(raw).strip()
 
 
 def effective_db_host(raw_env: dict[str, str], yaml_host: str) -> str:
@@ -586,14 +600,16 @@ def resolve_infra_publish_ports(raw_env: dict[str, str], *, warn: bool = False) 
     redis_service = _env(raw_env, 'DOCKER_SERVICE_REDIS', 'redis')
     redis_internal = int(_env(raw_env, 'REDIS_PORT', '6379') or '6379')
     redis_explicit = _env(raw_env, 'DOCKER_REDIS_PUBLISH_PORT', '')
-    redis_host = resolve_infra_host_publish_port(
-        preferred=redis_internal,
-        explicit_raw=redis_explicit,
-        service_key=redis_service,
-        warn=warn,
-    )
-    if redis_host is not None:
-        published[redis_service] = redis_host
+    # Redis: пустой DOCKER_REDIS_PUBLISH_PORT = не публиковать (opt-in).
+    if redis_explicit:
+        redis_host = resolve_infra_host_publish_port(
+            preferred=redis_internal,
+            explicit_raw=redis_explicit,
+            service_key=redis_service,
+            warn=warn,
+        )
+        if redis_host is not None:
+            published[redis_service] = redis_host
 
     db_mode = _env(raw_env, 'DOCKER_DATABASE', 'container').lower()
     if db_mode == 'container' and effective_docker_profile_postgres(raw_env):
@@ -638,7 +654,7 @@ def resolve_infra_publish_ports(raw_env: dict[str, str], *, warn: bool = False) 
 def build_publish_compose_content(published: dict[str, int]) -> str:
     lines = [
         '# Автогенерация: prepare_compose_artifacts',
-        '# Публикация postgres/redis/meilisearch на хост (пропуск при занятом порте).',
+        '# Публикация postgres/redis/meilisearch на хост (redis — только при явном порте).',
         '# Внутри сети compose: postgres:5432, redis:6379, meilisearch:7700.',
     ]
     if not published:
@@ -662,6 +678,36 @@ def build_publish_compose_content(published: dict[str, int]) -> str:
 def write_publish_compose(path: Path, published: dict[str, int]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(build_publish_compose_content(published), encoding='utf-8')
+
+
+def _yaml_double_quoted(value: str) -> str:
+    escaped = value.replace('\\', '\\\\').replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+def build_redis_auth_compose_content(password: str) -> str:
+    """Overlay: requirepass + healthcheck с AUTH (когда password непустой)."""
+    quoted = _yaml_double_quoted(password)
+    return (
+        '# Автогенерация: prepare_compose_artifacts (databases.yaml redis.password)\n'
+        'services:\n'
+        '  redis:\n'
+        f'    command: ["redis-server", "--requirepass", {quoted}]\n'
+        '    healthcheck:\n'
+        f'      test: ["CMD", "redis-cli", "-a", {quoted}, "--no-auth-warning", "ping"]\n'
+        '      interval: 5s\n'
+        '      timeout: 3s\n'
+        '      retries: 10\n'
+    )
+
+
+def write_redis_auth_compose(path: Path, password: str) -> None:
+    """Пишет AUTH-overlay или удаляет файл, если пароль пуст."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not password:
+        path.unlink(missing_ok=True)
+        return
+    path.write_text(build_redis_auth_compose_content(password), encoding='utf-8')
 
 
 def postgres_container_env(raw_env: dict[str, str]) -> dict[str, str]:
@@ -751,6 +797,9 @@ def prepare_compose_artifacts(project_root: Path | None = None) -> dict[str, Pat
     published = resolve_infra_publish_ports(raw, warn=True)
     write_publish_compose(PUBLISH_COMPOSE_OUTPUT, published)
 
+    redis_password = load_redis_password(root)
+    write_redis_auth_compose(REDIS_AUTH_COMPOSE_OUTPUT, redis_password)
+
     merged = merge_env_files(root, raw)
     merged.update(postgres_container_env(raw))
     pg_service = _env(raw, 'DOCKER_SERVICE_POSTGRES', 'postgres')
@@ -814,4 +863,5 @@ def prepare_compose_artifacts(project_root: Path | None = None) -> dict[str, Pat
         'celery_init_sql': celery_sql,
         'compose_build_cache': BUILD_CACHE_OUTPUT if BUILD_CACHE_OUTPUT.is_file() else None,
         'compose_publish': PUBLISH_COMPOSE_OUTPUT,
+        'compose_redis_auth': REDIS_AUTH_COMPOSE_OUTPUT if REDIS_AUTH_COMPOSE_OUTPUT.is_file() else None,
     }

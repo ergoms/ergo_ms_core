@@ -30,6 +30,7 @@ from docker_runtime import (  # noqa: E402
     compose_profiles,
     docker_mode,
     effective_docker_build_policy,
+    load_redis_password,
     postgres_container_env,
     prepare_compose_artifacts,
 )
@@ -49,6 +50,7 @@ COMPOSE_ARTIFACT_PATHS = (
     DOCKER_DIR / 'docker-compose.modules.generated.yml',
     DOCKER_DIR / 'docker-compose.build.generated.yml',
     DOCKER_DIR / 'docker-compose.publish.generated.yml',
+    DOCKER_DIR / 'docker-compose.redis-auth.generated.yml',
     DOCKER_DIR / 'init' / 'postgres' / '02-celery-databases.sql',
     DOCKER_DIR / 'nginx' / 'ergo_ms.conf.rendered',
     *DOCKERIGNORE_ARTIFACT_PATHS,
@@ -95,6 +97,9 @@ def compose_file_list(mode: str, raw_env: dict[str, str]) -> list[Path]:
     publish = DOCKER_DIR / 'docker-compose.publish.generated.yml'
     if publish.is_file():
         files.append(publish)
+    redis_auth = DOCKER_DIR / 'docker-compose.redis-auth.generated.yml'
+    if redis_auth.is_file():
+        files.append(redis_auth)
     return files
 
 
@@ -120,6 +125,9 @@ def compose_file_list_full() -> list[Path]:
     publish = DOCKER_DIR / 'docker-compose.publish.generated.yml'
     if publish.is_file():
         files.append(publish)
+    redis_auth = DOCKER_DIR / 'docker-compose.redis-auth.generated.yml'
+    if redis_auth.is_file():
+        files.append(redis_auth)
     return files
 
 
@@ -309,9 +317,14 @@ def wait_bootstrap_infra(mode: str | None, raw_env: dict[str, str], timeout_sec:
     services = bootstrap_service_names(raw_env)
     pg_user = postgres_container_env(raw_env).get('POSTGRES_USER', 'postgres')
     deadline = time.monotonic() + timeout_sec
+    redis_password = load_redis_password(PROJECT_ROOT)
+    redis_ping_args = ['-T', 'redis', 'redis-cli']
+    if redis_password:
+        redis_ping_args.extend(['-a', redis_password, '--no-auth-warning'])
+    redis_ping_args.append('ping')
 
     while time.monotonic() < deadline:
-        ping_cmd, ping_cwd = build_compose_cmd('exec', mode=mode, extra_args=['-T', 'redis', 'redis-cli', 'ping'])
+        ping_cmd, ping_cwd = build_compose_cmd('exec', mode=mode, extra_args=redis_ping_args)
         ping = subprocess.run(ping_cmd, cwd=str(ping_cwd), capture_output=True, text=True, check=False)
         redis_ok = ping.returncode == 0 and 'PONG' in (ping.stdout or '')
 
