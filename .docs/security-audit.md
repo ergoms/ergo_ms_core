@@ -161,6 +161,8 @@ ADMIN_PASSWORD=admin
 
 **Как исправить.** Добавить пароль в шаблон и в секцию `redis` файла `databases.yaml`, не публиковать порт на хост без явного запроса.
 
+**Исправлено.** Источник пароля — `databases.yaml` → `redis.password` (без `REDIS_PASSWORD` в `.env`). Пустой пароль сохраняет прежнее поведение (dev). Непустой пароль попадает в URL (`redis://:…@host:port/db`), в portable `requirepass` и в Docker overlay `docker-compose.redis-auth.generated.yml` вместе с healthcheck через AUTH. Пустой `DOCKER_REDIS_PUBLISH_PORT` больше не публикует Redis на хост (нужен явный числовой порт). Контроль `broker.redis_password`: на `open` пароль не обязателен; на `standard` — предупреждение; на `hardened`/`maximum` — ошибка без пароля; на `maximum` — также ошибка при публикации порта.
+
 ### В6. Сроки жизни токенов можно отключить, ротация refresh выключена
 
 **Где:** [core/api/src/config/settings/auth.py](../core/api/src/config/settings/auth.py), строки 76–99.

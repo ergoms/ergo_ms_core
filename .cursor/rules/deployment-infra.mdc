@@ -44,7 +44,7 @@ ergoms test-redis
 
 ### `redis_runtime`
 
-Модуль [`redis_runtime.py`](../../core/api/src/config/redis_runtime.py) собирает URL из секции `redis` в `databases.yaml` (fallback на legacy `REDIS_*` в `.env`):
+Модуль [`redis_runtime.py`](../../core/api/src/config/redis_runtime.py) собирает URL из секции `redis` в `databases.yaml` (fallback на legacy `REDIS_*` в `.env` для host/port/db; пароль — только `redis.password` в yaml):
 
 | DB (по умолчанию) | Назначение |
 |-------------------|------------|
@@ -52,6 +52,8 @@ ergoms test-redis
 | 1 | кэш Django |
 | 2 | Celery broker |
 | 3 | Celery result backend |
+
+При непустом `redis.password` URL включает AUTH (`redis://:…@host:port/db`); portable conf получает `requirepass`; Docker — overlay AUTH + healthcheck. Пустой `DOCKER_REDIS_PUBLISH_PORT` не публикует Redis на хост.
 
 При `ERGO_BROKER=redis` без явных override:
 

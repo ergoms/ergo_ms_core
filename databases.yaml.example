@@ -17,10 +17,13 @@ databases:
 
   # При ERGO_BROKER=redis — кэш, channel layer и Celery.
   # В Docker host обычно remapped на имя сервиса (DOCKER_SERVICE_REDIS).
+  # password: пусто — без AUTH (dev); непустой — requirepass / redis://:…@host
+  # (не дублируйте пароль в .env как REDIS_PASSWORD).
   redis:
     engine: "redis"
     host: "127.0.0.1"
     port: 6379
+    password: ""
     db_channel: 0
     db_cache: 1
     db_celery_broker: 2
