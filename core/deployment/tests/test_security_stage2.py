@@ -71,6 +71,7 @@ class MergeSecurityProfileDefaultsTests(unittest.TestCase):
         self.assertNotIn('API_REGISTRATION_MODE', merged)
         self.assertNotIn('API_SECRET_KEY', merged)
         self.assertNotIn('API_ACCESS_TOKEN_LIFETIME', merged)
+        self.assertNotIn('REDIS_PASSWORD', merged)
 
     def test_jwt_lifetime_not_forced_on_open(self) -> None:
         merged = merge_security_profile_defaults({'ERGO_SECURITY': 'open'})

@@ -621,8 +621,8 @@ controls:
       maximum: required_no_publish
     violation: error
     waivable: false
-    status: planned
-    check: deferred
+    status: implemented
+    check: broker_redis_password
     audit: [B5]
 
   - id: deploy.docker_nginx_parity

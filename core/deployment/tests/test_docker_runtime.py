@@ -9,9 +9,12 @@ import _bootstrap  # noqa: F401
 
 from docker_runtime import (  # noqa: E402
     build_compose_env_overrides,
+    build_redis_auth_compose_content,
     effective_db_host,
     effective_redis_compose_host,
     prepare_compose_artifacts,
+    resolve_infra_publish_ports,
+    write_redis_auth_compose,
 )
 
 
@@ -91,6 +94,53 @@ class DockerRuntimeTests(unittest.TestCase):
             content = compose_env.read_text(encoding='utf-8')
             self.assertIn('ERGO_RUNTIME=docker', content)
             self.assertIn('DOCKER_ENABLED=true', content)
+
+
+class RedisPublishAndAuthTests(unittest.TestCase):
+    def test_empty_redis_publish_port_skips(self) -> None:
+        published = resolve_infra_publish_ports(
+            {
+                'DOCKER_REDIS_PUBLISH_PORT': '',
+                'DOCKER_DATABASE': 'host',
+            },
+            warn=False,
+        )
+        self.assertNotIn('redis', published)
+
+    def test_explicit_redis_publish_port(self) -> None:
+        published = resolve_infra_publish_ports(
+            {
+                'DOCKER_REDIS_PUBLISH_PORT': '16379',
+                'DOCKER_SERVICE_REDIS': 'redis',
+                'DOCKER_DATABASE': 'host',
+            },
+            warn=False,
+        )
+        self.assertEqual(published.get('redis'), 16379)
+
+    def test_redis_publish_none_skips(self) -> None:
+        published = resolve_infra_publish_ports(
+            {
+                'DOCKER_REDIS_PUBLISH_PORT': 'none',
+                'DOCKER_DATABASE': 'host',
+            },
+            warn=False,
+        )
+        self.assertNotIn('redis', published)
+
+    def test_auth_compose_content_contains_requirepass(self) -> None:
+        content = build_redis_auth_compose_content('s3cret!')
+        self.assertIn('--requirepass', content)
+        self.assertIn('s3cret!', content)
+        self.assertIn('--no-auth-warning', content)
+
+    def test_write_redis_auth_compose_removes_when_empty(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'docker-compose.redis-auth.generated.yml'
+            write_redis_auth_compose(path, 'pass')
+            self.assertTrue(path.is_file())
+            write_redis_auth_compose(path, '')
+            self.assertFalse(path.is_file())
 
 
 if __name__ == '__main__':
