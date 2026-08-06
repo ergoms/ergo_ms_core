@@ -83,7 +83,7 @@ class ImportUsersView(MediaApiFileMixin, BaseAPIViewAuthMixin):
 
 ### К3. Шаблоны конфигурации содержат рабочие значения секретов
 
-**Где:** [.env.example](../.env.example) строка 80, [env/mcp.env.example](../env/mcp.env.example) строки 5–6, [databases.yaml.example](../databases.yaml.example).
+**Где:** [.env.example](../.env.example), [env/mcp.env.example](../env/mcp.env.example), [databases.yaml.example](../databases.yaml.example).
 
 ```dotenv
 API_SECRET_KEY=secret_key
@@ -94,6 +94,8 @@ ADMIN_PASSWORD=admin
 **Чем опасно.** При первичной настройке `setup-full` создаёт `.env` из шаблона, и установка стартует со значением `secret_key`. Этим же ключом по умолчанию подписываются JWT (`API_JWT_SIGNING_KEY` пуст — берётся `API_SECRET_KEY`) и ссылки на файлы в media_api. Знание ключа позволяет выпустить токен от имени любого пользователя, подделать подписанную ссылку на файл и сформировать токен загрузки. Проверка `validate_production_config` в media_api выдаёт лишь предупреждение и не останавливает запуск.
 
 **Как исправить.** Оставить в шаблонах пустое значение и подсказку `ergoms generate-secret`, а при `ERGO_ENV=production` прерывать запуск, если ключ пустой, совпадает с шаблонным или короче безопасной длины. Учётные данные MCP вынести из шаблона в обязательный шаг настройки.
+
+**Исправлено (phase 1).** В `.env.example` `API_SECRET_KEY=` пуст + `ergoms generate-secret`; в `env/mcp.env.example` `ADMIN_PASSWORD=` пуст; в `databases.yaml.example` и `env/smtp.env.example` пароли пустые. Production fail-fast в API (`ImproperlyConfigured`) и media_api (`RuntimeError`) через [`secret_validation.py`](../core/deployment/security/secret_validation.py): пустой / шаблонный / короче 32 символов. Контроль `secrets.no_defaults` — `implemented`. Обязательный MCP setup step — вне скоупа.
 
 ---
 
@@ -272,6 +274,8 @@ ADMIN_PASSWORD=admin
 - **Н4. Ошибки занесения токена в чёрный список подавляются.** В `session_devices.py` исключения при работе с чёрным списком проглатываются, и отзыв может незаметно не выполниться.
 - **Н5. Имя пользователя записывается в журнал аудита при неудачном входе.** Событие `auth.login_failed` сохраняет введённое имя. Это полезно для расследований, но требует ограничения доступа к журналу, поскольку туда попадают в том числе опечатки в виде паролей.
 - **Н6. Записи об устройствах не удаляются.** Для журнала клиентского мониторинга срок хранения настраивается, для устройств пользователей — нет; записи накапливаются, пока сессию не отзовут вручную.
+
+**Исправлено (Н6).** `API_SESSION_DEVICE_RETENTION_DAYS` (0 = off; профиль hardened/maximum → 90/30): Celery task `core.cms.adp.purge_old_devices`, beat, `ergoms api session_device_purge`. Перед удалением — `revoke_user_device_session`. Контроль `session.device_retention` — `implemented`.
 - **Н7. Пример в документации API устарел.** Описание входа в Swagger показывает refresh-токен в теле ответа, хотя он давно передаётся только в cookie.
 
 ---

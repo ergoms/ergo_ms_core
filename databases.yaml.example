@@ -4,12 +4,13 @@
 # setup-full создаёт databases.yaml с default; port: 5433 при ERGO_DB=portable_postgres
 # (5432 при ERGO_DB=postgres). Секцию redis — только при ERGO_BROKER=redis.
 # Celery SQL / analytics — допишите из example.
+# Пароли в example пустые — задайте свои в databases.yaml (не коммитьте реальные).
 databases:
   default:
     engine: "postgresql"
     name: "ergo_ms"
     user: "postgres"
-    password: "admin"
+    password: ""
     host: "127.0.0.1"
     # 5433 — portable (ERGO_DB=portable_postgres / ergoms install-postgres);
     # 5432 — системный Postgres; MySQL обычно 3306; MSSQL — 1433
@@ -35,7 +36,7 @@ databases:
     engine: "postgresql"
     name: "ergo_ms_celery"
     user: "celery_user"
-    password: "celery_password"
+    password: ""
     host: "127.0.0.1"
     port: 5433
 
@@ -43,7 +44,7 @@ databases:
     engine: "postgresql"
     name: "ergo_ms_celery_worker"
     user: "celery_worker_user"
-    password: "worker_password"
+    password: ""
     host: "127.0.0.1"
     port: 5433
 
@@ -51,7 +52,7 @@ databases:
     engine: "postgresql"
     name: "ergo_ms_celery_beat"
     user: "celery_beat_user"
-    password: "beat_password"
+    password: ""
     host: "127.0.0.1"
     port: 5433
 
@@ -59,6 +60,6 @@ databases:
     engine: "mysql"
     name: "world"
     user: "root"
-    password: "admin"
+    password: ""
     host: "127.0.0.1"
     port: 3306

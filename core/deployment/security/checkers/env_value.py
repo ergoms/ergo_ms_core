@@ -65,6 +65,7 @@ def env_int_max(control: Control, catalog: SecurityCatalog, context: dict[str, A
 
     max_allowed = parse_int(required)
     if max_allowed is None:
+        # none / unlimited / семантика без числа
         return Finding(
             control_id=control.id,
             title=control.title,
@@ -103,6 +104,20 @@ def env_int_max(control: Control, catalog: SecurityCatalog, context: dict[str, A
     actual = parse_int(raw)
     if actual is None:
         return Finding(control.id, 'skip', f'нецелое значение {env_key}', title=control.title)
+
+    # Lockout / retention: 0 = выкл., слабее положительного требования профиля.
+    if (
+        max_allowed > 0
+        and actual == 0
+        and control.id in ('auth.lockout', 'session.device_retention')
+    ):
+        return Finding(
+            control_id=control.id,
+            title=control.title,
+            severity=_sev(control),
+            message=f'задано 0 (выкл.), уровень {level} требует не более {max_allowed}',
+        )
+
     if actual > max_allowed:
         return Finding(
             control_id=control.id,

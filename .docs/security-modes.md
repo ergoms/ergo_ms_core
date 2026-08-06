@@ -4,9 +4,9 @@
 
 **Этап 0 реализован (отчётный):** каталог [`core/deployment/security/profiles.yaml`](../core/deployment/security/profiles.yaml), вычисление `ERGO_SECURITY` / `ERGO_SECURITY_ENFORCE` в [`ergo_modes.py`](../core/deployment/ergo_modes.py), команды `ergoms security-modes` и `ergoms security-check`.
 
-**Этап 1 реализован (честный `standard`):** каталог отражает реальные проверки (`password_policy`, `jupyter_exposure`, `anonymous_endpoints`, `client_browser_log` и др.); login throttle читается из `API_THROTTLE_RATES_LOGIN` (дефолт кода `5/minute`); лимит размера WS — `API_REALTIME_MAX_MESSAGE_BYTES`. Вне скоупа этапа 1: **К3** (перепись шаблонных секретов в `*.example`). **В5** (пароль Redis) закрыт отдельно: контроль `broker.redis_password` реализован.
+**Этап 1 реализован (честный `standard`):** каталог отражает реальные проверки (`password_policy`, `jupyter_exposure`, `anonymous_endpoints`, `client_browser_log` и др.); login throttle читается из `API_THROTTLE_RATES_LOGIN` (дефолт кода `5/minute`); лимит размера WS — `API_REALTIME_MAX_MESSAGE_BYTES`. **К3** закрыт отдельно (phase 1: пустые шаблоны + production fail-fast). **В5** (пароль Redis) закрыт контролем `broker.redis_password`.
 
-**Этап 2 реализован (apply профиля):** [`profile_defaults.merge_security_profile_defaults`](../core/deployment/security/profile_defaults.py) подставляет скаляры из каталога только для **незаданных** env-ключей; явный `.env` побеждает; профиль **не пишет** `.env`. Runtime API — [`security_profile_runtime.py`](../core/api/src/config/security_profile_runtime.py); media — те же ключи после загрузки env. `API_ACCESS_TOKEN_LIFETIME` остаётся check-only (дефолт кода 30). Пароль Redis **не** инжектится профилем — только `databases.yaml` → `redis.password`. Вне скоупа: **К3**, MFA (С10), этап 4. Этапы 3–4 — в разделе [Поэтапное внедрение](#поэтапное-внедрение); решения этапа 0 — в [Решения этапа 0](#решения-этапа-0).
+**Этап 2 реализован (apply профиля):** [`profile_defaults.merge_security_profile_defaults`](../core/deployment/security/profile_defaults.py) подставляет скаляры из каталога только для **незаданных** env-ключей; явный `.env` побеждает; профиль **не пишет** `.env`. Runtime API — [`security_profile_runtime.py`](../core/api/src/config/security_profile_runtime.py); media — те же ключи после загрузки env. `API_ACCESS_TOKEN_LIFETIME` остаётся check-only (дефолт кода 30). Пароль Redis **не** инжектится профилем — только `databases.yaml` → `redis.password`. Вне скоупа: MFA (С10), этап 4. Этапы 3–4 — в разделе [Поэтапное внедрение](#поэтапное-внедрение); решения этапа 0 — в [Решения этапа 0](#решения-этапа-0).
 
 Текущее состояние безопасности ядра и перечень отклонений — в документе [Аудит безопасности ядра](security-audit.md).
 
@@ -112,6 +112,12 @@ controls:
 | `token.remember_me_max` | 7 суток | 7 суток | 24 часа | запрещено |
 | `token.rotate_refresh` | нет | да | да | да |
 | `token.revoke_on_logout` | нет | да | да | да |
+
+Контроль `auth.lockout`: env `API_AUTH_LOCKOUT_MAX_ATTEMPTS` (0 = выкл.); при unset профиль подставляет 0 / 0 / 10 / 5. Счётчик в cache по нормализованному login; окно/длительность — `API_AUTH_LOCKOUT_WINDOW_SECONDS` / `API_AUTH_LOCKOUT_DURATION_SECONDS` (дефолт 900).
+
+Контроль `session.device_retention`: env `API_SESSION_DEVICE_RETENTION_DAYS` (0 = off); при unset — 0 / 0 / 90 / 30. Purge с `revoke_user_device_session` (beat + `ergoms api session_device_purge`).
+
+Контроль `secrets.no_defaults` (**К3 phase 1**): шаблоны без рабочего `API_SECRET_KEY`; production fail-fast в API и media_api.
 
 ### Права доступа и поверхность API
 
@@ -315,9 +321,9 @@ provides:
 | Этап | Содержание | Результат |
 |---|---|---|
 | 0 | **Сделано.** Каталог контролей, вычисление уровня, команды `security-modes` и `security-check`. Профиль **ничего не меняет** в работе системы. | Любая установка может узнать, какому уровню она соответствует. |
-| 1 | **Сделано.** Честный отчёт для `standard`: truth-up каталога, checkers политики паролей / Jupyter / анонимных эндпоинтов / browser-log, env для login throttle и лимита размера realtime. **К3** вне скоупа. **В5** закрыт контролем `broker.redis_password`. | `ergoms security-check` не помечает закрытые контроли как SKIP; ядро соответствует `standard` по реализованным контролям. |
+| 1 | **Сделано.** Честный отчёт для `standard`: truth-up каталога, checkers политики паролей / Jupyter / анонимных эндпоинтов / browser-log, env для login throttle и лимита размера realtime. **К3** закрыт (phase 1). **В5** закрыт контролем `broker.redis_password`. | `ergoms security-check` не помечает закрытые контроли как SKIP; ядро соответствует `standard` по реализованным контролям. |
 | 2 | **Сделано.** Профиль подставляет эффективные значения там, где ключ не задан (`profile_defaults` + runtime API/media). Новые установки получают `ERGO_SECURITY=standard` в шаблоне. Профиль не пишет `.env`. Пароль Redis не инжектится. | Уровень влияет на работу системы. |
-| 3 | Контроли уровней `hardened` и `maximum`: второй фактор, проверка содержимого файлов (С5 phase 1), CSP (С11 phase 1), аудит операций чтения. Ротация refresh и отзыв при logout закрыты на этапе 1 (В6) и входят в `standard`. | Доступны все четыре уровня. |
+| 3 | Контроли уровней `hardened` и `maximum`: второй фактор, проверка содержимого файлов (С5 phase 1), CSP (С11 phase 1), **auth.lockout**, **session.device_retention**, аудит операций чтения. Ротация refresh и отзыв при logout закрыты на этапе 1 (В6) и входят в `standard`. | Доступны все четыре уровня. |
 | 4 | Файлы `security.yaml` у модулей, проверка совместимости, правило `.cursor/rules/security-modes.mdc`, раздел в [Настройке конфигурации](configuration.md). | Уровень выбирается с учётом подключённых модулей. |
 
 Совместимость с уже работающими установками обеспечивается порядком этапов: до этапа 2 профиль ничего не меняет, а после — уровень по умолчанию остаётся `standard`, и любое расхождение сначала выводится предупреждением, а не прерывает запуск.

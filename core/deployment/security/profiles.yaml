@@ -20,6 +20,8 @@ refs:
     - secret_key
     - changeme
     - django-insecure
+    - secret-key
+    - media-api-insecure-key
 
 controls:
   # --- Auth / session / token ---
@@ -43,7 +45,8 @@ controls:
   - id: auth.lockout
     layer: api
     title: Блокировка после неудачных попыток входа
-    kind: policy
+    kind: value
+    env_key: API_AUTH_LOCKOUT_MAX_ATTEMPTS
     profiles:
       open: none
       standard: none
@@ -51,8 +54,8 @@ controls:
       maximum: 5
     violation: error
     waivable: false
-    status: planned
-    check: deferred
+    status: implemented
+    check: env_int_max
 
   - id: auth.reset_code_policy
     layer: api
@@ -118,6 +121,7 @@ controls:
     layer: api
     title: Срок хранения записей устройств
     kind: value
+    env_key: API_SESSION_DEVICE_RETENTION_DAYS
     profiles:
       open: unlimited
       standard: unlimited
@@ -125,8 +129,8 @@ controls:
       maximum: 30
     violation: warning
     waivable: false
-    status: planned
-    check: deferred
+    status: implemented
+    check: env_int_max
     audit: [H6]
 
   - id: token.lifetime_required
@@ -608,10 +612,9 @@ controls:
       maximum: forbid_template_min_length_separate_jwt
     violation: error
     waivable: false
-    status: partial
+    status: implemented
     check: secrets_no_defaults
     audit: [K3]
-    # К3 (перепись шаблонных секретов в *.example) — вне скоупа этапа 1
 
   - id: broker.redis_password
     layer: deployment

@@ -15,9 +15,11 @@ from .catalog import load_security_catalog
 # Контроли со скалярным env_key, которые Stage 2 может подставить при unset.
 APPLYABLE_CONTROL_IDS: tuple[str, ...] = (
     'auth.login_throttle',
+    'auth.lockout',
     'password.policy',
     'token.lifetime_required',
     'token.remember_me_max',
+    'session.device_retention',
     'media.signed_urls_ttl',
     'media.upload_rate',
     'media.content_validation',
@@ -66,6 +68,8 @@ def _requirement_to_env_str(control_id: str, requirement: Any) -> str | None:
         lower = text.lower()
         if lower in ('true', 'false'):
             return lower
+        if lower in ('none', 'unlimited'):
+            return '0'
         if lower in ('extension', 'extension_and_magic', 'extension_magic_av'):
             return lower
         if lower in ('granted', 'denied'):
