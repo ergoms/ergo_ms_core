@@ -13,6 +13,7 @@ from . import (
     client_browser_log,
     deferred,
     env_value,
+    internal_trusted_proxies,
     jupyter_exposure,
     password_policy,
     presence,
@@ -37,6 +38,7 @@ _REGISTRY: dict[str, Checker] = {
     'anonymous_endpoints': anonymous_endpoints.run,
     'client_browser_log': client_browser_log.run,
     'broker_redis_password': broker_redis.run,
+    'internal_trusted_proxies': internal_trusted_proxies.run,
     'code_fixed': deferred.code_fixed,
     'deferred': deferred.deferred,
 }

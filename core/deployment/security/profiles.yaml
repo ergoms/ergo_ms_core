@@ -588,8 +588,8 @@ controls:
       maximum: required_plus_separate_key
     violation: error
     waivable: false
-    status: planned
-    check: deferred
+    status: implemented
+    check: internal_trusted_proxies
     audit: [C3]
 
   # --- Infra ---
