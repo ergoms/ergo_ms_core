@@ -22,6 +22,7 @@ if str(DEPLOYMENT_DIR) not in sys.path:
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
+from console_tags import configure_stdio_utf8  # noqa: E402
 from env_file_loader import load_project_env  # noqa: E402
 from project_layout import (  # noqa: E402
     meilisearch_data_dir as _layout_meilisearch_data_dir,
@@ -401,6 +402,7 @@ def cmd_status(root: Path) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    configure_stdio_utf8()
     parser = argparse.ArgumentParser(description='Portable Meilisearch для ERGO MS')
     parser.add_argument(
         'operation',
