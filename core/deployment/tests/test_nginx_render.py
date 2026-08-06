@@ -85,7 +85,7 @@ class NginxRenderTests(unittest.TestCase):
             out = Path(tmp) / 'ergo_ms.conf.rendered'
             with mock.patch('lifecycle.docker.ops.DOCKER_DIR', Path(tmp)):
                 with mock.patch(
-                    'lifecycle.docker.ops.render_docker_nginx_config',
+                    'render_common.render_docker_nginx_config',
                     wraps=render_docker_nginx_config,
                 ) as mocked:
                     (Path(tmp) / 'nginx').mkdir()
