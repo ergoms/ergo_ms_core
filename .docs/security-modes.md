@@ -4,7 +4,9 @@
 
 **Этап 0 реализован (отчётный):** каталог [`core/deployment/security/profiles.yaml`](../core/deployment/security/profiles.yaml), вычисление `ERGO_SECURITY` / `ERGO_SECURITY_ENFORCE` в [`ergo_modes.py`](../core/deployment/ergo_modes.py), команды `ergoms security-modes` и `ergoms security-check`.
 
-**Этап 1 реализован (честный `standard`):** каталог отражает реальные проверки (`password_policy`, `jupyter_exposure`, `anonymous_endpoints`, `client_browser_log` и др.); login throttle читается из `API_THROTTLE_RATES_LOGIN` (дефолт кода `5/minute`); лимит размера WS — `API_REALTIME_MAX_MESSAGE_BYTES`. Профиль по-прежнему **не пишет** в `.env` и **не подставляет** значения вместо дефолтов кода (это этап 2). Вне скоупа этапа 1: **К3** (перепись шаблонных секретов в `*.example`) и **В5** (пароль Redis). Этапы 2–4 — в разделе [Поэтапное внедрение](#поэтапное-внедрение); решения этапа 0 — в [Решения этапа 0](#решения-этапа-0).
+**Этап 1 реализован (честный `standard`):** каталог отражает реальные проверки (`password_policy`, `jupyter_exposure`, `anonymous_endpoints`, `client_browser_log` и др.); login throttle читается из `API_THROTTLE_RATES_LOGIN` (дефолт кода `5/minute`); лимит размера WS — `API_REALTIME_MAX_MESSAGE_BYTES`. Вне скоупа этапа 1: **К3** (перепись шаблонных секретов в `*.example`) и **В5** (пароль Redis).
+
+**Этап 2 реализован (apply профиля):** [`profile_defaults.merge_security_profile_defaults`](../core/deployment/security/profile_defaults.py) подставляет скаляры из каталога только для **незаданных** env-ключей; явный `.env` побеждает; профиль **не пишет** `.env`. Runtime API — [`security_profile_runtime.py`](../core/api/src/config/security_profile_runtime.py); media — те же ключи после загрузки env. `API_ACCESS_TOKEN_LIFETIME` остаётся check-only (дефолт кода 30). Вне скоупа: **К3**, **В5**, MFA/CSP, этап 4. Этапы 3–4 — в разделе [Поэтапное внедрение](#поэтапное-внедрение); решения этапа 0 — в [Решения этапа 0](#решения-этапа-0).
 
 Текущее состояние безопасности ядра и перечень отклонений — в документе [Аудит безопасности ядра](security-audit.md).
 
@@ -306,7 +308,7 @@ provides:
 |---|---|---|
 | 0 | **Сделано.** Каталог контролей, вычисление уровня, команды `security-modes` и `security-check`. Профиль **ничего не меняет** в работе системы. | Любая установка может узнать, какому уровню она соответствует. |
 | 1 | **Сделано.** Честный отчёт для `standard`: truth-up каталога, checkers политики паролей / Jupyter / анонимных эндпоинтов / browser-log, env для login throttle и лимита размера realtime. **К3** и **В5** вне скоупа. | `ergoms security-check` не помечает закрытые контроли как SKIP; ядро соответствует `standard` по реализованным контролям. |
-| 2 | Профиль начинает подставлять эффективные значения там, где ключ не задан. Новые установки получают `ERGO_SECURITY=standard` в шаблоне. | Уровень влияет на работу системы. |
+| 2 | **Сделано.** Профиль подставляет эффективные значения там, где ключ не задан (`profile_defaults` + runtime API/media). Новые установки получают `ERGO_SECURITY=standard` в шаблоне. Профиль не пишет `.env`. | Уровень влияет на работу системы. |
 | 3 | Контроли уровней `hardened` и `maximum`: второй фактор, строгая политика содержимого, проверка содержимого файлов, аудит операций чтения. Ротация refresh и отзыв при logout закрыты на этапе 1 (В6) и входят в `standard`. | Доступны все четыре уровня. |
 | 4 | Файлы `security.yaml` у модулей, проверка совместимости, правило `.cursor/rules/security-modes.mdc`, раздел в [Настройке конфигурации](configuration.md). | Уровень выбирается с учётом подключённых модулей. |
 
@@ -322,7 +324,7 @@ provides:
 | Клиент vs runtime | Собранный клиент на этапе 0 не проверяется |
 | Нет `ERGO_SECURITY` в `.env` | Эффективный уровень = `standard` (в отчёте: «по умолчанию») |
 | Модули `security.yaml` | Вне скоупа этапа 0 |
-| Применение значений профиля | Вне скоупа (этап 2) |
+| Применение значений профиля | **Сделано** (этап 2): merge unset-ключей; `.env` не пишется |
 
 ## Вопросы к обсуждению (этапы 2–4)
 
