@@ -45,6 +45,67 @@ DEFAULT_PORT = 6379
 DEFAULT_BIND = '127.0.0.1'
 
 
+def _parse_simple_yaml_section(text: str, section: str) -> dict[str, str]:
+    """Минимальный разбор секции databases.yaml без PyYAML."""
+    lines = text.splitlines()
+    in_databases = False
+    in_section = False
+    section_indent = -1
+    result: dict[str, str] = {}
+    for raw in lines:
+        if not raw.strip() or raw.lstrip().startswith('#'):
+            continue
+        indent = len(raw) - len(raw.lstrip(' '))
+        stripped = raw.strip()
+        if stripped == 'databases:':
+            in_databases = True
+            in_section = False
+            continue
+        if not in_databases:
+            continue
+        if indent == 2 and stripped.endswith(':'):
+            name = stripped[:-1].strip()
+            in_section = name == section
+            section_indent = indent
+            continue
+        if in_section and indent > section_indent and ':' in stripped:
+            key, _, value = stripped.partition(':')
+            value = value.strip().strip('"').strip("'")
+            result[key.strip()] = value
+        elif in_section and indent <= section_indent and stripped.endswith(':'):
+            break
+    return result
+
+
+def load_redis_password(root: Path) -> str:
+    """Пароль из databases.yaml → redis.password (SoT); пусто = без AUTH."""
+    path = root / 'databases.yaml'
+    if not path.is_file():
+        return ''
+    try:
+        text = path.read_text(encoding='utf-8')
+    except OSError:
+        return ''
+    section = _parse_simple_yaml_section(text, 'redis')
+    return (section.get('password') or '').strip()
+
+
+def format_requirepass_line(password: str) -> str:
+    if not password:
+        return '# requirepass unset (databases.yaml redis.password пуст)'
+    if re.fullmatch(r'[A-Za-z0-9_\-./]+', password):
+        return f'requirepass {password}'
+    escaped = password.replace('\\', '\\\\').replace('"', '\\"')
+    return f'requirepass "{escaped}"'
+
+
+def redis_cli_auth_args(root: Path) -> list[str]:
+    password = load_redis_password(root)
+    if not password:
+        return []
+    return ['-a', password, '--no-auth-warning']
+
+
 def redis_packages_dir(root: Path) -> Path:
     return root / 'virtual_env' / 'packages' / 'redis'
 
@@ -194,7 +255,12 @@ def _copy_windows_redis_binaries(source_root: Path, dest: Path) -> None:
         raise RuntimeError(f'Expected Redis binaries in Windows archive: {source_root}')
 
 
-def render_redis_conf(root: Path, port: int = DEFAULT_PORT, bind: str = DEFAULT_BIND) -> Path:
+def render_redis_conf(
+    root: Path,
+    port: int = DEFAULT_PORT,
+    bind: str = DEFAULT_BIND,
+    password: str | None = None,
+) -> Path:
     from log_env import log_file_path, redis_log_level
     from logs_paths import ensure_logs_dir
 
@@ -204,6 +270,9 @@ def render_redis_conf(root: Path, port: int = DEFAULT_PORT, bind: str = DEFAULT_
     central_log = log_file_path('REDIS', root)
     ensure_logs_dir(root)
     log_level = redis_log_level(root)
+    requirepass_line = format_requirepass_line(
+        password if password is not None else load_redis_password(root),
+    )
 
     if platform.system().lower() == 'windows':
         pidfile = (paths['run'] / 'redis.pid').as_posix()
@@ -219,6 +288,7 @@ def render_redis_conf(root: Path, port: int = DEFAULT_PORT, bind: str = DEFAULT_
     content = (
         template.replace('{{REDIS_BIND}}', bind)
         .replace('{{REDIS_PORT}}', str(port))
+        .replace('{{REDIS_REQUIREPASS_LINE}}', requirepass_line)
         .replace('{{REDIS_DAEMONIZE}}', daemonize)
         .replace('{{REDIS_PIDFILE}}', pidfile)
         .replace('{{REDIS_LOGFILE}}', logfile)
@@ -371,8 +441,9 @@ def ping_redis(root: Path, port: int | None = None, timeout_sec: float = 5.0) ->
         if bind_match:
             bind = bind_match.group(1)
     port = port or DEFAULT_PORT
+    auth = redis_cli_auth_args(root)
 
-    args = [str(cli), '-h', bind, '-p', str(port), 'ping']
+    args = [str(cli), '-h', bind, '-p', str(port), *auth, 'ping']
     try:
         result = subprocess.run(
             args,
@@ -389,7 +460,7 @@ def ping_redis(root: Path, port: int | None = None, timeout_sec: float = 5.0) ->
     if conf.is_file() and platform.system().lower() != 'windows':
         try:
             result = subprocess.run(
-                [str(cli), '-c', str(conf), 'ping'],
+                [str(cli), *auth, '-h', bind, '-p', str(port), 'ping'],
                 capture_output=True,
                 text=True,
                 timeout=timeout_sec,

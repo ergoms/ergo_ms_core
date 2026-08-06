@@ -126,7 +126,12 @@ _redis_run_install_script() {
 
 _redis_ping() {
   local root="$1"
-  local cli conf port
+  local py cli conf port
+  py="$(_redis_python "$root")"
+  if [[ -n "$py" && -x "$py" ]]; then
+    "$py" "$root/core/deployment/scripts/install_redis.py" --root "$root" --ping-only >/dev/null 2>&1
+    return $?
+  fi
   cli="$(_redis_cli "$root")"
   conf="$(_redis_conf "$root")"
   port="$(_redis_read_port "$root")"
@@ -135,7 +140,7 @@ _redis_ping() {
   if "$cli" -h 127.0.0.1 -p "$port" ping 2>/dev/null | grep -q PONG; then
     return 0
   fi
-  if [[ -f "$conf" ]] && "$cli" -c "$conf" ping 2>/dev/null | grep -q PONG; then
+  if [[ -f "$conf" ]] && "$cli" -h 127.0.0.1 -p "$port" ping 2>/dev/null | grep -q PONG; then
     return 0
   fi
   return 1

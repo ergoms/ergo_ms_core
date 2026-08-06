@@ -31,10 +31,12 @@ from dev_session import (  # noqa: E402
 )
 from install_redis import (  # noqa: E402
     ping_redis,
+    redis_cli_auth_args,
     redis_cli_path,
     redis_conf_path,
     redis_packages_dir,
     redis_server_path,
+    render_redis_conf,
 )
 from nginx_foreground import _configure_stdio_utf8  # noqa: E402
 
@@ -100,8 +102,9 @@ def stop_redis_for_dev(root: Path, *, quiet: bool = False) -> bool:
         if not quiet:
             print(format_console('info', t('stopping_redis')))
         bind, port = _redis_cli_endpoint(root)
+        auth = redis_cli_auth_args(root)
         subprocess.run(
-            [str(cli), '-h', bind, '-p', port, 'shutdown'],
+            [str(cli), '-h', bind, '-p', port, *auth, 'shutdown'],
             capture_output=True,
             check=False,
         )
@@ -159,6 +162,9 @@ def run_redis_foreground(root: Path) -> int:
         return 1
 
     _configure_stdio_utf8()
+
+    # Синхронизируем requirepass с databases.yaml перед стартом.
+    render_redis_conf(root)
 
     if ping_redis(root):
         print(format_console('error', t('redis_already_running')))

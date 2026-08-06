@@ -272,11 +272,13 @@ function Stop-RedisProcess {
             }
             $endpoint = Get-RedisCliEndpoint -Root $Root
             # Windows redis-cli: -c включает cluster mode, не путь к конфигу (в отличие от Linux).
-            Invoke-RedisCli -CliExe $cli -Arguments @(
-                '-h', $endpoint.Host,
-                '-p', $endpoint.Port,
-                'shutdown'
-            ) | Out-Null
+            $authArgs = @()
+            $requirePass = Get-RedisRequirePass -Root $Root
+            if ($requirePass) {
+                $authArgs = @('-a', $requirePass, '--no-auth-warning')
+            }
+            $cliArgs = @('-h', $endpoint.Host, '-p', $endpoint.Port) + $authArgs + @('shutdown')
+            Invoke-RedisCli -CliExe $cli -Arguments $cliArgs | Out-Null
             Start-Sleep -Seconds 1
         }
         $pidFile = Join-Path (Get-RedisDir -Root $Root) 'run\redis.pid'
@@ -373,6 +375,23 @@ function Restart-RedisProcess {
 
     Stop-RedisProcess -Root $Root
     Start-RedisProcess -Root $Root
+}
+
+function Get-RedisRequirePass {
+    param([string]$Root)
+    $conf = Get-RedisConfPath -Root $Root
+    if (-not (Test-Path $conf)) { return '' }
+    foreach ($line in Get-Content -LiteralPath $conf -ErrorAction SilentlyContinue) {
+        $trimmed = $line.Trim()
+        if ($trimmed -match '^requirepass\s+(.+)$') {
+            $value = $Matches[1].Trim()
+            if ($value.StartsWith('"') -and $value.EndsWith('"') -and $value.Length -ge 2) {
+                return $value.Substring(1, $value.Length - 2)
+            }
+            return $value
+        }
+    }
+    return ''
 }
 
 function Test-RedisPing {
