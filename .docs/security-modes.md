@@ -6,7 +6,7 @@
 
 **Этап 1 реализован (честный `standard`):** каталог отражает реальные проверки (`password_policy`, `jupyter_exposure`, `anonymous_endpoints`, `client_browser_log` и др.); login throttle читается из `API_THROTTLE_RATES_LOGIN` (дефолт кода `5/minute`); лимит размера WS — `API_REALTIME_MAX_MESSAGE_BYTES`. Вне скоупа этапа 1: **К3** (перепись шаблонных секретов в `*.example`). **В5** (пароль Redis) закрыт отдельно: контроль `broker.redis_password` реализован.
 
-**Этап 2 реализован (apply профиля):** [`profile_defaults.merge_security_profile_defaults`](../core/deployment/security/profile_defaults.py) подставляет скаляры из каталога только для **незаданных** env-ключей; явный `.env` побеждает; профиль **не пишет** `.env`. Runtime API — [`security_profile_runtime.py`](../core/api/src/config/security_profile_runtime.py); media — те же ключи после загрузки env. `API_ACCESS_TOKEN_LIFETIME` остаётся check-only (дефолт кода 30). Пароль Redis **не** инжектится профилем — только `databases.yaml` → `redis.password`. Вне скоупа: **К3**, MFA/CSP, этап 4. Этапы 3–4 — в разделе [Поэтапное внедрение](#поэтапное-внедрение); решения этапа 0 — в [Решения этапа 0](#решения-этапа-0).
+**Этап 2 реализован (apply профиля):** [`profile_defaults.merge_security_profile_defaults`](../core/deployment/security/profile_defaults.py) подставляет скаляры из каталога только для **незаданных** env-ключей; явный `.env` побеждает; профиль **не пишет** `.env`. Runtime API — [`security_profile_runtime.py`](../core/api/src/config/security_profile_runtime.py); media — те же ключи после загрузки env. `API_ACCESS_TOKEN_LIFETIME` остаётся check-only (дефолт кода 30). Пароль Redis **не** инжектится профилем — только `databases.yaml` → `redis.password`. Вне скоупа: **К3**, MFA (С10), этап 4. Этапы 3–4 — в разделе [Поэтапное внедрение](#поэтапное-внедрение); решения этапа 0 — в [Решения этапа 0](#решения-этапа-0).
 
 Текущее состояние безопасности ядра и перечень отклонений — в документе [Аудит безопасности ядра](security-audit.md).
 
@@ -139,7 +139,9 @@ controls:
 | `transport.https_required` | нет | нет | да, вместе с HSTS и защищёнными cookie | да, включая перенаправление с HTTP |
 | `cors.explicit_origins` | список для разработки | явный список в production | явный список всегда | явный список, шаблоны запрещены |
 | `csrf.trusted_origins` | можно пусто | явный список в production | явный список в production | явный список всегда |
-| `csp.strict` | как есть | как есть | без `unsafe-eval` и `unsafe-inline` | плюс явный список внешних источников |
+| `csp.strict` | как есть (`as_is`) | как есть (`as_is`) | без `unsafe-eval` и `unsafe-inline` (`no_unsafe`) | плюс урезание внешних источников (`no_unsafe_plus_externals`, phase 1) |
+
+Контроль `csp.strict` (**phase 1, status `partial`**): env `API_CSP_MODE` читают API middleware и nginx render из [`csp_policy.py`](../core/deployment/security/csp_policy.py). При unset runtime/профиль подставляет значение уровня. На `hardened` карты (Yandex/OSM) могут перестать работать — это ожидаемо. На `maximum` внешние домены урезаны частично (stub); `security-check` даёт warning, не ложный OK.
 | `headers.baseline` | включены | включены | включены | включены |
 
 Контроль `cors.explicit_origins` на уровне `standard` уже отражён в коде: [`cors.py`](../core/api/src/config/settings/cors.py) подставляет localhost только при `ERGO_ENV=development` и прерывает запуск в production без `CORS_ALLOWED_ORIGINS` / `CORS_ALLOWED_ORIGIN_REGEXES` (пока без отдельной переменной `ERGO_SECURITY`).
@@ -315,7 +317,7 @@ provides:
 | 0 | **Сделано.** Каталог контролей, вычисление уровня, команды `security-modes` и `security-check`. Профиль **ничего не меняет** в работе системы. | Любая установка может узнать, какому уровню она соответствует. |
 | 1 | **Сделано.** Честный отчёт для `standard`: truth-up каталога, checkers политики паролей / Jupyter / анонимных эндпоинтов / browser-log, env для login throttle и лимита размера realtime. **К3** вне скоупа. **В5** закрыт контролем `broker.redis_password`. | `ergoms security-check` не помечает закрытые контроли как SKIP; ядро соответствует `standard` по реализованным контролям. |
 | 2 | **Сделано.** Профиль подставляет эффективные значения там, где ключ не задан (`profile_defaults` + runtime API/media). Новые установки получают `ERGO_SECURITY=standard` в шаблоне. Профиль не пишет `.env`. Пароль Redis не инжектится. | Уровень влияет на работу системы. |
-| 3 | Контроли уровней `hardened` и `maximum`: второй фактор, строгая политика содержимого, проверка содержимого файлов, аудит операций чтения. Ротация refresh и отзыв при logout закрыты на этапе 1 (В6) и входят в `standard`. | Доступны все четыре уровня. |
+| 3 | Контроли уровней `hardened` и `maximum`: второй фактор, проверка содержимого файлов (С5 phase 1), CSP (С11 phase 1), аудит операций чтения. Ротация refresh и отзыв при logout закрыты на этапе 1 (В6) и входят в `standard`. | Доступны все четыре уровня. |
 | 4 | Файлы `security.yaml` у модулей, проверка совместимости, правило `.cursor/rules/security-modes.mdc`, раздел в [Настройке конфигурации](configuration.md). | Уровень выбирается с учётом подключённых модулей. |
 
 Совместимость с уже работающими установками обеспечивается порядком этапов: до этапа 2 профиль ничего не меняет, а после — уровень по умолчанию остаётся `standard`, и любое расхождение сначала выводится предупреждением, а не прерывает запуск.

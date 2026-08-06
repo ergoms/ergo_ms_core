@@ -16,6 +16,7 @@ if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 
 from ergo_modes import env_bool
+from security.csp_policy import build_security_headers_nginx, resolve_csp_mode
 from upload_limits import compute_client_max_body_bytes, format_nginx_body_size
 
 
@@ -250,9 +251,10 @@ def build_docker_http_preamble() -> str:
 def build_docker_nginx_shared_replacements(values: Mapping[str, str]) -> dict[str, str]:
     api_upstream, media_upstream = build_docker_upstream_blocks(values)
     body_size = resolve_client_max_body_size(values)
+    csp_mode = resolve_csp_mode(values)
     return {
         '${ERGO_DOCKER_HTTP_PREAMBLE}': build_docker_http_preamble(),
-        '${ERGO_DOCKER_SECURITY_HEADERS}': _snippet_text('security_headers.conf'),
+        '${ERGO_DOCKER_SECURITY_HEADERS}': build_security_headers_nginx(csp_mode),
         '${ERGO_DOCKER_PROXY_PARAMS}': _snippet_text('proxy_params.conf'),
         '${ERGO_API_UPSTREAM_BLOCK}': api_upstream,
         '${ERGO_MEDIA_UPSTREAM_BLOCK}': media_upstream,

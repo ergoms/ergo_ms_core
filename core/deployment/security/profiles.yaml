@@ -413,6 +413,7 @@ controls:
     layer: api
     title: Строгая политика CSP
     kind: policy
+    env_key: API_CSP_MODE
     profiles:
       open: as_is
       standard: as_is
@@ -420,8 +421,8 @@ controls:
       maximum: no_unsafe_plus_externals
     violation: warning
     waivable: false
-    status: planned
-    check: deferred
+    status: partial
+    check: csp_strict
     audit: [C11]
 
   - id: headers.baseline

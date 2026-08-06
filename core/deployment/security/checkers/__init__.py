@@ -12,6 +12,7 @@ from . import (
     anonymous_endpoints,
     broker_redis,
     client_browser_log,
+    csp_strict,
     deferred,
     docker_nginx_parity,
     env_value,
@@ -47,6 +48,7 @@ _REGISTRY: dict[str, Checker] = {
     'docker_nginx_parity': docker_nginx_parity.run,
     'adp_default_role_view_grants': adp_default_role_view_grants.run,
     'object_permissions': object_permissions.run,
+    'csp_strict': csp_strict.run,
     'code_fixed': deferred.code_fixed,
     'deferred': deferred.deferred,
 }

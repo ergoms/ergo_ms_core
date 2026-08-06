@@ -22,6 +22,7 @@ class MergeSecurityProfileDefaultsTests(unittest.TestCase):
         self.assertEqual(merged['MEDIA_API_CONTENT_VALIDATION'], 'extension')
         self.assertEqual(merged['CLIENT_BROWSER_LOG_ENABLED'], 'true')
         self.assertEqual(merged['API_ADP_DEFAULT_VIEW_GRANTS'], 'granted')
+        self.assertEqual(merged['API_CSP_MODE'], 'as_is')
 
     def test_explicit_values_kept(self) -> None:
         values = {
@@ -88,6 +89,7 @@ class MergeSecurityProfileDefaultsTests(unittest.TestCase):
         self.assertEqual(merged['MEDIA_API_CONTENT_VALIDATION'], 'extension_and_magic')
         self.assertEqual(merged['API_JWT_LIFETIME_ENABLED'], 'true')
         self.assertEqual(merged['API_ADP_DEFAULT_VIEW_GRANTS'], 'denied')
+        self.assertEqual(merged['API_CSP_MODE'], 'no_unsafe')
 
     def test_input_not_mutated(self) -> None:
         values = {'ERGO_SECURITY': 'open'}

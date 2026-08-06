@@ -260,6 +260,8 @@ ADMIN_PASSWORD=admin
 
 Заголовок `Content-Security-Policy` формируется в [core/api/src/core/utils/middleware/security_headers_middleware.py](../core/api/src/core/utils/middleware/security_headers_middleware.py) и включает `unsafe-eval` и `unsafe-inline` ради внешнего картографического сервиса. Настроить политику через переменные окружения нельзя, поэтому установка, которой карты не нужны, всё равно работает с ослабленной политикой.
 
+**Исправлено (phase 1, partial).** Режим `API_CSP_MODE`: `as_is` (текущая политика с unsafe и доменами карт), `no_unsafe` (без `unsafe-eval`/`unsafe-inline`; карты могут сломаться), `no_unsafe_plus_externals` (phase 1 stub — дополнительно урезаны внешние источники). Один ключ для API middleware и nginx render ([`csp_policy.py`](../core/deployment/security/csp_policy.py)); при unset профиль подставляет значение уровня. Контроль `csp.strict`, check `csp_strict`, status `partial`; на `maximum` checker даёт warning, пока полный список внешних доменов не зафиксирован.
+
 ---
 
 ## Низкие находки
