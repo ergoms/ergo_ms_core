@@ -143,6 +143,33 @@ class NginxRenderTests(unittest.TestCase):
         self.assertNotIn('${ERGO_CLIENT_MAX_BODY_SIZE}', docker_rendered)
         self.assertNotIn('${ERGO_CLIENT_MAX_BODY_SIZE}', host_rendered)
 
+    def test_docker_nginx_parity_with_host_http(self) -> None:
+        """С6: headers, rate zones/limits, /health/ deny в Docker-рендере."""
+        deployment_dir = Path(__file__).resolve().parents[1]
+        docker_template = deployment_dir / 'docker' / 'nginx' / 'ergo_ms.docker.conf.template'
+        raw_env = {
+            'DOCKER_SERVICE_API': 'api',
+            'DOCKER_SERVICE_MEDIA': 'media-api',
+            'API_PORT': '8000',
+            'MEDIA_API_BIND_PORT': '8003',
+            'NGINX_LISTEN_PORT': '80',
+            'NGINX_SERVER_NAME': 'localhost',
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / 'docker.conf'
+            render_docker_nginx_config(raw_env, template_path=docker_template, output_path=out)
+            rendered = out.read_text(encoding='utf-8')
+
+        self.assertIn('server_tokens off', rendered)
+        self.assertIn('limit_req_zone', rendered)
+        self.assertIn('X-Frame-Options', rendered)
+        self.assertIn('limit_req zone=ergo_api', rendered)
+        self.assertIn('limit_req zone=ergo_upload', rendered)
+        self.assertIn('location /health/', rendered)
+        health = rendered[rendered.find('location /health/'):]
+        self.assertIn('deny all', health[:240])
+        self.assertIn('/api/realtime/stream/', rendered)
+
 
 if __name__ == '__main__':
     unittest.main()

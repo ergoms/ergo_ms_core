@@ -12,6 +12,7 @@ from . import (
     broker_redis,
     client_browser_log,
     deferred,
+    docker_nginx_parity,
     env_value,
     internal_trusted_proxies,
     jupyter_exposure,
@@ -41,6 +42,7 @@ _REGISTRY: dict[str, Checker] = {
     'broker_redis_password': broker_redis.run,
     'internal_trusted_proxies': internal_trusted_proxies.run,
     'media_content_validation': media_content_validation.run,
+    'docker_nginx_parity': docker_nginx_parity.run,
     'code_fixed': deferred.code_fixed,
     'deferred': deferred.deferred,
 }

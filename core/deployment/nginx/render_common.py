@@ -77,9 +77,19 @@ def build_docker_upstream_blocks(values: Mapping[str, str]) -> tuple[str, str]:
     return api, media
 
 
-def build_realtime_stream_location(*, variant: Literal['host', 'docker']) -> str:
+def build_realtime_stream_location(*, variant: Literal['host', 'docker'] = 'host') -> str:
+    # Docker без maintenance-map; host — с проверкой $maintenance.
     if variant == 'docker':
-        return ''
+        return """    location /api/realtime/stream/ {
+        limit_conn ergo_conn 20;
+        proxy_pass http://ergo_api;
+        proxy_buffering off;
+        proxy_cache off;
+        chunked_transfer_encoding on;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+"""
     return """    location /api/realtime/stream/ {
         if ($maintenance = 1) { return 503; }
         limit_conn ergo_conn 20;
@@ -142,40 +152,45 @@ def build_host_media_locations() -> str:
 
 
 def build_docker_core_proxy_locations() -> str:
-    return """    location /api/ {
-        proxy_pass http://ergo_api;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
+    """Proxy-локации Docker: rate limit / health как на host HTTP (С6).
 
-    location /ws/ {
+    /health/ — deny all через опубликованный порт: allow 127.0.0.1 бесполезен
+    (клиент с хоста виден как docker-gateway). Healthcheck compose бьёт в media-api.
+    """
+    stream = build_realtime_stream_location(variant='docker')
+    return f"""{stream}
+    location /api/ {{
+        limit_req zone=ergo_api burst=50 nodelay;
+        limit_conn ergo_conn 50;
         proxy_pass http://ergo_api;
-        proxy_http_version 1.1;
+    }}
+
+    location /ws/ {{
+        limit_conn ergo_conn 20;
+        proxy_pass http://ergo_api;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
         proxy_read_timeout 86400s;
-    }
+        proxy_send_timeout 86400s;
+    }}
 
-    location /serve/ {
+    location /serve/ {{
+        limit_req zone=ergo_serve burst=40 nodelay;
+        limit_conn ergo_conn 30;
         proxy_pass http://ergo_media;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
+    }}
 
-    location /upload/ {
+    location /upload/ {{
+        limit_req zone=ergo_upload burst=10 nodelay;
+        limit_conn ergo_conn 10;
         proxy_pass http://ergo_media;
-        proxy_set_header Host $host;
-        client_max_body_size ${ERGO_CLIENT_MAX_BODY_SIZE};
-    }
+        client_max_body_size ${{ERGO_CLIENT_MAX_BODY_SIZE}};
+    }}
 
-    location /health/ {
-        proxy_pass http://ergo_media;
+    location /health/ {{
+        deny all;
         access_log off;
-    }
+    }}
 """
 
 
@@ -218,10 +233,27 @@ def build_host_nginx_shared_replacements(values: Mapping[str, str]) -> dict[str,
     }
 
 
+def _snippet_text(name: str) -> str:
+    path = Path(__file__).resolve().parent / 'snippets' / name
+    return path.read_text(encoding='utf-8').strip() + '\n'
+
+
+def build_docker_http_preamble() -> str:
+    """http-контекст внутри conf.d: hardening, gzip, rate-limit zones (как host HTTP)."""
+    return (
+        _snippet_text('http_hardening.conf')
+        + _snippet_text('compression.conf')
+        + _snippet_text('rate_limit.conf')
+    )
+
+
 def build_docker_nginx_shared_replacements(values: Mapping[str, str]) -> dict[str, str]:
     api_upstream, media_upstream = build_docker_upstream_blocks(values)
     body_size = resolve_client_max_body_size(values)
     return {
+        '${ERGO_DOCKER_HTTP_PREAMBLE}': build_docker_http_preamble(),
+        '${ERGO_DOCKER_SECURITY_HEADERS}': _snippet_text('security_headers.conf'),
+        '${ERGO_DOCKER_PROXY_PARAMS}': _snippet_text('proxy_params.conf'),
         '${ERGO_API_UPSTREAM_BLOCK}': api_upstream,
         '${ERGO_MEDIA_UPSTREAM_BLOCK}': media_upstream,
         '${ERGO_CORE_PROXY_LOCATIONS}': build_core_proxy_locations(variant='docker'),

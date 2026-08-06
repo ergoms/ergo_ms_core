@@ -224,6 +224,8 @@ ADMIN_PASSWORD=admin
 
 Шаблон [core/deployment/docker/nginx/ergo_ms.docker.conf.template](../core/deployment/docker/nginx/ergo_ms.docker.conf.template) работает только по HTTP, не подключает набор защитных заголовков и ограничения частоты запросов, а служебный адрес проверки состояния media_api открыт без ограничения по адресу — в отличие от шаблона для обычной установки. Нужно привести конфигурации к одному уровню.
 
+**Исправлено (паритет с host HTTP).** Docker-шаблон при рендере получает те же сниппеты, что host HTTP: `http_hardening`, `compression`, `rate_limit`, `security_headers`, `proxy_params`; на `/api/`, `/serve/`, `/upload/` — `limit_req`/`limit_conn`; `/health/` — `deny all` (healthcheck compose идёт в `media-api` напрямую). HTTPS в Docker по-прежнему опционален (`NGINX_USE_HTTPS`) и не навязывается docker-dev. Контроль `deploy.docker_nginx_parity`, check `docker_nginx_parity`.
+
 ### С7. Роль «Пользователь» без групп получает все права просмотра
 
 В [core/api/src/core/cms/adp/services/permissions.py](../core/api/src/core/cms/adp/services/permissions.py) (строки 562–594) при отсутствии у пользователя групп роли любой ключ права, оканчивающийся на `_view`, считается выданным. Это удобно при первичной настройке, но означает, что незаполненная конфигурация групп не ограничивает просмотр, а открывает его.

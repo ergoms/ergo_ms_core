@@ -637,8 +637,8 @@ controls:
       maximum: required
     violation: warning
     waivable: false
-    status: planned
-    check: deferred
+    status: implemented
+    check: docker_nginx_parity
     audit: [C6]
 
   - id: jupyter.exposure
