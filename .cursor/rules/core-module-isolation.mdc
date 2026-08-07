@@ -12,7 +12,7 @@ alwaysApply: true
 ## Кратко
 
 - В ядре **нет** `from modules.<имя>...` и static import из `modules/` в бизнес-коде
-- В ядре **нет** строк имён модулей (`'<name>'`, `'<other_module>'`, …) в runtime — включая `core/deployment/scripts/` и lifecycle
+- В ядре **нет** имён модулей (`'<name>'`, `'<other_module>'`, …) в runtime **и в комментариях/docstring** — включая `core/deployment/scripts/` и lifecycle; в примерах только плейсхолдеры `<name>`
 - В ядре **нет** зашитых доменных claim/моделей/маршрутов модуля (конкретные ключи JWT декларирует модуль)
 - Нужны данные/поведение модуля **в сценарии ядра** → **platform**-контракт в `module_contracts` + `bridge.call` / `provide` / hook-файл
 - Связь **только между модулями** (ядро группу не читает) → **не** в `moduleContracts` / `module_contracts` и не в `core/…/integrations/`; константа у хоста, у провайдера — та же строка ([`module-contracts.mdc`](module-contracts.mdc) → «Что класть в каталог ядра»)
@@ -28,10 +28,14 @@ from modules.<name>.api.services import restore_scope
 # BAD — ядро вызывает op по имени модуля
 claims = bridge.call('<name>.restore_session', user=user)
 
-# BAD — hardcoded имя модуля
+# BAD — hardcoded имя модуля (в т.ч. в комментарии / docstring)
 if app_label == '<name>':
     ...
+# BAD — реальный slug модуля в комментарии вместо плейсхолдера
+# Django AppConfig default: "<name>".title() → "Name_With_Underscores"
 ```
+
+В примерах и комментариях — только плейсхолдеры `<name>`, не реальные имена установленных модулей. `core-rules-check` сканирует и комментарии.
 
 ```javascript
 // BAD — домен модуля в ядре
@@ -89,7 +93,7 @@ def _restore_session_claims(*, user=None, **_):
 ## Чеклист перед merge правок в `core/`
 
 1. Нет `modules.` в import бизнес-кода ядра
-2. Нет литералов имён модулей в runtime API/клиента/**deployment** (кроме allowlist `core-rules-check`)
+2. Нет имён модулей в коде, комментариях и docstring API/клиента/**deployment** (кроме allowlist `core-rules-check`: миграции с историческими data-ops, валидаторы)
 3. Нет доменных моделей/сервисов модулей и зашитых ключей их JWT claims
 4. Новая связь **ядро↔модуль** — сначала platform-контракт в каталоге, потом `bridge` / hook
 5. Связь **только модуль↔модуль** — **не** добавлять в каталог ядра и не класть хелперы в `core/…/integrations/`

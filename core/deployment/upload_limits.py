@@ -22,14 +22,10 @@ DIRECT_UPLOAD_LIMIT_KEYS: tuple[tuple[str, int], ...] = (
     ('TASKS_MAX_ATTACHMENT_SIZE_MB', DEFAULT_TASKS_ATTACHMENT_MB),
 )
 
-# Известные feature-лимиты клиента (для отчёта check; байты)
+# Известные feature-лимиты клиента ядра (для отчёта check; байты)
 KNOWN_FEATURE_LIMITS_BYTES: dict[str, int] = {
     'avatar': 5 * 1024 * 1024,
     'messengerAttachment': 25 * 1024 * 1024,
-    'impulsExcel': 50 * 1024 * 1024,
-    'tpDocx': 50 * 1024 * 1024,
-    'aiAssistantChat': 10 * 1024 * 1024,
-    'lmsResource': 100 * 1024 * 1024,
 }
 
 # Env media-лимиты (МБ). Имена модулей не хардкодим — только CLIENT_* ключи из .env.
@@ -224,11 +220,6 @@ def build_upload_limits_report(env: Mapping[str, str]) -> dict[str, Any]:
                 f'MEDIA_UPLOAD_MAX_SIZE ({format_mib(media_bytes)}), '
                 f'в пределах hard ({format_mib(hard_bytes)})'
             )
-
-    warnings.append(
-        'feature impulsExcel: клиентский лимит 50 MiB, '
-        'на API validate_file не проверяет размер'
-    )
 
     return {
         'media_bytes': media_bytes,

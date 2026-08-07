@@ -8,7 +8,7 @@
 - validate_module_isolation --scope=core --fail-on-warning (ядро)
 - validate_module_isolation --scope=all (отчёт по modules/, без падения CI)
 - validate_bridge_contracts --fail-on-warning (схемы дескрипторов моста)
-- запрет hardcoded имён модулей в runtime-коде ядра
+- запрет hardcoded имён модулей в ядре (код, комментарии, docstring)
   (core/api/src, core/client, core/deployment — не только API/клиент)
 - запрет console.error в прикладном коде клиента (кроме logError.js / logger.js)
 - запрет нативного <select> / b-form-select в .vue ядра
@@ -97,8 +97,20 @@ HARDCODED_MODULE_LINE_ALLOWLIST = (
         r"['\"]workers['\"]:\s*['\"](?:install|start|stop|restart|status)-workers['\"]"
     ),
     re.compile(r"['\"]beat['\"],\s*['\"]workers['\"]"),
+    re.compile(r'RootKey\s+["\']workers["\']'),
     re.compile(r'__pycache__'),
 )
+
+# Короткие/служебные токены: ловят Celery, vscode, generic-слова.
+# Для них — только quoted literals; для остальных — ещё \bname\b (в т.ч. комментарии).
+AMBIGUOUS_MODULE_NAME_TOKENS = frozenset({
+    'crm',
+    'lms',
+    'projects',
+    'students',
+    'tasks',
+    'workers',
+})
 
 CLIENT_MODULE_LITERAL_ALLOWLIST = (
     'core/client/src/modules/core/ModuleLoader.js',
@@ -218,13 +230,31 @@ def load_installed_module_names() -> list[str]:
 
 
 def check_hardcoded_module_names() -> list[str]:
+    """Запрет имён установленных модулей в ядре — код, комментарии и docstring.
+
+    Quoted literals ('name' / "name") — для всех установленных модулей.
+    Word-boundary name — для недвусмысленных имён (не AMBIGUOUS_MODULE_NAME_TOKENS).
+    Комментарии (#, //, /* */, JSDoc *) и docstring не исключаются.
+    """
     module_names = load_installed_module_names()
     if not module_names:
         return []
 
-    literal_pattern = re.compile(
+    quoted_pattern = re.compile(
         r"(['\"])(" + "|".join(re.escape(name) for name in module_names) + r")\1"
     )
+    distinctive = [
+        name for name in module_names if name not in AMBIGUOUS_MODULE_NAME_TOKENS
+    ]
+    word_pattern = None
+    if distinctive:
+        word_pattern = re.compile(
+            r'\b('
+            + '|'.join(
+                re.escape(name) for name in sorted(distinctive, key=len, reverse=True)
+            )
+            + r')\b'
+        )
     scan_roots = [
         CORE_API_SRC,
         CLIENT_SRC,
@@ -239,7 +269,7 @@ def check_hardcoded_module_names() -> list[str]:
             candidates = [root]
         else:
             candidates = []
-            for suffix in ('.py', '.js', '.vue', '.scss', '.ts'):
+            for suffix in ('.py', '.js', '.vue', '.scss', '.ts', '.ps1', '.sh'):
                 candidates.extend(_iter_files(root, suffix))
 
         for path in candidates:
@@ -250,7 +280,7 @@ def check_hardcoded_module_names() -> list[str]:
             if _is_hardcoded_module_allowlisted(path):
                 continue
             # Тесты deployment могут упоминать модули в фикстурах — не runtime ядра
-            if rel.startswith('core/deployment/tests/'):
+            if rel.startswith('core/deployment/tests/') or '/lib/test/' in rel:
                 continue
             try:
                 lines = path.read_text(encoding='utf-8').splitlines()
@@ -258,18 +288,23 @@ def check_hardcoded_module_names() -> list[str]:
                 continue
             for line_no, line in enumerate(lines, start=1):
                 stripped = line.strip()
-                if not stripped or stripped.startswith('#') or stripped.startswith('//'):
+                if not stripped:
                     continue
                 if any(pattern.search(line) for pattern in HARDCODED_MODULE_LINE_ALLOWLIST):
                     continue
-                match = literal_pattern.search(line)
-                if match:
+                match = quoted_pattern.search(line)
+                name = match.group(2) if match else None
+                if name is None and word_pattern is not None:
+                    word_match = word_pattern.search(line)
+                    if word_match:
+                        name = word_match.group(1)
+                if name:
                     violations.append(
                         t(
                             'core_rules_hardcoded_module_name',
                             rel=rel,
                             line_no=line_no,
-                            name=match.group(2),
+                            name=name,
                         )
                     )
     return violations
@@ -350,7 +385,7 @@ def check_client_hardcoded_module_paths() -> list[str]:
                 continue
             for line_no, line in enumerate(lines, start=1):
                 stripped = line.strip()
-                if not stripped or stripped.startswith('//') or stripped.startswith('*'):
+                if not stripped:
                     continue
                 match = path_pattern.search(line)
                 if match:
@@ -510,9 +545,6 @@ def check_python_file_integrity() -> list[str]:
                 )
     return violations
 
-
-def main() -> int:
-    all_errors: list[str] = []
 
 def main() -> int:
     all_errors: list[str] = []

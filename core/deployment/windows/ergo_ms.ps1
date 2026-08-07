@@ -394,7 +394,7 @@ function Main {
 
 
 
-    # Handle <module>:poetry commands (e.g., ergoms bi_analysis:poetry add requests ">=2.28.0")
+    # Handle <module>:poetry commands (e.g., ergoms <module>:poetry add requests ">=2.28.0")
 
     if ($Command -match '^([a-zA-Z0-9_-]+):poetry$') {
 
