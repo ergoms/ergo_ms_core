@@ -106,6 +106,7 @@ Windows `.ps1` с кириллицей — **UTF-8 BOM** — см. [`ps1-encodin
 | Тема | Файл |
 |------|------|
 | Bootstrap Python / без PyYAML в импортах setup | [`lifecycle-python-runtime.mdc`](lifecycle-python-runtime.mdc) |
+| Submodule `core/.github` в setup/update | [`github-org-community.mdc`](github-org-community.mdc) |
 | commands.conf, help | [`ergoms-commands.mdc`](ergoms-commands.mdc) |
 | Docker compose | [`docker.mdc`](docker.mdc) |
 | nginx, redis, TLS | [`deployment-infra.mdc`](deployment-infra.mdc) |

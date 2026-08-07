@@ -18,7 +18,14 @@ from lifecycle.host import ops as host_ops  # noqa: E402
 from lifecycle.host.shell_bridge import invoke_dispatch  # noqa: E402
 from lifecycle.steps.base import DeploymentStep, StepResult  # noqa: E402
 
-DEFAULT_CORE_SUBMODULES = ('core/api', 'core/client', 'core/media_api')
+# Ядро + community-репозиторий организации (шаблоны issues/PR, CONTRIBUTING и т.п.).
+# Deploy-рецепты передают paths явно и .github не тянут.
+DEFAULT_CORE_SUBMODULES = (
+    'core/api',
+    'core/client',
+    'core/media_api',
+    'core/.github',
+)
 
 
 class HostExecutionPolicyStep(DeploymentStep):

@@ -24,6 +24,9 @@ alwaysApply: true
 | Агент Cursor | [`.cursor/rules/`](.) — см. [`writing-docs-and-rules.mdc`](writing-docs-and-rules.mdc) |
 | Generate commit message (✨) | [`.cursorrules`](../../.cursorrules) в корне — commit на русском; не путать с `.mdc` |
 | Развёртывание | [`core/deployment/logic.md`](../../core/deployment/logic.md) |
+| Сообщество GitHub (организация) | [`core/.github/`](../../core/.github/) — submodule; синхронизация с `.docs/` — [`github-org-community.mdc`](github-org-community.mdc) |
+
+При правке онбординга, безопасности или поддержки в `.docs/` / README — проверь, не устарели ли краткие тексты в `core/.github` (см. [`github-org-community.mdc`](github-org-community.mdc)).
 
 ## Как писать
 

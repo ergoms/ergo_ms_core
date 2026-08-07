@@ -11,7 +11,7 @@ alwaysApply: true
 
 ## Ядро и модули
 
-**Ядро** (`core/`) — `api/`, `client/`, `media_api/`, `deployment/`. Части `core/api`, `core/client`, `core/media_api` — **git-submodule** (см. `.gitmodules`), как и `modules/<имя>/`.
+**Ядро** (`core/`) — `api/`, `client/`, `media_api/`, `deployment/`. Части `core/api`, `core/client`, `core/media_api` — **git-submodule** (см. `.gitmodules`), как и `modules/<имя>/`. Community-тексты организации — submodule `core/.github` ([`github-org-community.mdc`](github-org-community.mdc)); его ставит `setup-full` / `ergoms update-submodules`.
 
 **Модули** (`modules/<имя>/`) — отдельные доменные блоки. Подключаются как git-submodule. У модуля может быть сервер (`api/`), клиент (`client/`) или оба.
 
@@ -78,6 +78,7 @@ import EntityList from '../../../../modules/<name>/client/pages/EntityList.vue'
 | Тема | Файл |
 |------|------|
 | Изоляция ядра от домена модулей | [`core-module-isolation.mdc`](core-module-isolation.mdc) |
+| Community GitHub (`core/.github`) | [`github-org-community.mdc`](github-org-community.mdc) |
 | Модули (детали) | [`modules.mdc`](modules.mdc) |
 | Django, DRF | [`django.mdc`](django.mdc) |
 | Безопасность | [`security.mdc`](security.mdc), [`security-details.mdc`](security-details.mdc) |
