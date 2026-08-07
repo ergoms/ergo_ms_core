@@ -13,7 +13,12 @@ _PROJECT_ROOT = _DEPLOYMENT_DIR.parent.parent
 if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 
-from cli_locale import t  # noqa: E402
+from cli_locale import (  # noqa: E402
+    clear_locale_caches,
+    ensure_project_env_loaded,
+    resolve_cli_language,
+    t,
+)
 from console_tags import format_console  # noqa: E402
 
 from lifecycle.context import HostPlatform  # noqa: E402
@@ -29,6 +34,15 @@ def detect_project_root() -> Path:
         if (candidate / 'core' / 'deployment').is_dir():
             return candidate
     return _PROJECT_ROOT.resolve()
+
+
+def _init_cli_locale(project_root: Path | None = None) -> Path:
+    """Подтянуть ERGO_CLI_LANGUAGE из .env до любых t() в шагах setup."""
+    root = project_root or detect_project_root()
+    ensure_project_env_loaded(root)
+    clear_locale_caches()
+    resolve_cli_language(project_root=root)
+    return root
 
 
 def runner_python_argv(project_root: Path, recipe: str) -> list[str]:
@@ -73,6 +87,8 @@ def main(argv: list[str] | None = None) -> int:
     if hasattr(sys.stderr, 'reconfigure'):
         sys.stderr.reconfigure(encoding='utf-8')
 
+    project_root = _init_cli_locale()
+
     parser = build_parser()
     args, extra = parser.parse_known_args(argv)
 
@@ -86,7 +102,6 @@ def main(argv: list[str] | None = None) -> int:
         parser.print_help()
         return 1
 
-    project_root = detect_project_root()
     spec = RECIPE_REGISTRY.get(args.recipe)
     if spec is None:
         print(format_console('error', t('unknown_recipe', name=args.recipe)), file=sys.stderr)

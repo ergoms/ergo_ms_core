@@ -19,6 +19,17 @@ from lifecycle.host import ops as host_ops  # noqa: E402
 from lifecycle.steps.base import DeploymentStep, StepResult  # noqa: E402
 
 
+def _skip_if_api_secret_missing(ctx: DeploymentContext, step: str) -> StepResult | None:
+    """Django не стартует без SECRET_KEY; шаблоны намеренно оставляют ключ пустым."""
+    if (ctx.raw_env.get('API_SECRET_KEY') or '').strip():
+        return None
+    print(format_console('skip', t('django_skip_empty_secret', step=step)))
+    if not ctx.options.get('_django_secret_skip_hint'):
+        ctx.options['_django_secret_skip_hint'] = True
+        print(format_console('warning', t('django_skip_empty_secret_hint')))
+    return StepResult()
+
+
 class PythonInstallStep(DeploymentStep):
     @property
     def name(self) -> str:
@@ -108,6 +119,9 @@ class MigrateStep(DeploymentStep):
         return 'migrate'
 
     def run(self, ctx: DeploymentContext) -> StepResult:
+        skipped = _skip_if_api_secret_missing(ctx, self.name)
+        if skipped is not None:
+            return skipped
         if ctx.runtime == 'docker':
             return self._run_docker(ctx)
         return self._run_host(ctx)
@@ -134,6 +148,9 @@ class WarmupCachesStep(DeploymentStep):
         return 'warmup_caches'
 
     def run(self, ctx: DeploymentContext) -> StepResult:
+        skipped = _skip_if_api_secret_missing(ctx, self.name)
+        if skipped is not None:
+            return skipped
         if ctx.runtime == 'docker':
             if not docker_ops.find_docker_compose():
                 return StepResult(exit_code=1, message=t('docker_not_found_short'))
@@ -179,6 +196,9 @@ class CollectStaticStep(DeploymentStep):
         return 'collectstatic'
 
     def run(self, ctx: DeploymentContext) -> StepResult:
+        skipped = _skip_if_api_secret_missing(ctx, self.name)
+        if skipped is not None:
+            return skipped
         if not ctx.option_bool('force') and host_ops.collectstatic_up_to_date(ctx.project_root):
             print(format_console('skip', t('collectstatic_already_fresh_skip')))
             return StepResult()
@@ -187,3 +207,19 @@ class CollectStaticStep(DeploymentStep):
         if code == 0:
             host_ops.write_collectstatic_stamp(ctx.project_root)
         return StepResult(exit_code=code)
+
+
+class RemindApiSecretStep(DeploymentStep):
+    """В конце setup: напомнить сгенерировать API_SECRET_KEY и применить миграции."""
+
+    @property
+    def name(self) -> str:
+        return 'remind_api_secret'
+
+    def run(self, ctx: DeploymentContext) -> StepResult:
+        if (ctx.raw_env.get('API_SECRET_KEY') or '').strip():
+            return StepResult()
+        print(format_console('warning', t('setup_remind_api_secret')))
+        print(format_console('info', t('setup_remind_api_secret_generate')))
+        print(format_console('info', t('setup_remind_api_secret_migrate')))
+        return StepResult()

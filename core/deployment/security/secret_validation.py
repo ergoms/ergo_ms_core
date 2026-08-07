@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
 # Каталог refs.insecure_secret_values + legacy aliases media/API.
 INSECURE_SECRET_VALUES: frozenset[str] = frozenset({
     '',
@@ -13,6 +16,16 @@ INSECURE_SECRET_VALUES: frozenset[str] = frozenset({
 })
 
 MIN_PRODUCTION_SECRET_LENGTH = 32
+
+_DEPLOYMENT_DIR = Path(__file__).resolve().parents[1]
+if str(_DEPLOYMENT_DIR) not in sys.path:
+    sys.path.insert(0, str(_DEPLOYMENT_DIR))
+
+
+def _t(key: str, **params: object) -> str:
+    from cli_locale import t
+
+    return t(key, **params)
 
 
 def is_insecure_secret(secret_key: str | None) -> bool:
@@ -40,18 +53,10 @@ def validate_production_secret_key(secret_key: str | None) -> None:
     """
     key = (secret_key or '').strip()
     if not key:
-        raise ValueError(
-            'ERGO_ENV=production: API_SECRET_KEY пуст. '
-            'Сгенерируйте ключ: ergoms generate-secret'
-        )
+        raise ValueError(_t('production_secret_empty'))
     if key in INSECURE_SECRET_VALUES:
-        raise ValueError(
-            'ERGO_ENV=production: API_SECRET_KEY совпадает с шаблонным/небезопасным значением. '
-            'Сгенерируйте ключ: ergoms generate-secret'
-        )
+        raise ValueError(_t('production_secret_insecure'))
     if len(key) < MIN_PRODUCTION_SECRET_LENGTH:
         raise ValueError(
-            f'ERGO_ENV=production: API_SECRET_KEY короче '
-            f'{MIN_PRODUCTION_SECRET_LENGTH} символов. '
-            'Сгенерируйте ключ: ergoms generate-secret'
+            _t('production_secret_too_short', min_length=MIN_PRODUCTION_SECRET_LENGTH)
         )

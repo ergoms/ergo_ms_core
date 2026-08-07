@@ -21,6 +21,7 @@ from lifecycle.steps.common_steps import (
     MigrateStep,
     NpmInstallStep,
     PythonInstallStep,
+    RemindApiSecretStep,
     WarmupCachesStep,
 )
 from lifecycle.steps.compose_steps import (
@@ -113,6 +114,7 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
                 MigrateStep(),
                 WarmupCachesStep(if_needed=True),
                 CollectStaticStep(),
+                RemindApiSecretStep(),
             ),
             description=t('recipe_setup_full'),
         ),

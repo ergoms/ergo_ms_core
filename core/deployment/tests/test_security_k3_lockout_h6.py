@@ -27,7 +27,8 @@ class SecretValidationTests(unittest.TestCase):
             validate_production_secret_key('secret_key')
         msg = str(ctx.exception)
         self.assertNotIn('API_SECRET_KEY=secret_key', msg)
-        self.assertIn('шаблонным', msg)
+        self.assertIn('ERGO_ENV=production', msg)
+        self.assertIn('generate-secret', msg)
 
     def test_production_short_key(self) -> None:
         with self.assertRaises(ValueError):
