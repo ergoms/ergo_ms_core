@@ -88,14 +88,24 @@ write_ergoms_text() {
 }
 
 detect_project_root() {
+  # Службы systemd передают корень через EnvironmentFile
+  if [[ -n "${ERGO_ROOT:-}" && -d "${ERGO_ROOT}/modules" && -d "${ERGO_ROOT}/core/deployment" ]]; then
+    if command -v readlink >/dev/null 2>&1; then
+      readlink -f "$ERGO_ROOT"
+    else
+      (cd "$ERGO_ROOT" && pwd)
+    fi
+    return 0
+  fi
+
   local script_dir
   script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  
-  # Go up two levels from lib directory
+
+  # core/deployment/linux/lib → core/deployment
   local deployment_dir
-  deployment_dir="$(cd "$script_dir/.." && pwd)"
-  
-  # Prefer git root if available
+  deployment_dir="$(cd "$script_dir/../.." && pwd)"
+
+  # Prefer git root if available (may fail as root: dubious ownership)
   if command -v git >/dev/null 2>&1; then
     if git -C "$deployment_dir" rev-parse --show-toplevel >/dev/null 2>&1; then
       git -C "$deployment_dir" rev-parse --show-toplevel
@@ -103,7 +113,7 @@ detect_project_root() {
     fi
   fi
 
-  # Fallback: assume deployment directory is inside project root
+  # Fallback: …/core/deployment → корень проекта (на два уровня вверх)
   echo "$(cd "$deployment_dir/../.." && pwd)"
 }
 

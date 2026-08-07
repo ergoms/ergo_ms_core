@@ -8,12 +8,15 @@ write_env_file() {
   local legacy="/etc/default/ergo_ms"
 
   mkdir -p "$(dirname "$env_file")" "$root/logs"
+  # systemd EnvironmentFile не снимает кавычки — значения без quotes.
   cat >"$env_file" <<EOF
 # Environment for ergo_ms services (внутри корня проекта)
-ERGO_ROOT="$root"
+ERGO_ROOT=$root
 PYTHONUNBUFFERED=1
 NODE_ENV=development
 ERGO_LOG_CONSOLE=false
+NO_PROXY=127.0.0.1,localhost,::1
+no_proxy=127.0.0.1,localhost,::1
 EOF
   chmod 0644 "$env_file" 2>/dev/null || true
   ERGO_ROOT="$root" write_ergoms_message systemd_env_written white "" "path=$env_file" "root=$root"
