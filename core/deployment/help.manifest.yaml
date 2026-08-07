@@ -242,7 +242,7 @@ sections:
     summary: 'Проверка ядра: изоляция модулей, схемы контрактов моста, console.error, native select, импорты modules.*, mid-indent/ast.parse,
       BOM/LF в deployment-скриптах'
   - name: security-modes
-    summary: Справка по уровням ERGO_SECURITY (этап 2: профиль подставляет незаданные ключи, .env не пишет)
+    summary: "Справка по уровням ERGO_SECURITY (этап 2: профиль подставляет незаданные ключи, .env не пишет)"
   - name: security-check
     summary: Отчёт о соответствии установки уровню безопасности (этап 2)
   - name: deployment-test
