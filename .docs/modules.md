@@ -13,7 +13,7 @@
 
 Отключённый модуль (`DISABLED_MODULES` в `.env`) не участвует в discovery, зависимостях, меню и Docker build context — см. [configuration.md](configuration.md#настройки-модулей).
 
-Проверка изоляции и контрактов: `ergoms core-rules-check`. Правила для агента Cursor: [`.cursor/rules/modules.mdc`](../.cursor/rules/modules.mdc), [`.cursor/rules/core-module-isolation.mdc`](../.cursor/rules/core-module-isolation.mdc), [`.cursor/rules/module-contracts.mdc`](../.cursor/rules/module-contracts.mdc).
+Проверка изоляции и контрактов: `ergoms core-rules-check`. Правила для агента Cursor: [`.cursor/rules/modules.mdc`](../.cursor/rules/modules.mdc), [`.cursor/rules/core-module-isolation.mdc`](../.cursor/rules/core-module-isolation.mdc), [`.cursor/rules/module-contracts.mdc`](../.cursor/rules/module-contracts.mdc). Документация самого модуля (`AGENTS.md`, `.cursor/rules/`, `README.md`) — [`.cursor/rules/module-docs.mdc`](../.cursor/rules/module-docs.mdc): обновляйте её вместе с контрактами и безопасностью.
 
 ## Карта каталога модуля
 

@@ -47,6 +47,8 @@ modules/<имя>/
 
 Правила агента Cursor для модуля — в `.cursor/rules/*.mdc` (globs `modules/<имя>/**`) и кратко в `AGENTS.md`. Подхват `.mdc` в Cursor: расширение **ERGO MS Module Cursor Rules** из [`.vscode/extensions/module-rules/`](../../.vscode/extensions/module-rules/) (`ergoms install-extensions`). Платформенные правила остаются в корневом `.cursor/rules/`. Подробности: [`module-cursor-rules.mdc`](module-cursor-rules.mdc), [`writing-docs-and-rules.mdc`](writing-docs-and-rules.mdc).
 
+При правках модуля **обновляй его документацию** (`AGENTS.md`, `.mdc`, `README.md`, help) вместе с кодом — [`module-docs.mdc`](module-docs.mdc). Это исключение из общего «не пиши docs без просьбы» в [`docs.mdc`](docs.mdc).
+
 Учёт модульного процесса в `ergoms resource-usage` — только через `process_roles.yaml` ([`process-roles.mdc`](process-roles.mdc)); не правь классификатор ядра ради одного модуля.
 
 Install/uninstall/stop модульного демона в `ergoms install-services` / `uninstall-services` и Windows-тестах deployment — только через `host_lifecycle.yaml` ([`host-lifecycle.mdc`](host-lifecycle.mdc)).
@@ -247,5 +249,6 @@ def get_my_serializer_class():
 | Модульные задачи Run Task | [`module-vscode-tasks.mdc`](module-vscode-tasks.mdc) |
 | Формат задач ядра (tasks.json) | [`vscode-tasks.mdc`](vscode-tasks.mdc) |
 | Правила Cursor модуля | [`module-cursor-rules.mdc`](module-cursor-rules.mdc) |
+| Документация модуля (AGENTS/README) | [`module-docs.mdc`](module-docs.mdc) |
 | Стиль правил и docs | [`writing-docs-and-rules.mdc`](writing-docs-and-rules.mdc) |
 | Redis, nginx (prod) | [`deployment-infra.mdc`](deployment-infra.mdc) |
