@@ -21,6 +21,13 @@
 	update = merge
 	ignore = all
 
+[submodule "core/.github"]
+	path = core/.github
+	url = https://github.com/ergoms/.github.git
+	branch = dev
+	update = merge
+	ignore = all
+
 # Репозитории сторонних модулей
 
 [submodule "lms"]
@@ -183,4 +190,3 @@
 	branch = dev
 	update = merge
 	ignore = all
-	
