@@ -8,8 +8,8 @@
 - validate_module_isolation --scope=core --fail-on-warning (ядро)
 - validate_module_isolation --scope=all (отчёт по modules/, без падения CI)
 - validate_bridge_contracts --fail-on-warning (схемы дескрипторов моста)
-- запрет hardcoded имён модулей в ядре (код, комментарии, docstring)
-  (core/api/src, core/client, core/deployment — не только API/клиент)
+- запрет hardcoded имён модулей во всём ядре и правилах Cursor
+  (весь core/, .cursor/rules/ — код, комментарии, docstring, markdown)
 - запрет console.error в прикладном коде клиента (кроме logError.js / logger.js)
 - запрет нативного <select> / b-form-select в .vue ядра
 - запрет from modules. в core/api/src (дополнительный текстовый grep)
@@ -48,10 +48,43 @@ from validate_ps1_encoding import find_ps1_encoding_violations  # noqa: E402
 from validate_sh_encoding import find_sh_encoding_violations  # noqa: E402
 API_DIR = PROJECT_ROOT / 'core' / 'api'
 CLIENT_SRC = PROJECT_ROOT / 'core' / 'client' / 'src'
+CORE_DIR = PROJECT_ROOT / 'core'
 CORE_CLIENT = PROJECT_ROOT / 'core' / 'client'
 CORE_API_SRC = PROJECT_ROOT / 'core' / 'api' / 'src'
 CORE_DEPLOYMENT = PROJECT_ROOT / 'core' / 'deployment'
+CURSOR_RULES_DIR = PROJECT_ROOT / '.cursor' / 'rules'
 MODULES_DIR = PROJECT_ROOT / 'modules'
+
+HARDCODED_MODULE_SCAN_SUFFIXES = (
+    '.py',
+    '.js',
+    '.vue',
+    '.scss',
+    '.ts',
+    '.ps1',
+    '.sh',
+    '.cmd',
+    '.md',
+    '.mdc',
+    '.yaml',
+    '.yml',
+    '.json',
+    '.toml',
+    '.conf',
+    '.template',
+    '.txt',
+    '.html',
+)
+
+HARDCODED_MODULE_SKIP_DIR_NAMES = frozenset({
+    'node_modules',
+    'dist',
+    '__pycache__',
+    '.git',
+    'coverage',
+    '.vite',
+    'cache',
+})
 
 CONSOLE_ERROR_ALLOWLIST = {
     CLIENT_SRC / 'js' / 'utils' / 'logError.js',
@@ -72,6 +105,12 @@ HARDCODED_MODULE_ALLOWLIST_SUFFIXES = (
     'validate_bridge_contracts.py',
     'module_deps.py',
     'sharedGlobs.generated.js',
+)
+
+HARDCODED_MODULE_ALLOWLIST_NAME_SUFFIXES = (
+    '.generated.yml',
+    '.generated.yaml',
+    '.generated.js',
 )
 
 HARDCODED_MODULE_ALLOWLIST_REL = {
@@ -110,6 +149,11 @@ AMBIGUOUS_MODULE_NAME_TOKENS = frozenset({
     'students',
     'tasks',
     'workers',
+})
+
+# Официальный scaffold модулей — имя допустимо в правилах/доках ядра как эталон.
+PLATFORM_MODULE_DOC_ALLOWLIST = frozenset({
+    'module_template',
 })
 
 CLIENT_MODULE_LITERAL_ALLOWLIST = (
@@ -194,8 +238,7 @@ def _iter_files(root: Path, suffix: str) -> list[Path]:
         return []
     files: list[Path] = []
     for path in root.rglob(f'*{suffix}'):
-        parts = set(path.parts)
-        if 'node_modules' in parts or 'dist' in parts or '__pycache__' in parts:
+        if HARDCODED_MODULE_SKIP_DIR_NAMES.intersection(path.parts):
             continue
         files.append(path)
     return files
@@ -211,7 +254,21 @@ def _is_hardcoded_module_allowlisted(path: Path) -> bool:
         return True
     if any(part == 'migrations' for part in path.parts):
         return True
-    return path.name in HARDCODED_MODULE_ALLOWLIST_SUFFIXES
+    if path.name in HARDCODED_MODULE_ALLOWLIST_SUFFIXES:
+        return True
+    name_lower = path.name.lower()
+    if any(name_lower.endswith(suffix) for suffix in HARDCODED_MODULE_ALLOWLIST_NAME_SUFFIXES):
+        return True
+    return False
+
+
+def _should_skip_hardcoded_module_path(rel: str) -> bool:
+    """Пропуск тестов и lock-файлов — не runtime/доки ядра."""
+    if rel.startswith('core/deployment/tests/') or '/lib/test/' in rel:
+        return True
+    if rel.endswith(('.lock', 'package-lock.json', 'poetry.lock')):
+        return True
+    return False
 
 
 def load_installed_module_names() -> list[str]:
@@ -230,21 +287,30 @@ def load_installed_module_names() -> list[str]:
 
 
 def check_hardcoded_module_names() -> list[str]:
-    """Запрет имён установленных модулей в ядре — код, комментарии и docstring.
+    """Запрет имён установленных модулей во всём ядре и правилах Cursor.
 
+    Область: весь ``core/`` и ``.cursor/rules/``.
     Quoted literals ('name' / "name") — для всех установленных модулей.
     Word-boundary name — для недвусмысленных имён (не AMBIGUOUS_MODULE_NAME_TOKENS).
-    Комментарии (#, //, /* */, JSDoc *) и docstring не исключаются.
+    Комментарии (#, //, /* */, JSDoc *), docstring и markdown не исключаются.
     """
     module_names = load_installed_module_names()
     if not module_names:
         return []
 
+    scannable_names = [
+        name
+        for name in module_names
+        if name not in PLATFORM_MODULE_DOC_ALLOWLIST
+    ]
+    if not scannable_names:
+        return []
+
     quoted_pattern = re.compile(
-        r"(['\"])(" + "|".join(re.escape(name) for name in module_names) + r")\1"
+        r"(['\"])(" + "|".join(re.escape(name) for name in scannable_names) + r")\1"
     )
     distinctive = [
-        name for name in module_names if name not in AMBIGUOUS_MODULE_NAME_TOKENS
+        name for name in scannable_names if name not in AMBIGUOUS_MODULE_NAME_TOKENS
     ]
     word_pattern = None
     if distinctive:
@@ -256,31 +322,33 @@ def check_hardcoded_module_names() -> list[str]:
             + r')\b'
         )
     scan_roots = [
-        CORE_API_SRC,
-        CLIENT_SRC,
-        CORE_CLIENT / 'vite.config.js',
-        CORE_DEPLOYMENT,
+        CORE_DIR,
+        CURSOR_RULES_DIR,
     ]
     violations: list[str] = []
     seen: set[str] = set()
 
     for root in scan_roots:
+        if not root.exists():
+            continue
         if root.is_file():
             candidates = [root]
         else:
             candidates = []
-            for suffix in ('.py', '.js', '.vue', '.scss', '.ts', '.ps1', '.sh'):
+            for suffix in HARDCODED_MODULE_SCAN_SUFFIXES:
                 candidates.extend(_iter_files(root, suffix))
 
         for path in candidates:
-            rel = _relative_posix(path)
+            try:
+                rel = _relative_posix(path)
+            except ValueError:
+                continue
             if rel in seen:
                 continue
             seen.add(rel)
             if _is_hardcoded_module_allowlisted(path):
                 continue
-            # Тесты deployment могут упоминать модули в фикстурах — не runtime ядра
-            if rel.startswith('core/deployment/tests/') or '/lib/test/' in rel:
+            if _should_skip_hardcoded_module_path(rel):
                 continue
             try:
                 lines = path.read_text(encoding='utf-8').splitlines()

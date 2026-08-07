@@ -45,7 +45,7 @@ alwaysApply: false
 | `README.md` | модуль с API, клиентом, ops или нетривиальным `.env` |
 | `.env.example` | есть модульные переменные окружения |
 | `ergoms.help.yaml` | есть `ergoms.conf` |
-| `api/user_guides/*.md` | необязательно: пользовательские шпаргалки для корпуса RAG (`ai_assistant`) |
+| `api/user_guides/*.md` | необязательно: пользовательские шпаргалки для корпуса RAG (модуль-ассистент) |
 | `user_description` в `PERMISSION_CATALOG` | необязательно: 1–3 предложения «зачем модуль» для пользователя |
 
 Инфра-модуль без UI может не иметь `client/` и клиентских разделов в README — опиши ops и bridge.

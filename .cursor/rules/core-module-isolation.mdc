@@ -7,7 +7,7 @@ alwaysApply: true
 
 Ядро (`core/api`, `core/client`, `core/media_api`, `core/deployment`) **не знает** домен модулей. Связь только через **generic** ModuleBridge и hook discovery.
 
-Проверка: `ergoms core-rules-check` (hardcoded имена — `core/api/src`, `core/client`, **`core/deployment`**). Подробности — [`struct.mdc`](struct.mdc), контракты — [`module-contracts.mdc`](module-contracts.mdc).
+Проверка: `ergoms core-rules-check` (hardcoded имена — **весь `core/`** и **`.cursor/rules/`**, включая комментарии/docstring/markdown). Подробности — [`struct.mdc`](struct.mdc), контракты — [`module-contracts.mdc`](module-contracts.mdc).
 
 ## Кратко
 
@@ -93,7 +93,7 @@ def _restore_session_claims(*, user=None, **_):
 ## Чеклист перед merge правок в `core/`
 
 1. Нет `modules.` в import бизнес-кода ядра
-2. Нет имён модулей в коде, комментариях и docstring API/клиента/**deployment** (кроме allowlist `core-rules-check`: миграции с историческими data-ops, валидаторы)
+2. Нет имён модулей в **всем `core/`** и **`.cursor/rules/`** (код, комментарии, docstring, markdown) — кроме allowlist `core-rules-check` (миграции data-ops, валидаторы, scaffold `module_template`)
 3. Нет доменных моделей/сервисов модулей и зашитых ключей их JWT claims
 4. Новая связь **ядро↔модуль** — сначала platform-контракт в каталоге, потом `bridge` / hook
 5. Связь **только модуль↔модуль** — **не** добавлять в каталог ядра и не класть хелперы в `core/…/integrations/`
