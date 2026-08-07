@@ -359,6 +359,8 @@ def install_poetry_in_venv(ctx: DeploymentContext) -> int:
 
 HOST_NPM_DEPS_MARKER = Path('node_modules/.ergo-host-deps-ok')
 CLIENT_BUILD_STAMP_REL = Path('virtual_env/cache/.ergo-client-build-ok')
+COLLECTSTATIC_STAMP_REL = Path('virtual_env/cache/.ergo-collectstatic-ok')
+PYTHON_DEPS_STAMP_REL = Path('virtual_env/cache/.ergo-python-deps-ok')
 
 
 def host_npm_deps_marker(project_root: Path) -> Path:
@@ -514,3 +516,51 @@ def write_client_build_stamp(project_root: Path, raw_env: dict[str, str]) -> Non
     stamp = client_build_stamp_path(project_root)
     stamp.parent.mkdir(parents=True, exist_ok=True)
     stamp.write_text(client_build_fingerprint(project_root, raw_env) + '\n', encoding='utf-8')
+
+
+def collectstatic_stamp_path(project_root: Path) -> Path:
+    return project_root / COLLECTSTATIC_STAMP_REL
+
+
+def static_api_root(project_root: Path) -> Path:
+    return project_root / 'virtual_env' / 'static_api'
+
+
+def collectstatic_fingerprint(project_root: Path) -> str:
+    """Fingerprint для smart-skip collectstatic: python-deps + client-build + HEAD api."""
+    digest = hashlib.sha256()
+    for rel in (PYTHON_DEPS_STAMP_REL, CLIENT_BUILD_STAMP_REL):
+        path = project_root / rel
+        digest.update(str(rel).encode('utf-8'))
+        if path.is_file():
+            try:
+                digest.update(path.read_bytes())
+            except OSError:
+                digest.update(b'missing')
+        else:
+            digest.update(b'missing')
+    digest.update(f'api_head={_git_head(project_root / "core" / "api")}\n'.encode('utf-8'))
+    return digest.hexdigest()
+
+
+def collectstatic_up_to_date(project_root: Path) -> bool:
+    root = static_api_root(project_root)
+    if not root.is_dir():
+        return False
+    try:
+        next(root.iterdir())
+    except StopIteration:
+        return False
+    stamp = collectstatic_stamp_path(project_root)
+    if not stamp.is_file():
+        return False
+    try:
+        return stamp.read_text(encoding='utf-8').strip() == collectstatic_fingerprint(project_root)
+    except OSError:
+        return False
+
+
+def write_collectstatic_stamp(project_root: Path) -> None:
+    stamp = collectstatic_stamp_path(project_root)
+    stamp.parent.mkdir(parents=True, exist_ok=True)
+    stamp.write_text(collectstatic_fingerprint(project_root) + '\n', encoding='utf-8')

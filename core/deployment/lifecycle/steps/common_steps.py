@@ -179,6 +179,11 @@ class CollectStaticStep(DeploymentStep):
         return 'collectstatic'
 
     def run(self, ctx: DeploymentContext) -> StepResult:
+        if not ctx.option_bool('force') and host_ops.collectstatic_up_to_date(ctx.project_root):
+            print(format_console('skip', t('collectstatic_already_fresh_skip')))
+            return StepResult()
         print(format_console('info', t('collecting_static')))
         code = host_ops.run_api_command(ctx, 'collectstatic', '--noinput')
+        if code == 0:
+            host_ops.write_collectstatic_stamp(ctx.project_root)
         return StepResult(exit_code=code)

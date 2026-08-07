@@ -106,6 +106,12 @@ class EnsureRedisStep(DeploymentStep):
             ))
             return StepResult()
 
+        from install_redis import is_installed as redis_is_installed  # noqa: WPS433
+
+        if redis_is_installed(ctx.project_root) and not ctx.option_bool('force'):
+            print(format_console('skip', t('redis_already_installed_skip')))
+            return StepResult()
+
         print(format_console('info', t('installing_redis')))
         ctx.options.setdefault('needs_sudo', True)
         code = invoke_dispatch(ctx, 'redis', 'install')
@@ -159,6 +165,12 @@ class EnsureMeilisearchStep(DeploymentStep):
 
         if not is_search_enabled():
             print(format_console('skip', t('meilisearch_skip_search')))
+            return StepResult()
+
+        from install_meilisearch import is_installed as meili_is_installed  # noqa: WPS433
+
+        if meili_is_installed(ctx.project_root) and not ctx.option_bool('force'):
+            print(format_console('skip', t('meilisearch_already_installed_skip')))
             return StepResult()
 
         print(format_console('info', t('installing_meilisearch')))

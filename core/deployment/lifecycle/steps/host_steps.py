@@ -70,8 +70,11 @@ class GitSubmoduleUpdateStep(DeploymentStep):
         branch = ctx.option_str('checkout_branch', self._branch)
         force = ctx.option_bool('force')
         already_init = bool(paths) and all(_submodule_initialized(root, rel) for rel in paths)
-        # setup-full (remote=False): без --remote при уже инициализированных submodule
+        # setup-full (remote=False): без --remote; при уже клонированных — полный skip
         use_remote = bool(force or self._remote)
+        if not use_remote and already_init and not force:
+            print(format_console('skip', t('git_submodules_already_init_skip')))
+            return StepResult()
         cmd = ['git', 'submodule', 'update', '--init']
         if use_remote:
             cmd.append('--remote')
@@ -83,10 +86,7 @@ class GitSubmoduleUpdateStep(DeploymentStep):
             sub = root / rel
             if sub.is_dir():
                 subprocess.call(['git', 'checkout', branch], cwd=str(sub))
-        if not use_remote and already_init:
-            print(format_console('ok', t('git_submodules_local_ok')))
-        else:
-            print(format_console('ok', t('git_submodules_updated')))
+        print(format_console('ok', t('git_submodules_updated')))
         return StepResult()
 
 

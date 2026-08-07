@@ -255,8 +255,14 @@ def install_postgres(
     if system == 'auto':
         system = platform.system().lower()
 
-    version = resolve_latest_version()
-    print(format_console('info', t('postgres_target_version', version=version)))
+    # Повторный setup: не ходить на FTP за latest, если portable уже стоит.
+    installed_version = read_installed_version(root) if is_installed(root) else None
+    if installed_version and not force:
+        version = installed_version
+        print(format_console('skip', t('postgres_already_installed', version=version)))
+    else:
+        version = resolve_latest_version()
+        print(format_console('info', t('postgres_target_version', version=version)))
     print(format_console('info', t('postgres_listen_port_info', listen_port=listen_port)))
 
     defaults = load_db_defaults(root)
@@ -264,12 +270,13 @@ def install_postgres(
     password = defaults['password']
 
     try:
-        if system == 'windows':
-            _install_windows(root, version, force)
-        elif system == 'linux':
-            _install_linux(root, version, force)
-        else:
-            raise RuntimeError(t('postgres_unsupported_platform', system=system))
+        if not (installed_version and not force):
+            if system == 'windows':
+                _install_windows(root, version, force)
+            elif system == 'linux':
+                _install_linux(root, version, force)
+            else:
+                raise RuntimeError(t('postgres_unsupported_platform', system=system))
 
         _initdb_if_needed(root, user, password, listen_port, listen_bind)
         if start:
