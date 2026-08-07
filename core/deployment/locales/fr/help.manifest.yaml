@@ -40,7 +40,7 @@ sections:
     invoke: ergoms uninstall-services [-Purge|--purge]
     summary: Supprimer les services OS (modules via host_lifecycle.yaml ; avec --purge — supprimer les données)
   - name: logs
-    invoke: ergoms logs <имя_службы> [строки]
+    invoke: ergoms logs <nom_du_service> [lignes]
     summary: Journal du service
   - name: setup-full
     summary: Configuration initiale complète ; Redis/nginx — si ERGO_BROKER=redis / ERGO_PROXY=nginx
@@ -65,7 +65,7 @@ sections:
   - name: start-media
     summary: Media API
   - name: start-worker
-    invoke: ergoms start-worker [--worker=<имя>]
+    invoke: ergoms start-worker [--worker=<nom>]
     summary: Celery worker
   - name: start-beat
     summary: Celery beat
