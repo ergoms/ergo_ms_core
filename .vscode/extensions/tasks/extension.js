@@ -351,8 +351,35 @@ function getWorkspaceRoot() {
 }
 
 
+function trackGroupItem(group, item) {
+    if (!group) {
+        return;
+    }
+    if (!taskGroups.has(group)) {
+        taskGroups.set(group, []);
+    }
+    taskGroups.get(group).push(item);
+}
+
+function terminateTrackedItem(item) {
+    if (!item) {
+        return;
+    }
+    if (item.terminal) {
+        try {
+            item.terminal.dispose();
+        } catch (_) {}
+        return;
+    }
+    if (item.execution) {
+        try {
+            item.execution.terminate();
+        } catch (_) {}
+    }
+}
+
 /**
- * Создаёт и запускает задачу
+ * Создаёт и запускает задачу (VS Code Task — видно в Running Tasks).
  */
 async function runTask(name, command, cwd, group, stopCommand) {
     const taskDefinition = {
@@ -387,21 +414,41 @@ async function runTask(name, command, cwd, group, stopCommand) {
     };
 
     const execution = await vscode.tasks.executeTask(task);
-    
-    // Сохраняем в группу
-    if (group) {
-        if (!taskGroups.has(group)) {
-            taskGroups.set(group, []);
-        }
-        taskGroups.get(group).push({
-            execution,
-            stopCommand: stopCommand || null,
-            cwd,
-            name
-        });
-    }
-    
+    trackGroupItem(group, {
+        execution,
+        stopCommand: stopCommand || null,
+        cwd,
+        name
+    });
     return execution;
+}
+
+/**
+ * Обычный integrated terminal — без Task API, без toast/Running Tasks.
+ */
+async function runInTerminal(name, command, cwd, group, stopCommand) {
+    const workspaceRoot = cwd || getWorkspaceRoot();
+    const env = workspaceRoot
+        ? withErgomsPath({ ...process.env }, workspaceRoot)
+        : { ...process.env };
+
+    const { executable, args, options } = osAbstraction.getProcessExecution(command, cwd, env);
+    const terminal = vscode.window.createTerminal({
+        name,
+        cwd: (options && options.cwd) || cwd || workspaceRoot || undefined,
+        env: (options && options.env) || env,
+        shellPath: executable,
+        shellArgs: args
+    });
+    // preserveFocus — не дёргать фокус на каждый из N логов
+    terminal.show(true);
+    trackGroupItem(group, {
+        terminal,
+        stopCommand: stopCommand || null,
+        cwd,
+        name
+    });
+    return terminal;
 }
 
 /**
@@ -708,12 +755,12 @@ async function executeMultiTerminalTask(task) {
         return;
     }
 
+    const launchAsTerminal = definition.launchAs === 'terminal';
+
     // Останавливаем старые задачи этой группы
     if (taskGroups.has(group)) {
         for (const item of taskGroups.get(group)) {
-            try {
-                item.execution.terminate();
-            } catch (e) {}
+            terminateTrackedItem(item);
             runStopCommand(item.stopCommand, item.cwd || cwd);
         }
         taskGroups.set(group, []);
@@ -721,7 +768,11 @@ async function executeMultiTerminalTask(task) {
     
     // Запускаем задачи
     for (const t of tasks) {
-        await runTask(t.name, t.command, t.cwd, group, t.stopCommand);
+        if (launchAsTerminal) {
+            await runInTerminal(t.name, t.command, t.cwd, group, t.stopCommand);
+        } else {
+            await runTask(t.name, t.command, t.cwd, group, t.stopCommand);
+        }
         await sleep(delay);
     }
 }
@@ -732,12 +783,10 @@ async function executeMultiTerminalTask(task) {
 function stopAllTasks() {
     let count = 0;
     
-    for (const [group, executions] of taskGroups) {
-        for (const item of executions) {
-            try {
-                item.execution.terminate();
-                count++;
-            } catch (e) {}
+    for (const [, items] of taskGroups) {
+        for (const item of items) {
+            terminateTrackedItem(item);
+            count++;
             runStopCommand(item.stopCommand, item.cwd);
         }
     }

@@ -246,11 +246,15 @@ async function installExtensions() {
       }
     }
 
-    // Исходники без соответствующего VSIX (например только что добавленный module-mcp)
+    // Исходники новее VSIX или без VSIX — ставим из .vscode/extensions/
     if (existsSync(sourceExtensionsDir)) {
-      const vsixNames = new Set(
-        vsixFiles.map((f) => f.replace(/-\d+\.\d+\.\d+\.vsix$/i, '')),
-      );
+      const vsixByName = new Map();
+      for (const file of vsixFiles) {
+        const m = file.match(/^(.*)-(\d+\.\d+\.\d+)\.vsix$/i);
+        if (m) {
+          vsixByName.set(m[1], m[2]);
+        }
+      }
       const entries = await readdir(sourceExtensionsDir, { withFileTypes: true });
       for (const entry of entries) {
         if (!entry.isDirectory()) {
@@ -262,17 +266,29 @@ async function installExtensions() {
           continue;
         }
         let pkgName = '';
+        let pkgVer = '';
         try {
           const pkg = JSON.parse(await readFile(packageJsonPath, 'utf-8'));
           pkgName = String(pkg.name || '');
+          pkgVer = String(pkg.version || '');
         } catch {
           continue;
         }
-        if (!pkgName || vsixNames.has(pkgName)) {
+        if (!pkgName || !pkgVer) {
           continue;
         }
-        console.log(`\n-> VSIX для ${pkgName} нет — установка из исходников: ${entry.name}`);
-        await installFromSourceDir(sourceDir, homeDir);
+        const vsixVer = vsixByName.get(pkgName);
+        if (!vsixVer) {
+          console.log(`\n-> VSIX для ${pkgName} нет — установка из исходников: ${entry.name}`);
+          await installFromSourceDir(sourceDir, homeDir);
+          continue;
+        }
+        if (compareSemver(pkgVer, vsixVer) > 0) {
+          console.log(
+            `\n-> Исходники ${pkgName} ${pkgVer} новее VSIX ${vsixVer} — установка из исходников: ${entry.name}`,
+          );
+          await installFromSourceDir(sourceDir, homeDir);
+        }
       }
     }
 
