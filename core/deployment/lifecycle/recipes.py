@@ -62,7 +62,10 @@ from lifecycle.steps.infra_steps import (  # noqa: E402
     InfraOperationStep,
 )
 from lifecycle.steps.host_lifecycle_steps import ModuleHostServicesStep
-from lifecycle.steps.module_tasks_steps import ModuleSetupTasksStep
+from lifecycle.steps.module_tasks_steps import (
+    ModuleSetupTasksAfterMigrateStep,
+    ModuleSetupTasksStep,
+)
 from lifecycle.steps.postgres_steps import EnsurePostgresStep
 from lifecycle.steps.service_steps import ServiceOperationStep
 
@@ -112,6 +115,8 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
                 # До migrate: модульные portable (pgvector и т.п.) должны быть в БД до CREATE EXTENSION.
                 ModuleSetupTasksStep(),
                 MigrateStep(),
+                # После migrate: задачи, которым нужна схема БД (RAG sync и т.п.).
+                ModuleSetupTasksAfterMigrateStep(),
                 WarmupCachesStep(if_needed=True),
                 CollectStaticStep(),
                 RemindApiSecretStep(),
