@@ -51,7 +51,7 @@ bridge.call(NOTIFICATIONS_RECALL, idempotency_keys=['…', '…'])
 ## Каналы
 
 - in_app — лента + realtime (`websocket` или `http_polling`, см. [`realtime.mdc`](realtime.mdc))
-- email — через Celery после commit
+- email — Celery после commit; пауза из env `NOTIFICATIONS_EMAIL_DELAY_SECONDS` (default `300` = 5 мин, `0` = сразу). К моменту задачи отозванное (`notifications.recall` / `deleted_at`) письмо не уходит (`SKIPPED`)
 
 Пользователь включает каналы в настройках. Событие вне каталога — in_app может уйти, email нет.
 
