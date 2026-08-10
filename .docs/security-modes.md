@@ -170,11 +170,14 @@ controls:
 |---|---|---|---|---|
 | `media.signed_urls_ttl` | 3600 с | 3600 с | 900 с | 300 с |
 | `media.content_validation` | расширение | расширение | расширение и сигнатура содержимого | плюс антивирусная проверка |
-| `media.upload_rate` | выключено в отладке | 30/мин | 15/мин | 10/мин |
+| `media.upload_rate` | 100/мин (в DEBUG media_api не режет) | 30/мин | 15/мин | 10/мин |
+| `media.upload_rate_admin` | 300/мин; nginx `/upload/` не ниже | 120/мин | 60/мин | 30/мин |
 | `internal.write_size_limit` | нет | обязателен | обязателен | обязателен |
 | `internal.trusted_proxies` | не проверяется | не проверяется | XFF только от доверенных прокси (пустой список = игнорировать XFF) | плюс отдельный ключ для внутреннего API |
 
 Контроль `media.content_validation` в media_api (**phase 1, status `partial`**): режимы `extension` / `extension_and_magic` работают; `extension_magic_av` — stub без ClamAV (`security-check` даёт SKIP/warning, не ложный OK). Env: `MEDIA_API_CONTENT_VALIDATION`.
+
+Частота загрузок: квота обычного пользователя — `MEDIA_API_UPLOAD_RATE`, глобального администратора — `MEDIA_API_UPLOAD_RATE_ADMIN` (класс `quota` в upload-токене). На входе nginx зона `ergo_upload` равна эффективной квоте администратора (грубый потолок по IP); точный учёт — в media_api по `user_id`.
 
 ### Инфраструктура и данные
 

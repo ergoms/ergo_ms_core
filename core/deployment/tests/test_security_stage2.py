@@ -19,6 +19,7 @@ class MergeSecurityProfileDefaultsTests(unittest.TestCase):
         self.assertEqual(merged['API_REMEMBER_ME_REFRESH_TOKEN_LIFETIME'], '10080')
         self.assertEqual(merged['MEDIA_URL_EXPIRATION'], '3600')
         self.assertEqual(merged['MEDIA_API_UPLOAD_RATE'], '30/minute')
+        self.assertEqual(merged['MEDIA_API_UPLOAD_RATE_ADMIN'], '120/minute')
         self.assertEqual(merged['MEDIA_API_CONTENT_VALIDATION'], 'extension')
         self.assertEqual(merged['CLIENT_BROWSER_LOG_ENABLED'], 'true')
         self.assertEqual(merged['API_ADP_DEFAULT_VIEW_GRANTS'], 'granted')
@@ -48,6 +49,8 @@ class MergeSecurityProfileDefaultsTests(unittest.TestCase):
         self.assertEqual(std_merged['API_PASSWORD_MIN_LENGTH'], '8')
         self.assertEqual(open_merged['MEDIA_API_UPLOAD_RATE'], '100/minute')
         self.assertEqual(std_merged['MEDIA_API_UPLOAD_RATE'], '30/minute')
+        self.assertEqual(open_merged['MEDIA_API_UPLOAD_RATE_ADMIN'], '300/minute')
+        self.assertEqual(std_merged['MEDIA_API_UPLOAD_RATE_ADMIN'], '120/minute')
 
     def test_whitespace_treated_as_unset(self) -> None:
         merged = merge_security_profile_defaults({
@@ -88,6 +91,7 @@ class MergeSecurityProfileDefaultsTests(unittest.TestCase):
         self.assertEqual(merged['API_REMEMBER_ME_REFRESH_TOKEN_LIFETIME'], '1440')
         self.assertEqual(merged['MEDIA_URL_EXPIRATION'], '900')
         self.assertEqual(merged['MEDIA_API_UPLOAD_RATE'], '15/minute')
+        self.assertEqual(merged['MEDIA_API_UPLOAD_RATE_ADMIN'], '60/minute')
         self.assertEqual(merged['MEDIA_API_CONTENT_VALIDATION'], 'extension_and_magic')
         self.assertEqual(merged['API_JWT_LIFETIME_ENABLED'], 'true')
         self.assertEqual(merged['API_ADP_DEFAULT_VIEW_GRANTS'], 'denied')

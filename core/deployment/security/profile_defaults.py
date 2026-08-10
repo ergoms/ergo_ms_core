@@ -22,6 +22,7 @@ APPLYABLE_CONTROL_IDS: tuple[str, ...] = (
     'session.device_retention',
     'media.signed_urls_ttl',
     'media.upload_rate',
+    'media.upload_rate_admin',
     'media.content_validation',
     'logging.client_browser',
     'adp.default_role_view_grants',

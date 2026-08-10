@@ -18,6 +18,7 @@ if str(_DEPLOYMENT_DIR) not in sys.path:
 from ergo_modes import env_bool
 from security.csp_policy import build_security_headers_nginx, resolve_csp_mode
 from upload_limits import compute_client_max_body_bytes, format_nginx_body_size
+from upload_rate import build_rate_limit_conf, resolve_upload_rates, upload_location_limit_lines
 
 
 def use_https(values: Mapping[str, str], listen_port: str = '') -> bool:
@@ -161,9 +162,7 @@ def build_host_media_locations() -> str:
 
     location /upload/ {
         if ($maintenance = 1) { return 503; }
-        limit_req zone=ergo_upload burst=10 nodelay;
-        limit_conn ergo_conn 10;
-        proxy_pass http://ergo_media;
+${ERGO_UPLOAD_LIMIT_LINES}        proxy_pass http://ergo_media;
         client_max_body_size ${ERGO_CLIENT_MAX_BODY_SIZE};
     }
 
@@ -208,9 +207,7 @@ def build_docker_core_proxy_locations() -> str:
     }}
 
     location /upload/ {{
-        limit_req zone=ergo_upload burst=10 nodelay;
-        limit_conn ergo_conn 10;
-        proxy_pass http://ergo_media;
+${{ERGO_UPLOAD_LIMIT_LINES}}        proxy_pass http://ergo_media;
         client_max_body_size ${{ERGO_CLIENT_MAX_BODY_SIZE}};
     }}
 
@@ -250,6 +247,7 @@ def apply_template_replacements(content: str, replacements: Mapping[str, str]) -
 def build_host_nginx_shared_replacements(values: Mapping[str, str]) -> dict[str, str]:
     api_upstream, media_upstream = build_host_upstream_blocks(values)
     body_size = resolve_client_max_body_size(values)
+    rates = resolve_upload_rates(values)
     return {
         '${ERGO_API_UPSTREAM_BLOCK}': api_upstream,
         '${ERGO_MEDIA_UPSTREAM_BLOCK}': media_upstream,
@@ -257,6 +255,8 @@ def build_host_nginx_shared_replacements(values: Mapping[str, str]) -> dict[str,
         '${ERGO_HOST_API_WS_PROXY}': build_host_api_ws_locations(),
         '${ERGO_HOST_MEDIA_PROXY}': build_host_media_locations(),
         '${ERGO_CLIENT_MAX_BODY_SIZE}': body_size,
+        '${ERGO_RATE_LIMIT_CONF}': build_rate_limit_conf(values).rstrip('\n'),
+        '${ERGO_UPLOAD_LIMIT_LINES}': upload_location_limit_lines(burst=int(rates['burst'])),
     }
 
 
@@ -265,12 +265,13 @@ def _snippet_text(name: str) -> str:
     return path.read_text(encoding='utf-8').strip() + '\n'
 
 
-def build_docker_http_preamble() -> str:
-    """http-контекст внутри conf.d: hardening, gzip, rate-limit zones (как host HTTP)."""
+def build_docker_http_preamble(values: Mapping[str, str] | None = None) -> str:
+    """http-контекст внутри conf.d: hardening, gzip, зоны частоты (как host HTTP)."""
+    rate_conf = build_rate_limit_conf(values or {})
     return (
         _snippet_text('http_hardening.conf')
         + _snippet_text('compression.conf')
-        + _snippet_text('rate_limit.conf')
+        + rate_conf
     )
 
 
@@ -278,14 +279,16 @@ def build_docker_nginx_shared_replacements(values: Mapping[str, str]) -> dict[st
     api_upstream, media_upstream = build_docker_upstream_blocks(values)
     body_size = resolve_client_max_body_size(values)
     csp_mode = resolve_csp_mode(values)
+    rates = resolve_upload_rates(values)
     return {
-        '${ERGO_DOCKER_HTTP_PREAMBLE}': build_docker_http_preamble(),
+        '${ERGO_DOCKER_HTTP_PREAMBLE}': build_docker_http_preamble(values),
         '${ERGO_DOCKER_SECURITY_HEADERS}': build_security_headers_nginx(csp_mode),
         '${ERGO_DOCKER_PROXY_PARAMS}': _snippet_text('proxy_params.conf'),
         '${ERGO_API_UPSTREAM_BLOCK}': api_upstream,
         '${ERGO_MEDIA_UPSTREAM_BLOCK}': media_upstream,
         '${ERGO_CORE_PROXY_LOCATIONS}': build_core_proxy_locations(variant='docker'),
         '${ERGO_CLIENT_MAX_BODY_SIZE}': body_size,
+        '${ERGO_UPLOAD_LIMIT_LINES}': upload_location_limit_lines(burst=int(rates['burst'])),
         '${NGINX_LISTEN_PORT}': _env(values, 'NGINX_LISTEN_PORT', '80'),
         '${NGINX_SERVER_NAME}': _env(values, 'NGINX_SERVER_NAME', 'localhost'),
         '${API_JUPYTER_BIND_PORT}': _env(values, 'API_JUPYTER_BIND_PORT', '8002'),

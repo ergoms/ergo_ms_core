@@ -219,6 +219,7 @@ class CatalogTruthUpTests(unittest.TestCase):
             'headers.baseline': 'code_fixed',
             'auth.reset_code_policy': 'reset_code_policy',
             'media.upload_rate': 'env_rate_max',
+            'media.upload_rate_admin': 'env_rate_max',
             'media.signed_urls_ttl': 'env_int_max',
             'logging.client_browser': 'client_browser_log',
             'password.policy': 'password_policy',
@@ -235,9 +236,12 @@ class CatalogTruthUpTests(unittest.TestCase):
         catalog = load_security_catalog()
         signed = catalog.control_by_id('media.signed_urls_ttl')
         upload = catalog.control_by_id('media.upload_rate')
+        upload_admin = catalog.control_by_id('media.upload_rate_admin')
         content = catalog.control_by_id('media.content_validation')
         self.assertEqual(signed.env_key, 'MEDIA_URL_EXPIRATION')
         self.assertEqual(upload.env_key, 'MEDIA_API_UPLOAD_RATE')
+        self.assertEqual(upload_admin.env_key, 'MEDIA_API_UPLOAD_RATE_ADMIN')
+        self.assertEqual(upload_admin.check, 'env_rate_max')
         self.assertEqual(content.env_key, 'MEDIA_API_CONTENT_VALIDATION')
         self.assertEqual(content.check, 'media_content_validation')
         self.assertEqual(content.status, 'partial')
