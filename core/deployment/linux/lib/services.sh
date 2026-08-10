@@ -225,35 +225,36 @@ kill_ergo_project_session_processes() {
         kill -KILL "$pid" 2>/dev/null || true
       fi
     done
-    [[ "$round" -eq 1 ]] && sleep 0.8
+    if [[ "$round" -eq 1 ]]; then
+      sleep 0.8
+    fi
   done
+  return 0
 }
 
 stop_all() {
   local root="${SERVICE_PROJECT_ROOT:-}"
   local u name err cmd items
   local -a planned=()
-  local stopped=0 skipped=0 failed=0
+  local stopped=0 skipped=0 missing=0 failed=0
 
   _collect_managed_service_names "$root" planned
   items="$(_join_csv_names "${planned[@]}")"
   write_ergoms_message svc_stopping_all cyan "" \
     "count=${#planned[@]}" "items=$items"
 
-  # Модульные stop_commands (процесс без службы / доп. очистка) — до systemctl
-  if [[ -n "$root" && -d "$root" ]] && command -v ergoms >/dev/null 2>&1; then
-    while IFS= read -r cmd; do
-      [[ -z "$cmd" ]] && continue
-      ( cd "$root" && ergoms "$cmd" ) || true
-    done < <(list_module_host_stop_commands "$root")
-  fi
-
+  # Сначала systemctl unit'ы — чтобы не путать OK модульного stop с SKIP по уже неактивному unit.
   for u in $(units_list "$root"); do
     [[ "$u" == "ergo_ms_redis.service" || "$u" == "ergo_ms_redis" ]] && continue
     [[ "$u" == "ergo_ms_meilisearch.service" || "$u" == "ergo_ms_meilisearch" ]] && continue
     name="$(_unit_short_name "$u")"
-    if ! _unit_is_present "$u" || ! systemctl is-active --quiet "$u" 2>/dev/null; then
-      write_ergoms_message svc_already_stopped_or_missing gray "" "name=$name"
+    if ! _unit_is_present "$u"; then
+      write_ergoms_message svc_not_installed_dash gray "" "name=$name"
+      missing=$((missing + 1))
+      continue
+    fi
+    if ! systemctl is-active --quiet "$u" 2>/dev/null; then
+      # Без шума: unit уже не active (в т.ч. после предыдущего stop).
       skipped=$((skipped + 1))
       continue
     fi
@@ -266,6 +267,14 @@ stop_all() {
     failed=$((failed + 1))
   done
 
+  # Модульные stop_commands — добить процесс, если unit не покрыл (или unit нет).
+  if [[ -n "$root" && -d "$root" ]] && command -v ergoms >/dev/null 2>&1; then
+    while IFS= read -r cmd; do
+      [[ -z "$cmd" ]] && continue
+      ( cd "$root" && ergoms "$cmd" ) || true
+    done < <(list_module_host_stop_commands "$root")
+  fi
+
   if is_search_enabled "$root" && declare -F meilisearch_stop >/dev/null 2>&1; then
     if declare -F _meilisearch_is_running >/dev/null 2>&1 && _meilisearch_is_running "$root"; then
       if meilisearch_stop "$root"; then
@@ -274,7 +283,7 @@ stop_all() {
         failed=$((failed + 1))
       fi
     else
-      meilisearch_stop "$root" || true
+      # Без повторного SKIP в консоли — учитываем в итоге.
       skipped=$((skipped + 1))
     fi
   fi
@@ -287,19 +296,18 @@ stop_all() {
         failed=$((failed + 1))
       fi
     else
-      redis_stop "$root" || true
       skipped=$((skipped + 1))
     fi
   fi
+
+  write_ergoms_message svc_stop_summary green "" \
+    "stopped=$stopped" "skipped=$skipped" "missing=$missing" "failed=$failed"
 
   # Иначе kill_ergo_project_session_processes рвёт node/vite — npm печатает ERR на «упавший» lifecycle.
   if [[ -n "$root" && -d "$root" ]] && command -v ergoms >/dev/null 2>&1; then
     ( cd "$root" && ergoms npm run stop-dev ) || true
   fi
-  kill_ergo_project_session_processes "$root"
-
-  write_ergoms_message svc_stop_summary green "" \
-    "stopped=$stopped" "skipped=$skipped" "failed=$failed"
+  kill_ergo_project_session_processes "$root" || true
 }
 
 restart_all() {

@@ -484,7 +484,31 @@ function Stop-AllServices {
 
     $stopped = 0
     $skipped = 0
+    $missing = 0
     $failed = 0
+
+    foreach ($serviceName in $serviceNames) {
+        if ($serviceName -eq 'ergo_ms_redis' -or $serviceName -eq 'ergo_ms_meilisearch') { continue }
+        try {
+            $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+            if (-not $service) {
+                Write-ErgomsMessage -Key 'svc_not_installed_dash' -Color Gray -Param @{ name = $serviceName }
+                $missing++
+            }
+            elseif ($service.Status -ne 'Stopped') {
+                Stop-Service -Name $serviceName -Force
+                Write-ErgomsMessage -Key 'svc_stopped_ok' -Color Green -Param @{ name = $serviceName }
+                $stopped++
+            }
+            else {
+                $skipped++
+            }
+        }
+        catch {
+            Write-ErgomsMessage -Key 'svc_stop_failed' -Color Red -Stderr -Param @{ name = $serviceName; error = $_.Exception.Message }
+            $failed++
+        }
+    }
 
     if (Get-Command ergoms -ErrorAction SilentlyContinue) {
         foreach ($cmd in @(Get-ModuleHostStopCommands -ProjectRoot $ProjectRoot)) {
@@ -498,33 +522,18 @@ function Stop-AllServices {
         }
     }
 
-    foreach ($serviceName in $serviceNames) {
-        if ($serviceName -eq 'ergo_ms_redis' -or $serviceName -eq 'ergo_ms_meilisearch') { continue }
-        try {
-            $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-            if ($service -and $service.Status -ne 'Stopped') {
-                Stop-Service -Name $serviceName -Force
-                Write-ErgomsMessage -Key 'svc_stopped_ok' -Color Green -Param @{ name = $serviceName }
-                $stopped++
-            }
-            else {
-                Write-ErgomsMessage -Key 'svc_already_stopped_or_missing' -Color Gray -Param @{ name = $serviceName }
-                $skipped++
-            }
-        }
-        catch {
-            Write-ErgomsMessage -Key 'svc_stop_failed' -Color Red -Stderr -Param @{ name = $serviceName; error = $_.Exception.Message }
-            $failed++
-        }
-    }
-
     if (Test-SearchEnabled -ProjectRoot $ProjectRoot) {
         if (Get-Command Stop-MeilisearchProcess -ErrorAction SilentlyContinue) {
             try {
                 $meiliSvc = Get-Service -Name 'ergo_ms_meilisearch' -ErrorAction SilentlyContinue
                 $wasRunning = $meiliSvc -and $meiliSvc.Status -ne 'Stopped'
-                Stop-MeilisearchProcess -Root $ProjectRoot -Quiet
-                if ($wasRunning) { $stopped++ } else { $skipped++ }
+                if ($wasRunning) {
+                    Stop-MeilisearchProcess -Root $ProjectRoot -Quiet
+                    $stopped++
+                }
+                else {
+                    $skipped++
+                }
             } catch {
                 Write-ErgomsMessage -Key 'svc_stop_failed' -Color Red -Stderr -Param @{ name = 'ergo_ms_meilisearch'; error = $_.Exception.Message }
                 $failed++
@@ -537,8 +546,13 @@ function Stop-AllServices {
             try {
                 $redisSvc = Get-Service -Name 'ergo_ms_redis' -ErrorAction SilentlyContinue
                 $wasRunning = $redisSvc -and $redisSvc.Status -ne 'Stopped'
-                Stop-RedisProcess -Root $ProjectRoot -Quiet
-                if ($wasRunning) { $stopped++ } else { $skipped++ }
+                if ($wasRunning) {
+                    Stop-RedisProcess -Root $ProjectRoot -Quiet
+                    $stopped++
+                }
+                else {
+                    $skipped++
+                }
             } catch {
                 Write-ErgomsMessage -Key 'svc_stop_failed' -Color Red -Stderr -Param @{ name = 'ergo_ms_redis'; error = $_.Exception.Message }
                 $failed++
@@ -549,6 +563,7 @@ function Stop-AllServices {
     Write-ErgomsMessage -Key 'svc_stop_summary' -Color Green -Param @{
         stopped = $stopped
         skipped = $skipped
+        missing = $missing
         failed = $failed
     }
 }
