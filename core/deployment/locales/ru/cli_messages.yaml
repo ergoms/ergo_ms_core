@@ -301,6 +301,7 @@ nginx_quit_force: "Nginx не ответил на quit, завершение п�
 nginx_stopped: "Nginx остановлен"
 nginx_stop_incomplete: "Не удалось полностью остановить nginx"
 nginx_os_service_no_control: "Nginx работает как служба ОС; терминал не управляет процессом."
+nginx_privileged_port_use_service: "Порт {port} недоступен без root. Служба установлена — запустите: ergoms start-nginx (не start-nginx-dev)."
 nginx_external_running: "Nginx уже запущен (внешний); закрытие терминала не остановит сервер."
 nginx_handoff_to_terminal: "Передача управления nginx в терминал разработки..."
 nginx_stop_before_fg_failed: "Не удалось остановить предыдущий nginx перед foreground-запуском."

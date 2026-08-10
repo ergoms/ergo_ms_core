@@ -299,6 +299,7 @@ nginx_quit_force: "Nginx n'a pas répondu à quit, arrêt forcé du processus...
 nginx_stopped: "Nginx arrêté"
 nginx_stop_incomplete: "Impossible d'arrêter complètement nginx"
 nginx_os_service_no_control: "Nginx tourne comme service OS ; le terminal ne contrôle pas le processus."
+nginx_privileged_port_use_service: "Le port {port} nécessite root. Le service est installé — lancez : ergoms start-nginx (pas start-nginx-dev)."
 nginx_external_running: "Nginx est déjà démarré (externe) ; fermer le terminal n'arrêtera pas le serveur."
 nginx_handoff_to_terminal: "Transfert du contrôle nginx au terminal de développement..."
 nginx_stop_before_fg_failed: "Échec de l'arrêt du nginx précédent avant le lancement foreground."
