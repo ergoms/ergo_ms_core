@@ -54,8 +54,61 @@ _kill_ergo_skip_pids_ancestor_chain() {
   done
 }
 
+# Терминалы «Logs: All Services» / start-db-dev / module:logs-* — не останавливать вместе со службами.
+_cmdline_is_log_watcher() {
+  local c="$1"
+  [[ -n "$c" ]] || return 1
+  # ergoms logs <service> / bash ergo_ms.sh logs …
+  [[ "$c" == *"ergoms logs"* || "$c" == *"ergo_ms.sh logs"* ]] && return 0
+  # Модульные хвосты: ergoms <module>:logs-<name>
+  [[ "$c" == *":logs-"* ]] && return 0
+  # Логи default БД (VS Code Start All / Logs)
+  [[ "$c" == *"start-db-dev"* || "$c" == *"start_db_logs_dev.py"* ]] && return 0
+  # docker logs -f (в т.ч. дочерний процесс start-db-dev)
+  [[ "$c" == *"docker_cli.py"* && "$c" == *" logs"* ]] && return 0
+  [[ "$c" == *"docker-logs"* ]] && return 0
+  # Скрипты модулей deployment/logs_*.py
+  [[ "$c" == */logs_*.py* ]] && return 0
+  # Pipeline show_*_logs: tail -F / -f <файл под корнем проекта>
+  if [[ "$c" =~ (^|[[:space:]/])tail([[:space:]]|$) ]]; then
+    if [[ "$c" == *" -F"* || "$c" == *"-F "* || "$c" == *" -f"* || "$c" == *"-f "* ]]; then
+      return 0
+    fi
+  fi
+  return 1
+}
+
+_read_proc_cmdline() {
+  local proc_dir="$1"
+  local cmd=""
+  { cmd="$(tr '\0' ' ' <"$proc_dir/cmdline")"; } 2>/dev/null || return 1
+  [[ -n "$cmd" ]] || return 1
+  printf '%s' "$cmd"
+}
+
+# true, если процесс или его предок — сессия просмотра логов (не убивать при stop).
+_pid_in_log_watch_session() {
+  local pid="$1"
+  local -n _skip_ref="$2"
+  local cmd ppid n=0 max=48
+  while [[ "$pid" -gt 1 && "$n" -lt "$max" ]]; do
+    # Дошли до цепочки самого ergoms stop — это не log-терминал.
+    [[ -v "_skip_ref[$pid]" ]] && return 1
+    cmd="$(_read_proc_cmdline "/proc/$pid")" || return 1
+    if _cmdline_is_log_watcher "$cmd"; then
+      return 0
+    fi
+    ppid="$(awk '/^PPid:/{print $2}' "/proc/$pid/status" 2>/dev/null || echo 1)"
+    [[ -z "$ppid" || "$ppid" == 0 ]] && break
+    pid="$ppid"
+    ((n++)) || true
+  done
+  return 1
+}
+
 # Завершает оставшиеся после systemctl пользовательские процессы этого репозитория (Daphne, Celery, Vite,
 # фоновые ergoms/npm и т.д.) по наличию абсолютного пути корня или virtual_env в cmdline.
+# Сессии просмотра логов (VS Code Logs: All Services и т.п.) не трогает.
 kill_ergo_project_session_processes() {
   local root="${1:-${SERVICE_PROJECT_ROOT:-}}"
   [[ -n "$root" ]] || return 0
@@ -80,18 +133,20 @@ kill_ergo_project_session_processes() {
 
   for round in 1 2; do
     for proc in /proc/[0-9]*; do
-      [[ -r "$proc/cmdline" ]] || continue
+      [[ -e "$proc/cmdline" ]] || continue
       pid="${proc##/proc/}"
       [[ "$pid" =~ ^[0-9]+$ ]] || continue
       [[ -v "skip[$pid]" ]] && continue
-      cmd="$(tr '\0' ' ' <"$proc/cmdline" 2>/dev/null || true)"
+      cmd="$(_read_proc_cmdline "$proc")" || continue
       _cmdline_matches_project "$cmd" || continue
+      _pid_in_log_watch_session "$pid" skip && continue
       if [[ "$round" -eq 1 ]]; then
         kill -TERM "$pid" 2>/dev/null || true
       else
         kill -0 "$pid" 2>/dev/null || continue
-        cmd="$(tr '\0' ' ' <"$proc/cmdline" 2>/dev/null || true)"
+        cmd="$(_read_proc_cmdline "$proc")" || continue
         _cmdline_matches_project "$cmd" || continue
+        _pid_in_log_watch_session "$pid" skip && continue
         kill -KILL "$pid" 2>/dev/null || true
       fi
     done
