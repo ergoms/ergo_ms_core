@@ -511,13 +511,32 @@ function Stop-AllServices {
     }
 
     if (Get-Command ergoms -ErrorAction SilentlyContinue) {
-        foreach ($cmd in @(Get-ModuleHostStopCommands -ProjectRoot $ProjectRoot)) {
-            if (-not $cmd) { continue }
+        foreach ($pair in @(Get-ModuleHostStopPairs -ProjectRoot $ProjectRoot)) {
+            if (-not $pair) { continue }
+            $pairCmd = "$($pair.Command)".Trim()
+            if (-not $pairCmd) { continue }
+            $needStop = $true
+            $pairUnits = @($pair.Units)
+            if ($pairUnits.Count -gt 0) {
+                $needStop = $false
+                foreach ($unitName in $pairUnits) {
+                    $svc = Get-Service -Name $unitName -ErrorAction SilentlyContinue
+                    if (-not $svc) {
+                        $needStop = $true
+                        break
+                    }
+                    if ($svc.Status -ne 'Stopped') {
+                        $needStop = $true
+                        break
+                    }
+                }
+            }
+            if (-not $needStop) { continue }
             try {
                 Push-Location $ProjectRoot
-                try { ergoms $cmd } finally { Pop-Location }
+                try { ergoms $pairCmd } finally { Pop-Location }
             } catch {
-                Write-ErgomsMessage -Key 'svc_stop_failed' -Color Red -Stderr -Param @{ name = $cmd; error = $_.Exception.Message }
+                Write-ErgomsMessage -Key 'svc_stop_failed' -Color Red -Stderr -Param @{ name = $pairCmd; error = $_.Exception.Message }
             }
         }
     }

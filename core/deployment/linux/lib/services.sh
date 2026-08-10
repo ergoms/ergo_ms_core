@@ -267,12 +267,30 @@ stop_all() {
     failed=$((failed + 1))
   done
 
-  # Модульные stop_commands — добить процесс, если unit не покрыл (или unit нет).
+  # Модульные stop_commands — только если нет установленных unit'ов или какой-то ещё active.
+  # Иначе после systemctl stop остаётся ложный «процесс не найден».
   if [[ -n "$root" && -d "$root" ]] && command -v ergoms >/dev/null 2>&1; then
-    while IFS= read -r cmd; do
-      [[ -z "$cmd" ]] && continue
-      ( cd "$root" && ergoms "$cmd" ) || true
-    done < <(list_module_host_stop_commands "$root")
+    local pair_cmd pair_units unit_item need_stop
+    while IFS=$'\t' read -r pair_cmd pair_units; do
+      [[ -z "$pair_cmd" ]] && continue
+      need_stop=1
+      if [[ -n "${pair_units:-}" ]]; then
+        need_stop=0
+        for unit_item in $pair_units; do
+          [[ "$unit_item" == *.service ]] || unit_item="${unit_item}.service"
+          if ! _unit_is_present "$unit_item"; then
+            need_stop=1
+            break
+          fi
+          if systemctl is-active --quiet "$unit_item" 2>/dev/null; then
+            need_stop=1
+            break
+          fi
+        done
+      fi
+      [[ "$need_stop" -eq 1 ]] || continue
+      ( cd "$root" && ergoms "$pair_cmd" ) || true
+    done < <(list_module_host_stop_pairs "$root")
   fi
 
   if is_search_enabled "$root" && declare -F meilisearch_stop >/dev/null 2>&1; then

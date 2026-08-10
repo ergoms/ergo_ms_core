@@ -546,6 +546,35 @@ function Get-ModuleHostStopCommands {
     }
 }
 
+function Get-ModuleHostStopPairs {
+    param([string]$ProjectRoot)
+    $python = Join-Path $ProjectRoot 'virtual_env\python\Scripts\python.exe'
+    $script = Join-Path $ProjectRoot 'core\deployment\scripts\host_lifecycle_loader.py'
+    if (-not (Test-Path -LiteralPath $python) -or -not (Test-Path -LiteralPath $script)) {
+        return @()
+    }
+    try {
+        $out = & $python $script --root $ProjectRoot --stop-commands-paired 2>$null
+        if (-not $out) { return @() }
+        return @(
+            $out | ForEach-Object {
+                $line = "$_"
+                if (-not $line) { return }
+                $parts = $line -split "`t", 2
+                $cmd = "$($parts[0])".Trim()
+                if (-not $cmd) { return }
+                $units = @()
+                if ($parts.Count -gt 1 -and "$($parts[1])".Trim()) {
+                    $units = @("$($parts[1])".Trim() -split '\s+' | Where-Object { $_ })
+                }
+                [pscustomobject]@{ Command = $cmd; Units = $units }
+            }
+        )
+    } catch {
+        return @()
+    }
+}
+
 function Get-ServiceNames {
     param([string]$ProjectRoot)
 

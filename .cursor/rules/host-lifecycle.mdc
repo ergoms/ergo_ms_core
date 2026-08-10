@@ -14,7 +14,7 @@ alwaysApply: false
 - Загрузка: [`host_lifecycle_loader.py`](../../core/deployment/scripts/host_lifecycle_loader.py)
 - Потребители:
   - `ergoms install-services` / `uninstall-services` → [`ModuleHostServicesStep`](../../core/deployment/lifecycle/steps/host_lifecycle_steps.py) (`install` / `uninstall`)
-  - `ergoms start` / `stop` / `restart` / `status` — `service_units` в списке OS-служб; `stop_commands` перед остановкой служб
+  - `ergoms start` / `stop` / `restart` / `status` — `service_units` в списке OS-служб; `stop_commands` после systemctl, и только если unit не установлен или ещё active (иначе ложный «процесс не найден»)
   - тесты deployment [`lib.ps1`](../../core/deployment/windows/lib/test/lib.ps1) (`Stop-AllErgoms`, `Invoke-ModuleHostInstallServiceCommands`)
 - `DISABLED_MODULES` — модуль не участвует
 
@@ -60,7 +60,7 @@ host:
 
 | Поле | Смысл |
 |------|--------|
-| `stop_commands` | `ergoms stop` / `Stop-AllErgoms` — доп. остановка (процесс без службы или очистка) |
+| `stop_commands` | `ergoms stop` / `Stop-AllErgoms` — доп. остановка процесса; при установленных `service_units` не вызывается, если все unit уже inactive |
 | `install_service_commands` | шаг модульных служб в `ergoms install-services` и в `install_test.ps1` |
 | `uninstall_service_commands` | шаг модульных служб в `ergoms uninstall-services` (парно с install) |
 | `service_units` | имена OS-служб в `ergoms start` / `stop` / `restart` / `status` (если unit установлен) |

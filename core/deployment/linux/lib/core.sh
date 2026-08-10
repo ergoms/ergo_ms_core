@@ -211,6 +211,17 @@ list_module_host_stop_commands() {
   "$py" "$script" --root "$project_root" --stop-commands 2>/dev/null || true
 }
 
+# Строки «cmd<TAB>unit1 unit2» — для stop: не дублировать stop_command, если unit уже неактивен.
+list_module_host_stop_pairs() {
+  local project_root="${1:-}"
+  local py script
+  [[ -n "$project_root" ]] || return 0
+  py="$project_root/virtual_env/python/bin/python"
+  script="$project_root/core/deployment/scripts/host_lifecycle_loader.py"
+  [[ -x "$py" && -f "$script" ]] || return 0
+  "$py" "$script" --root "$project_root" --stop-commands-paired 2>/dev/null || true
+}
+
 # Генерация списка служб на основе конфигурации воркеров
 generate_units_list() {
   local project_root="${1:-}"
@@ -333,6 +344,7 @@ export -f parse_workers_from_yaml
 export -f get_celery_workers
 export -f list_module_host_units
 export -f list_module_host_stop_commands
+export -f list_module_host_stop_pairs
 export -f generate_units_list
 export -f get_worker_service_names
 export -f units_list
