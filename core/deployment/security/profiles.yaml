@@ -555,7 +555,7 @@ controls:
 
   - id: media.upload_rate
     layer: media
-    title: Лимит частоты загрузок
+    title: Лимит частоты загрузок (обычный пользователь)
     kind: value
     env_key: MEDIA_API_UPLOAD_RATE
     compare: max_rate
@@ -564,6 +564,22 @@ controls:
       standard: 30/minute
       hardened: 15/minute
       maximum: 10/minute
+    violation: warning
+    waivable: false
+    status: implemented
+    check: env_rate_max
+
+  - id: media.upload_rate_admin
+    layer: media
+    title: Лимит частоты загрузок (глобальный администратор); nginx /upload/ не ниже этого
+    kind: value
+    env_key: MEDIA_API_UPLOAD_RATE_ADMIN
+    compare: max_rate
+    profiles:
+      open: 300/minute
+      standard: 120/minute
+      hardened: 60/minute
+      maximum: 30/minute
     violation: warning
     waivable: false
     status: implemented

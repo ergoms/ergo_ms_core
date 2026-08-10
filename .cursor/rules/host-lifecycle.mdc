@@ -14,11 +14,12 @@ alwaysApply: false
 - Загрузка: [`host_lifecycle_loader.py`](../../core/deployment/scripts/host_lifecycle_loader.py)
 - Потребители:
   - `ergoms install-services` / `uninstall-services` → [`ModuleHostServicesStep`](../../core/deployment/lifecycle/steps/host_lifecycle_steps.py) (`install` / `uninstall`)
-  - `ergoms start` / `stop` / `restart` / `status` — `service_units` в списке OS-служб; `stop_commands` перед остановкой служб
+  - `ergoms start` / `stop` / `restart` / `status` — `service_units` в списке OS-служб; `stop_commands` после systemctl, и только если unit не установлен или ещё active (иначе ложный «процесс не найден»)
+  - `ergoms setup` / `setup-full` → [`StopSetupStartedInfraStep`](../../core/deployment/lifecycle/steps/infra_steps.py) вызывает `stop_commands` в конце (вместе с nginx/redis)
   - тесты deployment [`lib.ps1`](../../core/deployment/windows/lib/test/lib.ps1) (`Stop-AllErgoms`, `Invoke-ModuleHostInstallServiceCommands`)
 - `DISABLED_MODULES` — модуль не участвует
 
-Аналог для setup-full / start-all (dev-процессы) — `vscode.tasks.yaml` (`include_in`), не этот hook.
+Установка / старт в setup-full и start-all (dev-процессы) — `vscode.tasks.yaml` (`include_in`). Остановка демонов после setup-full — `stop_commands` этого hook.
 
 ## Обязательно
 
@@ -60,7 +61,7 @@ host:
 
 | Поле | Смысл |
 |------|--------|
-| `stop_commands` | `ergoms stop` / `Stop-AllErgoms` — доп. остановка (процесс без службы или очистка) |
+| `stop_commands` | `ergoms stop` / `Stop-AllErgoms` / конец `setup-full` — доп. остановка процесса; при `ergoms stop` и установленных `service_units` не вызывается, если все unit уже inactive |
 | `install_service_commands` | шаг модульных служб в `ergoms install-services` и в `install_test.ps1` |
 | `uninstall_service_commands` | шаг модульных служб в `ergoms uninstall-services` (парно с install) |
 | `service_units` | имена OS-служб в `ergoms start` / `stop` / `restart` / `status` (если unit установлен) |

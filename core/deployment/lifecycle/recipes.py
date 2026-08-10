@@ -60,6 +60,7 @@ from lifecycle.steps.infra_steps import (  # noqa: E402
     EnsureRedisOsServiceStep,
     EnsureRedisStep,
     InfraOperationStep,
+    StopSetupStartedInfraStep,
 )
 from lifecycle.steps.host_lifecycle_steps import ModuleHostServicesStep
 from lifecycle.steps.module_tasks_steps import (
@@ -120,6 +121,8 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
                 WarmupCachesStep(if_needed=True),
                 CollectStaticStep(),
                 RemindApiSecretStep(),
+                # finally: остановить nginx/redis/модульные демоны и при ошибке посередине.
+                StopSetupStartedInfraStep(),
             ),
             description=t('recipe_setup_full'),
         ),

@@ -90,11 +90,11 @@ git submodule update --init --recursive
 
 ## SSE обрывается за nginx
 
-Симптом: поток `/api/realtime/stream/` закрывается через короткое время.
+Симптом: поток `/api/realtime/stream/` или модульный `…/stream/` (чат) закрывается через короткое время / ответ не идёт по частям.
 
 1. Проверьте конфиг: `ergoms test-nginx`.
 2. Перезагрузите: `ergoms reload-nginx`.
-3. Убедитесь, что в шаблоне `ergo_ms.conf.template` для SSE отключён `proxy_buffering` — см. [realtime.mdc](../.cursor/rules/realtime.mdc).
+3. В сгенерированном nginx для SSE должны быть `proxy_buffering off` и длинный `proxy_read_timeout` на `/api/realtime/stream/` и `location ~ ^/api/.+/stream/` — см. [realtime.mdc](../.cursor/rules/realtime.mdc).
 
 ## Docker Compose
 

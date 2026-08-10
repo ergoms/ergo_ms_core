@@ -17,7 +17,7 @@
 
 include ${ERGO_NGINX_SNIPPETS}/http_hardening.conf;
 include ${ERGO_NGINX_SNIPPETS}/compression.conf;
-include ${ERGO_NGINX_SNIPPETS}/rate_limit.conf;
+${ERGO_RATE_LIMIT_CONF}
 
 ${ERGO_API_UPSTREAM_BLOCK}
 

@@ -206,6 +206,11 @@ def main(argv: list[str] | None = None) -> int:
         action='store_true',
         help='Вывести stop_commands по одному на строку',
     )
+    parser.add_argument(
+        '--stop-commands-paired',
+        action='store_true',
+        help='stop_commands с service_units: cmd<TAB>unit1 unit2 (для ergoms stop)',
+    )
     args = parser.parse_args(argv)
 
     root = args.root
@@ -219,6 +224,13 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.json:
         print(dump_host_lifecycle_json(root))
+        return 0
+
+    if args.stop_commands_paired:
+        for entry in load_host_lifecycle_entries(str(root)):
+            units = ' '.join(entry.service_units)
+            for cmd in entry.stop_commands:
+                print(f'{cmd}\t{units}')
         return 0
 
     agg = aggregate_host_lifecycle(root)

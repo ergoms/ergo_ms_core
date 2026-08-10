@@ -375,14 +375,39 @@ function Install-WorkerServices {
 function Start-AllServices {
     param([string]$ProjectRoot)
 
-    Write-ErgomsMessage -Key 'svc_starting_all' -Color Cyan
+    $serviceNames = @(Get-ServiceNames -ProjectRoot $ProjectRoot)
+    $planned = New-Object System.Collections.Generic.List[string]
+    if (Test-RedisEnabled -ProjectRoot $ProjectRoot) { [void]$planned.Add('Redis') }
+    if (Test-SearchEnabled -ProjectRoot $ProjectRoot) { [void]$planned.Add('Meilisearch') }
+    foreach ($serviceName in $serviceNames) {
+        if ($serviceName -eq 'ergo_ms_redis' -or $serviceName -eq 'ergo_ms_meilisearch') { continue }
+        [void]$planned.Add($serviceName)
+    }
+    Write-ErgomsMessage -Key 'svc_starting_all' -Color Cyan -Param @{
+        count = $planned.Count
+        items = ($planned -join ', ')
+    }
+
+    $started = 0
+    $already = 0
+    $missing = 0
+    $failed = 0
 
     if (Test-RedisEnabled -ProjectRoot $ProjectRoot) {
         if (Get-Command Start-RedisProcess -ErrorAction SilentlyContinue) {
             try {
-                Start-RedisProcess -Root $ProjectRoot
+                $redisSvc = Get-Service -Name 'ergo_ms_redis' -ErrorAction SilentlyContinue
+                if ($redisSvc -and $redisSvc.Status -eq 'Running') {
+                    Start-RedisProcess -Root $ProjectRoot
+                    $already++
+                }
+                else {
+                    Start-RedisProcess -Root $ProjectRoot
+                    $started++
+                }
             } catch {
                 Write-ErgomsMessage -Key 'svc_start_failed' -Color Red -Stderr -Param @{ name = 'ergo_ms_redis'; error = $_.Exception.Message }
+                $failed++
             }
         }
     }
@@ -390,29 +415,53 @@ function Start-AllServices {
     if (Test-SearchEnabled -ProjectRoot $ProjectRoot) {
         if (Get-Command Start-MeilisearchProcess -ErrorAction SilentlyContinue) {
             try {
-                Start-MeilisearchProcess -Root $ProjectRoot
+                $meiliSvc = Get-Service -Name 'ergo_ms_meilisearch' -ErrorAction SilentlyContinue
+                if ($meiliSvc -and $meiliSvc.Status -eq 'Running') {
+                    Start-MeilisearchProcess -Root $ProjectRoot
+                    $already++
+                }
+                else {
+                    Start-MeilisearchProcess -Root $ProjectRoot
+                    $started++
+                }
             } catch {
                 Write-ErgomsMessage -Key 'svc_start_failed' -Color Red -Stderr -Param @{ name = 'ergo_ms_meilisearch'; error = $_.Exception.Message }
+                $failed++
             }
         }
     }
 
-    $serviceNames = Get-ServiceNames -ProjectRoot $ProjectRoot
     foreach ($serviceName in $serviceNames) {
         if ($serviceName -eq 'ergo_ms_redis' -or $serviceName -eq 'ergo_ms_meilisearch') { continue }
         try {
             $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
             if ($service) {
-                Start-Service -Name $serviceName
-                Write-ErgomsMessage -Key 'svc_started_ok' -Color Green -Param @{ name = $serviceName }
+                if ($service.Status -eq 'Running') {
+                    Write-ErgomsMessage -Key 'ok_service_already_running' -Color Green -Param @{ name = $serviceName }
+                    $already++
+                }
+                else {
+                    Start-Service -Name $serviceName
+                    Write-ErgomsMessage -Key 'svc_started_ok' -Color Green -Param @{ name = $serviceName }
+                    $started++
+                }
             }
             else {
                 Write-ErgomsMessage -Key 'svc_not_installed_dash' -Color Gray -Param @{ name = $serviceName }
+                $missing++
             }
         }
         catch {
             Write-ErgomsMessage -Key 'svc_start_failed' -Color Red -Stderr -Param @{ name = $serviceName; error = $_.Exception.Message }
+            $failed++
         }
+    }
+
+    Write-ErgomsMessage -Key 'svc_start_summary' -Color Green -Param @{
+        started = $started
+        already = $already
+        missing = $missing
+        failed = $failed
     }
 }
 
@@ -420,44 +469,93 @@ function Start-AllServices {
 function Stop-AllServices {
     param([string]$ProjectRoot)
 
-    Write-ErgomsMessage -Key 'svc_stopping_all' -Color Cyan
-
-    if (Get-Command ergoms -ErrorAction SilentlyContinue) {
-        foreach ($cmd in @(Get-ModuleHostStopCommands -ProjectRoot $ProjectRoot)) {
-            if (-not $cmd) { continue }
-            try {
-                Push-Location $ProjectRoot
-                try { ergoms $cmd } finally { Pop-Location }
-            } catch {
-                Write-ErgomsMessage -Key 'svc_stop_failed' -Color Red -Stderr -Param @{ name = $cmd; error = $_.Exception.Message }
-            }
-        }
+    $serviceNames = @(Get-ServiceNames -ProjectRoot $ProjectRoot)
+    $planned = New-Object System.Collections.Generic.List[string]
+    if (Test-RedisEnabled -ProjectRoot $ProjectRoot) { [void]$planned.Add('Redis') }
+    if (Test-SearchEnabled -ProjectRoot $ProjectRoot) { [void]$planned.Add('Meilisearch') }
+    foreach ($serviceName in $serviceNames) {
+        if ($serviceName -eq 'ergo_ms_redis' -or $serviceName -eq 'ergo_ms_meilisearch') { continue }
+        [void]$planned.Add($serviceName)
+    }
+    Write-ErgomsMessage -Key 'svc_stopping_all' -Color Cyan -Param @{
+        count = $planned.Count
+        items = ($planned -join ', ')
     }
 
-    $serviceNames = Get-ServiceNames -ProjectRoot $ProjectRoot
+    $stopped = 0
+    $skipped = 0
+    $missing = 0
+    $failed = 0
+
     foreach ($serviceName in $serviceNames) {
         if ($serviceName -eq 'ergo_ms_redis' -or $serviceName -eq 'ergo_ms_meilisearch') { continue }
         try {
             $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-            if ($service -and $service.Status -ne 'Stopped') {
+            if (-not $service) {
+                Write-ErgomsMessage -Key 'svc_not_installed_dash' -Color Gray -Param @{ name = $serviceName }
+                $missing++
+            }
+            elseif ($service.Status -ne 'Stopped') {
                 Stop-Service -Name $serviceName -Force
                 Write-ErgomsMessage -Key 'svc_stopped_ok' -Color Green -Param @{ name = $serviceName }
+                $stopped++
             }
             else {
-                Write-ErgomsMessage -Key 'svc_already_stopped_or_missing' -Color Gray -Param @{ name = $serviceName }
+                $skipped++
             }
         }
         catch {
             Write-ErgomsMessage -Key 'svc_stop_failed' -Color Red -Stderr -Param @{ name = $serviceName; error = $_.Exception.Message }
+            $failed++
+        }
+    }
+
+    if (Get-Command ergoms -ErrorAction SilentlyContinue) {
+        foreach ($pair in @(Get-ModuleHostStopPairs -ProjectRoot $ProjectRoot)) {
+            if (-not $pair) { continue }
+            $pairCmd = "$($pair.Command)".Trim()
+            if (-not $pairCmd) { continue }
+            $needStop = $true
+            $pairUnits = @($pair.Units)
+            if ($pairUnits.Count -gt 0) {
+                $needStop = $false
+                foreach ($unitName in $pairUnits) {
+                    $svc = Get-Service -Name $unitName -ErrorAction SilentlyContinue
+                    if (-not $svc) {
+                        $needStop = $true
+                        break
+                    }
+                    if ($svc.Status -ne 'Stopped') {
+                        $needStop = $true
+                        break
+                    }
+                }
+            }
+            if (-not $needStop) { continue }
+            try {
+                Push-Location $ProjectRoot
+                try { ergoms $pairCmd } finally { Pop-Location }
+            } catch {
+                Write-ErgomsMessage -Key 'svc_stop_failed' -Color Red -Stderr -Param @{ name = $pairCmd; error = $_.Exception.Message }
+            }
         }
     }
 
     if (Test-SearchEnabled -ProjectRoot $ProjectRoot) {
         if (Get-Command Stop-MeilisearchProcess -ErrorAction SilentlyContinue) {
             try {
-                Stop-MeilisearchProcess -Root $ProjectRoot -Quiet
+                $meiliSvc = Get-Service -Name 'ergo_ms_meilisearch' -ErrorAction SilentlyContinue
+                $wasRunning = $meiliSvc -and $meiliSvc.Status -ne 'Stopped'
+                if ($wasRunning) {
+                    Stop-MeilisearchProcess -Root $ProjectRoot -Quiet
+                    $stopped++
+                }
+                else {
+                    $skipped++
+                }
             } catch {
                 Write-ErgomsMessage -Key 'svc_stop_failed' -Color Red -Stderr -Param @{ name = 'ergo_ms_meilisearch'; error = $_.Exception.Message }
+                $failed++
             }
         }
     }
@@ -465,11 +563,27 @@ function Stop-AllServices {
     if (Test-RedisEnabled -ProjectRoot $ProjectRoot) {
         if (Get-Command Stop-RedisProcess -ErrorAction SilentlyContinue) {
             try {
-                Stop-RedisProcess -Root $ProjectRoot -Quiet
+                $redisSvc = Get-Service -Name 'ergo_ms_redis' -ErrorAction SilentlyContinue
+                $wasRunning = $redisSvc -and $redisSvc.Status -ne 'Stopped'
+                if ($wasRunning) {
+                    Stop-RedisProcess -Root $ProjectRoot -Quiet
+                    $stopped++
+                }
+                else {
+                    $skipped++
+                }
             } catch {
                 Write-ErgomsMessage -Key 'svc_stop_failed' -Color Red -Stderr -Param @{ name = 'ergo_ms_redis'; error = $_.Exception.Message }
+                $failed++
             }
         }
+    }
+
+    Write-ErgomsMessage -Key 'svc_stop_summary' -Color Green -Param @{
+        stopped = $stopped
+        skipped = $skipped
+        missing = $missing
+        failed = $failed
     }
 }
 
@@ -477,14 +591,31 @@ function Stop-AllServices {
 function Restart-AllServices {
     param([string]$ProjectRoot)
 
-    Write-ErgomsMessage -Key 'svc_restarting_all' -Color Cyan
+    $serviceNames = @(Get-ServiceNames -ProjectRoot $ProjectRoot)
+    $planned = New-Object System.Collections.Generic.List[string]
+    if (Test-RedisEnabled -ProjectRoot $ProjectRoot) { [void]$planned.Add('Redis') }
+    if (Test-SearchEnabled -ProjectRoot $ProjectRoot) { [void]$planned.Add('Meilisearch') }
+    foreach ($serviceName in $serviceNames) {
+        if ($serviceName -eq 'ergo_ms_redis' -or $serviceName -eq 'ergo_ms_meilisearch') { continue }
+        [void]$planned.Add($serviceName)
+    }
+    Write-ErgomsMessage -Key 'svc_restarting_all' -Color Cyan -Param @{
+        count = $planned.Count
+        items = ($planned -join ', ')
+    }
+
+    $restarted = 0
+    $missing = 0
+    $failed = 0
 
     if (Test-RedisEnabled -ProjectRoot $ProjectRoot) {
         if (Get-Command Restart-RedisProcess -ErrorAction SilentlyContinue) {
             try {
                 Restart-RedisProcess -Root $ProjectRoot
+                $restarted++
             } catch {
                 Write-ErgomsMessage -Key 'svc_restart_failed' -Color Red -Stderr -Param @{ name = 'ergo_ms_redis'; error = $_.Exception.Message }
+                $failed++
             }
         }
     }
@@ -493,13 +624,14 @@ function Restart-AllServices {
         if (Get-Command Restart-MeilisearchProcess -ErrorAction SilentlyContinue) {
             try {
                 Restart-MeilisearchProcess -Root $ProjectRoot
+                $restarted++
             } catch {
                 Write-ErgomsMessage -Key 'svc_restart_failed' -Color Red -Stderr -Param @{ name = 'ergo_ms_meilisearch'; error = $_.Exception.Message }
+                $failed++
             }
         }
     }
 
-    $serviceNames = Get-ServiceNames -ProjectRoot $ProjectRoot
     foreach ($serviceName in $serviceNames) {
         if ($serviceName -eq 'ergo_ms_redis' -or $serviceName -eq 'ergo_ms_meilisearch') { continue }
         try {
@@ -507,14 +639,23 @@ function Restart-AllServices {
             if ($service) {
                 Restart-Service -Name $serviceName -Force
                 Write-ErgomsMessage -Key 'svc_restarted_ok' -Color Green -Param @{ name = $serviceName }
+                $restarted++
             }
             else {
                 Write-ErgomsMessage -Key 'svc_not_installed_dash' -Color Gray -Param @{ name = $serviceName }
+                $missing++
             }
         }
         catch {
             Write-ErgomsMessage -Key 'svc_restart_failed' -Color Red -Stderr -Param @{ name = $serviceName; error = $_.Exception.Message }
+            $failed++
         }
+    }
+
+    Write-ErgomsMessage -Key 'svc_restart_summary' -Color Green -Param @{
+        restarted = $restarted
+        missing = $missing
+        failed = $failed
     }
 }
 

@@ -165,10 +165,16 @@ class NginxRenderTests(unittest.TestCase):
         self.assertIn('X-Frame-Options', rendered)
         self.assertIn('limit_req zone=ergo_api', rendered)
         self.assertIn('limit_req zone=ergo_upload', rendered)
+        self.assertNotIn('5r/m', rendered)
+        self.assertIn('rate=120r/m', rendered)
+        self.assertIn('limit_req_status 429', rendered)
+        self.assertIn('burst=25', rendered)
         self.assertIn('location /health/', rendered)
         health = rendered[rendered.find('location /health/'):]
         self.assertIn('deny all', health[:240])
         self.assertIn('/api/realtime/stream/', rendered)
+        self.assertIn(r'location ~ ^/api/.+/stream/?$', rendered)
+        self.assertIn('proxy_buffering off;', rendered)
 
 
 if __name__ == '__main__':

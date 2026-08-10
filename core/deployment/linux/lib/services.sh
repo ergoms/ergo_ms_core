@@ -19,28 +19,103 @@ _unit_is_present() {
   systemctl list-unit-files --type=service --no-legend "$unit" 2>/dev/null | grep -q .
 }
 
+_unit_short_name() {
+  local unit="$1"
+  unit="${unit%.service}"
+  printf '%s' "$unit"
+}
+
+# Заполняет массив имён служб для ergoms start/stop/restart (без .service).
+# Имена пишет в переданный nameref-массив.
+_collect_managed_service_names() {
+  local root="$1"
+  local -n _names_ref="$2"
+  local u
+  _names_ref=()
+  if is_redis_enabled "$root"; then
+    _names_ref+=("Redis")
+  fi
+  if is_search_enabled "$root"; then
+    _names_ref+=("Meilisearch")
+  fi
+  for u in $(units_list "$root"); do
+    [[ "$u" == "ergo_ms_redis.service" || "$u" == "ergo_ms_redis" ]] && continue
+    [[ "$u" == "ergo_ms_meilisearch.service" || "$u" == "ergo_ms_meilisearch" ]] && continue
+    _names_ref+=("$(_unit_short_name "$u")")
+  done
+}
+
+# Склеивает имена через ", " (аргументы — элементы массива; безопасно в $()).
+_join_csv_names() {
+  local out="" n
+  for n in "$@"; do
+    [[ -n "$out" ]] && out+=", "
+    out+="$n"
+  done
+  printf '%s' "$out"
+}
+
 start_all() {
   local root="${SERVICE_PROJECT_ROOT:-}"
-  local u
+  local u name err items
+  local -a planned=()
+  local started=0 already=0 missing=0 failed=0
+
+  _collect_managed_service_names "$root" planned
+  items="$(_join_csv_names "${planned[@]}")"
+  write_ergoms_message svc_starting_all cyan "" \
+    "count=${#planned[@]}" "items=$items"
 
   # Redis при ERGO_BROKER=redis — через redis_start (служба или процесс)
   if is_redis_enabled "$root" && declare -F redis_start >/dev/null 2>&1; then
-    redis_start "$root" || true
+    if systemctl is-active --quiet "ergo_ms_redis.service" 2>/dev/null; then
+      redis_start "$root" || true
+      already=$((already + 1))
+    elif redis_start "$root"; then
+      started=$((started + 1))
+    else
+      failed=$((failed + 1))
+    fi
   fi
 
   # Meilisearch при ERGO_SEARCH_ENABLED — через meilisearch_start
   if is_search_enabled "$root" && declare -F meilisearch_start >/dev/null 2>&1; then
-    meilisearch_start "$root" || true
+    if systemctl is-active --quiet "ergo_ms_meilisearch.service" 2>/dev/null; then
+      meilisearch_start "$root" || true
+      already=$((already + 1))
+    elif meilisearch_start "$root"; then
+      started=$((started + 1))
+    else
+      failed=$((failed + 1))
+    fi
   fi
 
   for u in $(units_list "$root"); do
     # Redis / Meilisearch уже обработаны отдельно
     [[ "$u" == "ergo_ms_redis.service" || "$u" == "ergo_ms_redis" ]] && continue
     [[ "$u" == "ergo_ms_meilisearch.service" || "$u" == "ergo_ms_meilisearch" ]] && continue
-    if _unit_is_present "$u"; then
-      systemctl_do start "$u" || true
+    name="$(_unit_short_name "$u")"
+    if ! _unit_is_present "$u"; then
+      write_ergoms_message svc_not_installed_dash gray "" "name=$name"
+      missing=$((missing + 1))
+      continue
     fi
+    if systemctl is-active --quiet "$u" 2>/dev/null; then
+      write_ergoms_message ok_service_already_running green "" "name=$name"
+      already=$((already + 1))
+      continue
+    fi
+    err="$(systemctl_do start "$u" 2>&1)" && {
+      write_ergoms_message svc_started_ok green "" "name=$name"
+      started=$((started + 1))
+      continue
+    }
+    write_ergoms_message svc_start_failed red --stderr "name=$name" "error=${err:-systemctl start failed}"
+    failed=$((failed + 1))
   done
+
+  write_ergoms_message svc_start_summary green "" \
+    "started=$started" "already=$already" "missing=$missing" "failed=$failed"
 }
 
 # Собирает PID текущего процесса и всех предков (чтобы не завершить shell, запустивший ergoms stop).
@@ -54,8 +129,61 @@ _kill_ergo_skip_pids_ancestor_chain() {
   done
 }
 
+# Терминалы «Logs: All Services» / start-db-dev / module:logs-* — не останавливать вместе со службами.
+_cmdline_is_log_watcher() {
+  local c="$1"
+  [[ -n "$c" ]] || return 1
+  # ergoms logs <service> / bash ergo_ms.sh logs …
+  [[ "$c" == *"ergoms logs"* || "$c" == *"ergo_ms.sh logs"* ]] && return 0
+  # Модульные хвосты: ergoms <module>:logs-<name>
+  [[ "$c" == *":logs-"* ]] && return 0
+  # Логи default БД (VS Code Start All / Logs)
+  [[ "$c" == *"start-db-dev"* || "$c" == *"start_db_logs_dev.py"* ]] && return 0
+  # docker logs -f (в т.ч. дочерний процесс start-db-dev)
+  [[ "$c" == *"docker_cli.py"* && "$c" == *" logs"* ]] && return 0
+  [[ "$c" == *"docker-logs"* ]] && return 0
+  # Скрипты модулей deployment/logs_*.py
+  [[ "$c" == */logs_*.py* ]] && return 0
+  # Pipeline show_*_logs: tail -F / -f <файл под корнем проекта>
+  if [[ "$c" =~ (^|[[:space:]/])tail([[:space:]]|$) ]]; then
+    if [[ "$c" == *" -F"* || "$c" == *"-F "* || "$c" == *" -f"* || "$c" == *"-f "* ]]; then
+      return 0
+    fi
+  fi
+  return 1
+}
+
+_read_proc_cmdline() {
+  local proc_dir="$1"
+  local cmd=""
+  { cmd="$(tr '\0' ' ' <"$proc_dir/cmdline")"; } 2>/dev/null || return 1
+  [[ -n "$cmd" ]] || return 1
+  printf '%s' "$cmd"
+}
+
+# true, если процесс или его предок — сессия просмотра логов (не убивать при stop).
+_pid_in_log_watch_session() {
+  local pid="$1"
+  local -n _skip_ref="$2"
+  local cmd ppid n=0 max=48
+  while [[ "$pid" -gt 1 && "$n" -lt "$max" ]]; do
+    # Дошли до цепочки самого ergoms stop — это не log-терминал.
+    [[ -v "_skip_ref[$pid]" ]] && return 1
+    cmd="$(_read_proc_cmdline "/proc/$pid")" || return 1
+    if _cmdline_is_log_watcher "$cmd"; then
+      return 0
+    fi
+    ppid="$(awk '/^PPid:/{print $2}' "/proc/$pid/status" 2>/dev/null || echo 1)"
+    [[ -z "$ppid" || "$ppid" == 0 ]] && break
+    pid="$ppid"
+    ((n++)) || true
+  done
+  return 1
+}
+
 # Завершает оставшиеся после systemctl пользовательские процессы этого репозитория (Daphne, Celery, Vite,
 # фоновые ergoms/npm и т.д.) по наличию абсолютного пути корня или virtual_env в cmdline.
+# Сессии просмотра логов (VS Code Logs: All Services и т.п.) не трогает.
 kill_ergo_project_session_processes() {
   local root="${1:-${SERVICE_PROJECT_ROOT:-}}"
   [[ -n "$root" ]] || return 0
@@ -80,78 +208,173 @@ kill_ergo_project_session_processes() {
 
   for round in 1 2; do
     for proc in /proc/[0-9]*; do
-      [[ -r "$proc/cmdline" ]] || continue
+      [[ -e "$proc/cmdline" ]] || continue
       pid="${proc##/proc/}"
       [[ "$pid" =~ ^[0-9]+$ ]] || continue
       [[ -v "skip[$pid]" ]] && continue
-      cmd="$(tr '\0' ' ' <"$proc/cmdline" 2>/dev/null || true)"
+      cmd="$(_read_proc_cmdline "$proc")" || continue
       _cmdline_matches_project "$cmd" || continue
+      _pid_in_log_watch_session "$pid" skip && continue
       if [[ "$round" -eq 1 ]]; then
         kill -TERM "$pid" 2>/dev/null || true
       else
         kill -0 "$pid" 2>/dev/null || continue
-        cmd="$(tr '\0' ' ' <"$proc/cmdline" 2>/dev/null || true)"
+        cmd="$(_read_proc_cmdline "$proc")" || continue
         _cmdline_matches_project "$cmd" || continue
+        _pid_in_log_watch_session "$pid" skip && continue
         kill -KILL "$pid" 2>/dev/null || true
       fi
     done
-    [[ "$round" -eq 1 ]] && sleep 0.8
+    if [[ "$round" -eq 1 ]]; then
+      sleep 0.8
+    fi
   done
+  return 0
 }
 
 stop_all() {
   local root="${SERVICE_PROJECT_ROOT:-}"
-  local u
-  local cmd
+  local u name err cmd items
+  local -a planned=()
+  local stopped=0 skipped=0 missing=0 failed=0
 
-  # Модульные stop_commands (процесс без службы / доп. очистка) — до systemctl
-  if [[ -n "$root" && -d "$root" ]] && command -v ergoms >/dev/null 2>&1; then
-    while IFS= read -r cmd; do
-      [[ -z "$cmd" ]] && continue
-      ( cd "$root" && ergoms "$cmd" ) || true
-    done < <(list_module_host_stop_commands "$root")
-  fi
+  _collect_managed_service_names "$root" planned
+  items="$(_join_csv_names "${planned[@]}")"
+  write_ergoms_message svc_stopping_all cyan "" \
+    "count=${#planned[@]}" "items=$items"
 
+  # Сначала systemctl unit'ы — чтобы не путать OK модульного stop с SKIP по уже неактивному unit.
   for u in $(units_list "$root"); do
     [[ "$u" == "ergo_ms_redis.service" || "$u" == "ergo_ms_redis" ]] && continue
     [[ "$u" == "ergo_ms_meilisearch.service" || "$u" == "ergo_ms_meilisearch" ]] && continue
-    systemctl_do stop "$u" || true
+    name="$(_unit_short_name "$u")"
+    if ! _unit_is_present "$u"; then
+      write_ergoms_message svc_not_installed_dash gray "" "name=$name"
+      missing=$((missing + 1))
+      continue
+    fi
+    if ! systemctl is-active --quiet "$u" 2>/dev/null; then
+      # Без шума: unit уже не active (в т.ч. после предыдущего stop).
+      skipped=$((skipped + 1))
+      continue
+    fi
+    err="$(systemctl_do stop "$u" 2>&1)" && {
+      write_ergoms_message svc_stopped_ok green "" "name=$name"
+      stopped=$((stopped + 1))
+      continue
+    }
+    write_ergoms_message svc_stop_failed red --stderr "name=$name" "error=${err:-systemctl stop failed}"
+    failed=$((failed + 1))
   done
 
+  # Модульные stop_commands — только если нет установленных unit'ов или какой-то ещё active.
+  # Иначе после systemctl stop остаётся ложный «процесс не найден».
+  if [[ -n "$root" && -d "$root" ]] && command -v ergoms >/dev/null 2>&1; then
+    local pair_cmd pair_units unit_item need_stop
+    while IFS=$'\t' read -r pair_cmd pair_units; do
+      [[ -z "$pair_cmd" ]] && continue
+      need_stop=1
+      if [[ -n "${pair_units:-}" ]]; then
+        need_stop=0
+        for unit_item in $pair_units; do
+          [[ "$unit_item" == *.service ]] || unit_item="${unit_item}.service"
+          if ! _unit_is_present "$unit_item"; then
+            need_stop=1
+            break
+          fi
+          if systemctl is-active --quiet "$unit_item" 2>/dev/null; then
+            need_stop=1
+            break
+          fi
+        done
+      fi
+      [[ "$need_stop" -eq 1 ]] || continue
+      ( cd "$root" && ergoms "$pair_cmd" ) || true
+    done < <(list_module_host_stop_pairs "$root")
+  fi
+
   if is_search_enabled "$root" && declare -F meilisearch_stop >/dev/null 2>&1; then
-    meilisearch_stop "$root" || true
+    if declare -F _meilisearch_is_running >/dev/null 2>&1 && _meilisearch_is_running "$root"; then
+      if meilisearch_stop "$root"; then
+        stopped=$((stopped + 1))
+      else
+        failed=$((failed + 1))
+      fi
+    else
+      # Без повторного SKIP в консоли — учитываем в итоге.
+      skipped=$((skipped + 1))
+    fi
   fi
 
   if is_redis_enabled "$root" && declare -F redis_stop >/dev/null 2>&1; then
-    redis_stop "$root" || true
+    if declare -F _redis_is_running >/dev/null 2>&1 && _redis_is_running "$root"; then
+      if redis_stop "$root"; then
+        stopped=$((stopped + 1))
+      else
+        failed=$((failed + 1))
+      fi
+    else
+      skipped=$((skipped + 1))
+    fi
   fi
+
+  write_ergoms_message svc_stop_summary green "" \
+    "stopped=$stopped" "skipped=$skipped" "missing=$missing" "failed=$failed"
 
   # Иначе kill_ergo_project_session_processes рвёт node/vite — npm печатает ERR на «упавший» lifecycle.
   if [[ -n "$root" && -d "$root" ]] && command -v ergoms >/dev/null 2>&1; then
     ( cd "$root" && ergoms npm run stop-dev ) || true
   fi
-  kill_ergo_project_session_processes "$root"
+  kill_ergo_project_session_processes "$root" || true
 }
 
 restart_all() {
   local root="${SERVICE_PROJECT_ROOT:-}"
-  local u
+  local u name err items
+  local -a planned=()
+  local restarted=0 missing=0 failed=0
+
+  _collect_managed_service_names "$root" planned
+  items="$(_join_csv_names "${planned[@]}")"
+  write_ergoms_message svc_restarting_all cyan "" \
+    "count=${#planned[@]}" "items=$items"
 
   if is_redis_enabled "$root" && declare -F redis_restart >/dev/null 2>&1; then
-    redis_restart "$root" || true
+    if redis_restart "$root"; then
+      restarted=$((restarted + 1))
+    else
+      failed=$((failed + 1))
+    fi
   fi
 
   if is_search_enabled "$root" && declare -F meilisearch_restart >/dev/null 2>&1; then
-    meilisearch_restart "$root" || true
+    if meilisearch_restart "$root"; then
+      restarted=$((restarted + 1))
+    else
+      failed=$((failed + 1))
+    fi
   fi
 
   for u in $(units_list "$root"); do
     [[ "$u" == "ergo_ms_redis.service" || "$u" == "ergo_ms_redis" ]] && continue
     [[ "$u" == "ergo_ms_meilisearch.service" || "$u" == "ergo_ms_meilisearch" ]] && continue
-    if _unit_is_present "$u"; then
-      systemctl_do restart "$u" || true
+    name="$(_unit_short_name "$u")"
+    if ! _unit_is_present "$u"; then
+      write_ergoms_message svc_not_installed_dash gray "" "name=$name"
+      missing=$((missing + 1))
+      continue
     fi
+    err="$(systemctl_do restart "$u" 2>&1)" && {
+      write_ergoms_message svc_restarted_ok green "" "name=$name"
+      restarted=$((restarted + 1))
+      continue
+    }
+    write_ergoms_message svc_restart_failed red --stderr "name=$name" "error=${err:-systemctl restart failed}"
+    failed=$((failed + 1))
   done
+
+  write_ergoms_message svc_restart_summary green "" \
+    "restarted=$restarted" "missing=$missing" "failed=$failed"
 }
 
 status_all() {

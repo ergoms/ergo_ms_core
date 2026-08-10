@@ -107,6 +107,7 @@ const ERGO_SYNC_USE_DESCRIPTION = new Set([
     'logs-all',
     'db-dev',
     'redis-dev',
+    'meilisearch-dev',
     'client-dev',
     'optional-services',
     'module-start',
@@ -457,6 +458,7 @@ async function runInTerminal(name, command, cwd, group, stopCommand) {
  */
 const STOP_DEV_SCRIPTS = {
     'stop-redis-dev': path.join('core', 'deployment', 'scripts', 'stop_redis_if_enabled.py'),
+    'stop-meilisearch-dev': path.join('core', 'deployment', 'scripts', 'stop_meilisearch_if_enabled.py'),
     'stop-nginx-dev': path.join('core', 'deployment', 'scripts', 'stop_nginx_if_enabled.py'),
     'stop-client-dev': path.join('core', 'deployment', 'scripts', 'stop_client_if_enabled.py')
 };
@@ -747,7 +749,7 @@ async function executeMultiTerminalTask(task) {
     }
     
     if (tasks.length === 0) {
-        // Пустой список нормален для Redis Dev при REDIS_ENABLED=false —
+        // Пустой список нормален для Redis/Meilisearch Dev при выключенном флаге —
         // не пугаем toast'ом «Нет задач для запуска» в Start All Services.
         if (!silentEmpty) {
             vscode.window.showWarningMessage('Нет задач для запуска');
