@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -16,8 +18,11 @@ from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402
 
 from lifecycle.context import DeploymentContext  # noqa: E402
+from lifecycle.host import ops as host_ops  # noqa: E402
 from lifecycle.host.shell_bridge import invoke_dispatch  # noqa: E402
 from lifecycle.steps.base import DeploymentStep, StepResult  # noqa: E402
+
+_HOST_LIFECYCLE_LOADER = _SCRIPTS_DIR / 'host_lifecycle_loader.py'
 
 
 class InfraOperationStep(DeploymentStep):
@@ -263,3 +268,130 @@ class EnsureNginxOsServiceStep(DeploymentStep):
             return StepResult(exit_code=code, message=t('nginx_service_install_failed'))
         print(format_console('ok', t('nginx_service_ready')))
         return StepResult()
+
+
+class StopSetupStartedInfraStep(DeploymentStep):
+    """Cleanup setup-full: остановить nginx/redis и демоны модулей (host_lifecycle stop_commands).
+
+    Выполняется в finally пайплайна — и при успехе, и при ошибке посередине.
+    Ошибки остановки — warning, код setup не ломают.
+    """
+
+    @property
+    def name(self) -> str:
+        return 'stop_setup_started_infra'
+
+    @property
+    def run_as_cleanup(self) -> bool:
+        return True
+
+    def should_run(self, ctx: DeploymentContext) -> bool:
+        return ctx.runtime == 'host'
+
+    def run(self, ctx: DeploymentContext) -> StepResult:
+        from deployment_env import is_nginx_enabled, is_redis_enabled  # noqa: WPS433
+
+        print(format_console('info', t('setup_stopping_started_infra')))
+
+        if is_nginx_enabled():
+            print(format_console('info', t('stopping_nginx')))
+            ctx.options.setdefault('needs_sudo', True)
+            code = invoke_dispatch(ctx, 'nginx', 'stop')
+            if code != 0:
+                print(
+                    format_console('warning', t('setup_stop_failed', name='nginx', code=code)),
+                    file=sys.stderr,
+                )
+            else:
+                print(format_console('ok', t('setup_stop_ok', name='nginx')))
+
+        if is_redis_enabled():
+            print(format_console('info', t('stopping_redis')))
+            ctx.options.setdefault('needs_sudo', True)
+            code = invoke_dispatch(ctx, 'redis', 'stop')
+            if code != 0:
+                print(
+                    format_console('warning', t('setup_stop_failed', name='redis', code=code)),
+                    file=sys.stderr,
+                )
+            else:
+                print(format_console('ok', t('setup_stop_ok', name='redis')))
+
+        self._stop_module_hosts(ctx)
+        return StepResult()
+
+    def _stop_module_hosts(self, ctx: DeploymentContext) -> None:
+        """stop_commands из host_lifecycle.yaml (subprocess на venv — без PyYAML в portable)."""
+        commands = self._load_stop_commands(ctx)
+        if commands is None:
+            print(
+                format_console('warning', t('setup_module_stop_commands_load_failed')),
+                file=sys.stderr,
+            )
+            return
+        if not commands:
+            print(format_console('skip', t('setup_no_module_stop_commands')))
+            return
+
+        print(format_console('info', t('setup_module_stop_commands_running', count=len(commands))))
+        env = host_ops.api_env(ctx)
+        bin_dir = ctx.project_root / 'core' / 'deployment' / 'bin'
+        if bin_dir.is_dir():
+            sep = ';' if sys.platform == 'win32' else ':'
+            existing = env.get('PATH', '')
+            env['PATH'] = f'{bin_dir}{sep}{existing}' if existing else str(bin_dir)
+
+        for cmd in commands:
+            shell_cmd = f'ergoms {cmd}'
+            print(format_console('info', shell_cmd))
+            code = subprocess.call(
+                shell_cmd,
+                shell=True,
+                cwd=str(ctx.project_root),
+                env=env,
+            )
+            if code != 0:
+                print(
+                    format_console(
+                        'warning',
+                        t('setup_stop_failed', name=cmd, code=code),
+                    ),
+                    file=sys.stderr,
+                )
+            else:
+                print(format_console('ok', shell_cmd))
+
+    def _load_stop_commands(self, ctx: DeploymentContext) -> list[str] | None:
+        if not host_ops.venv_exists(ctx.project_root, ctx.platform):
+            return []
+        venv_py = host_ops.venv_python_exe(ctx.project_root, ctx.platform)
+        result = subprocess.run(
+            [
+                str(venv_py),
+                str(_HOST_LIFECYCLE_LOADER),
+                '--root',
+                str(ctx.project_root),
+                '--stop-commands',
+            ],
+            cwd=str(ctx.project_root),
+            capture_output=True,
+            text=True,
+            encoding='utf-8',
+            errors='replace',
+            check=False,
+            env={
+                **os.environ,
+                'PYTHONIOENCODING': 'utf-8',
+                'PYTHONUTF8': '1',
+            },
+        )
+        if result.returncode != 0:
+            if result.stderr:
+                print(result.stderr, file=sys.stderr, end='')
+            return None
+        commands: list[str] = []
+        for line in result.stdout.splitlines():
+            text = line.strip()
+            if text:
+                commands.append(text)
+        return commands
