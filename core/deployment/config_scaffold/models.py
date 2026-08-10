@@ -29,6 +29,13 @@ class ScaffoldResult:
 
 
 @dataclass(frozen=True)
+class EnvFilePair:
+    label: str
+    example_path: Path
+    env_path: Path
+
+
+@dataclass(frozen=True)
 class ConfigTemplate:
     source_rel: str
     target_rel: str
@@ -192,3 +199,22 @@ class ConfigTemplateRegistry:
     @classmethod
     def all_templates(cls, project_root: Path) -> list[ConfigTemplate]:
         return cls.project_templates(project_root) + cls.module_env_templates(project_root)
+
+    @classmethod
+    def env_check_pairs(cls, project_root: Path) -> list[EnvFilePair]:
+        pairs: list[EnvFilePair] = []
+        for template in cls.all_templates(project_root):
+            if not template.source_rel.endswith('.env.example'):
+                continue
+            example_path = project_root / template.source_rel
+            env_path = project_root / template.target_rel
+            label = template.target_rel.replace('\\', '/')
+            pairs.append(
+                EnvFilePair(
+                    label=label,
+                    example_path=example_path,
+                    env_path=env_path,
+                ),
+            )
+        return pairs
+

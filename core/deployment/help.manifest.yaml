@@ -209,8 +209,12 @@ sections:
     summary: Сбросить кэши и прогреть заново
   - name: generate-secret
     summary: Сгенерировать секрет для .env (API_SECRET_KEY / API_JWT_SIGNING_KEY)
+  - name: env
+    invoke: ergoms env [--show-example-values] [--strict] [--root PATH]
+    summary: Сверка .env с .env.example (корень, env/*.env, модули) — число директив и ключи
   - name: geoip-download
     summary: Скачать базу GeoIP (DB-IP City Lite)
+
   - name: geoip-backfill
     summary: Заполнить city/country в сессиях по GeoIP
   - name: i18n-makemessages

@@ -208,8 +208,12 @@ sections:
     summary: Invalidate caches and warm them up again
   - name: generate-secret
     summary: Generate a secret for .env (API_SECRET_KEY / API_JWT_SIGNING_KEY)
+  - name: env
+    invoke: ergoms env [--show-example-values] [--strict] [--root PATH]
+    summary: Compare .env with .env.example (root, env/*.env, modules) — directive counts and keys
   - name: geoip-download
     summary: Download the GeoIP database (DB-IP City Lite)
+
   - name: geoip-backfill
     summary: Backfill city/country in sessions from GeoIP
   - name: i18n-makemessages

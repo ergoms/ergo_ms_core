@@ -20,6 +20,7 @@ alwaysApply: true
 ## Запрещено (неснимаемое)
 
 - Коммитить `.env`, ключи, пароли; хардкодить секреты в коде и чате
+- Фиксировать в git железо хоста (RAM, CPU, GPU, «на этом сервере…») — [`no-host-fingerprint.mdc`](no-host-fingerprint.mdc)
 - `AllowAny` / отключение `permission_classes` без явной бизнес-причины
 - pk БД в URL, query, localStorage / sessionStorage / JS-cookie
 - JWT в query WebSocket; токены вне `tokenStorage.js`
@@ -40,6 +41,7 @@ alwaysApply: true
 | Тема | Правило |
 |------|---------|
 | Детали, примеры BAD/GOOD | [`security-details.mdc`](security-details.mdc) |
+| Без отпечатка хоста | [`no-host-fingerprint.mdc`](no-host-fingerprint.mdc) |
 | Логи клиента | [`log-error.mdc`](log-error.mdc) |
 | Логи API | [`logging.mdc`](logging.mdc) |
 | media_api | [`media_api.mdc`](media_api.mdc) |

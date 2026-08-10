@@ -65,6 +65,7 @@ MODULE_RUNTIME=monolith|microservice
 # BAD — снова завести полный .env.docker.example с копией всех ключей
 # BAD — REDIS_HOST=… в .env.example (должен быть в databases.yaml)
 # BAD — POSTGRES_HOST / POSTGRES_PORT в env/postgres.env (должны быть в databases.yaml)
+# BAD — «на этом сервере 32 ГБ / 16 CPU» в комментариях example (см. no-host-fingerprint.mdc)
 ```
 
 ```dotenv
@@ -86,6 +87,7 @@ POSTGRES_MAX_CONNECTIONS=100
 | Тема | Файл |
 |------|------|
 | Не писать в `.env` из кода | [`no-auto-env-write.mdc`](no-auto-env-write.mdc) |
+| Не фиксировать железо хоста | [`no-host-fingerprint.mdc`](no-host-fingerprint.mdc) |
 | Redis / nginx / TLS | [`deployment-infra.mdc`](deployment-infra.mdc) |
 | Docker | [`docker.mdc`](docker.mdc) |
 | Секреты в `.env` | [`security.mdc`](security.mdc) |
