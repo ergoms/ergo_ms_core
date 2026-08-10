@@ -169,6 +169,8 @@ class NginxRenderTests(unittest.TestCase):
         health = rendered[rendered.find('location /health/'):]
         self.assertIn('deny all', health[:240])
         self.assertIn('/api/realtime/stream/', rendered)
+        self.assertIn(r'location ~ ^/api/.+/stream/?$', rendered)
+        self.assertIn('proxy_buffering off;', rendered)
 
 
 if __name__ == '__main__':

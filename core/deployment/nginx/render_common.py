@@ -79,24 +79,50 @@ def build_docker_upstream_blocks(values: Mapping[str, str]) -> tuple[str, str]:
 
 
 def build_realtime_stream_location(*, variant: Literal['host', 'docker'] = 'host') -> str:
+    # SSE: realtime + модульные */stream/ (chat и т.п.). Без имён модулей в ядре.
     # Docker без maintenance-map; host — с проверкой $maintenance.
     if variant == 'docker':
-        return """    location /api/realtime/stream/ {
+        return """    location ^~ /api/realtime/stream/ {
         limit_conn ergo_conn 20;
         proxy_pass http://ergo_api;
         proxy_buffering off;
         proxy_cache off;
+        gzip off;
+        chunked_transfer_encoding on;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    location ~ ^/api/.+/stream/?$ {
+        limit_conn ergo_conn 20;
+        proxy_pass http://ergo_api;
+        proxy_buffering off;
+        proxy_cache off;
+        gzip off;
         chunked_transfer_encoding on;
         proxy_read_timeout 3600s;
         proxy_send_timeout 3600s;
     }
 """
-    return """    location /api/realtime/stream/ {
+    return """    location ^~ /api/realtime/stream/ {
         if ($maintenance = 1) { return 503; }
         limit_conn ergo_conn 20;
         proxy_pass http://ergo_api;
         proxy_buffering off;
         proxy_cache off;
+        gzip off;
+        chunked_transfer_encoding on;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    location ~ ^/api/.+/stream/?$ {
+        if ($maintenance = 1) { return 503; }
+        limit_conn ergo_conn 20;
+        proxy_pass http://ergo_api;
+        proxy_buffering off;
+        proxy_cache off;
+        gzip off;
         chunked_transfer_encoding on;
         proxy_read_timeout 3600s;
         proxy_send_timeout 3600s;
