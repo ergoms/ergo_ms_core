@@ -386,6 +386,10 @@ sections:
     summary: Статус Meilisearch
   - name: test-meilisearch
     summary: Проверка /health Meilisearch
+  - name: start-meilisearch-dev
+    summary: Запустить Meilisearch в режиме разработки (терминал + логи)
+  - name: stop-meilisearch-dev
+    summary: Остановить portable Meilisearch после закрытия терминала разработки
   - name: search-reindex
     invoke: ergoms search-reindex [--index=core_users]
     summary: Переиндексация Meilisearch (все индексы или один)

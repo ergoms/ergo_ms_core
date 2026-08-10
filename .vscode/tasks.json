@@ -209,12 +209,13 @@
         },
         {
             "label": "Services",
-            "detail": "Внутренняя композиция: логи БД → Redis Dev → backend → модули → клиент",
+            "detail": "Внутренняя композиция: логи БД → Redis Dev → Meilisearch Dev → backend → модули → клиент",
             "hide": true,
             "dependsOrder": "sequence",
             "dependsOn": [
                 "Database Dev",
                 "Redis Dev",
+                "Meilisearch Dev",
                 "Backend Services",
                 "Module Services",
                 "Client Dev"
@@ -280,6 +281,36 @@
             "stopCommandTemplate": "ergoms stop-${key}-dev",
             "nameTemplate": "${key}",
             "group": "redis-dev",
+            "delay": 500,
+            "hideControlTerminal": true,
+            "windows": {
+                "options": {
+                    "env": {
+                        "PATH": "${workspaceFolder}\\core\\deployment\\bin;${env:Path};${env:PATH};${env:SystemRoot}\\System32;${env:SystemRoot}\\System32\\WindowsPowerShell\\v1.0"
+                    }
+                }
+            },
+            "linux": {
+                "options": {
+                    "env": {
+                        "PATH": "${workspaceFolder}/core/deployment/bin:${env:PATH}"
+                    }
+                }
+            }
+        },
+        {
+            "label": "Meilisearch Dev",
+            "detail": "Запустить Meilisearch в режиме разработки (если поиск включён)",
+            "hide": true,
+            "type": "multi-terminal",
+            "source": {
+                "provider": "ergo-sync",
+                "target": "meilisearch-dev"
+            },
+            "commandTemplate": "ergoms start-meilisearch-dev",
+            "stopCommandTemplate": "ergoms stop-meilisearch-dev",
+            "nameTemplate": "${key}",
+            "group": "meilisearch-dev",
             "delay": 500,
             "hideControlTerminal": true,
             "windows": {
@@ -403,7 +434,7 @@
         },
         {
             "label": "Start All Services",
-            "detail": "Запустить все службы разработки: прогрев кэшей, логи БД, Redis, API, Media API, Celery, модули и клиент после готовности API",
+            "detail": "Запустить все службы разработки: прогрев кэшей, логи БД, Redis, Meilisearch, API, Media API, Celery, модули и клиент после готовности API",
             "dependsOrder": "sequence",
             "dependsOn": [
                 "Cache Warmup",

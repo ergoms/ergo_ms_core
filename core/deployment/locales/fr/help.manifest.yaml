@@ -387,6 +387,10 @@ sections:
     summary: État de Meilisearch
   - name: test-meilisearch
     summary: Vérification /health de Meilisearch
+  - name: start-meilisearch-dev
+    summary: Démarrer Meilisearch en mode développement (terminal + journaux)
+  - name: stop-meilisearch-dev
+    summary: Arrêter le Meilisearch portable après fermeture du terminal de développement
   - name: search-reindex
     invoke: ergoms search-reindex [--index=core_users]
     summary: Réindexation Meilisearch (tous les index ou un seul)
