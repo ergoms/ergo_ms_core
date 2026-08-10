@@ -96,3 +96,5 @@ core/client/src/js/lucideIconFiles.generated.js
 # Генерируется unplugin-auto-import при dev/build (vite.config.js)
 core/client/src/auto-imports.d.ts
 core/client/dist/
+# Cursor project skills — не в git (личные навыки: ~/.cursor/skills)
+.cursor/skills/
