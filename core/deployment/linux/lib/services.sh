@@ -237,11 +237,22 @@ stop_all() {
   local u name err cmd items
   local -a planned=()
   local stopped=0 skipped=0 missing=0 failed=0
+  # Unit'ы с Requires= гаснут каскадом при stop зависимости — снимок, чтобы не писать «уже остановлены».
+  declare -A _stop_was_active=()
 
   _collect_managed_service_names "$root" planned
   items="$(_join_csv_names "${planned[@]}")"
   write_ergoms_message svc_stopping_all cyan "" \
     "count=${#planned[@]}" "items=$items"
+
+  for u in $(units_list "$root"); do
+    [[ "$u" == "ergo_ms_redis.service" || "$u" == "ergo_ms_redis" ]] && continue
+    [[ "$u" == "ergo_ms_meilisearch.service" || "$u" == "ergo_ms_meilisearch" ]] && continue
+    name="$(_unit_short_name "$u")"
+    if _unit_is_present "$u" && systemctl is-active --quiet "$u" 2>/dev/null; then
+      _stop_was_active["$name"]=1
+    fi
+  done
 
   # Сначала systemctl unit'ы — чтобы не путать OK модульного stop с SKIP по уже неактивному unit.
   for u in $(units_list "$root"); do
@@ -254,8 +265,12 @@ stop_all() {
       continue
     fi
     if ! systemctl is-active --quiet "$u" 2>/dev/null; then
-      # Без шума: unit уже не active (в т.ч. после предыдущего stop).
-      skipped=$((skipped + 1))
+      if [[ -n "${_stop_was_active[$name]:-}" ]]; then
+        write_ergoms_message svc_stopped_cascade green "" "name=$name"
+        stopped=$((stopped + 1))
+      else
+        skipped=$((skipped + 1))
+      fi
       continue
     fi
     err="$(systemctl_do stop "$u" 2>&1)" && {

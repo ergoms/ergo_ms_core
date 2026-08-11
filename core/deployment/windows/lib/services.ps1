@@ -486,6 +486,15 @@ function Stop-AllServices {
     $skipped = 0
     $missing = 0
     $failed = 0
+    # Снимок Running: на Linux unit'ы с Requires гаснут каскадом; на Windows — та же логика учёта.
+    $wasActive = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    foreach ($serviceName in $serviceNames) {
+        if ($serviceName -eq 'ergo_ms_redis' -or $serviceName -eq 'ergo_ms_meilisearch') { continue }
+        $svcSnap = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+        if ($svcSnap -and $svcSnap.Status -ne 'Stopped') {
+            [void]$wasActive.Add($serviceName)
+        }
+    }
 
     foreach ($serviceName in $serviceNames) {
         if ($serviceName -eq 'ergo_ms_redis' -or $serviceName -eq 'ergo_ms_meilisearch') { continue }
@@ -498,6 +507,10 @@ function Stop-AllServices {
             elseif ($service.Status -ne 'Stopped') {
                 Stop-Service -Name $serviceName -Force
                 Write-ErgomsMessage -Key 'svc_stopped_ok' -Color Green -Param @{ name = $serviceName }
+                $stopped++
+            }
+            elseif ($wasActive.Contains($serviceName)) {
+                Write-ErgomsMessage -Key 'svc_stopped_cascade' -Color Green -Param @{ name = $serviceName }
                 $stopped++
             }
             else {

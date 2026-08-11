@@ -778,6 +778,7 @@ svc_start_failed: "[ERROR] Не удалось запустить: {name} — {e
 svc_start_summary: "[OK] Итого запуск: запущено {started}, уже работали {already}, не установлены {missing}, ошибок {failed}"
 svc_stopping_all: "-> Остановка всех служб ({count}): {items}"
 svc_stopped_ok: "[OK] Остановлена: {name}"
+svc_stopped_cascade: "[OK] Остановлена вместе с зависимостью: {name}"
 svc_already_stopped_or_missing: "[SKIP] Уже остановлена или не установлена: {name}"
 svc_already_stopped: "[SKIP] Уже остановлена: {name}"
 svc_stop_failed: "[ERROR] Не удалось остановить: {name} — {error}"
