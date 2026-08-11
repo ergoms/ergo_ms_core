@@ -52,6 +52,8 @@ _CONF_SETTING_ENV_KEYS = (
     ('POSTGRES_MAX_PARALLEL_WORKERS', 'max_parallel_workers'),
     ('POSTGRES_MAX_PARALLEL_WORKERS_PER_GATHER', 'max_parallel_workers_per_gather'),
     ('POSTGRES_MAX_PARALLEL_MAINTENANCE_WORKERS', 'max_parallel_maintenance_workers'),
+    ('POSTGRES_MAX_WAL_SIZE', 'max_wal_size'),
+    ('POSTGRES_WAL_COMPRESSION', 'wal_compression'),
 )
 _DEFAULT_CONF_SETTINGS = {
     'max_connections': '100',
@@ -65,6 +67,8 @@ _DEFAULT_CONF_SETTINGS = {
     'max_parallel_workers': '8',
     'max_parallel_workers_per_gather': '4',
     'max_parallel_maintenance_workers': '4',
+    'max_wal_size': '2GB',
+    'wal_compression': 'lz4',
 }
 PG_FTP_SOURCE = 'https://ftp.postgresql.org/pub/source/'
 EDB_WINDOWS_URL = (
