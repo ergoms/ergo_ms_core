@@ -64,6 +64,12 @@ ${ERGO_MAINTENANCE_SNIPPET}
 
     # SPA shell не кэшировать: иначе после maintenance/client-build браузер
     # держит старый index (304) и крутит boot-loader без новых /api запросов.
+    location = /client-build.json {
+        add_header Cache-Control "no-store" always;
+        include ${ERGO_NGINX_SNIPPETS}/security_headers.conf;
+        try_files $uri =404;
+    }
+
     location = /index.html {
         if ($maintenance = 1) { return 503; }
         add_header Cache-Control "no-store" always;

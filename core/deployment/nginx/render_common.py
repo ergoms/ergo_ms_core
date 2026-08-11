@@ -132,7 +132,17 @@ def build_realtime_stream_location(*, variant: Literal['host', 'docker'] = 'host
 
 
 def build_host_api_ws_locations() -> str:
-    return """    location /api/ {
+    return """    # Точный logout раньше общего /api/: жёсткий лимит против клиентского шторма.
+    location = /api/cms/adp/logout/ {
+        if ($maintenance = 1) { return 503; }
+        # 429, не default 503: иначе error_page maintenance ломает POST → 405.
+        limit_req zone=ergo_logout burst=5 nodelay;
+        limit_req_status 429;
+        limit_conn ergo_conn 10;
+        proxy_pass http://ergo_api;
+    }
+
+    location /api/ {
         if ($maintenance = 1) { return 503; }
         limit_req zone=ergo_api burst=50 nodelay;
         limit_conn ergo_conn 50;
@@ -185,6 +195,13 @@ def build_docker_core_proxy_locations() -> str:
     """
     stream = build_realtime_stream_location(variant='docker')
     return f"""{stream}
+    location = /api/cms/adp/logout/ {{
+        limit_req zone=ergo_logout burst=5 nodelay;
+        limit_req_status 429;
+        limit_conn ergo_conn 10;
+        proxy_pass http://ergo_api;
+    }}
+
     location /api/ {{
         limit_req zone=ergo_api burst=50 nodelay;
         limit_conn ergo_conn 50;

@@ -40,6 +40,12 @@ server {
         try_files $uri =404;
     }
 
+    location = /client-build.json {
+        add_header Cache-Control "no-store" always;
+        ${ERGO_DOCKER_SECURITY_HEADERS}
+        try_files $uri =404;
+    }
+
     location = /index.html {
         add_header Cache-Control "no-store" always;
         ${ERGO_DOCKER_SECURITY_HEADERS}
