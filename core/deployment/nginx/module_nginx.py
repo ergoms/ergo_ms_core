@@ -104,7 +104,9 @@ def render_module_locations_host(values: Mapping[str, str]) -> str:
             f"""    location /api/{name}/ {{
         if ($maintenance = 1) {{ return 503; }}
         limit_req zone=ergo_api burst=50 nodelay;
+        limit_req_status 429;
         limit_conn ergo_conn 50;
+        limit_conn_status 429;
         proxy_pass http://ergo_module_{safe};
     }}
 """
@@ -150,6 +152,10 @@ def render_module_locations_docker(values: Mapping[str, str]) -> str:
         safe = _upstream_safe_name(name)
         blocks.append(
             f"""    location /api/{name}/ {{
+        limit_req zone=ergo_api burst=50 nodelay;
+        limit_req_status 429;
+        limit_conn ergo_conn 50;
+        limit_conn_status 429;
         proxy_pass http://ergo_module_{safe};
         proxy_http_version 1.1;
         proxy_set_header Host $host;

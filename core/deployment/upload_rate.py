@@ -89,4 +89,5 @@ def upload_location_limit_lines(*, burst: int, indent: str = '        ') -> str:
         f'{indent}limit_req zone=ergo_upload burst={burst} nodelay;\n'
         f'{indent}limit_req_status 429;\n'
         f'{indent}limit_conn ergo_conn 10;\n'
+        f'{indent}limit_conn_status 429;\n'
     )

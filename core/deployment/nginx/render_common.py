@@ -85,6 +85,7 @@ def build_realtime_stream_location(*, variant: Literal['host', 'docker'] = 'host
     if variant == 'docker':
         return """    location ^~ /api/realtime/stream/ {
         limit_conn ergo_conn 20;
+        limit_conn_status 429;
         proxy_pass http://ergo_api;
         proxy_buffering off;
         proxy_cache off;
@@ -96,6 +97,7 @@ def build_realtime_stream_location(*, variant: Literal['host', 'docker'] = 'host
 
     location ~ ^/api/.+/stream/?$ {
         limit_conn ergo_conn 20;
+        limit_conn_status 429;
         proxy_pass http://ergo_api;
         proxy_buffering off;
         proxy_cache off;
@@ -108,6 +110,7 @@ def build_realtime_stream_location(*, variant: Literal['host', 'docker'] = 'host
     return """    location ^~ /api/realtime/stream/ {
         if ($maintenance = 1) { return 503; }
         limit_conn ergo_conn 20;
+        limit_conn_status 429;
         proxy_pass http://ergo_api;
         proxy_buffering off;
         proxy_cache off;
@@ -120,6 +123,7 @@ def build_realtime_stream_location(*, variant: Literal['host', 'docker'] = 'host
     location ~ ^/api/.+/stream/?$ {
         if ($maintenance = 1) { return 503; }
         limit_conn ergo_conn 20;
+        limit_conn_status 429;
         proxy_pass http://ergo_api;
         proxy_buffering off;
         proxy_cache off;
@@ -139,13 +143,16 @@ def build_host_api_ws_locations() -> str:
         limit_req zone=ergo_logout burst=5 nodelay;
         limit_req_status 429;
         limit_conn ergo_conn 10;
+        limit_conn_status 429;
         proxy_pass http://ergo_api;
     }
 
     location /api/ {
         if ($maintenance = 1) { return 503; }
         limit_req zone=ergo_api burst=50 nodelay;
+        limit_req_status 429;
         limit_conn ergo_conn 50;
+        limit_conn_status 429;
         proxy_pass http://ergo_api;
     }
 
@@ -153,6 +160,7 @@ def build_host_api_ws_locations() -> str:
     location /ws/ {
         if ($maintenance = 1) { return 503; }
         limit_conn ergo_conn 20;
+        limit_conn_status 429;
         proxy_pass http://ergo_api;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -166,7 +174,9 @@ def build_host_media_locations() -> str:
     return """    location /serve/ {
         if ($maintenance = 1) { return 503; }
         limit_req zone=ergo_serve burst=40 nodelay;
+        limit_req_status 429;
         limit_conn ergo_conn 30;
+        limit_conn_status 429;
         proxy_pass http://ergo_media;
     }
 
@@ -199,17 +209,21 @@ def build_docker_core_proxy_locations() -> str:
         limit_req zone=ergo_logout burst=5 nodelay;
         limit_req_status 429;
         limit_conn ergo_conn 10;
+        limit_conn_status 429;
         proxy_pass http://ergo_api;
     }}
 
     location /api/ {{
         limit_req zone=ergo_api burst=50 nodelay;
+        limit_req_status 429;
         limit_conn ergo_conn 50;
+        limit_conn_status 429;
         proxy_pass http://ergo_api;
     }}
 
     location /ws/ {{
         limit_conn ergo_conn 20;
+        limit_conn_status 429;
         proxy_pass http://ergo_api;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -219,7 +233,9 @@ def build_docker_core_proxy_locations() -> str:
 
     location /serve/ {{
         limit_req zone=ergo_serve burst=40 nodelay;
+        limit_req_status 429;
         limit_conn ergo_conn 30;
+        limit_conn_status 429;
         proxy_pass http://ergo_media;
     }}
 

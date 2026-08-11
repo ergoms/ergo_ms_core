@@ -168,6 +168,10 @@ class NginxRenderTests(unittest.TestCase):
         self.assertNotIn('5r/m', rendered)
         self.assertIn('rate=120r/m', rendered)
         self.assertIn('limit_req_status 429', rendered)
+        self.assertIn('limit_conn_status 429', rendered)
+        api_loc = rendered[rendered.find('location /api/'):]
+        self.assertIn('limit_req_status 429', api_loc[:400])
+        self.assertIn('limit_conn_status 429', api_loc[:400])
         self.assertIn('burst=25', rendered)
         self.assertIn('location /health/', rendered)
         health = rendered[rendered.find('location /health/'):]
