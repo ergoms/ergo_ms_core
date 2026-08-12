@@ -1,5 +1,5 @@
 ---
-description: Индекс UI-компонентов ядра — SelectBox, SearchInput, DecimalInput, FormCard, FormField, SettingsCard, SettingsCardRow, FilterMenu, DropDown, DataTable, UserAvatar
+description: Индекс UI-компонентов ядра — SelectBox, SearchInput, DecimalInput, ToggleSwitch, FormCard, FormField, SettingsCard, SettingsCardRow, FilterMenu, DropDown, DataTable, UserAvatar
 alwaysApply: false
 ---
 
@@ -14,6 +14,7 @@ alwaysApply: false
 | Выбор из списка | `SelectBox` | [`select-box.mdc`](select-box.mdc) |
 | Текстовый поиск | `SearchInput` | [`search-input.mdc`](search-input.mdc) |
 | Ввод десятичного числа (цифры, `.`/`,`) | `DecimalInput` | этот раздел |
+| Бинарный тумблер вкл/выкл | `ToggleSwitch` | этот раздел |
 | Форма: карточка + строки label/поле | `FormCard`, `FormField` | этот раздел |
 | Настройки: карточка + строки label/hint/контрол | `SettingsCard`, `SettingsCardRow` | этот раздел |
 | Несколько фильтров в toolbar | `FilterMenu` | [`filter-menu.mdc`](filter-menu.mdc) |
@@ -43,6 +44,32 @@ alwaysApply: false
 | `maxDecimalPlaces` | ограничить дробную часть |
 | `showSteppers` | стрелки вверх/вниз (`step`, опционально `min`/`max`); по умолчанию выкл. |
 | `inputClass` | классы на `<input>` (`form-control-sm` и т.п.) |
+
+## Тумблер — ToggleSwitch
+
+Компонент: `@/components/ToggleSwitch.vue`.
+
+iOS-стиль binary switch. Не копируй track/thumb в модулях.
+
+```vue
+<ToggleSwitch v-model="enabled" label="вручную" />
+
+<!-- Родитель сам меняет состояние (3-state cycle и т.п.) -->
+<ToggleSwitch
+  :model-value="status === 'allowed'"
+  manual
+  aria-label="Разрешено"
+  @activate="cycleStatus"
+/>
+```
+
+| Prop | Когда |
+|------|-------|
+| `modelValue` | вкл/выкл |
+| `label` | подпись справа от track |
+| `disabled` | блокировка |
+| `manual` | клик только `@activate`, без авто-переключения `modelValue` |
+| `ariaLabel` | a11y; иначе берётся `label` |
 
 ## Формы — FormCard / FormField
 
