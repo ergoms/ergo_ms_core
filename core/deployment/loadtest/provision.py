@@ -126,18 +126,31 @@ def ensure_users(
 def cleanup_users(
     root: Path,
     *,
-    run_id: str,
+    run_id: str | None = None,
     env: Mapping[str, str] | None = None,
 ) -> None:
-    """Удалить пользователей прогона run_id."""
-    result = _run_api_command(
-        root,
-        'loadtest_provision_users',
-        '--cleanup',
-        '--run-id',
-        run_id,
-        env=env,
+    """Удалить пользователей прогона run_id или всех lt_* (если run_id пуст)."""
+    cmd = ['loadtest_provision_users', '--cleanup']
+    if run_id:
+        cmd.extend(['--run-id', run_id])
+    # stdout наследуем — прогресс «Удалено: N/M» виден в терминале.
+    python = _venv_python(root)
+    api_cwd = root / 'core' / 'api'
+    run_env = os.environ.copy()
+    if env:
+        run_env.update({k: str(v) for k, v in env.items()})
+    run_env.setdefault('PYTHONUNBUFFERED', '1')
+    result = subprocess.run(
+        [str(python), '-m', 'commands', *cmd],
+        cwd=str(api_cwd),
+        stdout=None,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding='utf-8',
+        errors='replace',
+        check=False,
+        env=run_env,
     )
     if result.returncode != 0:
-        detail = (result.stderr or result.stdout or '').strip()
+        detail = (result.stderr or '').strip()
         raise RuntimeError(detail or f'exit {result.returncode}')

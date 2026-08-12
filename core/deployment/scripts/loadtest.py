@@ -7,6 +7,7 @@
 ergoms loadtest [--targets …] [--profile api|pages|mixed] [--users N] …
 ergoms loadtest --find-limit [--resume] [--growth exp|linear] …
 ergoms loadtest --isolated-db | --docker-isolated …
+ergoms loadtest --cleanup-users
 """
 
 from __future__ import annotations
@@ -528,6 +529,11 @@ def main(argv: list[str] | None = None) -> int:
         help=t('loadtest_help_list_targets'),
     )
     parser.add_argument(
+        '--cleanup-users',
+        action='store_true',
+        help=t('loadtest_help_cleanup_users'),
+    )
+    parser.add_argument(
         '--users',
         type=int,
         default=10,
@@ -703,6 +709,22 @@ def main(argv: list[str] | None = None) -> int:
             return 1
 
     root = resolve_root(args.root)
+
+    if args.cleanup_users:
+        print(format_console('info', t('loadtest_cleanup_all_users')))
+        try:
+            cleanup_users(root)
+        except RuntimeError as exc:
+            print(
+                format_console(
+                    'error',
+                    t('loadtest_cleanup_all_failed', detail=str(exc)),
+                ),
+                file=sys.stderr,
+            )
+            return 1
+        print(format_console('ok', t('loadtest_cleanup_all_ok')))
+        return 0
 
     if args.drop_db and not args.isolated_db:
         print(format_console('error', t('loadtest_drop_db_requires_isolated')), file=sys.stderr)

@@ -85,8 +85,8 @@ sections:
     invoke: ergoms resource-usage [--json] [-w] [--interval N]
     summary: RAM/CPU usage of ERGO MS processes on the host
   - name: loadtest
-    invoke: ergoms loadtest [--profile …] [--isolated-db|--docker-isolated] | --find-limit …
-    summary: API/pages load test (Locust), find-limit, or DB isolation
+    invoke: ergoms loadtest [--profile …] [--isolated-db|--docker-isolated] | --find-limit … | --cleanup-users
+    summary: API/pages load test (Locust), find-limit, DB isolation, or delete lt_* users
 - id: docker
   title: Docker Compose
   note: DOCKER_* variables and profiles — Docker section in .env.example. Ports — API_PORT, CLIENT_PORT, etc. DB — databases.yaml.

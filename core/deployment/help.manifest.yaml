@@ -86,8 +86,8 @@ sections:
     invoke: ergoms resource-usage [--json] [-w] [--interval N]
     summary: Потребление RAM/CPU процессов ERGO MS на хосте
   - name: loadtest
-    invoke: ergoms loadtest [--profile …] [--isolated-db|--docker-isolated] | --find-limit …
-    summary: Нагрузочный прогон API/pages (Locust), find-limit или изоляция БД
+    invoke: ergoms loadtest [--profile …] [--isolated-db|--docker-isolated] | --find-limit … | --cleanup-users
+    summary: Нагрузочный прогон API/pages (Locust), find-limit, изоляция БД или удаление lt_*
 - id: docker
   title: Docker Compose
   note: Переменные DOCKER_* и profiles — секция Docker в .env.example. Порты — API_PORT, CLIENT_PORT и др. БД — databases.yaml.
