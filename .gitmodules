@@ -149,13 +149,6 @@
 	update = merge
 	ignore = all
 
-[submodule "technical_process_analysis"]
-	path = modules/technical_process_analysis
-	url = https://github.com/SKB-AI/ergo_ms_technical_process_analysis.git
-	branch = dev
-	update = merge
-	ignore = all
-
 [submodule "modules/ollama_framework"]
 	path = modules/ollama_framework
 	url = https://github.com/SKB-AI/ergo_ms_ollama_framework.git
