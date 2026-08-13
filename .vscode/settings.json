@@ -77,10 +77,19 @@
     "git.autoRepositoryDetection": true,
     "git.detectSubmodulesLimit": 100,
 
-    // Ollama: не перехватывать 11434 авто-forward'ом Cursor/VS Code (конфликт с ergoms start-ollama).
+    // SSH-окно не должно пробрасывать порты сервера на localhost (конфликт с локальным Start All).
+    "remote.autoForwardPorts": false,
     "remote.autoForwardPortsSource": "process",
     "remote.restoreForwardedPorts": false,
+    "remote.otherPortsAttributes": {
+        "onAutoForward": "ignore"
+    },
     "remote.portsAttributes": {
+        "80": { "onAutoForward": "ignore" },
+        "6379": { "onAutoForward": "ignore" },
+        "8000": { "onAutoForward": "ignore" },
+        "8003": { "onAutoForward": "ignore" },
+        "8004": { "onAutoForward": "ignore" },
         "11434": {
             "label": "Ollama",
             "onAutoForward": "ignore"
