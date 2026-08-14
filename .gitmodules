@@ -177,6 +177,13 @@
     update = merge
     ignore = all
 
+[submodule "modules/announcements"]
+	path = modules/announcements
+	url = https://github.com/ergoms/ergo_ms_announcements.git
+	branch = dev
+	update = merge
+	ignore = all
+
 [submodule "modules/hunter_s_notes"]
 	path = modules/hunter_s_notes
 	url = https://github.com/SKB-AI/ergo_ms_hunter_s_notes.git
