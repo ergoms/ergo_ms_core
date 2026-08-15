@@ -19,6 +19,7 @@ import { getRelativeTime, formatDateTime } from '@/js/utils/timeUtils.js'
 | Короткая дата | `formatDateShort` |
 | YYYY-MM-DD (локально) | `formatDateLocal`, `toISODate` |
 | Диапазон дат | `formatDateRange`, `formatDateRangeShort`, `formatMonthRange` |
+| Длительность в днях («21 день») | `formatDurationDays` |
 | Ключ YYYY-MM → «Март 2026» | `formatYearMonthKeyRu` |
 | День недели и дата | `formatWeekdayDate` |
 | Месяц и год («с июня 2026 г.») | `formatMonthYearGenitive` |
@@ -26,7 +27,7 @@ import { getRelativeTime, formatDateTime } from '@/js/utils/timeUtils.js'
 | Дефолты периода проекта | `getDefaultStartDate`, `getDefaultEndDate` |
 | Относительное + полное | `getFormattedDateWithRelative`, `getFullDateTime` |
 
-Не копируй склонение «минут/минуты/минут» в модулях — уже в `getRelativeTime`.
+Не копируй склонение «минут/минуты/минут» и «день/дня/дней» в модулях — уже в `getRelativeTime` и `formatDurationDays`.
 
 Не используй старый путь `components/steps/js/timeUtils`.
 
