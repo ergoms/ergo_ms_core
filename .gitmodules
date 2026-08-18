@@ -191,9 +191,9 @@
 	update = merge
 	ignore = all
 
-[submodule "modules/saspd"] # Студенческий АС ПД
+[submodule "modules/saspd"]
 	path = modules/saspd
-	url = https://github.com/ergoms/saspd.git
+	url = https://github.com/ergoms/ergo_ms_saspd.git
 	branch = dev
 	update = merge
 	ignore = all
