@@ -18,6 +18,7 @@ import { getRelativeTime, formatDateTime } from '@/js/utils/timeUtils.js'
 | Дата «01 января 2024» | `formatDate` |
 | Короткая дата | `formatDateShort` |
 | YYYY-MM-DD (локально) | `formatDateLocal`, `toISODate` |
+| YYYY-MM-DDTHH:mm (локально) | `toISODateTime` |
 | Диапазон дат | `formatDateRange`, `formatDateRangeShort`, `formatMonthRange` |
 | Длительность в днях («21 день») | `formatDurationDays` |
 | Ключ YYYY-MM → «Март 2026» | `formatYearMonthKeyRu` |

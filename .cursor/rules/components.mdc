@@ -1,5 +1,5 @@
 ---
-description: Индекс UI-компонентов ядра — SelectBox, SearchInput, DecimalInput, ToggleSwitch, FormCard, FormField, SettingsCard, SettingsCardRow, FilterMenu, DropDown, DataTable, UserAvatar
+description: Индекс UI-компонентов ядра — SelectBox, SearchInput, DecimalInput, DatePicker, ToggleSwitch, FormCard, FormField, SettingsCard, SettingsCardRow, FilterMenu, DropDown, DataTable, UserAvatar
 alwaysApply: false
 ---
 
@@ -14,6 +14,7 @@ alwaysApply: false
 | Выбор из списка | `SelectBox` | [`select-box.mdc`](select-box.mdc) |
 | Текстовый поиск | `SearchInput` | [`search-input.mdc`](search-input.mdc) |
 | Ввод десятичного числа (цифры, `.`/`,`) | `DecimalInput` | этот раздел |
+| Выбор даты | `DatePicker` | этот раздел |
 | Бинарный тумблер вкл/выкл | `ToggleSwitch` | этот раздел |
 | Форма: карточка + строки label/поле | `FormCard`, `FormField` | этот раздел |
 | Настройки: карточка + строки label/hint/контрол | `SettingsCard`, `SettingsCardRow` | этот раздел |
@@ -44,6 +45,35 @@ alwaysApply: false
 | `maxDecimalPlaces` | ограничить дробную часть |
 | `showSteppers` | стрелки вверх/вниз (`step`, опционально `min`/`max`); по умолчанию выкл. |
 | `inputClass` | классы на `<input>` (`form-control-sm` и т.п.) |
+
+## Дата — DatePicker
+
+Компонент: `@/components/DatePicker.vue`. Обёртка над `@vuepic/vue-datepicker`.
+
+`v-model` — **строка** `YYYY-MM-DD`; при `enableTime` — `YYYY-MM-DDTHH:mm`. Нативный `input type="date"` не используй.
+
+```vue
+<script setup>
+import DatePicker from '@/components/DatePicker.vue'
+</script>
+
+<template>
+  <DatePicker id="start-date" v-model="startDate" />
+  <DatePicker id="end-date" v-model="endDate" :min-date="startDate || null" />
+  <DatePicker id="start-at" v-model="startAt" enable-time />
+  <DatePicker id="start-at-12" v-model="startAt" enable-time time-format="12" />
+</template>
+```
+
+| Prop | Когда |
+|------|-------|
+| `minDate` / `maxDate` | граница календаря (`YYYY-MM-DD` / `YYYY-MM-DDTHH:mm` или `Date`) |
+| `id` | для `<label for>` / `FormField` `label-for` |
+| `placeholder` | своя подсказка; иначе `components.datePicker.placeholder` / `placeholderDateTime` / `placeholderDateTime12` |
+| `enableTime` | выбор и отображение времени (по умолчанию выкл.) |
+| `timeFormat` | `'24'` (по умолчанию) или `'12'`; только вместе с `enableTime` |
+| `disabled` | блокировка |
+| `invalid` | красная рамка (`is-invalid`) |
 
 ## Тумблер — ToggleSwitch
 
