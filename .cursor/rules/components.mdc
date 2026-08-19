@@ -115,7 +115,7 @@ import FormField from '@/components/FormField.vue'
 
 <template>
   <FormCard>
-    <FormField label="Название" label-for="title" optional>
+    <FormField label="Название" label-for="title" required>
       <input id="title" v-model="title" type="text" class="form-control form-control-sm" />
     </FormField>
     <FormField label="Описание" label-for="desc" last>
@@ -131,7 +131,7 @@ import FormField from '@/components/FormField.vue'
 | Prop `FormField` | Когда |
 |------|-------|
 | `label` / `labelFor` | подпись и `for` |
-| `optional` | бейдж «Необязательно» (`common.optional`) |
+| `required` | красная звёздочка у обязательного поля |
 | `hint` / `#hint` | подсказка под полем |
 | `error` | текст ошибки |
 | `last` | без нижней границы (последняя строка) |
