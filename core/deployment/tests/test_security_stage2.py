@@ -20,11 +20,11 @@ class MergeSecurityProfileDefaultsTests(unittest.TestCase):
         self.assertEqual(merged['MEDIA_URL_EXPIRATION'], '3600')
         self.assertEqual(merged['MEDIA_API_UPLOAD_RATE'], '30/minute')
         self.assertEqual(merged['MEDIA_API_UPLOAD_RATE_ADMIN'], '120/minute')
-        self.assertEqual(merged['MEDIA_API_CONTENT_VALIDATION'], 'extension')
+        self.assertEqual(merged['MEDIA_API_CONTENT_VALIDATION'], 'extension_and_magic')
         self.assertEqual(merged['CLIENT_BROWSER_LOG_ENABLED'], 'true')
         self.assertEqual(merged['API_ADP_DEFAULT_VIEW_GRANTS'], 'granted')
         self.assertEqual(merged['API_CSP_MODE'], 'as_is')
-        self.assertEqual(merged['API_AUTH_LOCKOUT_MAX_ATTEMPTS'], '0')
+        self.assertEqual(merged['API_AUTH_LOCKOUT_MAX_ATTEMPTS'], '10')
         self.assertEqual(merged['API_SESSION_DEVICE_RETENTION_DAYS'], '0')
 
     def test_explicit_values_kept(self) -> None:

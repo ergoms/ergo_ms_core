@@ -4,7 +4,7 @@ Effective env и конфигурация для Docker Compose (read-only, не
 Порты приложений — из существующих ключей .env (API_PORT, CLIENT_PORT, …).
 Параметры БД — из databases.yaml; для контейнеров генерируется .compose.databases.yaml.
 Публикация postgres/meilisearch на хост — docker-compose.publish.generated.yml
-(пропуск, если порт занят; внутри сети compose: 5432/6379/7700).
+(пропуск, если порт занят; bind 127.0.0.1, не 0.0.0.0; внутри сети compose: 5432/6379/7700).
 Redis на хост — только при явном DOCKER_REDIS_PUBLISH_PORT (пусто = не публиковать).
 AUTH Redis — docker-compose.redis-auth.generated.yml при непустом redis.password.
 """
@@ -43,10 +43,22 @@ from project_layout import cache_dir, cache_docker_dir, ensure_dir  # noqa: E402
 
 LOCAL_DB_HOSTS = frozenset({'localhost', '127.0.0.1', '::1', ''})
 CELERY_DB_SECTIONS = ('default', 'celery', 'celery_worker', 'celery_beat')
+CELERY_BALANCE_KEYS = (
+    'CELERY_BALANCE',
+    'CELERY_BALANCE_OS_RESERVE_RAM_MB',
+    'CELERY_BALANCE_RESERVE_CPU',
+    'CELERY_BALANCE_MIN_CONCURRENCY',
+    'CELERY_BALANCE_MAX_CONCURRENCY',
+    'CELERY_BALANCE_GPU',
+    'CELERY_BALANCE_WATCH_INTERVAL',
+    'CELERY_BALANCE_HYSTERESIS',
+)
 DOCKER_DEPS_CACHE_VALUES = frozenset({'internal', 'project', 'off'})
 BUILD_CACHE_OUTPUT = _DOCKER_DIR / 'docker-compose.build.generated.yml'
 PUBLISH_COMPOSE_OUTPUT = _DOCKER_DIR / 'docker-compose.publish.generated.yml'
 REDIS_AUTH_COMPOSE_OUTPUT = _DOCKER_DIR / 'docker-compose.redis-auth.generated.yml'
+# Infra-порты на хост только с loopback — не с LAN.
+INFRA_PUBLISH_BIND = '127.0.0.1'
 _PUBLISH_DISABLED = frozenset({'none', 'off', 'false', '0', '-', 'disabled'})
 _PUBLISH_WARNED: set[str] = set()
 
@@ -81,6 +93,17 @@ def load_redis_password(project_root: Path | None = None) -> str:
     if not isinstance(section, dict):
         return ''
     raw = section.get('password', '')
+    if raw is None:
+        return ''
+    return str(raw).strip()
+
+
+def load_redis_user(project_root: Path | None = None) -> str:
+    """databases.yaml → redis.user; пусто = default / requirepass."""
+    section = load_databases_config(project_root).get('redis') or {}
+    if not isinstance(section, dict):
+        return ''
+    raw = section.get('user', '')
     if raw is None:
         return ''
     return str(raw).strip()
@@ -229,6 +252,9 @@ def build_compose_env_overrides(raw_env: dict[str, str]) -> dict[str, str]:
     overrides['API_HOST'] = '0.0.0.0'
     overrides['MEDIA_API_BIND_HOST'] = '0.0.0.0'
     overrides['CLIENT_HOST'] = '0.0.0.0'
+    if effective_docker_profile_jupyter(raw_env):
+        # Внутри контейнера слушать сеть compose; на хост — только 127.0.0.1.
+        overrides.setdefault('API_JUPYTER_BIND_HOST', '0.0.0.0')
 
     # Публичный хост API для SPA (Vite define CLIENT_API_HOST). Берём из .env
     # до override bind; 0.0.0.0/* заменяем на localhost.
@@ -297,6 +323,12 @@ def build_compose_env_overrides(raw_env: dict[str, str]) -> dict[str, str]:
         overrides['BRIDGE_TRANSPORT'] = transport if transport != 'local' else 'http'
         event_bus = _env(raw_env, 'BRIDGE_EVENT_BUS', 'redis')
         overrides['BRIDGE_EVENT_BUS'] = event_bus if event_bus != 'local' else 'redis'
+
+    # Overlay celery-balance читает те же knobs, что и хост (том virtual_env/cache).
+    for key in CELERY_BALANCE_KEYS:
+        value = _env(raw_env, key, '')
+        if value:
+            overrides[key] = value
 
     return overrides
 
@@ -654,7 +686,7 @@ def resolve_infra_publish_ports(raw_env: dict[str, str], *, warn: bool = False) 
 def build_publish_compose_content(published: dict[str, int]) -> str:
     lines = [
         '# Автогенерация: prepare_compose_artifacts',
-        '# Публикация postgres/redis/meilisearch на хост (redis — только при явном порте).',
+        '# Публикация postgres/redis/meilisearch на 127.0.0.1 (redis — только при явном порте).',
         '# Внутри сети compose: postgres:5432, redis:6379, meilisearch:7700.',
     ]
     if not published:
@@ -670,7 +702,9 @@ def build_publish_compose_content(published: dict[str, int]) -> str:
         container_port = container_ports.get(service, host_port)
         lines.append(f'  {service}:')
         lines.append('    ports:')
-        lines.append(f'      - "{host_port}:{container_port}"')
+        lines.append(
+            f'      - "{INFRA_PUBLISH_BIND}:{host_port}:{container_port}"'
+        )
     lines.append('')
     return '\n'.join(lines)
 
@@ -685,37 +719,44 @@ def _yaml_double_quoted(value: str) -> str:
     return f'"{escaped}"'
 
 
-def build_redis_auth_compose_content(password: str) -> str:
-    """Overlay: requirepass + healthcheck с AUTH (когда password непустой)."""
-    quoted = _yaml_double_quoted(password)
+def build_redis_auth_compose_content(password: str, username: str = '') -> str:
+    """Overlay: requirepass (+ ACL user) и healthcheck с AUTH."""
+    quoted_pass = _yaml_double_quoted(password)
+    command = ['redis-server', '--requirepass', password]
+    if username:
+        command.extend(['--user', username, 'on', f'>{password}', '~*', '&*', '+@all'])
+    command_yaml = ', '.join(_yaml_double_quoted(item) for item in command)
     return (
         '# Автогенерация: prepare_compose_artifacts (databases.yaml redis.password)\n'
         'services:\n'
         '  redis:\n'
-        f'    command: ["redis-server", "--requirepass", {quoted}]\n'
+        f'    command: [{command_yaml}]\n'
         '    healthcheck:\n'
-        f'      test: ["CMD", "redis-cli", "-a", {quoted}, "--no-auth-warning", "ping"]\n'
+        f'      test: ["CMD", "redis-cli", "-a", {quoted_pass}, "--no-auth-warning", "ping"]\n'
         '      interval: 5s\n'
         '      timeout: 3s\n'
         '      retries: 10\n'
     )
 
 
-def write_redis_auth_compose(path: Path, password: str) -> None:
+def write_redis_auth_compose(path: Path, password: str, username: str = '') -> None:
     """Пишет AUTH-overlay или удаляет файл, если пароль пуст."""
     path.parent.mkdir(parents=True, exist_ok=True)
     if not password:
         path.unlink(missing_ok=True)
         return
-    path.write_text(build_redis_auth_compose_content(password), encoding='utf-8')
+    path.write_text(build_redis_auth_compose_content(password, username), encoding='utf-8')
 
 
 def postgres_container_env(raw_env: dict[str, str]) -> dict[str, str]:
     default_db = load_databases_config().get('default') or {}
+    user = str(default_db.get('user') or 'postgres').strip() or 'postgres'
+    password = str(default_db.get('password') or 'admin').strip() or 'admin'
+    name = str(default_db.get('name') or 'ergo_ms').strip() or 'ergo_ms'
     return {
-        'POSTGRES_USER': str(default_db.get('user', 'postgres')),
-        'POSTGRES_PASSWORD': str(default_db.get('password', 'admin')),
-        'POSTGRES_DB': str(default_db.get('name', 'ergo_ms')),
+        'POSTGRES_USER': user,
+        'POSTGRES_PASSWORD': password,
+        'POSTGRES_DB': name,
     }
 
 
@@ -798,7 +839,8 @@ def prepare_compose_artifacts(project_root: Path | None = None) -> dict[str, Pat
     write_publish_compose(PUBLISH_COMPOSE_OUTPUT, published)
 
     redis_password = load_redis_password(root)
-    write_redis_auth_compose(REDIS_AUTH_COMPOSE_OUTPUT, redis_password)
+    redis_user = load_redis_user(root)
+    write_redis_auth_compose(REDIS_AUTH_COMPOSE_OUTPUT, redis_password, redis_user)
 
     merged = merge_env_files(root, raw)
     merged.update(postgres_container_env(raw))

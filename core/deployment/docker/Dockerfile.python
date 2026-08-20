@@ -34,12 +34,12 @@ RUN mkdir -p core/api core/media_api modules virtual_env/python virtual_env/cach
 
 RUN --mount=type=cache,id=ergo_poetry_cache,target=/tmp/poetry-cache,sharing=locked \
     sh -c 'if [ "$ERGO_DOCKER_DEPS_CACHE" != "off" ]; then \
-      poetry install --no-root --no-ansi \
+      poetry install --no-root --only main --no-ansi \
       && poetry run python -c "import django; print(\"django ok\")"; \
     fi'
 
 RUN sh -c 'if [ "$ERGO_DOCKER_DEPS_CACHE" = "off" ]; then \
-      poetry install --no-root --no-ansi \
+      poetry install --no-root --only main --no-ansi \
       && poetry run python -c "import django; print(\"django ok\")"; \
     fi'
 

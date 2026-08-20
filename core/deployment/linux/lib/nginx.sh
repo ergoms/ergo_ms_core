@@ -79,11 +79,19 @@ _nginx_install_binary() {
   jobs="$(nproc 2>/dev/null || echo 2)"
   pcre_flag="$(_nginx_configure_pcre_flag)"
 
+  local downloads cache_tarball
+  downloads="$root/virtual_env/cache/downloads"
+  mkdir -p "$downloads"
+  cache_tarball="$downloads/nginx-${NGINX_VERSION}.tar.gz"
   write_ergoms_message nginx_downloading cyan "" "version=$NGINX_VERSION"
-  if ! _nginx_download_tarball "$tarball"; then
+  if [[ -s "$cache_tarball" ]]; then
+    cp -f "$cache_tarball" "$tarball"
+  elif ! _nginx_download_tarball "$tarball"; then
     rm -rf "$build_dir"
     write_ergoms_message nginx_error_download red --stderr
     return 1
+  else
+    cp -f "$tarball" "$cache_tarball" || true
   fi
 
   write_ergoms_message nginx_unpacking cyan
@@ -516,6 +524,12 @@ _nginx_remove_stale_pid_file() {
   pid="$(tr -d '[:space:]' <"$pid_file" 2>/dev/null || true)"
   if [[ "$pid" =~ ^[0-9]+$ ]]; then
     if ! kill -0 "$pid" 2>/dev/null; then
+      rm -f "$pid_file"
+      return 0
+    fi
+    local comm
+    comm="$(tr -d '\0' <"/proc/$pid/comm" 2>/dev/null || true)"
+    if [[ "$comm" != "nginx" ]]; then
       rm -f "$pid_file"
     fi
     return 0

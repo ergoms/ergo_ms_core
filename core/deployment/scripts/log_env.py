@@ -32,6 +32,8 @@ LOG_FILE_DEFAULTS: dict[str, str] = {
     'CLIENT_BROWSER': 'client-browser.log',
     'CLIENT_MONITOR': 'client-monitor.log',
     'AUDIT': 'audit.log',
+    'OLLAMA': 'ollama-serve.log',
+    'JUPYTER': 'jupyter.log',
 }
 
 
@@ -257,6 +259,16 @@ def infra_rotation_settings(project_root: Path | None = None) -> dict[str, int |
             5,
             project_root,
         ),
+        'copytruncate_max_bytes': _read_int_chain(
+            ('ERGO_LOG_INFRA_MAX_BYTES', 'ERGO_LOG_MAX_BYTES'),
+            10 * 1024 * 1024,
+            project_root,
+        ),
+        'copytruncate_backup_count': _read_int_chain(
+            ('ERGO_LOG_INFRA_BACKUP_COUNT', 'ERGO_LOG_BACKUP_COUNT'),
+            5,
+            project_root,
+        ),
         'schedule_hour': _read_int_chain(('ERGO_LOG_INFRA_ROTATE_HOUR',), 3, project_root),
     }
 
@@ -274,6 +286,9 @@ def service_log_map(project_root: Path | None = None) -> dict[str, list[str]]:
         ],
         'ergo_ms_redis': [log_basename('REDIS', project_root)],
         'ergo_ms_meilisearch': [log_basename('MEILISEARCH', project_root)],
+        'ergo-ollama': [log_basename('OLLAMA', project_root)],
+        'ergo_ms_ollama': [log_basename('OLLAMA', project_root)],
+        'ergo_ms_jupyter': [log_basename('JUPYTER', project_root)],
         # legacy имена до унификации префикса ergo_ms_
         'ergo-api-dev': [log_basename('API', project_root)],
         'ergo-media-api': [log_basename('MEDIA_API', project_root)],

@@ -13,6 +13,7 @@ alwaysApply: true
 - Токены и контекст сессии — через `tokenStorage.js`, не в localStorage
 - В URL и ссылках — не числовые id из БД, а `public_id` (UUID)
 - API проверяет права сам; клиентские `permission-rules` — только UX
+- Эндпоинт по умолчанию требует JWT (`BaseAPIView` / `BaseModelViewSet`); публичный — только `BaseAPIViewPublicMixin` + allowlist
 - Файлы — через media_api, не `/media/` на основном API
 - Ошибки на клиенте — `logError`, не `console.error(axiosObject)`
 - Prod: `DEBUG=False`, secure cookies, без sourcemap
@@ -21,7 +22,7 @@ alwaysApply: true
 
 - Коммитить `.env`, ключи, пароли; хардкодить секреты в коде и чате
 - Фиксировать в git железо хоста (RAM, CPU, GPU, «на этом сервере…») — [`no-host-fingerprint.mdc`](no-host-fingerprint.mdc)
-- `AllowAny` / отключение `permission_classes` без явной бизнес-причины
+- `AllowAny` / `BaseAPIViewPublicMixin` / пустые `permission_classes` без явной причины и строки в allowlist
 - pk БД в URL, query, localStorage / sessionStorage / JS-cookie
 - JWT в query WebSocket; токены вне `tokenStorage.js`
 - Прямая раздача `/media/` с основного API

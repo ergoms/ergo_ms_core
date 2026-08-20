@@ -90,6 +90,17 @@ def _is_celery_cmdline(text: str) -> bool:
     return 'python' in first or first.endswith('python') or first.endswith('python.exe')
 
 
+def _flag_value(cmdline: list[str], flag: str) -> str:
+    prefix = f'{flag}='
+    for index, part in enumerate(cmdline):
+        text = str(part)
+        if text.startswith(prefix):
+            return text.split('=', 1)[1].strip()
+        if text == flag and index + 1 < len(cmdline):
+            return str(cmdline[index + 1]).strip()
+    return ''
+
+
 def _candidate_process_names(project_root: Path) -> frozenset[str]:
     return _CORE_CANDIDATE_PROCESS_NAMES | collect_module_process_names(project_root)
 
@@ -139,6 +150,9 @@ def _classify_by_cmdline(
         # Модульные роли могут матчить portable-пакет вне ядерных маркеров.
         return _classify_by_module_roles(cmdline, None, project_root, resolved)
 
+    if 'start_module_api.py' in text:
+        name = _flag_value(cmdline, '--module')
+        return f'module-api:{name}' if name else 'module-api'
     if 'start_media_api.py' in text or 'core/media_api' in text:
         return 'media-api'
     if 'start_api.py' in text:
@@ -146,8 +160,11 @@ def _classify_by_cmdline(
     if 'start_celery_beat.py' in text or (_is_celery_cmdline(text) and ' beat' in f' {text.lower()}'):
         return 'celery-beat'
     if 'start_celery_worker.py' in text or (_is_celery_cmdline(text) and ' worker' in f' {text.lower()}'):
+        name = _flag_value(cmdline, '--module')
+        if name:
+            return f'module-worker:{name}'
         return 'celery-worker'
-    if 'start_jupyter.py' in text:
+    if 'start_jupyter.py' in text or 'start_jupyter_if_enabled.py' in text:
         return 'jupyter'
     if 'vite' in text and ('core/client' in text or _in_project(text, root_text)):
         return 'client'

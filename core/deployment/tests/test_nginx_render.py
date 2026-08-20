@@ -26,6 +26,12 @@ class NginxRenderTests(unittest.TestCase):
         self.assertIn(CORE_PROXY_MARKER, docker_block)
         self.assertIn('proxy_pass http://ergo_media', host_block)
         self.assertIn('proxy_pass http://ergo_media', docker_block)
+        self.assertIn('location /internal/', host_block)
+        self.assertIn('location /internal/', docker_block)
+        host_internal = host_block[host_block.find('location /internal/'):]
+        docker_internal = docker_block[docker_block.find('location /internal/'):]
+        self.assertIn('deny all', host_internal[:160])
+        self.assertIn('deny all', docker_internal[:160])
 
     def test_upstream_targets_differ_host_vs_docker(self) -> None:
         values = {
@@ -166,7 +172,7 @@ class NginxRenderTests(unittest.TestCase):
         self.assertIn('limit_req zone=ergo_api', rendered)
         self.assertIn('limit_req zone=ergo_upload', rendered)
         self.assertNotIn('5r/m', rendered)
-        self.assertIn('rate=120r/m', rendered)
+        self.assertIn('rate=1000r/m', rendered)
         self.assertIn('limit_req_status 429', rendered)
         self.assertIn('limit_conn_status 429', rendered)
         api_loc = rendered[rendered.find('location /api/'):]
@@ -179,6 +185,37 @@ class NginxRenderTests(unittest.TestCase):
         self.assertIn('/api/realtime/stream/', rendered)
         self.assertIn(r'location ~ ^/api/.+/stream/?$', rendered)
         self.assertIn('proxy_buffering off;', rendered)
+        self.assertIn('location = /api/internal/jupyter-access/', rendered)
+        jupyter_gate = rendered[rendered.find('location = /api/internal/jupyter-access/'):]
+        self.assertIn('internal;', jupyter_gate[:200])
+        self.assertIn('location /internal/', rendered)
+        internal = rendered[rendered.find('location /internal/'):]
+        self.assertIn('deny all', internal[:160])
+
+
+class ModuleNginxTests(unittest.TestCase):
+    def test_host_locations_use_named_unavailable(self) -> None:
+        from module_nginx import render_module_locations_host
+
+        block = render_module_locations_host({
+            'MODULE_RUNTIME': 'microservice',
+            'MICROSERVICE_MODULES': 'demo_mod',
+            'DEMO_MOD_PORT': '8123',
+        })
+        self.assertIn('location /api/demo_mod/', block)
+        self.assertIn('error_page 502 503 504 =503 @module_unavailable', block)
+        self.assertIn('location @module_unavailable', block)
+        self.assertIn('X-Request-ID', block)
+
+    def test_upstreams_have_max_fails(self) -> None:
+        from module_nginx import render_module_upstreams_host
+
+        block = render_module_upstreams_host({
+            'MODULE_RUNTIME': 'microservice',
+            'MICROSERVICE_MODULES': 'demo_mod',
+            'DEMO_MOD_PORT': '8123',
+        })
+        self.assertIn('max_fails=3 fail_timeout=10s', block)
 
 
 if __name__ == '__main__':

@@ -228,7 +228,7 @@ import FormField from '@/components/FormField.vue'
 ```vue
 <script setup>
 import DropDown from '@/components/DropDown.vue'
-import { MoreHorizontal, Edit, Trash2 } from 'lucide-vue-next'
+import { MoreHorizontal, Edit, Trash2 } from '@lucide/vue'
 </script>
 
 <template>

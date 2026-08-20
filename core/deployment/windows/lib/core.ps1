@@ -117,15 +117,29 @@ function Write-ErgomsMessage {
 
         }
 
-        if ($Stderr) {
+        $prevEa = $ErrorActionPreference
 
-            & $pythonExe @args 2>&1 | ForEach-Object { Write-Host $_ -ForegroundColor $Color }
+        $ErrorActionPreference = 'Continue'
+
+        try {
+
+            if ($Stderr) {
+
+                & $pythonExe @args 2>&1 | ForEach-Object { Write-Host $_ -ForegroundColor $Color }
+
+            }
+
+            else {
+
+                & $pythonExe @args | ForEach-Object { Write-Host $_ -ForegroundColor $Color }
+
+            }
 
         }
 
-        else {
+        finally {
 
-            & $pythonExe @args | ForEach-Object { Write-Host $_ -ForegroundColor $Color }
+            $ErrorActionPreference = $prevEa
 
         }
 
@@ -179,15 +193,29 @@ function Write-ErgomsText {
 
         if ($Stderr) { $args += '--stderr' }
 
-        if ($Stderr) {
+        $prevEa = $ErrorActionPreference
 
-            & $pythonExe @args 2>&1 | ForEach-Object { Write-Host $_ -ForegroundColor $Color }
+        $ErrorActionPreference = 'Continue'
+
+        try {
+
+            if ($Stderr) {
+
+                & $pythonExe @args 2>&1 | ForEach-Object { Write-Host $_ -ForegroundColor $Color }
+
+            }
+
+            else {
+
+                & $pythonExe @args | ForEach-Object { Write-Host $_ -ForegroundColor $Color }
+
+            }
 
         }
 
-        else {
+        finally {
 
-            & $pythonExe @args | ForEach-Object { Write-Host $_ -ForegroundColor $Color }
+            $ErrorActionPreference = $prevEa
 
         }
 

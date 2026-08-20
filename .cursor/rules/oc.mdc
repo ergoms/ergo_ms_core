@@ -1,7 +1,8 @@
 ---
 description: Кроссплатформенность Windows и Linux — os_abstraction, process-ops, ergoms win:/linux:
 globs:
-  - "core/deployment/**"
+  - "core/deployment/windows/**"
+  - "core/deployment/linux/**"
   - "**/os_abstraction/**"
   - "**/process-ops.js"
 alwaysApply: false

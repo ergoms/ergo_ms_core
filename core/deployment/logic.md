@@ -111,7 +111,7 @@
 
 ### Первичная настройка Redis
 
-1. В `.env`: `ERGO_BROKER=redis`, секция `redis` в `databases.yaml`, затем `ergoms install-redis` (или `setup-full` — шаг `EnsureRedisStep`)
+1. В `.env`: `ERGO_BROKER=redis`, затем `ergoms install-redis` или `setup-full` (шаг `EnsureRedisStep`). Секция `redis` в `databases.yaml` появится сама, если её ещё не было.
 2. Перезапустить API
 3. Проверка: `ergoms test-redis` → `PONG`
 

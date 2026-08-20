@@ -50,6 +50,35 @@ SERVICE_TEMPLATE = """
       - ergo_net
     command: ["python", "core/api/scripts/start_module_api.py", "--module={name}"]
     restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:{port}/api/system/ready/')\"",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  {name}-worker:
+    image: ${{DOCKER_PYTHON_IMAGE:-ergo_ms-python:local}}
+    env_file:
+      - .compose.env
+    environment:
+      ERGO_DOCKER_SERVICE_NAME: "{name}-worker"
+      ERGO_DOCKER_REQUIRES_SETUP: "1"
+      ERGO_PROCESS_ROLE: module:{name}
+      PROCESS_MODULES: "{name}"
+{volumes}
+    depends_on:
+      redis:
+        condition: service_healthy
+      {name}:
+        condition: service_started
+    networks:
+      - ergo_net
+    command: ["python", "core/api/scripts/start_celery_worker.py", "--module={name}"]
+    restart: unless-stopped
 """
 
 

@@ -14,14 +14,15 @@ if str(_DEPLOYMENT_DIR) not in sys.path:
 from cli_locale import t  # noqa: E402
 
 from lifecycle.context import DeploymentTarget
+from lifecycle.pipeline import ParallelStepGroup
 from lifecycle.steps.base import DeploymentStep
 from lifecycle.steps.common_steps import (
     ClientBuildStep,
     CollectStaticStep,
+    EnsureApiSecretStep,
     MigrateStep,
     NpmInstallStep,
     PythonInstallStep,
-    RemindApiSecretStep,
     WarmupCachesStep,
 )
 from lifecycle.steps.compose_steps import (
@@ -101,18 +102,25 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
                 HostExecutionPolicyStep(),
                 GitSubmoduleUpdateStep(remote=False),
                 ConfigScaffoldStep(),
-                EnsurePortablePythonStep(),
-                EnsurePortableNodejsStep(),
+                EnsureApiSecretStep(),
+                ParallelStepGroup(
+                    EnsurePortablePythonStep(),
+                    EnsurePortableNodejsStep(),
+                    name='portable_runtimes',
+                ),
                 CreateVenvStep(),
                 PoetryInstallStep(),
                 HostCliInstallStep(),
-                PythonInstallStep(),
-                NpmInstallStep(),
-                ClientBuildStep(),
+                ParallelStepGroup(
+                    PythonInstallStep(),
+                    NpmInstallStep(),
+                    name='python_and_npm',
+                ),
                 EnsurePostgresStep(),
                 EnsureRedisStep(),
                 EnsureMeilisearchStep(),
                 EnsureNginxStep(),
+                ClientBuildStep(),
                 # До migrate: модульные portable (pgvector и т.п.) должны быть в БД до CREATE EXTENSION.
                 ModuleSetupTasksStep(),
                 MigrateStep(),
@@ -120,7 +128,6 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
                 ModuleSetupTasksAfterMigrateStep(),
                 WarmupCachesStep(if_needed=True),
                 CollectStaticStep(),
-                RemindApiSecretStep(),
                 # finally: остановить nginx/redis/модульные демоны и при ошибке посередине.
                 StopSetupStartedInfraStep(),
             ),
@@ -138,7 +145,15 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
         ),
         RecipeSpec(
             'install-deps',
-            (PythonInstallStep(), NpmInstallStep(), MigrateStep(), WarmupCachesStep()),
+            (
+                ParallelStepGroup(
+                    PythonInstallStep(),
+                    NpmInstallStep(),
+                    name='python_and_npm',
+                ),
+                MigrateStep(),
+                WarmupCachesStep(),
+            ),
             description=t('recipe_install_deps'),
         ),
         RecipeSpec(
@@ -149,8 +164,11 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
         RecipeSpec(
             'setup-application',
             (
-                PythonInstallStep(),
-                NpmInstallStep(),
+                ParallelStepGroup(
+                    PythonInstallStep(),
+                    NpmInstallStep(),
+                    name='python_and_npm',
+                ),
                 ClientBuildStep(),
                 MigrateStep(),
                 WarmupCachesStep(),
@@ -178,8 +196,11 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
             'deploy-all',
             (
                 _deploy_all_submodules(),
-                PythonInstallStep(),
-                NpmInstallStep(),
+                ParallelStepGroup(
+                    PythonInstallStep(),
+                    NpmInstallStep(),
+                    name='python_and_npm',
+                ),
                 MigrateStep(),
                 WarmupCachesStep(),
                 CollectStaticStep(),
@@ -209,6 +230,7 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
             (
                 ClearSetupMarkerStep(),
                 DockerModulesIgnoreStep(),
+                EnsureApiSecretStep(),
                 DockerBuildStep(skip_if_present=True),
                 GenerateWorkersComposeStep(),
                 ComposeArtifactsStep(),
@@ -228,6 +250,7 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
         RecipeSpec(
             'docker-bootstrap',
             (
+                EnsureApiSecretStep(),
                 DockerStopBeforeBootstrapStep(),
                 DockerBootstrapInfraStep(),
                 PythonInstallStep(),
@@ -263,6 +286,7 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
         RecipeSpec(
             'docker-prepare-build',
             (
+                EnsureApiSecretStep(),
                 DockerModulesIgnoreStep(),
                 GenerateWorkersComposeStep(),
                 ComposeArtifactsStep(),
@@ -291,6 +315,7 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
         RecipeSpec(
             'docker-build',
             (
+                EnsureApiSecretStep(),
                 DockerModulesIgnoreStep(),
                 GenerateWorkersComposeStep(),
                 ComposeArtifactsStep(),

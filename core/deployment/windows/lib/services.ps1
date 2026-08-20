@@ -431,28 +431,37 @@ function Start-AllServices {
         }
     }
 
+    $pending = New-Object System.Collections.Generic.List[object]
     foreach ($serviceName in $serviceNames) {
         if ($serviceName -eq 'ergo_ms_redis' -or $serviceName -eq 'ergo_ms_meilisearch') { continue }
+        $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+        if (-not $service) {
+            Write-ErgomsMessage -Key 'svc_not_installed_dash' -Color Gray -Param @{ name = $serviceName }
+            $missing++
+            continue
+        }
+        if ($service.Status -eq 'Running') {
+            Write-ErgomsMessage -Key 'ok_service_already_running' -Color Green -Param @{ name = $serviceName }
+            $already++
+            continue
+        }
         try {
-            $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-            if ($service) {
-                if ($service.Status -eq 'Running') {
-                    Write-ErgomsMessage -Key 'ok_service_already_running' -Color Green -Param @{ name = $serviceName }
-                    $already++
-                }
-                else {
-                    Start-Service -Name $serviceName
-                    Write-ErgomsMessage -Key 'svc_started_ok' -Color Green -Param @{ name = $serviceName }
-                    $started++
-                }
-            }
-            else {
-                Write-ErgomsMessage -Key 'svc_not_installed_dash' -Color Gray -Param @{ name = $serviceName }
-                $missing++
-            }
+            $service.Start()
+            [void]$pending.Add($service)
         }
         catch {
             Write-ErgomsMessage -Key 'svc_start_failed' -Color Red -Stderr -Param @{ name = $serviceName; error = $_.Exception.Message }
+            $failed++
+        }
+    }
+    foreach ($service in $pending) {
+        try {
+            $service.WaitForStatus([System.ServiceProcess.ServiceControllerStatus]::Running, [TimeSpan]::FromSeconds(45))
+            Write-ErgomsMessage -Key 'svc_started_ok' -Color Green -Param @{ name = $service.Name }
+            $started++
+        }
+        catch {
+            Write-ErgomsMessage -Key 'svc_start_failed' -Color Red -Stderr -Param @{ name = $service.Name; error = $_.Exception.Message }
             $failed++
         }
     }

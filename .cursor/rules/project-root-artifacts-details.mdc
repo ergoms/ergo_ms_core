@@ -22,6 +22,8 @@ alwaysApply: false
 | Архивы portable Python / Node.js | `virtual_env/cache/downloads/` |
 | Docker BuildKit local cache (`DOCKER_DEPS_CACHE=project`) | `virtual_env/cache/docker-cache/` |
 | Loadtest (temp DB/ephemeral) | `virtual_env/cache/loadtest/` |
+| Балансировщик Celery (overlay, история) | `virtual_env/cache/celery_balance/` |
+| Lock записи секретов в `.env` / `databases.yaml` | `virtual_env/cache/env_secrets.lock` |
 | Meilisearch (runtime, LMDB) | `virtual_env/cache/meilisearch/` |
 | Portable Meilisearch | `virtual_env/packages/meilisearch/` |
 | npm workspace (package.json, lock, node_modules) | `virtual_env/npm/` |

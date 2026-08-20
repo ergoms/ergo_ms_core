@@ -85,7 +85,8 @@ def is_nginx_running(nginx_dir: Path, exe: Path) -> bool:
                     errors='replace',
                     check=False,
                 )
-                if str(pid) in (result.stdout or ''):
+                stdout = result.stdout or ''
+                if str(pid) in stdout and 'nginx' in stdout.lower():
                     return True
             else:
                 os.kill(pid, 0)

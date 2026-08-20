@@ -3,11 +3,11 @@
 
 services:
   meilisearch:
-    image: ${DOCKER_MEILI_IMAGE:-getmeili/meilisearch:v1.12}
+    image: ${DOCKER_MEILI_IMAGE:-getmeili/meilisearch:v1.43.1}
     profiles: ["meilisearch"]
     environment:
       MEILI_ENV: ${MEILI_ENV:-development}
-      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-ergo_ms_dev_meili_key}
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
       MEILI_NO_ANALYTICS: "true"
     volumes:
       - meili_data:/meili_data

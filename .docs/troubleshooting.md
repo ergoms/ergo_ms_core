@@ -88,6 +88,26 @@ git submodule update --init --recursive
 2. Проверьте `REDIS_HOST`, `REDIS_PORT` в `.env`.
 3. Журнал: `logs/redis.log` или `ergoms logs ergo_ms_redis`.
 
+## Пустой экран за nginx {#пустой-экран-за-nginx}
+
+Симптом: `http://<хост>` через `ergoms start-nginx-dev` крутит маску загрузки или показывает пустую оболочку, консоль браузера пустая. Через `ergoms start-client` (Vite) та же копия кода открывается.
+
+Nginx отдаёт **сборку** `core/client/dist`, а не сервер разработки Vite. После правок клиента выполните `ergoms client-build` и обновите страницу с очисткой кэша (Ctrl+F5). `reload-nginx` нужен, если менялся шаблон конфига nginx, а не hashed-файлы в `dist`.
+
+Консоль пустая, потому что production-сборка подменяет `console.*`, а `logs/client-browser.log` принимает ошибки только с JWT. Гость и зависон до входа туда ничего не пишут.
+
+Смотрите `logs/nginx-access.log`:
+
+1. Совпадает ли hashed `index-*.js` с `core/client/dist/index.html`.
+2. Запрашивается ли чанк страницы входа (`LoginPage-*.js`). Если есть оболочка старта и нет этого чанка — первый переход роутера не закончился.
+3. Есть ли GET `/__client-boot?e=…` — короткий след старта без сессии.
+
+Типичная причина вечной маски: в таблице маршрутов нет `/login`, а guard редиректит на имя `Login`. Vue Router не завершает `router.isReady()`.
+
+При обновлении страницы кабинета (F5) форма входа не должна мелькать: cookie `ergo_session` значит, что refresh ещё не выполнен, и guard обязан дождаться restore, а не сразу открывать `/login`. Если форма всё же вспыхивает на секунду — сборка старая или guard шлёт на вход до `whenSessionReady()`.
+
+Правило для агента: [`.cursor/rules/nginx-spa-boot.mdc`](../.cursor/rules/nginx-spa-boot.mdc).
+
 ## SSE обрывается за nginx
 
 Симптом: поток `/api/realtime/stream/` или модульный `…/stream/` (чат) закрывается через короткое время / ответ не идёт по частям.
@@ -132,6 +152,12 @@ ergoms ps1-encoding-check --fix
 
 Подробнее — [lifecycle-pipeline.md](lifecycle-pipeline.md#powershell-и-кириллица-windows).
 
+## Cursor сам открывает страницы во встроенном браузере
+
+Ссылка `http://localhost:…` из терминала или чата открывается во вкладке Browser Tab, а не в системном браузере.
+
+В Cursor это не настройка `workbench.browser.openLocalhostLinks`. Переключатель «Open Local Links in Cursor Browser» лежит во внутреннем хранилище. Его выключают `ergoms install-extensions` и расширение ERGO MS User Config при открытии проекта. Затем перезагрузите окно (**Developer: Reload Window**).
+
 ## См. также
 
 | Вопрос | Документ |
@@ -140,4 +166,5 @@ ergoms ps1-encoding-check --fix
 | Справочник команд ergoms | [cli.md](cli.md) |
 | Docker Compose | [docker.md](docker.md) |
 | Запуск для разработки | [development.md](development.md) |
+| Пустой экран за nginx (агент) | [`.cursor/rules/nginx-spa-boot.mdc`](../.cursor/rules/nginx-spa-boot.mdc) |
 | Lifecycle-pipeline | [lifecycle-pipeline.md](lifecycle-pipeline.md) |

@@ -1,5 +1,9 @@
 ---
 description: Проверка прав на маршрутах клиента — permission-rules.js, только UX
+globs:
+  - "**/permission-rules.js"
+  - "**/permission-sections.js"
+  - "core/client/src/modules/permissions/**"
 alwaysApply: false
 ---
 # Права на маршрутах (клиент)

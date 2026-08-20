@@ -61,7 +61,12 @@ class SecurityCatalog:
         return None
 
     def insecure_secret_values(self) -> frozenset[str]:
-        raw = self.refs.get('insecure_secret_values') or []
+        return self.ref_strings('insecure_secret_values')
+
+    def ref_strings(self, key: str) -> frozenset[str]:
+        raw = self.refs.get(key) or []
+        if not isinstance(raw, list):
+            return frozenset()
         return frozenset(str(item).strip() for item in raw if str(item).strip())
 
 

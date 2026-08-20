@@ -28,6 +28,12 @@ sections:
     summary: Install and start Celery beat
   - name: install-media-service
     summary: Install and start Media API
+  - name: install-module-service
+    invoke: ergoms install-module-service --module=<name> --kind=api|worker
+    summary: Install OS service for a module API or worker
+  - name: uninstall-module-service
+    invoke: ergoms uninstall-module-service --module=<name> --kind=api|worker
+    summary: Remove OS service for a module API or worker
   - name: start
     summary: Start all services
   - name: stop
@@ -54,7 +60,7 @@ sections:
   - name: dev
     summary: Start API with cache warmup (mode from ERGO_ENV)
   - name: start-all
-    summary: DB logs, Redis (if enabled), API, client, Media API, worker, and beat (without OS services)
+    summary: DB logs, Redis, Meilisearch, and Jupyter (if enabled), API, client, Media API, worker, and beat (without OS services)
   - name: start-api
     summary: API only
   - name: start-module
@@ -65,12 +71,16 @@ sections:
   - name: start-media
     summary: Media API
   - name: start-worker
-    invoke: ergoms start-worker [--worker=<name>]
-    summary: Celery worker
+    invoke: ergoms start-worker [--worker=<name>] [--module=<name>]
+    summary: Celery worker (--module limits the worker to that module queue)
   - name: start-beat
     summary: Celery beat
   - name: start-jupyter
     summary: JupyterLab with Django core (modes local/lan/nginx — API_JUPYTER_* in .env)
+  - name: start-jupyter-dev
+    summary: JupyterLab in development mode when ERGO_JUPYTER is not none
+  - name: stop-jupyter-dev
+    summary: Stub to stop JupyterLab (the process ends with the terminal)
   - name: stop-worker
     summary: Stop all Celery workers
   - name: stop-beat
@@ -84,6 +94,9 @@ sections:
   - name: resource-usage
     invoke: ergoms resource-usage [--json] [-w] [--interval N]
     summary: RAM/CPU usage of ERGO MS processes on the host
+  - name: celery-balance
+    invoke: ergoms celery-balance [--dry-run] [--watch] [--json]
+    summary: Celery budget and concurrency (observe / recommend / auto)
   - name: loadtest
     invoke: ergoms loadtest [--profile …] [--isolated-db|--docker-isolated] | --find-limit … | --cleanup-users
     summary: API/pages load test (Locust), find-limit, DB isolation, or delete lt_* users
@@ -144,6 +157,18 @@ sections:
     summary: Update Python dependencies of core and modules (poetry update)
   - name: db-migrate
     summary: Apply migrations
+  - name: db-migrate-module
+    invoke: ergoms db-migrate-module --module=<name> [--database=alias] [--grant-role=role] [--all]
+    summary: Create schema m_<name> and migrate the module apps
+  - name: db-move-module-schema
+    invoke: ergoms db-move-module-schema --module=<name> [--dry-run] [--all]
+    summary: Move module tables from public or core to m_<name>; --all then moves core and drops public
+  - name: db-move-core-schema
+    invoke: ergoms db-move-core-schema [--dry-run] [--keep-public]
+    summary: Move leftover public objects to core and drop schema public
+  - name: data-inventory
+    invoke: ergoms data-inventory [--json]
+    summary: Map module FK/SQL couplings and extraction blockers
   - name: db-makemigrations
     summary: Create migration files
   - name: migrate-all
@@ -209,8 +234,8 @@ sections:
   - name: generate-secret
     summary: Generate a secret for .env (API_SECRET_KEY / API_JWT_SIGNING_KEY)
   - name: env
-    invoke: ergoms env [--show-example-values] [--strict] [--root PATH]
-    summary: Compare .env with .env.example (root, env/*.env, modules) — directive counts and keys
+    invoke: ergoms env [--show-example-values] [--strict] [--reset-from-example] [--yes] [--root PATH]
+    summary: Compare .env with .env.example; --reset-from-example applies templates and keeps existing secrets
   - name: geoip-download
     summary: Download the GeoIP database (DB-IP City Lite)
 
@@ -242,8 +267,11 @@ sections:
   - name: safe-drop-app
     summary: Safely drop a Django app
   - name: core-rules-check
-    summary: 'Core checks: module isolation, bridge contract schemas, console.error, native select, modules.* imports, mid-indent/ast.parse,
+    summary: 'Core checks: module isolation, bridge contract schemas, microservice manifests, cross-schema FK, console.error, native select, modules.* imports, mid-indent/ast.parse,
       BOM/LF in deployment scripts'
+  - name: deps-audit
+    invoke: ergoms deps-audit
+    summary: Check Python and npm dependencies for known vulnerabilities (OSV, npm audit); High/Critical fail the command
   - name: security-modes
     summary: ERGO_SECURITY levels reference (stage 2: profile fills unset keys; does not write .env)
   - name: security-check

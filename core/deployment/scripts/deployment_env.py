@@ -47,6 +47,7 @@ def _values_for_modes() -> dict[str, str]:
         'ERGO_PROXY',
         'ERGO_BROKER',
         'ERGO_DB',
+        'ERGO_JUPYTER',
         'NGINX_ENABLED',
         'REDIS_ENABLED',
         'DOCKER_ENABLED',
@@ -107,6 +108,12 @@ def is_search_enabled() -> bool:
     from ergo_modes import effective_search_enabled  # noqa: WPS433
 
     return effective_search_enabled(_values_for_modes())
+
+
+def is_jupyter_enabled() -> bool:
+    from ergo_modes import effective_jupyter_enabled  # noqa: WPS433
+
+    return effective_jupyter_enabled(_values_for_modes())
 
 
 def get_ergo_db() -> str:

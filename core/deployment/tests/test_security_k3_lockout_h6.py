@@ -56,9 +56,9 @@ class SecretsCatalogTests(unittest.TestCase):
 
 
 class LockoutRetentionInjectTests(unittest.TestCase):
-    def test_standard_injects_zero(self) -> None:
+    def test_standard_injects_lockout(self) -> None:
         merged = merge_security_profile_defaults({'ERGO_SECURITY': 'standard'})
-        self.assertEqual(merged['API_AUTH_LOCKOUT_MAX_ATTEMPTS'], '0')
+        self.assertEqual(merged['API_AUTH_LOCKOUT_MAX_ATTEMPTS'], '10')
         self.assertEqual(merged['API_SESSION_DEVICE_RETENTION_DAYS'], '0')
 
     def test_hardened_injects(self) -> None:
@@ -79,6 +79,17 @@ class LockoutRetentionInjectTests(unittest.TestCase):
         })
         self.assertEqual(merged['API_AUTH_LOCKOUT_MAX_ATTEMPTS'], '3')
         self.assertEqual(merged['API_SESSION_DEVICE_RETENTION_DAYS'], '14')
+
+    def test_lockout_zero_on_standard_errors(self) -> None:
+        values = {
+            'ERGO_ENV': 'development',
+            'ERGO_SECURITY': 'standard',
+            'API_SECRET_KEY': 'unique-long-secret-key-value-32chars',
+            'API_AUTH_LOCKOUT_MAX_ATTEMPTS': '0',
+        }
+        report = build_security_report(Path('.'), values=values)
+        finding = next(f for f in report.findings if f.control_id == 'auth.lockout')
+        self.assertEqual(finding.severity, 'error')
 
     def test_lockout_zero_on_hardened_errors(self) -> None:
         values = {

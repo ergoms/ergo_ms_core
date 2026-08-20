@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import shutil
 import subprocess
@@ -382,35 +383,78 @@ def npm_deps_input_paths(project_root: Path) -> list[Path]:
     return paths
 
 
-def host_npm_deps_up_to_date(project_root: Path) -> bool:
-    """Smart-skip для host npm (аналог DOCKER_NPM_INSTALL=smart)."""
-    marker = host_npm_deps_marker(project_root)
+def npm_deps_fingerprint(project_root: Path) -> str:
+    """Отпечаток манифестов npm: git checkout с тем же содержимым не сбивает skip."""
+    digest = hashlib.sha256()
+    for path in npm_deps_input_paths(project_root):
+        if not path.is_file():
+            continue
+        digest.update(str(path.relative_to(project_root)).encode('utf-8'))
+        digest.update(b'\0')
+        digest.update(path.read_bytes())
+        digest.update(b'\0')
+    return digest.hexdigest()
+
+
+def _package_json_direct_dep_names(pkg_path: Path) -> list[str]:
+    try:
+        data = json.loads(pkg_path.read_text(encoding='utf-8'))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return []
+    names: list[str] = []
+    for key in ('dependencies', 'devDependencies'):
+        section = data.get(key) or {}
+        if isinstance(section, dict):
+            names.extend(str(name) for name in section if name)
+    return names
+
+
+def host_npm_direct_deps_present(project_root: Path) -> bool:
+    """Прямые пакеты из манифестов ядра и модулей лежат в node_modules."""
     node_modules = npm_node_modules_dir(project_root)
-    if not marker.is_file() or not node_modules.is_dir():
+    if not node_modules.is_dir():
+        return False
+    checked = 0
+    for pkg_path in npm_deps_input_paths(project_root):
+        if pkg_path.name != 'package.json' or not pkg_path.is_file():
+            continue
+        for name in _package_json_direct_dep_names(pkg_path):
+            target = node_modules.joinpath(*name.split('/'))
+            if not target.exists():
+                return False
+            checked += 1
+    return checked > 0
+
+
+def host_npm_deps_up_to_date(project_root: Path) -> bool:
+    """Smart-skip для host npm по содержимому манифестов, не по mtime."""
+    node_modules = npm_node_modules_dir(project_root)
+    if not node_modules.is_dir():
         return False
     try:
         next(node_modules.iterdir())
     except StopIteration:
         return False
-    try:
-        marker_mtime = marker.stat().st_mtime
-    except OSError:
-        return False
-    for path in npm_deps_input_paths(project_root):
-        if not path.is_file():
-            continue
+    current = npm_deps_fingerprint(project_root)
+    marker = host_npm_deps_marker(project_root)
+    stamped = ''
+    if marker.is_file():
         try:
-            if path.stat().st_mtime > marker_mtime:
-                return False
+            stamped = marker.read_text(encoding='utf-8').strip()
         except OSError:
-            return False
-    return True
+            stamped = ''
+    if stamped == current:
+        return True
+    # Маркер «ok» / отсутствует: checkout обновляет mtime, но пакеты уже на месте.
+    if stamped in ('', 'ok') and host_npm_direct_deps_present(project_root):
+        return True
+    return False
 
 
 def touch_host_npm_deps_marker(project_root: Path) -> None:
     marker = host_npm_deps_marker(project_root)
     marker.parent.mkdir(parents=True, exist_ok=True)
-    marker.write_text('ok\n', encoding='utf-8')
+    marker.write_text(npm_deps_fingerprint(project_root) + '\n', encoding='utf-8')
 
 
 _CLIENT_BUILD_ENV_KEYS = (

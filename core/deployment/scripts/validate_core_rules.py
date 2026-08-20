@@ -16,6 +16,8 @@
 - mid-indent / ast.parse для .py в core/api/src и core/deployment/scripts
 - UTF-8 BOM в .ps1 deployment с не-ASCII (Windows PowerShell 5.1)
 - LF без BOM в .sh deployment (Linux shebang и source)
+- сырой ModelViewSet в core/api без ObjectPermissionMixin / BaseModelViewSet / admin-маркера
+- README.md и AGENTS.md у каждого установленного модуля (есть api/apps.py или client/)
 """
 
 from __future__ import annotations
@@ -46,6 +48,12 @@ from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402
 from validate_ps1_encoding import find_ps1_encoding_violations  # noqa: E402
 from validate_sh_encoding import find_sh_encoding_violations  # noqa: E402
+from validate_bridge_manifests import find_manifest_violations  # noqa: E402
+from validate_data_boundaries import (  # noqa: E402
+    find_cross_module_fk_violations,
+    find_isolated_auth_fk_violations,
+)
+from security.checkers.object_permissions import find_raw_model_viewsets  # noqa: E402
 API_DIR = PROJECT_ROOT / 'core' / 'api'
 CLIENT_SRC = PROJECT_ROOT / 'core' / 'client' / 'src'
 CORE_DIR = PROJECT_ROOT / 'core'
@@ -103,6 +111,9 @@ HARDCODED_MODULE_ALLOWLIST_SUFFIXES = (
     'validate_core_rules.py',
     'validate_module_isolation.py',
     'validate_bridge_contracts.py',
+    'validate_bridge_manifests.py',
+    'validate_data_boundaries.py',
+    'inventory_module_data.py',
     'module_deps.py',
     'sharedGlobs.generated.js',
 )
@@ -614,6 +625,52 @@ def check_python_file_integrity() -> list[str]:
     return violations
 
 
+def check_raw_model_viewsets() -> list[str]:
+    """Сырой ModelViewSet ядра без object-scope или admin-маркера."""
+    return [
+        t('core_rules_raw_viewset', name=name)
+        for name in find_raw_model_viewsets(CORE_API_SRC)
+    ]
+
+
+REQUIRED_MODULE_DOC_FILES = ('README.md', 'AGENTS.md')
+
+
+def _module_dir_is_installed(entry: Path) -> bool:
+    """Каталог установлен, если есть регистрация API или клиент."""
+    if (entry / 'api' / 'apps.py').is_file():
+        return True
+    client = entry / 'client'
+    return client.is_dir() and any(client.iterdir())
+
+
+def check_module_docs() -> tuple[list[str], list[str]]:
+    """README.md и AGENTS.md обязательны у установленного модуля.
+
+    Пустой checkout (нет ``api/apps.py`` и нет ``client/``) — skip, не ошибка.
+    Имена модулей в сообщениях берутся с диска, в исходнике их нет.
+    """
+    violations: list[str] = []
+    skipped: list[str] = []
+    if not MODULES_DIR.is_dir():
+        return violations, skipped
+    for entry in sorted(MODULES_DIR.iterdir(), key=lambda p: p.name):
+        if not entry.is_dir():
+            continue
+        if entry.name.startswith('.') or entry.name == '__pycache__':
+            continue
+        rel_dir = f'modules/{entry.name}'
+        if not _module_dir_is_installed(entry):
+            skipped.append(rel_dir)
+            continue
+        for filename in REQUIRED_MODULE_DOC_FILES:
+            if not (entry / filename).is_file():
+                violations.append(
+                    t('core_rules_module_docs_missing', rel=f'{rel_dir}/{filename}')
+                )
+    return violations, skipped
+
+
 def main() -> int:
     all_errors: list[str] = []
 
@@ -629,6 +686,29 @@ def main() -> int:
 
     _section('core_rules_heading_bridge')
     all_errors.extend(run_bridge_contracts_check())
+
+    _section('core_rules_heading_bridge_manifests')
+    manifest_violations = find_manifest_violations()
+    if manifest_violations:
+        all_errors.extend(manifest_violations)
+        for item in manifest_violations:
+            print(format_console('error', t('core_rules_bridge_manifest_error', item=item)))
+    else:
+        print(format_console('ok', t('core_rules_bridge_manifests_ok')))
+
+    _section('core_rules_heading_data_boundaries')
+    boundary_violations = [
+        msg for _rel, msg in (
+            *find_cross_module_fk_violations(),
+            *find_isolated_auth_fk_violations(),
+        )
+    ]
+    if boundary_violations:
+        all_errors.extend(boundary_violations)
+        for item in boundary_violations:
+            print(format_console('error', item))
+    else:
+        print(format_console('ok', t('core_rules_data_boundaries_ok')))
 
     _section('core_rules_heading_hardcoded_names')
     hardcoded_violations = check_hardcoded_module_names()
@@ -688,6 +768,26 @@ def main() -> int:
             print(format_console('error', item))
     else:
         print(format_console('ok', t('core_rules_native_select_ok')))
+
+    _section('core_rules_heading_object_perms')
+    raw_viewset_violations = check_raw_model_viewsets()
+    if raw_viewset_violations:
+        all_errors.extend(raw_viewset_violations)
+        for item in raw_viewset_violations:
+            print(format_console('error', item))
+    else:
+        print(format_console('ok', t('core_rules_object_perms_ok')))
+
+    _section('core_rules_heading_module_docs')
+    docs_violations, docs_skipped = check_module_docs()
+    for rel_dir in docs_skipped:
+        print(format_console('skip', t('core_rules_module_docs_skip', rel=rel_dir)))
+    if docs_violations:
+        all_errors.extend(docs_violations)
+        for item in docs_violations:
+            print(format_console('error', item))
+    else:
+        print(format_console('ok', t('core_rules_module_docs_ok')))
 
     _section('core_rules_heading_modules_import')
     import_violations = check_modules_imports_in_core()

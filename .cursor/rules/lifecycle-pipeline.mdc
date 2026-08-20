@@ -36,7 +36,7 @@ ergoms / tasks.json / ergo_ms.ps1|sh / commands.conf / docker_cli.py
 | [`orchestrator.py`](../../core/deployment/lifecycle/orchestrator.py) | `run_recipe()` |
 | [`context.py`](../../core/deployment/lifecycle/context.py) | `runtime` (host/docker), `target`, `options` |
 | [`recipes.py`](../../core/deployment/lifecycle/recipes.py) | `RecipeSpec`: шаги, `needs_sudo`, алиасы ergoms |
-| [`steps/common_steps.py`](../../core/deployment/lifecycle/steps/common_steps.py) | Python/npm/migrate/warmup/build/static — ветвление host/docker |
+| [`steps/common_steps.py`](../../core/deployment/lifecycle/steps/common_steps.py) | Python/npm/migrate/warmup/build/static — ветвление host/docker; host npm skip по отпечатку манифестов, не по mtime |
 | [`steps/host_steps.py`](../../core/deployment/lifecycle/steps/host_steps.py) | venv, Poetry, submodule, scaffold, CLI |
 | [`steps/service_steps.py`](../../core/deployment/lifecycle/steps/service_steps.py) | `service-*` → `internal_dispatch` category `service` |
 | [`steps/infra_steps.py`](../../core/deployment/lifecycle/steps/infra_steps.py) | `nginx-*`, `redis-*`, `tls-*`; cleanup `setup-full` — `StopSetupStartedInfraStep` (`run_as_cleanup`, nginx/redis + `host_lifecycle` stop_commands) |
@@ -87,7 +87,7 @@ subprocess.call(build_compose_cmd('up', ...))
 install-deps=win:virtual_env\python\Scripts\python.exe core\deployment\lifecycle\runner.py install-deps && linux:...
 
 # GOOD — tasks.json
-"command": "ergoms setup && npm run install-extensions"
+"command": "ergoms setup && ergoms install-extensions"
 ```
 
 ## internal_dispatch (фаза 1 служб и infra)

@@ -28,6 +28,12 @@ sections:
     summary: Installer et démarrer Celery beat
   - name: install-media-service
     summary: Installer et démarrer Media API
+  - name: install-module-service
+    invoke: ergoms install-module-service --module=<name> --kind=api|worker
+    summary: Installer le service OS API ou worker du module
+  - name: uninstall-module-service
+    invoke: ergoms uninstall-module-service --module=<name> --kind=api|worker
+    summary: Supprimer le service OS API ou worker du module
   - name: start
     summary: Démarrer tous les services
   - name: stop
@@ -54,7 +60,7 @@ sections:
   - name: dev
     summary: Démarrer l'API avec préchauffage des caches (mode depuis ERGO_ENV)
   - name: start-all
-    summary: Journaux DB, Redis (si activé), API, client, Media API, worker et beat (sans services OS)
+    summary: Journaux DB, Redis, Meilisearch et Jupyter (si activés), API, client, Media API, worker et beat (sans services OS)
   - name: start-api
     summary: API uniquement
   - name: start-module
@@ -65,12 +71,16 @@ sections:
   - name: start-media
     summary: Media API
   - name: start-worker
-    invoke: ergoms start-worker [--worker=<nom>]
-    summary: Celery worker
+    invoke: ergoms start-worker [--worker=<nom>] [--module=<name>]
+    summary: Worker Celery (--module limite le worker à la file du module)
   - name: start-beat
     summary: Celery beat
   - name: start-jupyter
     summary: JupyterLab avec le noyau Django (modes local/lan/nginx — API_JUPYTER_* dans .env)
+  - name: start-jupyter-dev
+    summary: JupyterLab en mode développement si ERGO_JUPYTER n'est pas none
+  - name: stop-jupyter-dev
+    summary: Stub d'arrêt de JupyterLab (le processus se termine avec le terminal)
   - name: stop-worker
     summary: Arrêter tous les Celery workers
   - name: stop-beat
@@ -84,6 +94,9 @@ sections:
   - name: resource-usage
     invoke: ergoms resource-usage [--json] [-w] [--interval N]
     summary: Consommation RAM/CPU des processus ERGO MS sur l'hôte
+  - name: celery-balance
+    invoke: ergoms celery-balance [--dry-run] [--watch] [--json]
+    summary: Budget et concurrence Celery (observe / recommend / auto)
   - name: loadtest
     invoke: ergoms loadtest [--profile …] [--isolated-db|--docker-isolated] | --find-limit … | --cleanup-users
     summary: Test de charge API/pages (Locust), find-limit, isolation BDD ou suppression lt_*
@@ -144,6 +157,18 @@ sections:
     summary: Mettre à jour les dépendances Python du noyau et des modules (poetry update)
   - name: db-migrate
     summary: Appliquer les migrations
+  - name: db-migrate-module
+    invoke: ergoms db-migrate-module --module=<name> [--database=alias] [--grant-role=role] [--all]
+    summary: Créer le schéma m_<name> et migrer les applications du module
+  - name: db-move-module-schema
+    invoke: ergoms db-move-module-schema --module=<name> [--dry-run] [--all]
+    summary: Déplacer les tables du module de public ou core vers m_<name> ; --all puis le cœur et suppression de public
+  - name: db-move-core-schema
+    invoke: ergoms db-move-core-schema [--dry-run] [--keep-public]
+    summary: Déplacer le reste de public vers core et supprimer le schéma public
+  - name: data-inventory
+    invoke: ergoms data-inventory [--json]
+    summary: Carte des FK/SQL des modules et des bloqueurs d'extraction
   - name: db-makemigrations
     summary: Créer les fichiers de migration
   - name: migrate-all
@@ -209,8 +234,8 @@ sections:
   - name: generate-secret
     summary: Générer un secret pour .env (API_SECRET_KEY / API_JWT_SIGNING_KEY)
   - name: env
-    invoke: ergoms env [--show-example-values] [--strict] [--root PATH]
-    summary: Comparer .env avec .env.example (racine, env/*.env, modules) — nombre de directives et clés
+    invoke: ergoms env [--show-example-values] [--strict] [--reset-from-example] [--yes] [--root PATH]
+    summary: Comparer .env avec .env.example ; --reset-from-example applique les modèles et conserve les secrets déjà définis
   - name: geoip-download
     summary: Télécharger la base GeoIP (DB-IP City Lite)
 
@@ -242,8 +267,11 @@ sections:
   - name: safe-drop-app
     summary: Supprimer une application Django en toute sécurité
   - name: core-rules-check
-    summary: 'Vérifications du noyau : isolation des modules, schémas de contrats du pont, console.error, select natif, imports
+    summary: 'Vérifications du noyau : isolation des modules, schémas de contrats du pont, manifests microservice, FK inter-schémas, console.error, select natif, imports
       modules.*, mid-indent/ast.parse, BOM/LF dans les scripts de déploiement'
+  - name: deps-audit
+    invoke: ergoms deps-audit
+    summary: Vérifier les dépendances Python et npm (OSV, npm audit) ; High/Critical font échouer la commande
   - name: security-modes
     summary: Référence des niveaux ERGO_SECURITY (étape 2 : clés absentes au runtime ; n'écrit pas .env)
   - name: security-check

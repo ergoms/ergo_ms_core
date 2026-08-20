@@ -1,5 +1,10 @@
 ---
 description: Клиент Vue — i18n ru/en, toast, confirm, импорты, компоненты ядра
+globs:
+  - "core/client/**/*.vue"
+  - "core/client/**/*.js"
+  - "modules/*/client/**/*.vue"
+  - "modules/*/client/**/*.js"
 alwaysApply: false
 ---
 # Клиент (Vue)
@@ -50,7 +55,7 @@ showSuccess(tGlobal('common.saved'))
 
 ## Toast-уведомления
 
-Единый слой — `@/js/utils/toast.js`. **Не** импортируй `vue-toastification` напрямую (кроме ядра: `main.js`, `toast.js`).
+Единый слой — `@/js/utils/toast.js`. **Не** импортируй `vue-sonner` напрямую (кроме ядра: `toast.js`, `ErgoToaster.vue`).
 
 ```javascript
 import { useToast, showSuccess, showError, handleApiError } from '@/js/utils/toast.js'
@@ -119,9 +124,9 @@ import { endpoints } from '@/js/api/endpoints'
 
 ## Настройки из `.env`
 
-- В `.env` — **`CLIENT_*`**, общие **`API_*`**, **`DISABLED_MODULES`**, **`REALTIME_*`**
-- В коде — **`import { clientEnv } from '@/js/clientEnv.js'`**, не `import.meta.env` и не префикс `VITE_`
-- Новая настройка модуля: `CLIENT_<МОДУЛЬ>_*` в корневом `.env` + поле в `clientEnv.js` + `buildClientEnvDefines()` в `core/client/vite.config.js`
+- В корневом `.env` — **`CLIENT_*`**, общие **`API_*`**, **`DISABLED_MODULES`**. **`REALTIME_*`** — [`env/realtime.env.example`](../../env/realtime.env.example); фрагменты — [`env-examples.mdc`](env-examples.mdc)
+- В коде ядра — **`import { clientEnv } from '@/js/clientEnv.js'`**, не `import.meta.env` и не префикс `VITE_`
+- Новая настройка модуля: `CLIENT_<МОДУЛЬ>_*` в корневом `.env` **или** `modules/<имя>/.env`; в модуле читай через **локальный** `client/js/clientEnv.js`, не через ядровой `clientEnv.js`. Общие ключи ядра — поле в `clientEnv.js` + `buildClientEnvDefines()` в `core/client/vite.config.js`
 
 ```javascript
 import { clientEnv } from '@/js/clientEnv.js'
@@ -179,3 +184,4 @@ watchState(() => {
 | Ошибки API | [`log-error.mdc`](log-error.mdc) |
 | Права маршрутов (UX) | [`permission_rules.mdc`](permission_rules.mdc) |
 | Модули, мост | [`modules.mdc`](modules.mdc) |
+| Шаблоны `.env` и `env/` | [`env-examples.mdc`](env-examples.mdc) |

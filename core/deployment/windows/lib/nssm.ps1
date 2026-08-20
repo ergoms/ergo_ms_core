@@ -26,14 +26,20 @@ function Install-NSSM {
     }
 
     Write-ErgomsMessage -Key 'nssm_downloading' -Color Yellow
+    . (Join-Path $PSScriptRoot 'portable_archive.ps1')
     $cacheTmp = Join-Path $Root "virtual_env\cache\tmp"
+    $downloads = Join-Path $Root "virtual_env\cache\downloads"
     New-Item -ItemType Directory -Path $cacheTmp -Force | Out-Null
+    New-Item -ItemType Directory -Path $downloads -Force | Out-Null
+    $cacheZip = Join-Path $downloads "nssm-2.24.zip"
     $tempZip = Join-Path $cacheTmp "nssm.zip"
     $tempExtract = Join-Path $cacheTmp "nssm_extract"
 
     try {
-        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        Invoke-WebRequest -Uri $script:NssmUrl -OutFile $tempZip -UseBasicParsing
+        if (-not (Test-CachedRuntimeArchive -Path $cacheZip)) {
+            Save-RuntimeArchiveDownload -Url $script:NssmUrl -DestPath $cacheZip -Root $Root
+        }
+        Copy-Item -LiteralPath $cacheZip -Destination $tempZip -Force
 
         if (Test-Path -LiteralPath $tempExtract) {
             Remove-Item -LiteralPath $tempExtract -Recurse -Force

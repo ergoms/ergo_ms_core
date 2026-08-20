@@ -20,6 +20,7 @@ _SKIP_CLASS_NAMES = frozenset({
     'BaseAPIView',
     'BaseAPIViewAuthMixin',
     'BaseAPIViewGlobalAdminMixin',
+    'BaseAPIViewPublicMixin',
 })
 
 _AUTH_MIXINS = frozenset({
@@ -28,7 +29,7 @@ _AUTH_MIXINS = frozenset({
 })
 
 _ANON_BASES = frozenset({
-    'BaseAPIView',
+    'BaseAPIViewPublicMixin',
     'TokenRefreshView',
 })
 
@@ -171,8 +172,8 @@ def classify_anonymous_class(node: ast.ClassDef) -> str | None:
     if bases & _ANON_BASES:
         if _overrides_authenticated(node):
             return None
-        if 'BaseAPIView' in bases:
-            return 'inherits BaseAPIView'
+        if 'BaseAPIViewPublicMixin' in bases:
+            return 'inherits BaseAPIViewPublicMixin'
         if 'TokenRefreshView' in bases:
             return 'inherits TokenRefreshView'
 

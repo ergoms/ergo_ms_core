@@ -8,7 +8,9 @@ from unittest.mock import patch
 import _bootstrap  # noqa: F401
 
 from docker_runtime import (  # noqa: E402
+    INFRA_PUBLISH_BIND,
     build_compose_env_overrides,
+    build_publish_compose_content,
     build_redis_auth_compose_content,
     effective_db_host,
     effective_redis_compose_host,
@@ -50,6 +52,25 @@ class DockerRuntimeTests(unittest.TestCase):
         self.assertEqual(overrides['CLIENT_USE_RELATIVE_API'], 'true')
         self.assertEqual(overrides['ERGO_ENV'], 'production')
         self.assertEqual(overrides['API_HOST'], '0.0.0.0')
+
+    def test_build_compose_env_overrides_passes_celery_balance(self) -> None:
+        overrides = build_compose_env_overrides(
+            {
+                'CELERY_BALANCE': 'auto',
+                'CELERY_BALANCE_GPU': 'off',
+                'CELERY_BALANCE_MIN_CONCURRENCY': '2',
+            },
+        )
+        self.assertEqual(overrides['CELERY_BALANCE'], 'auto')
+        self.assertEqual(overrides['CELERY_BALANCE_GPU'], 'off')
+        self.assertEqual(overrides['CELERY_BALANCE_MIN_CONCURRENCY'], '2')
+        self.assertNotIn('CELERY_BALANCE_MAX_CONCURRENCY', overrides)
+
+    def test_jupyter_profile_sets_container_bind_host(self) -> None:
+        overrides = build_compose_env_overrides(
+            {'ERGO_JUPYTER': 'local', 'DOCKER_PROFILE_JUPYTER': 'true'},
+        )
+        self.assertEqual(overrides['API_JUPYTER_BIND_HOST'], '0.0.0.0')
 
     def test_prepare_compose_artifacts_writes_compose_env(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -141,6 +162,19 @@ class RedisPublishAndAuthTests(unittest.TestCase):
             self.assertTrue(path.is_file())
             write_redis_auth_compose(path, '')
             self.assertFalse(path.is_file())
+
+
+class InfraPublishBindTests(unittest.TestCase):
+    def test_publish_compose_binds_loopback(self) -> None:
+        content = build_publish_compose_content({'postgres': 5433, 'meilisearch': 8004})
+        self.assertIn(f'{INFRA_PUBLISH_BIND}:5433:5432', content)
+        self.assertIn(f'{INFRA_PUBLISH_BIND}:8004:7700', content)
+        self.assertNotIn('- "5433:5432"', content)
+        self.assertNotIn('- "8004:7700"', content)
+
+    def test_empty_publish_has_no_wildcard_ports(self) -> None:
+        content = build_publish_compose_content({})
+        self.assertIn('services: {}', content)
 
 
 if __name__ == '__main__':

@@ -105,7 +105,23 @@ def _install_windows(root: Path, version: str, force: bool) -> None:
     with tempfile.TemporaryDirectory(dir=str(cache_tmp)) as tmp:
         tmp_path = Path(tmp)
         zip_path = tmp_path / f'postgresql-{version}-windows-x64-binaries.zip'
-        _download(url, zip_path)
+        from download_cache import cached_archive_path, download_with_cache
+
+        if download_with_cache(
+            root,
+            'postgres',
+            zip_path,
+            lambda dest: _download(url, dest),
+        ):
+            print(
+                format_console(
+                    'info',
+                    t(
+                        'archive_using_cache',
+                        path=cached_archive_path(root, 'postgres', zip_path.name),
+                    ),
+                )
+            )
         extract_dir = tmp_path / 'extract'
         extract_dir.mkdir()
         print(t('postgres_unpacking'))
@@ -167,7 +183,23 @@ def _install_linux(root: Path, version: str, force: bool) -> None:
     with tempfile.TemporaryDirectory(dir=str(cache_tmp)) as tmp:
         tmp_path = Path(tmp)
         tar_path = tmp_path / tarball
-        _download(url, tar_path)
+        from download_cache import cached_archive_path, download_with_cache
+
+        if download_with_cache(
+            root,
+            'postgres',
+            tar_path,
+            lambda dest: _download(url, dest),
+        ):
+            print(
+                format_console(
+                    'info',
+                    t(
+                        'archive_using_cache',
+                        path=cached_archive_path(root, 'postgres', tar_path.name),
+                    ),
+                )
+            )
         extract_dir = tmp_path / 'src'
         extract_dir.mkdir()
         with tarfile.open(tar_path, 'r:bz2') as archive:
@@ -265,6 +297,9 @@ def install_postgres(
         print(format_console('info', t('postgres_target_version', version=version)))
     print(format_console('info', t('postgres_listen_port_info', listen_port=listen_port)))
 
+    from security.ensure_infra_credentials import ensure_infra_credentials
+
+    ensure_infra_credentials(root)
     defaults = load_db_defaults(root)
     user = defaults['user']
     password = defaults['password']

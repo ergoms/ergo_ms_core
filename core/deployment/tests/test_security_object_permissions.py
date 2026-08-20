@@ -14,6 +14,7 @@ from security.catalog import load_security_catalog
 from security.checkers import _REGISTRY
 from security.checkers.object_permissions import (
     find_object_permission_mixin,
+    find_raw_model_viewsets,
     run as object_permissions_run,
 )
 
@@ -47,12 +48,20 @@ class ObjectPermissionMixinUnitTests(unittest.TestCase):
     def setUp(self) -> None:
         self.mod = _load_mixin_module()
 
-    def test_mixin_default_allows(self) -> None:
+    def test_mixin_default_denies(self) -> None:
         mixin = self.mod.ObjectPermissionMixin()
-        self.assertTrue(mixin.check_object_permission(None, object()))
-        self.assertTrue(mixin.has_object_permission(None, None, object()))
+        self.assertFalse(mixin.check_object_permission(None, object()))
+        self.assertFalse(mixin.has_object_permission(None, None, object()))
 
-    def test_filter_queryset_unchanged(self) -> None:
+    def test_filter_queryset_empty_when_none(self) -> None:
+        class DummyQS:
+            def none(self):
+                return 'empty'
+
+        self.assertEqual(
+            self.mod.filter_queryset_for_user(DummyQS(), user=None),
+            'empty',
+        )
         sentinel = object()
         self.assertIs(
             self.mod.filter_queryset_for_user(sentinel, user=None),
@@ -92,15 +101,14 @@ class ObjectPermissionsCheckerTests(unittest.TestCase):
         finding = self._run(level='open')
         self.assertEqual(finding.severity, 'ok')
 
-    def test_hardened_warning_phase1(self) -> None:
+    def test_hardened_ok_when_no_raw_viewsets(self) -> None:
         finding = self._run(level='hardened')
-        self.assertEqual(finding.severity, 'warning')
-        self.assertIn('phase 1', finding.message)
-        self.assertIn('mixin', finding.message.lower())
+        self.assertEqual(finding.severity, 'ok')
+        self.assertIn('сырых ModelViewSet', finding.message)
 
-    def test_maximum_warning_phase1(self) -> None:
+    def test_maximum_ok_when_no_raw_viewsets(self) -> None:
         finding = self._run(level='maximum')
-        self.assertEqual(finding.severity, 'warning')
+        self.assertEqual(finding.severity, 'ok')
 
     def test_hardened_error_without_mixin(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -114,6 +122,10 @@ class ObjectPermissionsCheckerTests(unittest.TestCase):
         found = find_object_permission_mixin(_REPO_ROOT / 'core' / 'api' / 'src')
         self.assertIsNotNone(found)
         self.assertEqual(found.name, 'object_permissions.py')
+
+    def test_repo_has_no_raw_viewsets(self) -> None:
+        raw = find_raw_model_viewsets(_REPO_ROOT / 'core' / 'api' / 'src')
+        self.assertEqual(raw, [])
 
 
 if __name__ == '__main__':

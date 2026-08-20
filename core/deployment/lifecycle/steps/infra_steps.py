@@ -114,6 +114,11 @@ class EnsureRedisStep(DeploymentStep):
         from install_redis import is_installed as redis_is_installed  # noqa: WPS433
 
         if redis_is_installed(ctx.project_root) and not ctx.option_bool('force'):
+            from install_redis import render_redis_conf  # noqa: WPS433
+            from security.ensure_infra_credentials import ensure_infra_credentials  # noqa: WPS433
+
+            ensure_infra_credentials(ctx.project_root)
+            render_redis_conf(ctx.project_root)
             print(format_console('skip', t('redis_already_installed_skip')))
             return StepResult()
 
@@ -364,6 +369,10 @@ class StopSetupStartedInfraStep(DeploymentStep):
     def _load_stop_commands(self, ctx: DeploymentContext) -> list[str] | None:
         if not host_ops.venv_exists(ctx.project_root, ctx.platform):
             return []
+        # Loader нужен PyYAML; до успешного python-install в venv его нет.
+        stamp = ctx.project_root / host_ops.PYTHON_DEPS_STAMP_REL
+        if not stamp.is_file():
+            return []
         venv_py = host_ops.venv_python_exe(ctx.project_root, ctx.platform)
         result = subprocess.run(
             [
@@ -386,8 +395,11 @@ class StopSetupStartedInfraStep(DeploymentStep):
             },
         )
         if result.returncode != 0:
-            if result.stderr:
-                print(result.stderr, file=sys.stderr, end='')
+            stderr = result.stderr or ''
+            if "No module named 'yaml'" in stderr or 'No module named "yaml"' in stderr:
+                return []
+            if stderr:
+                print(stderr, file=sys.stderr, end='')
             return None
         commands: list[str] = []
         for line in result.stdout.splitlines():

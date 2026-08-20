@@ -1,10 +1,5 @@
 ---
 description: Производительность клиента Vue — lazy-чанки, async-модалки, параллельные API, prefetch меню
-globs:
-  - "core/client/**/*.vue"
-  - "core/client/**/*.js"
-  - "modules/**/client/**/*.vue"
-  - "modules/**/client/**/*.js"
 alwaysApply: false
 ---
 
@@ -71,7 +66,7 @@ import en from './locales/en/index.js'
 import fr from './locales/fr/index.js'
 
 // BAD — весь Lucide при preload меню
-await import('lucide-vue-next')
+await import('@lucide/vue')
 ```
 
 ```js

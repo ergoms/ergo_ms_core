@@ -47,6 +47,14 @@ class MediaContentValidationCheckerTests(unittest.TestCase):
         )
         self.assertEqual(finding.severity, 'ok')
 
+    def test_standard_weaker_extension_error(self) -> None:
+        finding = self._run(
+            level='standard',
+            values={'MEDIA_API_CONTENT_VALIDATION': 'extension'},
+        )
+        self.assertEqual(finding.severity, 'error')
+        self.assertIn('extension', finding.message)
+
     def test_hardened_weaker_extension_error(self) -> None:
         finding = self._run(
             level='hardened',
@@ -76,9 +84,9 @@ class MediaContentValidationMergeTests(unittest.TestCase):
         merged = merge_security_profile_defaults({'ERGO_SECURITY': 'hardened'})
         self.assertEqual(merged['MEDIA_API_CONTENT_VALIDATION'], 'extension_and_magic')
 
-    def test_standard_injects_extension(self) -> None:
+    def test_standard_injects_magic(self) -> None:
         merged = merge_security_profile_defaults({'ERGO_SECURITY': 'standard'})
-        self.assertEqual(merged['MEDIA_API_CONTENT_VALIDATION'], 'extension')
+        self.assertEqual(merged['MEDIA_API_CONTENT_VALIDATION'], 'extension_and_magic')
 
     def test_maximum_injects_av_mode(self) -> None:
         merged = merge_security_profile_defaults({'ERGO_SECURITY': 'maximum'})

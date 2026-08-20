@@ -1,5 +1,15 @@
 ---
 description: Файлы — только через media_api
+globs:
+  - "core/media_api/**"
+  - "core/api/src/core/utils/media_client/**"
+  - "core/api/src/core/utils/media_signing.py"
+  - "core/api/src/core/utils/media_views.py"
+  - "core/api/src/core/utils/media_storage.py"
+  - "core/api/src/core/utils/media_upload_quota.py"
+  - "core/api/src/core/utils/media_upload_validation.py"
+  - "core/shared/media_hmac.py"
+  - "env/media.env*"
 alwaysApply: false
 ---
 # Файлы и media_api
@@ -25,6 +35,8 @@ ViewSet + `MediaApiFileMixin`. Сериализатор принимает по�
 import { mediaApiClient } from '@/js/api/media-api-client'
 const { path } = await mediaApiClient.upload(file, { targetDir: 'tasks/attachments' })
 ```
+
+Класс квоты ставит ядро по `target_dir` (группа `media.upload_quota_policies`). Клиент **не** передаёт `quota`. Частота модуля — в `modules/<name>/.env`, не в `MEDIA_API_UPLOAD_RATE` / `_ADMIN`. Потолок токена и nginx `/upload/` — `MEDIA_API_UPLOAD_RATE_CEILING` (после смены: `ergoms reload-nginx`).
 
 ## Скачивание (клиент)
 
@@ -89,5 +101,6 @@ with get_scratch_store().session('job') as workdir:
 | Тема | Файл |
 |------|------|
 | Безопасность файлов | [`security.mdc`](security.mdc) |
+| Квоты модулей | [`module-contracts.mdc`](module-contracts.mdc) |
 | README сервиса | [`core/media_api/README.md`](../../core/media_api/README.md) |
 | Архитектура | [`.docs/architecture.md`](../../.docs/architecture.md) |

@@ -1,6 +1,7 @@
 # ERGO MS — dev-override (Vite, bind-mount исходников)
 services:
   api:
+    # Публичный API на хост. /internal/bridge закрыт nginx deny и проверкой адреса.
     ports:
       - "${API_PORT:-8000}:${API_PORT:-8000}"
 

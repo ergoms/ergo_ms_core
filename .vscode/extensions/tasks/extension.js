@@ -383,17 +383,19 @@ function terminateTrackedItem(item) {
  * Создаёт и запускает задачу (VS Code Task — видно в Running Tasks).
  */
 async function runTask(name, command, cwd, group, stopCommand) {
-    const taskDefinition = {
-        type: 'shell',
-        task: name
-    };
-
     const workspaceRoot = cwd || getWorkspaceRoot();
     const env = workspaceRoot
         ? withErgomsPath({ ...process.env }, workspaceRoot)
         : { ...process.env };
-    
+
     const { executable, args, options } = osAbstraction.getProcessExecution(command, cwd, env);
+    // type/command/args должны совпадать с ProcessExecution, иначе редактор
+    // пишет «neither specifies a command nor a dependsOn» на каждый дочерний процесс.
+    const taskDefinition = {
+        type: 'process',
+        command: executable,
+        args,
+    };
     const processExecution = new vscode.ProcessExecution(executable, args, options);
 
     const task = new vscode.Task(
@@ -404,6 +406,7 @@ async function runTask(name, command, cwd, group, stopCommand) {
         processExecution,
         []
     );
+    task.hide = true;
 
     task.presentationOptions = {
         reveal: vscode.TaskRevealKind.Always,

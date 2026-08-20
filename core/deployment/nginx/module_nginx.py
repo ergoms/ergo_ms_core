@@ -66,6 +66,14 @@ def _upstream_safe_name(module_name: str) -> str:
     return re.sub(r'[^a-zA-Z0-9_]', '_', module_name)
 
 
+_MODULE_UNAVAILABLE_LOCATION = """    location @module_unavailable {
+        default_type application/json;
+        add_header X-Ergo-Module-Unavailable 1 always;
+        return 503 '{"detail":"module_unavailable"}';
+    }
+"""
+
+
 def render_module_upstreams_host(values: Mapping[str, str]) -> str:
     """Блок upstream для host nginx (127.0.0.1:port)."""
     if not _runtime_is_microservice(values):
@@ -83,7 +91,7 @@ def render_module_upstreams_host(values: Mapping[str, str]) -> str:
             host, port = resolved
         safe = _upstream_safe_name(name)
         lines.append(f'upstream ergo_module_{safe} {{')
-        lines.append(f'    server {host}:{port};')
+        lines.append(f'    server {host}:{port} max_fails=3 fail_timeout=10s;')
         lines.append('}')
         lines.append('')
     return '\n'.join(lines)
@@ -108,10 +116,15 @@ def render_module_locations_host(values: Mapping[str, str]) -> str:
         limit_conn ergo_conn 50;
         limit_conn_status 429;
         proxy_pass http://ergo_module_{safe};
+        proxy_intercept_errors on;
+        error_page 502 503 504 =503 @module_unavailable;
+        proxy_set_header X-Request-ID $request_id;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }}
 """
         )
-    return '\n'.join(blocks)
+    return '\n'.join(blocks) + '\n' + _MODULE_UNAVAILABLE_LOCATION
 
 
 def render_module_upstreams_docker(values: Mapping[str, str]) -> str:
@@ -133,7 +146,7 @@ def render_module_upstreams_docker(values: Mapping[str, str]) -> str:
         else:
             port = str(8100 + (sum(ord(c) for c in name) % 500))
         lines.append(f'upstream ergo_module_{safe} {{')
-        lines.append(f'    server {service}:{port};')
+        lines.append(f'    server {service}:{port} max_fails=3 fail_timeout=10s;')
         lines.append('    keepalive 8;')
         lines.append('}')
         lines.append('')
@@ -162,7 +175,10 @@ def render_module_locations_docker(values: Mapping[str, str]) -> str:
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Request-ID $request_id;
+        proxy_intercept_errors on;
+        error_page 502 503 504 =503 @module_unavailable;
     }}
 """
         )
-    return '\n'.join(blocks)
+    return '\n'.join(blocks) + '\n' + _MODULE_UNAVAILABLE_LOCATION

@@ -1,3 +1,4 @@
+import { spawnSync } from 'child_process';
 import { readdir, mkdir, rm, readFile } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -18,9 +19,40 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const projectRoot = join(__dirname, '..');
+const repoRoot = join(projectRoot, '..');
 const extensionsDir = join(projectRoot, 'local-extensions');
 const sourceExtensionsDir = join(projectRoot, 'extensions');
 const tempRoot = join(projectRoot, '.temp-extract');
+
+function resolveProjectPython(root) {
+  const candidates = process.platform === 'win32'
+    ? [
+        join(root, 'virtual_env', 'python', 'Scripts', 'python.exe'),
+        join(root, 'virtual_env', 'packages', 'python', 'python.exe'),
+      ]
+    : [
+        join(root, 'virtual_env', 'python', 'bin', 'python'),
+        join(root, 'virtual_env', 'packages', 'python', 'python'),
+      ];
+  return candidates.find((p) => existsSync(p)) || '';
+}
+
+function applyCursorBrowserPolicy(root) {
+  const pythonExe = resolveProjectPython(root);
+  const scriptPath = join(root, 'core', 'deployment', 'scripts', 'cursor_ide_browser_policy.py');
+  if (!pythonExe || !existsSync(scriptPath)) {
+    return;
+  }
+  const result = spawnSync(pythonExe, [scriptPath], {
+    cwd: root,
+    encoding: 'utf8',
+    windowsHide: true,
+  });
+  const out = `${result.stdout || ''}${result.stderr || ''}`.trim();
+  if (out) {
+    console.log(out);
+  }
+}
 
 /** @returns {number} negative if a<b, 0 if equal, positive if a>b */
 function compareSemver(a, b) {
@@ -189,6 +221,7 @@ async function installExtensions() {
         process.exit(1);
       }
       console.log('\n[OK] Установка расширений завершена.');
+      applyCursorBrowserPolicy(repoRoot);
       console.log('Перезапустите IDE (Developer: Reload Window) для применения изменений.\n');
       return;
     }
@@ -285,14 +318,14 @@ async function installExtensions() {
         }
         if (compareSemver(pkgVer, vsixVer) > 0) {
           console.log(
-            `\n-> Исходники ${pkgName} ${pkgVer} новее VSIX ${vsixVer} — установка из исходников: ${entry.name}`,
+            `[INFO] Исходники ${pkgName} ${pkgVer} новее VSIX ${vsixVer}. Ставим VSIX. Чтобы обновить пакет: ergoms update-vsix`,
           );
-          await installFromSourceDir(sourceDir, homeDir);
         }
       }
     }
 
     console.log('\n[OK] Установка расширений завершена.');
+    applyCursorBrowserPolicy(repoRoot);
     console.log('Перезапустите IDE (Developer: Reload Window) для применения изменений.\n');
   } catch (error) {
     if (error.code === 'ENOENT') {

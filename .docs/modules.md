@@ -13,7 +13,7 @@
 
 Отключённый модуль (`DISABLED_MODULES` в `.env`) не участвует в discovery, зависимостях, меню и Docker build context — см. [configuration.md](configuration.md#настройки-модулей).
 
-Проверка изоляции и контрактов: `ergoms core-rules-check`. Правила для агента Cursor: [`.cursor/rules/modules.mdc`](../.cursor/rules/modules.mdc), [`.cursor/rules/core-module-isolation.mdc`](../.cursor/rules/core-module-isolation.mdc), [`.cursor/rules/module-contracts.mdc`](../.cursor/rules/module-contracts.mdc). Документация самого модуля (`AGENTS.md`, `.cursor/rules/`, `README.md`) — [`.cursor/rules/module-docs.mdc`](../.cursor/rules/module-docs.mdc): обновляйте её вместе с контрактами и безопасностью.
+Проверка изоляции и контрактов: `ergoms core-rules-check` (в том числе наличие `README.md` и `AGENTS.md` у установленного модуля). Вынос в отдельный процесс и схему — [modularization.md](modularization.md). Правила для агента Cursor: [`.cursor/rules/modules.mdc`](../.cursor/rules/modules.mdc), [`.cursor/rules/core-module-isolation.mdc`](../.cursor/rules/core-module-isolation.mdc), [`.cursor/rules/module-contracts.mdc`](../.cursor/rules/module-contracts.mdc), [`.cursor/rules/modularization.mdc`](../.cursor/rules/modularization.mdc). Документация самого модуля (`AGENTS.md`, `.cursor/rules/`, `README.md`) — [`.cursor/rules/module-docs.mdc`](../.cursor/rules/module-docs.mdc): обновляйте её вместе с контрактами и безопасностью.
 
 ## Карта каталога модуля
 
@@ -30,6 +30,8 @@ modules/<имя>/
 │   ├── celery_beat_config.py   # периодические задачи
 │   ├── notification_catalog.py # события уведомлений (через мост)
 │   ├── bridge_manifest.yaml    # ops/groups при MODULE_RUNTIME=microservice
+│   ├── schema.yaml             # схема PostgreSQL m_<name>, isolated
+│   ├── search_indexes.py       # индексы поиска (uid с префиксом модуля)
 │   └── migrations/             # схема БД + пункты бокового меню
 ├── client/
 │   ├── js/
@@ -46,7 +48,8 @@ modules/<имя>/
 │   └── LayoutPlugin.vue        # layout / offcanvas (альтернатива группе моста)
 ├── mcp/                        # MCP-сервер для Cursor
 ├── .cursor/rules/              # правила Cursor модуля
-├── AGENTS.md
+├── AGENTS.md                   # обязательный указатель для агента
+├── README.md                   # обязательный обзор для человека
 ├── ergoms.conf                 # команды ergoms <имя>:<команда>
 ├── ergoms.help.yaml            # справка help module
 ├── locales/<lang>/ergoms.help.yaml
@@ -68,6 +71,7 @@ modules/<имя>/
 | Права модуля в ADP | `api/permission_catalog.py` |
 | Фоновые задачи | `api/tasks.py` + `celery_config.py` |
 | Вызов из другого модуля / ядра | ModuleBridge в `integrations.py` |
+| Своя схема PostgreSQL / запрет FK наружу | `api/schema.yaml` + [modularization.md](modularization.md) |
 | Обязательная / расширяющая зависимость модуля | `integrations.yaml` (`requires` / `extends`) |
 | Свои команды CLI | `ergoms.conf` + `ergoms.help.yaml` |
 | Участие в Setup Full / Start All | `vscode.tasks.yaml` → `include_in` |
@@ -285,7 +289,7 @@ host:
 | Слой | Где | Команды |
 |------|-----|---------|
 | Python модуля | `modules/<имя>/pyproject.toml` | `ergoms api module-add` / `module-remove`, `ergoms python-install` |
-| npm клиента модуля | `modules/<имя>/client/package.json` (workspace) | `ergoms npm run install:all` |
+| npm клиента модуля | `modules/<имя>/client/package.json` | `ergoms npm run install:all` |
 
 Lock ядра не должен впитывать модульные пакеты — см. [cli.md](cli.md#lock-файлы-ядро-и-модули).
 

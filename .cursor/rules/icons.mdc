@@ -24,10 +24,12 @@ alwaysApply: false
 - Канонический формат имени — **Lucide PascalCase**: `CircleUserRound`, `Shield`, `MessageSquareText`, `Bot`
 - Общие смыслы ядра (профиль, колокольчик, настройки…) — константы **`CORE_ICON`** в [`coreIconNames.js`](../../core/client/src/config/coreIconNames.js); не подбирай «похожий» глиф (`User` вместо `CircleUserRound`)
 - Рендер в шаблоне — **`LucideIcon`** (`@/components/LucideIcon.vue`); обводка — `LUCIDE_STROKE_WIDTH` (не задавай свой `stroke-width` без причины)
+- SVG Lucide — квадрат: не ставь глобально `svg.lucide { display: block }` без фиксированной ширины. `display: block` растягивает глиф на 100% родителя (плоский колокол в пустом inbox, сплющенные иконки меню). Эталон: `inline-block` + `vertical-align: middle` + `aspect-ratio: 1` в `_globals.scss`; хост `LucideIcon` задаёт width/height.
 - Загрузка / preload — `lucideIconLoader.js` / `IconManager` (`normalizeLucideIconName`, `getLucideIconAsync`, `preloadLucideIconNames`)
 - Миграции меню API — `icon='LayoutGrid'` (строка); клиент не превращает имя в Vue-компонент до рендера
 - Bridge (`apps.menu.items`, `header.userMenu.items`) — поле `icon: 'Bot'`, не `markRaw(Bot)`
-- Статический «хром» в том же файле (ChevronDown, X, GripVertical) — прямой `import` из `lucide-vue-next` допустим
+- Статический «хром» в том же файле (ChevronDown, X, GripVertical) — прямой `import` из `@lucide/vue` допустим
+- Пакет `lucide-vue-next` в workspace не ставится: Vite резолвит его в `@lucide/vue`. Новый код — только `@lucide/vue`
 
 ## Обязательно
 
@@ -44,7 +46,7 @@ alwaysApply: false
 
 ```js
 // BAD — модуль тянет компонент Lucide в декларацию
-import { Bot } from 'lucide-vue-next'
+import { Bot } from '@lucide/vue'
 bridge.provideMany(APPS_MENU_ITEMS_GROUP, 'my_app', {
   icon: markRaw(Bot),
 })
@@ -119,9 +121,9 @@ bridge.provideMany(HEADER_USER_MENU_ITEMS_GROUP, '<name>', {
 
 ## Исключения
 
-- **Статический хром** рядом с разметкой (стрелки, закрытие, grip) — `import { ChevronDown } from 'lucide-vue-next'`
+- **Статический хром** рядом с разметкой (стрелки, закрытие, grip) — `import { ChevronDown } from '@lucide/vue'`
 - **Bootstrap Icons** на legacy auth-страницах (`bi bi-*`) — не расширять; новый UI только Lucide
-- Не подключай полный barrel `import('lucide-vue-next')` ради динамического списка — см. [`client-perf.mdc`](client-perf.mdc)
+- Не подключай полный barrel `import('@lucide/vue')` ради динамического списка — см. [`client-perf.mdc`](client-perf.mdc)
 
 ## Связанные правила
 

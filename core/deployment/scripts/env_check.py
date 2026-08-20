@@ -3,6 +3,10 @@
 Сверка .env с .env.example (корень, env/*.env, модули).
 
 Используется: ergoms env
+              ergoms env --reset-from-example [--yes]
+
+--reset-from-example также заменяет databases.yaml и celery_workers.yaml.
+Уже заданные ключи, пароли и токены в .env не затираются.
 """
 
 from __future__ import annotations
@@ -25,12 +29,20 @@ if str(_DEPLOYMENT_DIR) not in sys.path:
 
 from cli_locale import t  # noqa: E402
 from config_scaffold import (  # noqa: E402
+    ConfigScaffolder,
     ConfigTemplateRegistry,
     EnvCompareResult,
+    ScaffoldAction,
     compare_env_files,
     parse_env_example_lines,
 )
 from console_tags import format_console  # noqa: E402
+from security.ensure_secret import (  # noqa: E402
+    ACTION_ENV_MISSING,
+    ACTION_GENERATED,
+    ACTION_WRITE_FAILED,
+    ensure_mode_secrets,
+)
 
 
 def _resolve_project_root(explicit: str | None) -> Path:
@@ -162,6 +174,101 @@ def run_check(
     return 0
 
 
+def _confirm_reset(*, assume_yes: bool, targets: list[str]) -> bool:
+    print(format_console('warning', t('env_reset_confirm_msg', count=len(targets))))
+    for target in targets:
+        print(f'  {target}')
+
+    if assume_yes:
+        return True
+
+    if not sys.stdin.isatty():
+        print(
+            format_console('error', t('interactive_confirm_unavailable')),
+            file=sys.stderr,
+        )
+        return False
+
+    try:
+        answer = input(t('continue_yn')).strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        print(format_console('info', t('env_reset_cancelled')))
+        return False
+
+    if answer in ('y', 'yes'):
+        return True
+
+    print(format_console('info', t('env_reset_cancelled')))
+    return False
+
+
+def _print_secret_results(project_root: Path) -> int:
+    write_failed = False
+    for key, (action, target) in ensure_mode_secrets(project_root).items():
+        if action == ACTION_GENERATED:
+            print(format_console('ok', t('secret_generated', key=key, target=target)))
+        elif action == ACTION_ENV_MISSING:
+            print(format_console('warning', t('secret_env_missing', key=key, target=target)))
+        elif action == ACTION_WRITE_FAILED:
+            write_failed = True
+            print(
+                format_console('error', t('secret_write_failed', key=key, target=target)),
+                file=sys.stderr,
+            )
+    return 1 if write_failed else 0
+
+
+def run_reset(project_root: Path, *, assume_yes: bool) -> int:
+    templates = ConfigTemplateRegistry.reset_templates(project_root)
+    writable = [
+        template
+        for template in templates
+        if (project_root / template.source_rel).is_file()
+    ]
+    if not writable:
+        print(format_console('skip', t('env_reset_no_pairs')))
+        return 0
+
+    targets = [template.target_rel.replace('\\', '/') for template in writable]
+    if not _confirm_reset(assume_yes=assume_yes, targets=targets):
+        return 1
+
+    results = ConfigScaffolder(project_root, templates=templates).run(overwrite=True)
+    failed = False
+    for result in results:
+        target = result.display_target
+        suffix = f' ({result.detail})' if result.detail else ''
+        if result.action is ScaffoldAction.CREATED:
+            print(format_console('ok', t('env_reset_created', target=target) + suffix))
+        elif result.action is ScaffoldAction.OVERWRITTEN:
+            print(format_console('ok', t('env_reset_overwritten', target=target) + suffix))
+        elif result.action is ScaffoldAction.SKIPPED_NO_SOURCE:
+            print(format_console(
+                'warning',
+                t('scaffold_example_missing', source_rel=result.source_rel),
+            ))
+        elif result.action is ScaffoldAction.FAILED:
+            failed = True
+            print(
+                format_console(
+                    'error',
+                    t('scaffold_create_failed', target=target, detail=result.detail),
+                ),
+                file=sys.stderr,
+            )
+
+    if failed:
+        return 1
+
+    secret_status = _print_secret_results(project_root)
+    if secret_status != 0:
+        return secret_status
+
+    print(format_console('ok', t('env_reset_done')))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=t('env_check_description'),
@@ -177,9 +284,22 @@ def main(argv: list[str] | None = None) -> int:
         action='store_true',
         help=t('env_check_help_strict'),
     )
+    parser.add_argument(
+        '--reset-from-example',
+        action='store_true',
+        help=t('env_reset_help'),
+    )
+    parser.add_argument(
+        '-y',
+        '--yes',
+        action='store_true',
+        help=t('env_reset_help_yes'),
+    )
     args = parser.parse_args(argv)
 
     project_root = _resolve_project_root(args.root)
+    if args.reset_from_example:
+        return run_reset(project_root, assume_yes=args.yes)
     status = run_check(
         project_root,
         show_example_values=args.show_example_values,

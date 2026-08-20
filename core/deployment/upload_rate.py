@@ -16,6 +16,7 @@ _RATE_LIMIT_SNIPPET = Path(__file__).resolve().parent / 'nginx' / 'snippets' / '
 
 DEFAULT_UPLOAD_RATE = '30/minute'
 DEFAULT_UPLOAD_RATE_ADMIN = '120/minute'
+DEFAULT_UPLOAD_RATE_CEILING = '1000/minute'
 DEFAULT_UPLOAD_BURST = 25
 
 _MEDIA_RATE_RE = re.compile(
@@ -46,20 +47,50 @@ def media_rate_to_nginx(rate: str) -> str:
     return f'{count}r/{unit}'
 
 
+def _rate_to_per_second(rate: str) -> float:
+    match = _MEDIA_RATE_RE.match((rate or '').strip())
+    if not match:
+        return 0.0
+    count = int(match.group(1))
+    unit = _UNIT_TO_NGINX.get(match.group(2).lower(), 'm')
+    seconds = {'s': 1.0, 'm': 60.0, 'h': 3600.0, 'd': 86400.0}.get(unit, 60.0)
+    if seconds <= 0:
+        return 0.0
+    return count / seconds
+
+
+def higher_media_rate(first: str, second: str) -> str:
+    """Частота с большей скоростью (формат N/minute)."""
+    first_ok = bool(_MEDIA_RATE_RE.match((first or '').strip()))
+    second_ok = bool(_MEDIA_RATE_RE.match((second or '').strip()))
+    if first_ok and not second_ok:
+        return first.strip()
+    if second_ok and not first_ok:
+        return second.strip()
+    if not first_ok:
+        return DEFAULT_UPLOAD_RATE_ADMIN
+    if _rate_to_per_second(second) > _rate_to_per_second(first):
+        return second.strip()
+    return first.strip()
+
+
 def resolve_upload_rates(values: Mapping[str, Any]) -> dict[str, str | int]:
     """
     Эффективные квоты после merge профиля.
 
     Returns:
-        user_rate, admin_rate (строки media), nginx_zone_rate, burst (int).
+        user_rate, admin_rate, ceiling_rate (строки media), nginx_zone_rate, burst (int).
     """
     merged = merge_security_profile_defaults(values)
     user_rate = (merged.get('MEDIA_API_UPLOAD_RATE') or DEFAULT_UPLOAD_RATE).strip()
     admin_rate = (merged.get('MEDIA_API_UPLOAD_RATE_ADMIN') or DEFAULT_UPLOAD_RATE_ADMIN).strip()
+    ceiling_rate = (merged.get('MEDIA_API_UPLOAD_RATE_CEILING') or DEFAULT_UPLOAD_RATE_CEILING).strip()
     if not _MEDIA_RATE_RE.match(user_rate):
         user_rate = DEFAULT_UPLOAD_RATE
     if not _MEDIA_RATE_RE.match(admin_rate):
         admin_rate = DEFAULT_UPLOAD_RATE_ADMIN
+    if not _MEDIA_RATE_RE.match(ceiling_rate):
+        ceiling_rate = DEFAULT_UPLOAD_RATE_CEILING
     burst_raw = (merged.get('MEDIA_API_UPLOAD_BURST') or '').strip()
     try:
         burst = int(burst_raw) if burst_raw else DEFAULT_UPLOAD_BURST
@@ -67,10 +98,12 @@ def resolve_upload_rates(values: Mapping[str, Any]) -> dict[str, str | int]:
         burst = DEFAULT_UPLOAD_BURST
     if burst < 1:
         burst = DEFAULT_UPLOAD_BURST
+    zone_media = higher_media_rate(admin_rate, ceiling_rate)
     return {
         'user_rate': user_rate,
         'admin_rate': admin_rate,
-        'nginx_zone_rate': media_rate_to_nginx(admin_rate),
+        'ceiling_rate': ceiling_rate,
+        'nginx_zone_rate': media_rate_to_nginx(zone_media),
         'burst': burst,
     }
 

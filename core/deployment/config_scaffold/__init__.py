@@ -11,6 +11,7 @@ from .scaffolder import ConfigScaffolder, format_scaffold_result
 from .strategies import (
     CopyStrategy,
     DatabasesYamlCopyStrategy,
+    EnvPreserveSecretsCopyStrategy,
     FullCopyStrategy,
     HeadLinesCopyStrategy,
     NamedSectionsCopyStrategy,
@@ -24,6 +25,7 @@ __all__ = [
     'DatabasesYamlCopyStrategy',
     'EnvCompareResult',
     'EnvFilePair',
+    'EnvPreserveSecretsCopyStrategy',
     'FullCopyStrategy',
     'HeadLinesCopyStrategy',
     'NamedSectionsCopyStrategy',

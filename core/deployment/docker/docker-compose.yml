@@ -41,6 +41,9 @@ services:
       ERGO_DOCKER_REQUIRES_SETUP: "0"
       ERGO_PROCESS_ROLE: api
     volumes: *python_volumes
+    # Публичный API. Служебный /internal/bridge nginx режет (deny all);
+    # сам процесс принимает мост только с loopback (монолит)
+    # или private/link-local (microservice|split).
     ports:
       - "${API_PORT:-8000}:${API_PORT:-8000}"
     depends_on:

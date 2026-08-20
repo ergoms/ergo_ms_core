@@ -63,6 +63,16 @@ def cache_docker_dir(root: Path) -> Path:
     return cache_dir(root) / 'docker-cache'
 
 
+def cache_celery_balance_dir(root: Path) -> Path:
+    """Overlay и история балансировщика Celery (не в git)."""
+    return cache_dir(root) / 'celery_balance'
+
+
+def env_secrets_lock_path(root: Path) -> Path:
+    """Межпроцессный lock записи секретов в .env / databases.yaml."""
+    return cache_dir(root) / 'env_secrets.lock'
+
+
 def nssm_dir(root: Path) -> Path:
     return packages_dir(root) / 'nssm'
 

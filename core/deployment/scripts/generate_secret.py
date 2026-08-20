@@ -10,7 +10,6 @@
 from __future__ import annotations
 
 import argparse
-import secrets
 import sys
 from pathlib import Path
 
@@ -25,8 +24,9 @@ from cli_locale import (  # noqa: E402
     t,
 )
 from console_tags import configure_stdio_utf8, format_console  # noqa: E402
+from security.ensure_secret import DEFAULT_SECRET_BYTES, generate_secret_hex  # noqa: E402
 
-DEFAULT_BYTES = 32
+DEFAULT_BYTES = DEFAULT_SECRET_BYTES
 
 
 def _detect_project_root() -> Path | None:
@@ -81,7 +81,7 @@ def main() -> int:
     print(format_console('info', t('secret_copy_hint')), file=sys.stderr)
     print(format_console('info', t('secret_migrate_hint')), file=sys.stderr)
     for _ in range(args.count):
-        print(secrets.token_hex(args.bytes), flush=True)
+        print(generate_secret_hex(args.bytes), flush=True)
     return 0
 
 

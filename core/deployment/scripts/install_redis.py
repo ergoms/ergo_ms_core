@@ -22,6 +22,8 @@ DEPLOYMENT_DIR = PROJECT_ROOT / 'core' / 'deployment'
 SCRIPTS_DIR = DEPLOYMENT_DIR / 'scripts'
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
+if str(DEPLOYMENT_DIR) not in sys.path:
+    sys.path.insert(0, str(DEPLOYMENT_DIR))
 TEMPLATE_PATH = DEPLOYMENT_DIR / 'redis' / 'redis.conf.template'
 
 REDIS_LINUX_VERSION = '7.4.2'
@@ -90,6 +92,19 @@ def load_redis_password(root: Path) -> str:
     return (section.get('password') or '').strip()
 
 
+def load_redis_user(root: Path) -> str:
+    """Имя ACL-пользователя из databases.yaml → redis.user; пусто = только default."""
+    path = root / 'databases.yaml'
+    if not path.is_file():
+        return ''
+    try:
+        text = path.read_text(encoding='utf-8')
+    except OSError:
+        return ''
+    section = _parse_simple_yaml_section(text, 'redis')
+    return (section.get('user') or '').strip()
+
+
 def format_requirepass_line(password: str) -> str:
     if not password:
         return '# requirepass unset (databases.yaml redis.password пуст)'
@@ -97,6 +112,17 @@ def format_requirepass_line(password: str) -> str:
         return f'requirepass {password}'
     escaped = password.replace('\\', '\\\\').replace('"', '\\"')
     return f'requirepass "{escaped}"'
+
+
+def format_acl_user_line(username: str, password: str) -> str:
+    if not username or not password:
+        return '# acl user unset (databases.yaml redis.user пуст)'
+    if not re.fullmatch(r'[A-Za-z][A-Za-z0-9_]*', username):
+        return '# acl user skipped (некорректный redis.user)'
+    if re.fullmatch(r'[A-Za-z0-9_\-./]+', password):
+        return f'user {username} on >{password} ~* &* +@all'
+    escaped = password.replace('\\', '\\\\').replace('"', '\\"')
+    return f'user {username} on >"{escaped}" ~* &* +@all'
 
 
 def redis_cli_auth_args(root: Path) -> list[str]:
@@ -270,9 +296,9 @@ def render_redis_conf(
     central_log = log_file_path('REDIS', root)
     ensure_logs_dir(root)
     log_level = redis_log_level(root)
-    requirepass_line = format_requirepass_line(
-        password if password is not None else load_redis_password(root),
-    )
+    effective_password = password if password is not None else load_redis_password(root)
+    requirepass_line = format_requirepass_line(effective_password)
+    acl_user_line = format_acl_user_line(load_redis_user(root), effective_password)
 
     if platform.system().lower() == 'windows':
         pidfile = (paths['run'] / 'redis.pid').as_posix()
@@ -289,6 +315,7 @@ def render_redis_conf(
         template.replace('{{REDIS_BIND}}', bind)
         .replace('{{REDIS_PORT}}', str(port))
         .replace('{{REDIS_REQUIREPASS_LINE}}', requirepass_line)
+        .replace('{{REDIS_ACL_USER_LINE}}', acl_user_line)
         .replace('{{REDIS_DAEMONIZE}}', daemonize)
         .replace('{{REDIS_PIDFILE}}', pidfile)
         .replace('{{REDIS_LOGFILE}}', logfile)
@@ -325,7 +352,14 @@ def _install_windows(root: Path, force: bool) -> None:
     with tempfile.TemporaryDirectory(dir=str(cache_tmp)) as tmp:
         tmp_path = Path(tmp)
         zip_path = tmp_path / REDIS_WINDOWS_ZIP
-        _download(REDIS_WINDOWS_URL, zip_path)
+        from download_cache import download_with_cache
+
+        download_with_cache(
+            root,
+            'redis',
+            zip_path,
+            lambda dest: _download(REDIS_WINDOWS_URL, dest),
+        )
         extract_dir = tmp_path / 'extract'
         extract_dir.mkdir()
         with zipfile.ZipFile(zip_path, 'r') as archive:
@@ -381,7 +415,18 @@ def _install_linux(root: Path, force: bool) -> None:
     with tempfile.TemporaryDirectory(dir=str(cache_tmp)) as tmp:
         tmp_path = Path(tmp)
         tar_path = tmp_path / REDIS_LINUX_TARBALL
-        _download(REDIS_LINUX_URL, tar_path, fallback_urls=(REDIS_LINUX_FALLBACK_URL,))
+        from download_cache import download_with_cache
+
+        download_with_cache(
+            root,
+            'redis',
+            tar_path,
+            lambda dest: _download(
+                REDIS_LINUX_URL,
+                dest,
+                fallback_urls=(REDIS_LINUX_FALLBACK_URL,),
+            ),
+        )
         extract_dir = tmp_path / 'src'
         extract_dir.mkdir()
         with tarfile.open(tar_path, 'r:gz') as archive:
@@ -415,6 +460,10 @@ def install_redis(
     system = platform_name.lower()
     if system == 'auto':
         system = platform.system().lower()
+
+    from security.ensure_infra_credentials import ensure_infra_credentials
+
+    ensure_infra_credentials(root)
 
     if system == 'windows':
         _install_windows(root, force)

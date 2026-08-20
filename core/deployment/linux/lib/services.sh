@@ -90,6 +90,7 @@ start_all() {
     fi
   fi
 
+  local -a pending=()
   for u in $(units_list "$root"); do
     # Redis / Meilisearch уже обработаны отдельно
     [[ "$u" == "ergo_ms_redis.service" || "$u" == "ergo_ms_redis" ]] && continue
@@ -105,14 +106,22 @@ start_all() {
       already=$((already + 1))
       continue
     fi
-    err="$(systemctl_do start "$u" 2>&1)" && {
-      write_ergoms_message svc_started_ok green "" "name=$name"
-      started=$((started + 1))
-      continue
-    }
-    write_ergoms_message svc_start_failed red --stderr "name=$name" "error=${err:-systemctl start failed}"
-    failed=$((failed + 1))
+    pending+=("$u")
   done
+  if ((${#pending[@]})); then
+    systemctl_do start "${pending[@]}" >/dev/null 2>&1 || true
+    for u in "${pending[@]}"; do
+      name="$(_unit_short_name "$u")"
+      if systemctl is-active --quiet "$u" 2>/dev/null; then
+        write_ergoms_message svc_started_ok green "" "name=$name"
+        started=$((started + 1))
+      else
+        err="$(systemctl is-failed "$u" 2>/dev/null || true)"
+        write_ergoms_message svc_start_failed red --stderr "name=$name" "error=${err:-systemctl start failed}"
+        failed=$((failed + 1))
+      fi
+    done
+  fi
 
   write_ergoms_message svc_start_summary green "" \
     "started=$started" "already=$already" "missing=$missing" "failed=$failed"
@@ -432,7 +441,7 @@ show_celery_tasks_logs() {
   write_ergoms_message svc_tail_celery_tasks cyan "" "lines=$lines"
   echo "   $log_file"
   if [[ -n "$module_name" ]]; then
-    local pattern="celery\\.module\\.${module_name}"
+    local pattern="celery\\.module\\.${module_name}|modules\\.${module_name}"
     write_ergoms_message svc_log_filter gray "" "pattern=$pattern"
     echo ""
     grep -E "$pattern" "$log_file" 2>/dev/null | tail -n "$lines" || true
