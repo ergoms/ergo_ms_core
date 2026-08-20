@@ -60,7 +60,7 @@ Docker volume → /app/virtual_env/npm/node_modules
 - **Не** возвращать клиентский `package.json` / lock / workspaces в корень репозитория.
 - **Не** предлагать symlink/junction корневого `node_modules` → `virtual_env/npm/...` как способ «убрать с корня».
 - **Не** ставить клиентские deps в тонкий корневой `package.json` (там только расширения VS Code).
-- **Не** класть в `virtual_env/npm/package.json` пакеты, которые импортирует только модуль (Apex/ECharts, CodeMirror, vue-datepicker, pdfjs, карты и т.п.) — только `modules/<имя>/client/package.json`.
+- **Не** класть в `virtual_env/npm/package.json` пакеты, которые импортирует только модуль (Apex/ECharts, CodeMirror, pdfjs, карты и т.п.) — только `modules/<имя>/client/package.json`. Календарь ядра (`DatePicker` / `@vuepic/vue-datepicker` / `date-fns`) — зависимость ядра, не модуля.
 - **Не** восстанавливать том `client_node_modules` и ручные `ln -sf` в `core/client/node_modules/.bin` без крайней необходимости — запуск через `-w` из npm-root.
 
 Допустимо: штатные ссылки **внутри** `virtual_env/npm/node_modules` на workspace-пакеты (`@ergo-ms/core-client` → `core/client`) — это обычное поведение npm workspaces, не «перенос корня через symlink».
