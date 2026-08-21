@@ -100,12 +100,20 @@ class GenerateWorkersComposeStep(DeploymentStep):
 
 
 class ComposeArtifactsStep(DeploymentStep):
+    def __init__(self, *, resolve_app_ports: bool = True, warn_image_bases: bool = False) -> None:
+        self._resolve_app_ports = resolve_app_ports
+        self._warn_image_bases = warn_image_bases
+
     @property
     def name(self) -> str:
         return 'compose_artifacts'
 
     def run(self, ctx: DeploymentContext) -> StepResult:
-        prepare_compose_artifacts(ctx.project_root)
+        prepare_compose_artifacts(
+            ctx.project_root,
+            resolve_app_ports=self._resolve_app_ports,
+            warn_image_bases=self._warn_image_bases,
+        )
         return StepResult()
 
 

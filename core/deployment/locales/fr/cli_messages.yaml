@@ -182,6 +182,8 @@ docker_nginx_profile_conflict: "ERGO_PROXY=nginx, mais DOCKER_PROFILE_NGINX=fals
 docker_publish_port_busy_skip: "Le port hôte {port} est occupé — le service Docker {service} ne sera pas publié sur l'hôte (réseau compose uniquement). Override: DOCKER_POSTGRES_PUBLISH_PORT / DOCKER_REDIS_PUBLISH_PORT"
 docker_app_port_remapped: "{env_key}: le port localhost {from_port} est pris (IDE/port-forward) — Docker utilisera {to_port}. Ouvrez le service sur http://localhost:{to_port}"
 docker_app_port_killed: "{env_key}: le port localhost {port} était pris ({processes}) — processus arrêté, Docker utilisera {port}"
+docker_node_base_fallback: "L'image officielle node:20-bookworm-slim est indisponible — construction du client depuis {image}. Quand Docker Hub répond, lancez docker pull node:20-bookworm-slim puis ergoms docker-build."
+docker_python_base_fallback: "Construction de l'image Python depuis {image} local (Debian/PyPI indisponibles). Pour tout reconstruire : docker rmi {image} une fois le réseau rétabli, puis ergoms docker-build."
 docker_app_port_kill_unsupported: "{env_key}: le port localhost {port} est pris (IDE/port-forward). Libérez-le manuellement — l'arrêt auto est Windows uniquement"
 docker_app_port_still_blocked: "{env_key}: le port localhost {port} est encore pris après tentative — la publication Docker peut viser le mauvais processus"
 docker_not_found_install: "Docker introuvable. Installez Docker Desktop ou le CLI docker compose."

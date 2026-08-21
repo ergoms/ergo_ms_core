@@ -74,6 +74,43 @@ def _env(raw: dict[str, str], name: str, default: str = '') -> str:
     return raw.get(name, default).strip() or default
 
 
+def _docker_image_exists(image_ref: str) -> bool:
+    if not image_ref.strip():
+        return False
+    result = subprocess.run(
+        ['docker', 'image', 'inspect', image_ref],
+        capture_output=True,
+        check=False,
+    )
+    return result.returncode == 0
+
+
+def resolve_docker_python_base(raw: dict[str, str] | None = None) -> str:
+    """База Dockerfile.python: slim, иначе уже собранный python-образ."""
+    explicit = _env(raw or {}, 'DOCKER_PYTHON_BASE', '')
+    if explicit:
+        return explicit
+    preferred = 'python:3.12-slim-bookworm'
+    local_python = _env(raw or {}, 'DOCKER_PYTHON_IMAGE', 'ergo_ms-python:local') or 'ergo_ms-python:local'
+    if _docker_image_exists(local_python):
+        return local_python
+    return preferred
+
+
+def resolve_docker_node_base(raw: dict[str, str] | None = None) -> str:
+    """База Dockerfile.client: официальный node, иначе уже собранный client."""
+    explicit = _env(raw or {}, 'DOCKER_NODE_BASE', '')
+    if explicit:
+        return explicit
+    preferred = 'node:20-bookworm-slim'
+    if _docker_image_exists(preferred):
+        return preferred
+    fallback = _env(raw or {}, 'DOCKER_NODE_IMAGE', 'ergo_ms-client:local') or 'ergo_ms-client:local'
+    if _docker_image_exists(fallback):
+        return fallback
+    return preferred
+
+
 def load_databases_config(project_root: Path | None = None) -> dict[str, Any]:
     root = project_root or PROJECT_ROOT
     path = root / 'databases.yaml'
@@ -829,7 +866,12 @@ def resolve_volume_binds(project_root: Path, raw_env: dict[str, str]) -> dict[st
     return binds
 
 
-def prepare_compose_artifacts(project_root: Path | None = None) -> dict[str, Path]:
+def prepare_compose_artifacts(
+    project_root: Path | None = None,
+    *,
+    resolve_app_ports: bool = True,
+    warn_image_bases: bool = False,
+) -> dict[str, Path]:
     root = (project_root or PROJECT_ROOT).resolve()
     raw = dict(load_merged_env(root))
     for key, value in os.environ.items():
@@ -857,13 +899,42 @@ def prepare_compose_artifacts(project_root: Path | None = None) -> dict[str, Pat
 
     # Cursor/IDE на 127.0.0.1:8000 перехватывает localhost у Docker → «CORS Network Error».
     # Loadtest публикует LOADTEST_API_PORT, не API_PORT — хостовый API на 8000 не трогаем.
-    if not effective_docker_profile_loadtest(merged) and not effective_docker_profile_loadtest(raw):
+    # docker-build / ps не публикуют порты — процессы на 8000 не завершаем.
+    if resolve_app_ports and not effective_docker_profile_loadtest(
+        merged
+    ) and not effective_docker_profile_loadtest(raw):
         api_preferred = int(_env(merged, 'API_PORT', '8000') or '8000')
         client_preferred = int(_env(merged, 'CLIENT_PORT', '8001') or '8001')
         merged['API_PORT'] = str(resolve_docker_app_port(api_preferred, env_key='API_PORT', warn=True))
         merged['CLIENT_PORT'] = str(
             resolve_docker_app_port(client_preferred, env_key='CLIENT_PORT', warn=True)
         )
+
+    node_base = resolve_docker_node_base(merged)
+    merged['DOCKER_NODE_BASE'] = node_base
+    if warn_image_bases and node_base != 'node:20-bookworm-slim':
+        warn_key = f'node-base:{node_base}'
+        if warn_key not in _PUBLISH_WARNED:
+            _PUBLISH_WARNED.add(warn_key)
+            print(
+                format_console(
+                    'warning',
+                    t('docker_node_base_fallback', image=node_base),
+                )
+            )
+
+    python_base = resolve_docker_python_base(merged)
+    merged['DOCKER_PYTHON_BASE'] = python_base
+    if warn_image_bases and python_base not in ('python:3.12-slim-bookworm', 'python:3.12-slim'):
+        warn_key = f'python-base:{python_base}'
+        if warn_key not in _PUBLISH_WARNED:
+            _PUBLISH_WARNED.add(warn_key)
+            print(
+                format_console(
+                    'warning',
+                    t('docker_python_base_fallback', image=python_base),
+                )
+            )
 
     binds = resolve_volume_binds(root, raw)
     merged.update(binds)

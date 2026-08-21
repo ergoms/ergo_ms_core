@@ -318,7 +318,7 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
                 EnsureApiSecretStep(),
                 DockerModulesIgnoreStep(),
                 GenerateWorkersComposeStep(),
-                ComposeArtifactsStep(),
+                ComposeArtifactsStep(resolve_app_ports=False, warn_image_bases=True),
                 DockerBuildStep(skip_if_present=False),
             ),
             target='compose',

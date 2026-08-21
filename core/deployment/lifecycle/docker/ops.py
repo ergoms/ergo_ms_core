@@ -255,7 +255,11 @@ def build_compose_cmd(
     if mode:
         raw['DOCKER_MODE'] = mode
 
-    prepare_compose_artifacts(root)
+    prepare_compose_artifacts(
+        root,
+        resolve_app_ports=(action == 'up'),
+        warn_image_bases=(action == 'build'),
+    )
     workers_file = DOCKER_DIR / 'docker-compose.workers.generated.yml'
     if for_clean:
         if not workers_file.is_file():
