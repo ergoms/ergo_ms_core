@@ -1,5 +1,5 @@
 ---
-description: Индекс UI-компонентов ядра — SelectBox, SearchInput, DecimalInput, DatePicker, ToggleSwitch, DropZone, FormCard, FormField, SettingsCard, SettingsCardRow, FilterMenu, DropDown, DataTable, UserAvatar
+description: Индекс UI-компонентов ядра — SelectBox, SearchInput, DecimalInput, DatePicker, ToggleSwitch, TriStateSwitch, DropZone, FormCard, FormField, SettingsCard, SettingsCardRow, FilterMenu, DropDown, DataTable, UserAvatar
 alwaysApply: false
 ---
 
@@ -16,6 +16,7 @@ alwaysApply: false
 | Ввод десятичного числа (цифры, `.`/`,`) | `DecimalInput` | этот раздел |
 | Выбор даты | `DatePicker` | этот раздел |
 | Бинарный тумблер вкл/выкл | `ToggleSwitch` | этот раздел |
+| Три позиции: запрещено / не задано / разрешено | `TriStateSwitch` | этот раздел |
 | Зона выбора файлов (клик + перетаскивание) | `DropZone` | этот раздел |
 | Форма: карточка + строки label/поле | `FormCard`, `FormField` | этот раздел |
 | Настройки: карточка + строки label/hint/контрол | `SettingsCard`, `SettingsCardRow` | этот раздел |
@@ -102,6 +103,25 @@ iOS-стиль binary switch. Не копируй track/thumb в модулях.
 | `disabled` | блокировка |
 | `manual` | клик только `@activate`, без авто-переключения `modelValue` |
 | `ariaLabel` | a11y; иначе берётся `label` |
+
+## Трёхпозиционный тумблер — TriStateSwitch
+
+Компонент: `@/components/TriStateSwitch.vue`.
+
+Тот же iOS-track, что у `ToggleSwitch`, но бегунок стоит слева / по центру / справа. Не копируй track/thumb в модулях.
+
+Значения `modelValue`: `deny` (запрещено), `inherit` (не задано), `allow` (разрешено). Клик по трети дорожки ставит соответствующее значение; стрелки листают позиции.
+
+```vue
+<TriStateSwitch v-model="effect" aria-label="Персональное право" />
+```
+
+| Prop | Когда |
+|------|-------|
+| `modelValue` | `deny` / `inherit` / `allow` |
+| `label` | подпись справа от track |
+| `disabled` | блокировка |
+| `ariaLabel` | a11y; иначе берётся `label` или текущее значение |
 
 ## Зона файлов — DropZone
 
