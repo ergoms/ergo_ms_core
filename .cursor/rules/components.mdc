@@ -29,6 +29,7 @@ alwaysApply: false
 | Multi-select выбор пользователей | `MemberPickerModal` | этот раздел |
 | Аватар пользователя | `UserAvatar` | этот раздел |
 | Контентное изображение (режим без картинок) | `ContentImage` | [`client-a11y.mdc`](client-a11y.mdc) |
+| Предпросмотр фото (галерея, зум) | `ImageLightbox` (`backdrop`: `dim` / `blur`) | этот раздел |
 | Skip-link / landmarks | `SkipLink`, `<main id="main-content">` | [`client-a11y.mdc`](client-a11y.mdc) |
 | Динамические Lucide-иконки | `LucideIcon` (имя PascalCase) | [`icons.mdc`](icons.mdc) |
 
