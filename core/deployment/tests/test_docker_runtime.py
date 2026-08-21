@@ -52,6 +52,7 @@ class DockerRuntimeTests(unittest.TestCase):
         self.assertEqual(overrides['CLIENT_USE_RELATIVE_API'], 'true')
         self.assertEqual(overrides['ERGO_ENV'], 'production')
         self.assertEqual(overrides['API_HOST'], '0.0.0.0')
+        self.assertEqual(overrides['ERGO_DOCKER_DB_PORT'], '5432')
 
     def test_build_compose_env_overrides_passes_celery_balance(self) -> None:
         overrides = build_compose_env_overrides(
@@ -115,6 +116,42 @@ class DockerRuntimeTests(unittest.TestCase):
             content = compose_env.read_text(encoding='utf-8')
             self.assertIn('ERGO_RUNTIME=docker', content)
             self.assertIn('DOCKER_ENABLED=true', content)
+
+    def test_prepare_compose_artifacts_loadtest_does_not_kill_app_ports(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / '.env').write_text('API_PORT=8000\nDOCKER_DATABASE=container\n', encoding='utf-8')
+            (root / 'databases.yaml').write_text(
+                'databases:\n  default:\n    engine: postgresql\n'
+                '    host: localhost\n    port: 5432\n    name: ergo_ms\n'
+                '    user: postgres\n    password: admin\n',
+                encoding='utf-8',
+            )
+            docker_dir = root / 'core' / 'deployment' / 'docker'
+            docker_dir.mkdir(parents=True)
+
+            with patch('docker_runtime._DOCKER_DIR', docker_dir), patch(
+                'docker_runtime.BUILD_CACHE_OUTPUT',
+                docker_dir / 'docker-compose.build.generated.yml',
+            ), patch('docker_runtime.load_merged_env') as load_env, patch(
+                'docker_runtime.resolve_infra_publish_ports',
+                return_value={},
+            ), patch(
+                'docker_runtime.resolve_docker_app_port',
+            ) as resolve_port, patch(
+                'lifecycle.docker.ignore.sync_dockerfile_dockerignore',
+            ), patch(
+                'lifecycle.modules.catalog.ModuleCatalog.from_env',
+                return_value=object(),
+            ):
+                load_env.return_value = {
+                    'API_PORT': '8000',
+                    'DOCKER_DATABASE': 'container',
+                    'DOCKER_PROFILE_LOADTEST': 'true',
+                }
+                prepare_compose_artifacts(root)
+
+            resolve_port.assert_not_called()
 
 
 class RedisPublishAndAuthTests(unittest.TestCase):

@@ -28,7 +28,7 @@ services:
     environment:
       MEILI_HOST: http://meilisearch:7700
 
-  worker:
+  celery-worker-all:
     depends_on:
       meilisearch:
         condition: service_healthy

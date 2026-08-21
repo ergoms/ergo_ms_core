@@ -53,8 +53,10 @@ SERVICE_TEMPLATE = """
     healthcheck:
       test:
         [
-          "CMD-SHELL",
-          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:{port}/api/system/ready/')\"",
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:{port}/api/system/ready/')",
         ]
       interval: 15s
       timeout: 5s
@@ -135,19 +137,26 @@ def main() -> int:
     args = parser.parse_args()
 
     environ = dict(os.environ)
-    runtime = (environ.get('MODULE_RUNTIME') or 'monolith').strip().lower()
+    from env_resolvers import load_merged_env
+
+    merged = load_merged_env(PROJECT_ROOT)
+    environ = {**environ, **{k: str(v) for k, v in merged.items()}}
+    runtime = (environ.get('MODULE_RUNTIME') or '').strip().lower()
     modules = _modules_from_env(environ) if _is_microservice(runtime) else []
 
-    if not _is_microservice(runtime) or not modules:
+    if not runtime:
         compose_env = DOCKER_DIR / '.compose.env'
         if compose_env.is_file():
             from env_file_loader import parse_env_file
 
             values = parse_env_file(compose_env)
             environ = {**environ, **values}
-            runtime = (environ.get('MODULE_RUNTIME') or runtime).strip().lower()
+            runtime = (environ.get('MODULE_RUNTIME') or 'monolith').strip().lower()
             if _is_microservice(runtime):
                 modules = _modules_from_env(environ)
+
+    if not runtime:
+        runtime = 'monolith'
 
     if not _is_microservice(runtime):
         modules = []

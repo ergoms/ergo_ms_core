@@ -293,18 +293,25 @@ def build_compose_cmd(
     return cmd, DOCKER_DIR
 
 
-def run_api_oneoff(shell: str, *, mode: str | None = None) -> int:
-    cmd, cwd = build_compose_cmd(
-        'run',
-        mode=mode,
-        extra_args=[
-            '--rm',
-            '--no-deps',
-            '-T',
-            '-e',
-            'ERGO_DOCKER_SERVICE_NAME=',
-            '-e',
-            'ERGO_DOCKER_CONSOLE_OUTPUT=1',
+def run_api_oneoff(
+    shell: str,
+    *,
+    mode: str | None = None,
+    skip_infra_wait: bool = False,
+) -> int:
+    extra_args = [
+        '--rm',
+        '--no-deps',
+        '-T',
+        '-e',
+        'ERGO_DOCKER_SERVICE_NAME=',
+        '-e',
+        'ERGO_DOCKER_CONSOLE_OUTPUT=1',
+    ]
+    if skip_infra_wait:
+        extra_args.extend(['-e', 'ERGO_DOCKER_SKIP_INFRA_WAIT=1'])
+    extra_args.extend(
+        [
             'api',
             'bash',
             '-o',
@@ -312,6 +319,11 @@ def run_api_oneoff(shell: str, *, mode: str | None = None) -> int:
             '-c',
             shell,
         ],
+    )
+    cmd, cwd = build_compose_cmd(
+        'run',
+        mode=mode,
+        extra_args=extra_args,
     )
     return subprocess.call(cmd, cwd=str(cwd))
 

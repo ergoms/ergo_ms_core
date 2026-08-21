@@ -65,7 +65,11 @@ class PythonInstallStep(DeploymentStep):
                 t('python_install_progress', path=docker_ops.DOCKER_PYTHON_INSTALL_LOG),
             )
         )
-        code = docker_ops.run_api_oneoff(docker_ops.api_install_shell(), mode=ctx.docker_mode)
+        code = docker_ops.run_api_oneoff(
+            docker_ops.api_install_shell(),
+            mode=ctx.docker_mode,
+            skip_infra_wait=True,
+        )
         if code != 0:
             print(
                 format_console(

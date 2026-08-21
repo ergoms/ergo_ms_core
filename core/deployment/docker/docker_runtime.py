@@ -274,10 +274,15 @@ def build_compose_env_overrides(raw_env: dict[str, str]) -> dict[str, str]:
     else:
         overrides.setdefault('ERGO_ENV', 'development')
 
-    # Для healthcheck / wait — явный хост БД
+    # Для healthcheck / wait — хост БД в сети compose.
+    # В контейнере Postgres слушает 5432; порт из databases.yaml — публикация на хост.
     default_db = load_databases_config().get('default') or {}
     overrides['ERGO_DOCKER_DB_HOST'] = effective_db_host(raw_env, str(default_db.get('host', '')))
-    overrides['ERGO_DOCKER_DB_PORT'] = str(default_db.get('port', 5432))
+    db_mode = _env(raw_env, 'DOCKER_DATABASE', 'container').lower()
+    if db_mode == 'container':
+        overrides['ERGO_DOCKER_DB_PORT'] = '5432'
+    else:
+        overrides['ERGO_DOCKER_DB_PORT'] = str(default_db.get('port', 5432))
     overrides['ERGO_DOCKER_SERVICE_API'] = service_api
     overrides['ERGO_DOCKER_SERVICE_MEDIA'] = service_media
 
@@ -851,12 +856,14 @@ def prepare_compose_artifacts(project_root: Path | None = None) -> dict[str, Pat
         merged.pop('POSTGRES_PUBLISH_PORT', None)
 
     # Cursor/IDE на 127.0.0.1:8000 перехватывает localhost у Docker → «CORS Network Error».
-    api_preferred = int(_env(merged, 'API_PORT', '8000') or '8000')
-    client_preferred = int(_env(merged, 'CLIENT_PORT', '8001') or '8001')
-    merged['API_PORT'] = str(resolve_docker_app_port(api_preferred, env_key='API_PORT', warn=True))
-    merged['CLIENT_PORT'] = str(
-        resolve_docker_app_port(client_preferred, env_key='CLIENT_PORT', warn=True)
-    )
+    # Loadtest публикует LOADTEST_API_PORT, не API_PORT — хостовый API на 8000 не трогаем.
+    if not effective_docker_profile_loadtest(merged) and not effective_docker_profile_loadtest(raw):
+        api_preferred = int(_env(merged, 'API_PORT', '8000') or '8000')
+        client_preferred = int(_env(merged, 'CLIENT_PORT', '8001') or '8001')
+        merged['API_PORT'] = str(resolve_docker_app_port(api_preferred, env_key='API_PORT', warn=True))
+        merged['CLIENT_PORT'] = str(
+            resolve_docker_app_port(client_preferred, env_key='CLIENT_PORT', warn=True)
+        )
 
     binds = resolve_volume_binds(root, raw)
     merged.update(binds)
