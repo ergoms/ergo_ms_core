@@ -1,5 +1,5 @@
-# syntax=docker/dockerfile:1.4
 # ERGO MS — общий Python-образ (API, media_api, Celery, Jupyter)
+# Без # syntax=docker/dockerfile:… — иначе BuildKit тянет frontend с Hub при каждой сборке.
 FROM python:3.12-slim-bookworm AS base
 
 ARG ERGO_DOCKER_DEPS_CACHE=internal

@@ -9,10 +9,12 @@ import os
 import platform
 import re
 import shutil
+import socket
 import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -476,49 +478,75 @@ def install_redis(
     print(f'[ergoms] Redis config: {conf}')
 
 
-def ping_redis(root: Path, port: int | None = None, timeout_sec: float = 5.0) -> bool:
-    cli = redis_cli_path(root)
-    if not cli.is_file():
-        return False
-    conf = redis_conf_path(root)
+def _redis_connect_host(bind: str) -> str:
+    if bind in ('0.0.0.0', '*', '::', '::0'):
+        return DEFAULT_BIND
+    return bind
+
+
+def redis_endpoint(root: Path, port: int | None = None) -> tuple[str, int]:
     bind = DEFAULT_BIND
-    if port is None and conf.is_file():
+    resolved_port = port or DEFAULT_PORT
+    conf = redis_conf_path(root)
+    if conf.is_file() and port is None:
         conf_text = conf.read_text(encoding='utf-8')
         match = re.search(r'^port\s+(\d+)\s*$', conf_text, re.MULTILINE)
-        port = int(match.group(1)) if match else DEFAULT_PORT
+        if match:
+            resolved_port = int(match.group(1))
         bind_match = re.search(r'^bind\s+(\S+)', conf_text, re.MULTILINE)
         if bind_match:
             bind = bind_match.group(1)
-    port = port or DEFAULT_PORT
-    auth = redis_cli_auth_args(root)
+    return _redis_connect_host(bind), resolved_port
 
-    args = [str(cli), '-h', bind, '-p', str(port), *auth, 'ping']
+
+def _resp_command(*parts: str) -> bytes:
+    chunks = [f'*{len(parts)}\r\n'.encode('ascii')]
+    for part in parts:
+        data = part.encode('utf-8')
+        chunks.append(f'${len(data)}\r\n'.encode('ascii'))
+        chunks.append(data)
+        chunks.append(b'\r\n')
+    return b''.join(chunks)
+
+
+def _recv_redis_line(sock: socket.socket) -> bytes:
+    buf = bytearray()
+    while True:
+        chunk = sock.recv(256)
+        if not chunk:
+            break
+        buf.extend(chunk)
+        if b'\r\n' in buf:
+            break
+    idx = buf.find(b'\r\n')
+    if idx < 0:
+        return bytes(buf)
+    return bytes(buf[: idx + 2])
+
+
+def ping_redis(root: Path, port: int | None = None, timeout_sec: float = 0.4) -> bool:
+    """AUTH+PING по TCP. Не вызывает redis-cli: MSYS2-сборка на Windows стартует секунды."""
+    host, resolved_port = redis_endpoint(root, port)
+    password = load_redis_password(root)
     try:
-        result = subprocess.run(
-            args,
-            capture_output=True,
-            text=True,
-            timeout=timeout_sec,
-            check=False,
-        )
-    except (subprocess.TimeoutExpired, OSError):
+        with socket.create_connection((host, resolved_port), timeout=timeout_sec) as sock:
+            sock.settimeout(timeout_sec)
+            if password:
+                sock.sendall(_resp_command('AUTH', password))
+                if not _recv_redis_line(sock).startswith(b'+OK'):
+                    return False
+            sock.sendall(_resp_command('PING'))
+            return b'PONG' in _recv_redis_line(sock)
+    except OSError:
         return False
-    if 'PONG' in (result.stdout or '') or 'PONG' in (result.stderr or ''):
-        return True
 
-    if conf.is_file() and platform.system().lower() != 'windows':
-        try:
-            result = subprocess.run(
-                [str(cli), *auth, '-h', bind, '-p', str(port), 'ping'],
-                capture_output=True,
-                text=True,
-                timeout=timeout_sec,
-                check=False,
-            )
-        except (subprocess.TimeoutExpired, OSError):
-            return False
-        return 'PONG' in (result.stdout or '') or 'PONG' in (result.stderr or '')
 
+def wait_redis_ready(root: Path, timeout_sec: float = 8.0) -> bool:
+    deadline = time.monotonic() + timeout_sec
+    while time.monotonic() < deadline:
+        if ping_redis(root, timeout_sec=0.2):
+            return True
+        time.sleep(0.05)
     return False
 
 
@@ -528,11 +556,15 @@ def main() -> int:
     parser.add_argument('--port', type=int, default=DEFAULT_PORT)
     parser.add_argument('--force', action='store_true')
     parser.add_argument('--platform', default='auto', choices=('auto', 'windows', 'linux'))
-    parser.add_argument('--ping-only', action='store_true', help='Only run redis-cli ping')
+    parser.add_argument('--ping-only', action='store_true', help='Ping Redis over TCP (RESP)')
+    parser.add_argument('--wait-ready', action='store_true', help='Poll ping until Redis accepts AUTH')
+    parser.add_argument('--wait-timeout', type=float, default=8.0)
     args = parser.parse_args()
 
     if args.ping_only:
         return 0 if ping_redis(args.root) else 1
+    if args.wait_ready:
+        return 0 if wait_redis_ready(args.root, timeout_sec=args.wait_timeout) else 1
 
     install_redis(args.root, port=args.port, force=args.force, platform_name=args.platform)
     return 0

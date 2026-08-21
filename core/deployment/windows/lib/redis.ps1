@@ -323,37 +323,11 @@ function Start-RedisProcess {
         return
     }
 
-    # Уже отвечает — не перезапускаем (избегаем гонки warmup + start-redis-dev).
-    if (Test-RedisPing -Root $Root) {
-        Write-ErgomsMessage -Key 'ok_started' -Color Green -Param @{ name = 'Redis' }
-        return
-    }
-
-    if (Test-RedisProcessRunning) {
-        Stop-RedisProcess -Root $Root -Quiet
-    }
-
-    $redisDir = Get-RedisDir -Root $Root
-    $serverExe = Get-RedisServerExe -Root $Root
-
-    Write-ErgomsMessage -Key 'arrow_starting' -Color Cyan -Param @{ name = 'Redis' }
-    # MSYS2-сборка redis-windows не принимает абсолютный путь к конфигу (C:\...).
-    Start-Process -FilePath $serverExe -ArgumentList 'conf\redis.conf' -WindowStyle Hidden -WorkingDirectory $redisDir
-
-    $ready = $false
-    for ($i = 0; $i -lt 20; $i++) {
-        Start-Sleep -Milliseconds 500
-        if (Test-RedisPing -Root $Root) {
-            $ready = $true
-            break
-        }
-    }
-
-    if ($ready) {
-        Write-ErgomsMessage -Key 'ok_started' -Color Green -Param @{ name = 'Redis' }
-    }
-    else {
-        Write-ErgomsMessage -Key 'error_start_failed_check_logs' -Color Red -Stderr -Param @{ name = 'Redis'; path = (Get-RedisLogPath -Root $Root) }
+    $ok = Invoke-RedisPythonScript -Root $Root -ScriptName 'redis_dev.py' -ExtraArgs @(
+        '--root', $Root,
+        '--start'
+    )
+    if (-not $ok) {
         exit 1
     }
 }

@@ -1,5 +1,5 @@
-# syntax=docker/dockerfile:1.4
 # ERGO MS — Node-образ для клиента (dev Vite / prod build)
+# Без # syntax=docker/dockerfile:… — иначе BuildKit тянет frontend с Hub при каждой сборке.
 #
 # npm-зависимости не ставятся при сборке образа: в compose проект bind-mount'ится,
 # node_modules — в именованных томах (virtual_env/npm/node_modules),

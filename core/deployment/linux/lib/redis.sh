@@ -148,13 +148,13 @@ _redis_ping() {
 
 _redis_wait_for_ping() {
   local root="$1"
-  local attempts="${2:-10}"
+  local attempts="${2:-40}"
   local i
   for ((i = 1; i <= attempts; i++)); do
     if _redis_ping "$root"; then
       return 0
     fi
-    sleep 1
+    sleep 0.1
   done
   return 1
 }
@@ -257,33 +257,19 @@ redis_start() {
     return 0
   fi
 
-  redis_stop "$root" quiet 2>/dev/null || true
-  _redis_remove_stale_pidfile "$root"
-
   if systemctl is-active --quiet redis.service 2>/dev/null \
     || systemctl is-active --quiet redis-server.service 2>/dev/null; then
     echo "[WARNING] System Redis service is active and may use port $(_redis_read_port "$root")." >&2
     echo "[WARNING] Stop it first: sudo systemctl disable --now redis.service redis-server.service" >&2
   fi
 
-  local server conf
-  server="$(_redis_server "$root")"
-  conf="$(_redis_conf "$root")"
-  write_ergoms_message arrow_starting cyan "" "name=Redis"
-  if ! "$server" "$conf"; then
-    write_ergoms_message redis_error_server_cli red --stderr "path=$(_redis_log_path "$root")"
+  local py
+  py="$(_redis_python "$root")"
+  if [[ -z "$py" ]]; then
+    write_ergoms_message python_not_found_setup red --stderr
     return 1
   fi
-
-  if _redis_wait_for_ping "$root" 10; then
-    write_ergoms_message ok_started green "" "name=Redis"
-  else
-    write_ergoms_message error_start_failed_check_logs red --stderr "name=Redis" "path=$(_redis_log_path "$root")"
-    if [[ -r /proc/sys/vm/overcommit_memory ]] && [[ "$(cat /proc/sys/vm/overcommit_memory)" != "1" ]]; then
-      echo "[WARNING] vm.overcommit_memory is not 1; run: sudo sysctl vm.overcommit_memory=1" >&2
-    fi
-    return 1
-  fi
+  "$py" "$root/core/deployment/scripts/redis_dev.py" --root "$root" --start
 }
 
 _redis_is_running() {

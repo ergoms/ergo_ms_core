@@ -74,7 +74,11 @@ class DockerBuildStep(DeploymentStep):
         if self._skip_if_present and docker_ops.should_skip_build(ctx.raw_env):
             print(format_console('skip', t('docker_images_already_built')))
             return StepResult()
-        extra = list(ctx.options.get('build_extra_args') or []) or list(self._extra_args)
+        extra = (
+            list(ctx.options.get('build_extra_args') or [])
+            or list(ctx.options.get('compose_extra_args') or [])
+            or list(self._extra_args)
+        )
         cmd, cwd = docker_ops.build_compose_cmd(
             'build',
             mode=ctx.docker_mode,
