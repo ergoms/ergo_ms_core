@@ -280,6 +280,10 @@ sections:
     invoke: ergoms deployment-test
     summary: Tests unitaires de déploiement (docker_runtime, ergo_modes, env_resolvers, recipes, nginx render) sans démon
       Docker
+  - name: deployment-scenario-test
+    invoke: ergoms deployment-scenario-test
+    summary: Scénario Docker isolé (projet ergo_ms_scenario, ports et journaux séparés ; n'écrit pas le .env hôte)
+
   - name: ps1-encoding-check
     invoke: ergoms ps1-encoding-check [--fix]
     summary: Vérifier le BOM UTF-8 dans les .ps1 de déploiement avec cyrillique (Windows PowerShell 5.1)

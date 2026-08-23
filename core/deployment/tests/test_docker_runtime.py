@@ -15,6 +15,8 @@ from docker_runtime import (  # noqa: E402
     effective_db_host,
     effective_redis_compose_host,
     prepare_compose_artifacts,
+    resolve_docker_node_base,
+    resolve_docker_python_base,
     resolve_infra_publish_ports,
     write_redis_auth_compose,
 )
@@ -197,6 +199,30 @@ class DockerRuntimeTests(unittest.TestCase):
                 prepare_compose_artifacts(root, resolve_app_ports=False)
 
             resolve_port.assert_not_called()
+
+    def test_python_base_prefers_official_slim(self) -> None:
+        with patch('docker_runtime._docker_image_exists', return_value=False):
+            self.assertEqual(resolve_docker_python_base({}), 'python:3.12-slim-bookworm')
+
+    def test_python_base_explicit_wins(self) -> None:
+        self.assertEqual(
+            resolve_docker_python_base({'DOCKER_PYTHON_BASE': 'python:3.12-slim'}),
+            'python:3.12-slim',
+        )
+
+    def test_node_base_uses_official_when_present(self) -> None:
+        def exists(name: str) -> bool:
+            return name == 'node:20-bookworm-slim'
+
+        with patch('docker_runtime._docker_image_exists', side_effect=exists):
+            self.assertEqual(resolve_docker_node_base({}), 'node:20-bookworm-slim')
+
+    def test_node_base_fallback_only_without_official(self) -> None:
+        def exists(name: str) -> bool:
+            return name == 'ergo_ms-client:local'
+
+        with patch('docker_runtime._docker_image_exists', side_effect=exists):
+            self.assertEqual(resolve_docker_node_base({}), 'ergo_ms-client:local')
 
 
 class RedisPublishAndAuthTests(unittest.TestCase):

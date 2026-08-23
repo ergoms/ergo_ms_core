@@ -363,8 +363,6 @@ def render_docker_nginx_config(
     replacements['${ERGO_MODULE_UPSTREAMS}'] = render_module_upstreams_docker(raw_env)
     replacements['${ERGO_MODULE_LOCATIONS}'] = render_module_locations_docker(raw_env)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(
-        apply_template_replacements(content, replacements),
-        encoding='utf-8',
-    )
+    rendered = apply_template_replacements(content, replacements).replace('\r\n', '\n')
+    output_path.write_bytes(rendered.encode('utf-8'))
     return output_path

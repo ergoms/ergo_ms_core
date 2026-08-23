@@ -217,6 +217,71 @@ class ModuleNginxTests(unittest.TestCase):
         })
         self.assertIn('max_fails=3 fail_timeout=10s', block)
 
+    def test_monolith_module_blocks_empty(self) -> None:
+        from module_nginx import render_module_locations_docker, render_module_upstreams_docker
+
+        values = {'MODULE_RUNTIME': 'monolith', 'MICROSERVICE_MODULES': 'demo_mod'}
+        self.assertEqual(render_module_upstreams_docker(values), '')
+        self.assertEqual(render_module_locations_docker(values), '')
+
+    def test_docker_microservice_upstream_and_location(self) -> None:
+        from module_nginx import render_module_locations_docker, render_module_upstreams_docker
+
+        values = {
+            'MODULE_RUNTIME': 'microservice',
+            'MICROSERVICE_MODULES': 'demo_mod',
+            'DEMO_MOD_PORT': '8123',
+        }
+        upstreams = render_module_upstreams_docker(values)
+        locations = render_module_locations_docker(values)
+        self.assertIn('upstream ergo_module_demo_mod', upstreams)
+        self.assertIn('server demo_mod:8123', upstreams)
+        self.assertIn('location /api/demo_mod/', locations)
+        self.assertIn('@module_unavailable', locations)
+
+    def test_docker_template_renders_module_proxy(self) -> None:
+        deployment_dir = Path(__file__).resolve().parents[1]
+        docker_template = deployment_dir / 'docker' / 'nginx' / 'ergo_ms.docker.conf.template'
+        raw_env = {
+            'DOCKER_SERVICE_API': 'api',
+            'DOCKER_SERVICE_MEDIA': 'media-api',
+            'API_PORT': '18000',
+            'MEDIA_API_BIND_PORT': '8003',
+            'NGINX_LISTEN_PORT': '18080',
+            'NGINX_SERVER_NAME': 'localhost',
+            'MODULE_RUNTIME': 'microservice',
+            'MICROSERVICE_MODULES': 'demo_mod',
+            'DEMO_MOD_PORT': '8123',
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / 'docker.conf'
+            render_docker_nginx_config(raw_env, template_path=docker_template, output_path=out)
+            rendered = out.read_text(encoding='utf-8')
+        self.assertIn('listen 18080', rendered)
+        self.assertIn('location /api/demo_mod/', rendered)
+        self.assertIn('demo_mod:8123', rendered)
+        self.assertIn('location /internal/', rendered)
+        self.assertIn('/api/realtime/stream/', rendered)
+
+    def test_docker_template_proxies_jupyter(self) -> None:
+        deployment_dir = Path(__file__).resolve().parents[1]
+        docker_template = deployment_dir / 'docker' / 'nginx' / 'ergo_ms.docker.conf.template'
+        raw_env = {
+            'DOCKER_SERVICE_API': 'api',
+            'DOCKER_SERVICE_MEDIA': 'media-api',
+            'API_PORT': '8000',
+            'MEDIA_API_BIND_PORT': '8003',
+            'NGINX_LISTEN_PORT': '80',
+            'NGINX_SERVER_NAME': 'localhost',
+            'API_JUPYTER_BIND_PORT': '18002',
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / 'docker.conf'
+            render_docker_nginx_config(raw_env, template_path=docker_template, output_path=out)
+            rendered = out.read_text(encoding='utf-8')
+        self.assertIn('location /jupyter/', rendered)
+        self.assertIn('http://jupyter:18002/jupyter/', rendered)
+
 
 if __name__ == '__main__':
     unittest.main()
