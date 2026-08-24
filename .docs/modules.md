@@ -272,7 +272,7 @@ host:
 | `install_service_commands` | `ergoms install-services` |
 | `uninstall_service_commands` | `ergoms uninstall-services` |
 | `stop_commands` | остановка демонов в тестах deployment |
-| `service_units` | имена служб (документация / каталог) |
+| `service_units` | имена OS-служб для `ergoms start` / `stop` / `restart` / `status`; start/stop/restart молча пропускают не установленные |
 
 Снимается **служба**, не portable-пакет. Подробности: [deployment.md](deployment.md), [lifecycle-pipeline.md](lifecycle-pipeline.md), [`.cursor/rules/host-lifecycle.mdc`](../.cursor/rules/host-lifecycle.mdc).
 

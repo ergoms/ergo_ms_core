@@ -372,6 +372,12 @@ function Install-WorkerServices {
 
 
 
+function Test-OsServiceInstalled {
+    param([Parameter(Mandatory = $true)][string]$Name)
+    return $null -ne (Get-Service -Name $Name -ErrorAction SilentlyContinue)
+}
+
+
 function Start-AllServices {
     param([string]$ProjectRoot)
 
@@ -381,6 +387,7 @@ function Start-AllServices {
     if (Test-SearchEnabled -ProjectRoot $ProjectRoot) { [void]$planned.Add('Meilisearch') }
     foreach ($serviceName in $serviceNames) {
         if ($serviceName -eq 'ergo_ms_redis' -or $serviceName -eq 'ergo_ms_meilisearch') { continue }
+        if (-not (Test-OsServiceInstalled -Name $serviceName)) { continue }
         [void]$planned.Add($serviceName)
     }
     Write-ErgomsMessage -Key 'svc_starting_all' -Color Cyan -Param @{
@@ -436,8 +443,6 @@ function Start-AllServices {
         if ($serviceName -eq 'ergo_ms_redis' -or $serviceName -eq 'ergo_ms_meilisearch') { continue }
         $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
         if (-not $service) {
-            Write-ErgomsMessage -Key 'svc_not_installed_dash' -Color Gray -Param @{ name = $serviceName }
-            $missing++
             continue
         }
         if ($service.Status -eq 'Running') {
@@ -484,6 +489,7 @@ function Stop-AllServices {
     if (Test-SearchEnabled -ProjectRoot $ProjectRoot) { [void]$planned.Add('Meilisearch') }
     foreach ($serviceName in $serviceNames) {
         if ($serviceName -eq 'ergo_ms_redis' -or $serviceName -eq 'ergo_ms_meilisearch') { continue }
+        if (-not (Test-OsServiceInstalled -Name $serviceName)) { continue }
         [void]$planned.Add($serviceName)
     }
     Write-ErgomsMessage -Key 'svc_stopping_all' -Color Cyan -Param @{
@@ -510,8 +516,7 @@ function Stop-AllServices {
         try {
             $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
             if (-not $service) {
-                Write-ErgomsMessage -Key 'svc_not_installed_dash' -Color Gray -Param @{ name = $serviceName }
-                $missing++
+                continue
             }
             elseif ($service.Status -ne 'Stopped') {
                 Stop-Service -Name $serviceName -Force
@@ -619,6 +624,7 @@ function Restart-AllServices {
     if (Test-SearchEnabled -ProjectRoot $ProjectRoot) { [void]$planned.Add('Meilisearch') }
     foreach ($serviceName in $serviceNames) {
         if ($serviceName -eq 'ergo_ms_redis' -or $serviceName -eq 'ergo_ms_meilisearch') { continue }
+        if (-not (Test-OsServiceInstalled -Name $serviceName)) { continue }
         [void]$planned.Add($serviceName)
     }
     Write-ErgomsMessage -Key 'svc_restarting_all' -Color Cyan -Param @{
@@ -662,10 +668,6 @@ function Restart-AllServices {
                 Restart-Service -Name $serviceName -Force
                 Write-ErgomsMessage -Key 'svc_restarted_ok' -Color Green -Param @{ name = $serviceName }
                 $restarted++
-            }
-            else {
-                Write-ErgomsMessage -Key 'svc_not_installed_dash' -Color Gray -Param @{ name = $serviceName }
-                $missing++
             }
         }
         catch {

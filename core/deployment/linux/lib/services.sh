@@ -41,6 +41,8 @@ _collect_managed_service_names() {
   for u in $(units_list "$root"); do
     [[ "$u" == "ergo_ms_redis.service" || "$u" == "ergo_ms_redis" ]] && continue
     [[ "$u" == "ergo_ms_meilisearch.service" || "$u" == "ergo_ms_meilisearch" ]] && continue
+    # Манифест модуля может объявлять unit, которого ещё нет в systemd.
+    _unit_is_present "$u" || continue
     _names_ref+=("$(_unit_short_name "$u")")
   done
 }
@@ -97,8 +99,6 @@ start_all() {
     [[ "$u" == "ergo_ms_meilisearch.service" || "$u" == "ergo_ms_meilisearch" ]] && continue
     name="$(_unit_short_name "$u")"
     if ! _unit_is_present "$u"; then
-      write_ergoms_message svc_not_installed_dash gray "" "name=$name"
-      missing=$((missing + 1))
       continue
     fi
     if systemctl is-active --quiet "$u" 2>/dev/null; then
@@ -269,8 +269,6 @@ stop_all() {
     [[ "$u" == "ergo_ms_meilisearch.service" || "$u" == "ergo_ms_meilisearch" ]] && continue
     name="$(_unit_short_name "$u")"
     if ! _unit_is_present "$u"; then
-      write_ergoms_message svc_not_installed_dash gray "" "name=$name"
-      missing=$((missing + 1))
       continue
     fi
     if ! systemctl is-active --quiet "$u" 2>/dev/null; then
@@ -384,8 +382,6 @@ restart_all() {
     [[ "$u" == "ergo_ms_meilisearch.service" || "$u" == "ergo_ms_meilisearch" ]] && continue
     name="$(_unit_short_name "$u")"
     if ! _unit_is_present "$u"; then
-      write_ergoms_message svc_not_installed_dash gray "" "name=$name"
-      missing=$((missing + 1))
       continue
     fi
     err="$(systemctl_do restart "$u" 2>&1)" && {
