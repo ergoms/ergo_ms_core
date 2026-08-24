@@ -271,7 +271,7 @@ function Stop-RedisProcess {
                 Write-ErgomsMessage -Key 'redis_arrow_shutdown' -Color Cyan
             }
             $endpoint = Get-RedisCliEndpoint -Root $Root
-            # Windows redis-cli: -c включает cluster mode, не путь к конфигу (в отличие от Linux).
+            # redis-cli -c — cluster mode, не путь к конфигу. Останавливаем по host/port.
             $authArgs = @()
             $requirePass = Get-RedisRequirePass -Root $Root
             if ($requirePass) {

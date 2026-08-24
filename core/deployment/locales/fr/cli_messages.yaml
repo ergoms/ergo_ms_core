@@ -224,6 +224,7 @@ no_module_host_install_services: "Aucune commande install_service_commands dans 
 module_host_install_services_running: "Installation des services OS des modules ({count})…"
 module_host_install_service_failed: "Le service module « {command} » s'est terminé avec le code {code}"
 no_module_host_uninstall_services: "Aucune commande uninstall_service_commands dans host_lifecycle.yaml"
+module_host_uninstall_nothing_installed: "Aucun service OS de module n'est installé — rien à supprimer"
 module_host_uninstall_services_running: "Suppression des services OS des modules ({count})…"
 module_host_uninstall_service_failed: "La suppression du service module « {command} » s'est terminée avec le code {code}"
 host_lifecycle_install_without_uninstall: "host_lifecycle {module} : install_service_commands sans uninstall_service_commands ({path})"

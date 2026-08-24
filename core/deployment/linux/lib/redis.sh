@@ -61,6 +61,35 @@ _redis_read_port() {
   echo "$port"
 }
 
+_redis_read_password() {
+  local root="$1"
+  local conf line
+  conf="$(_redis_conf "$root")"
+  [[ -f "$conf" ]] || return 0
+  line="$(grep -E '^requirepass[[:space:]]+' "$conf" | tail -n1 || true)"
+  [[ -n "$line" ]] || return 0
+  # requirepass secret  |  requirepass "secret"
+  line="${line#requirepass}"
+  line="${line#"${line%%[![:space:]]*}"}"
+  line="${line%\"}"
+  line="${line#\"}"
+  printf '%s' "$line"
+}
+
+_redis_cli_shutdown() {
+  local root="$1"
+  local cli port pass
+  cli="$(_redis_cli "$root")"
+  port="$(_redis_read_port "$root")"
+  pass="$(_redis_read_password "$root")"
+  # -c у redis-cli — cluster mode, не путь к конфигу (как на Windows).
+  if [[ -n "$pass" ]]; then
+    "$cli" -h 127.0.0.1 -p "$port" -a "$pass" --no-auth-warning shutdown
+  else
+    "$cli" -h 127.0.0.1 -p "$port" shutdown
+  fi
+}
+
 _redis_remove_stale_pidfile() {
   local root="$1"
   local pidfile pid
@@ -173,7 +202,7 @@ After=network.target
 Type=forking
 EnvironmentFile=-__ERGO_MS_ENV__
 ExecStart=$server $conf
-ExecStop=$(_redis_cli "$root") -c $conf shutdown
+ExecStop=/bin/kill -s TERM \$MAINPID
 PIDFile=$(_redis_dir "$root")/run/redis.pid
 Restart=on-failure
 RestartSec=5
@@ -320,15 +349,12 @@ redis_stop() {
   fi
 
   if [[ -n "$root" ]] && _redis_is_installed "$root"; then
-    local cli conf pidfile pid i
+    local cli pidfile pid i
     cli="$(_redis_cli "$root")"
-    conf="$(_redis_conf "$root")"
     pidfile="$(_redis_pidfile "$root")"
     if [[ -x "$cli" ]]; then
       write_ergoms_message redis_arrow_shutdown cyan
-      "$cli" -c "$conf" shutdown 2>/dev/null \
-        || "$cli" -h 127.0.0.1 -p "$(_redis_read_port "$root")" shutdown 2>/dev/null \
-        || true
+      _redis_cli_shutdown "$root" >/dev/null 2>&1 || true
       for ((i = 1; i <= 10; i++)); do
         if [[ ! -f "$pidfile" ]]; then
           break

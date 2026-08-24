@@ -125,7 +125,28 @@ def _install_windows(module: str, kind: str, bat: Path) -> int:
     return 0
 
 
+def _windows_service_exists(name: str) -> bool:
+    result = subprocess.run(['sc', 'query', name], capture_output=True, check=False)
+    return result.returncode == 0
+
+
+def _linux_unit_exists(name: str) -> bool:
+    unit = name if name.endswith('.service') else f'{name}.service'
+    path = Path('/etc/systemd/system') / unit
+    if path.is_file() or path.is_symlink():
+        return True
+    result = subprocess.run(
+        ['systemctl', 'list-unit-files', '--type=service', '--no-legend', unit],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return bool((result.stdout or '').strip())
+
+
 def _uninstall_windows(name: str) -> int:
+    if not _windows_service_exists(name):
+        return 0
     nssm = _nssm_exe()
     if nssm is None:
         print(format_console('skip', t('module_service_nssm_missing', wrapper='-', name=name)))
@@ -136,6 +157,8 @@ def _uninstall_windows(name: str) -> int:
 
 
 def _uninstall_linux(name: str) -> int:
+    if not _linux_unit_exists(name):
+        return 0
     subprocess.call(['systemctl', 'disable', '--now', name])
     return 0
 

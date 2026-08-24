@@ -552,7 +552,10 @@ uninstall_all() {
   
   stop_all || true
   local u
-  for u in $(units_list "$root"); do systemctl_do disable "$u" || true; done
+  for u in $(units_list "$root"); do
+    _unit_is_present "$u" || continue
+    systemctl_do disable "$u" || true
+  done
   for u in $(units_list "$root"); do
     if [[ -f "/etc/systemd/system/$u" ]]; then
       if [[ $(id -u) -eq 0 ]]; then

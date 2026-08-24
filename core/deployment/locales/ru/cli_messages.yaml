@@ -226,6 +226,7 @@ no_module_host_install_services: "Нет модульных install_service_comm
 module_host_install_services_running: "Установка модульных служб ОС ({count})…"
 module_host_install_service_failed: "Модульная служба «{command}» завершилась с кодом {code}"
 no_module_host_uninstall_services: "Нет модульных uninstall_service_commands в host_lifecycle.yaml"
+module_host_uninstall_nothing_installed: "Модульные OS-службы не установлены — удалять нечего"
 module_host_uninstall_services_running: "Удаление модульных служб ОС ({count})…"
 module_host_uninstall_service_failed: "Удаление модульной службы «{command}» завершилось с кодом {code}"
 host_lifecycle_install_without_uninstall: "host_lifecycle {module}: есть install_service_commands без uninstall_service_commands ({path})"

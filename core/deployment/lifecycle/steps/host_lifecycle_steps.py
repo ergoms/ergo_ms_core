@@ -39,7 +39,10 @@ class ModuleHostServicesStep(DeploymentStep):
 
     def run(self, ctx: DeploymentContext) -> StepResult:
         # Ленивый import: избегаем цикла recipes → step → loader → lifecycle
-        from host_lifecycle_loader import aggregate_host_lifecycle  # noqa: WPS433
+        from host_lifecycle_loader import (  # noqa: WPS433
+            aggregate_host_lifecycle,
+            collect_uninstall_service_commands,
+        )
 
         agg = aggregate_host_lifecycle(ctx.project_root)
         if self._operation == 'install':
@@ -48,8 +51,13 @@ class ModuleHostServicesStep(DeploymentStep):
             running_key = 'module_host_install_services_running'
             failed_key = 'module_host_install_service_failed'
         else:
-            commands = list(agg.uninstall_service_commands)
-            skip_key = 'no_module_host_uninstall_services'
+            yaml_commands = list(agg.uninstall_service_commands)
+            commands = collect_uninstall_service_commands(ctx.project_root)
+            skip_key = (
+                'no_module_host_uninstall_services'
+                if not yaml_commands
+                else 'module_host_uninstall_nothing_installed'
+            )
             running_key = 'module_host_uninstall_services_running'
             failed_key = 'module_host_uninstall_service_failed'
 

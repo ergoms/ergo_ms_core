@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import subprocess
 import sys
 from dataclasses import asdict, dataclass, field
 from functools import lru_cache
@@ -184,6 +186,50 @@ def aggregate_host_lifecycle(project_root: Path | str) -> HostLifecycleAggregate
                 agg.service_units.append(unit)
 
     return agg
+
+
+def unit_is_installed(name: str) -> bool:
+    """Есть ли OS-служба: linked systemd unit или служба Windows."""
+    unit = name if name.endswith('.service') else f'{name}.service'
+    short = unit[: -len('.service')]
+    if os.name == 'nt':
+        result = subprocess.run(
+            ['sc', 'query', short],
+            capture_output=True,
+            check=False,
+        )
+        return result.returncode == 0
+    path = Path('/etc/systemd/system') / unit
+    if path.is_file() or path.is_symlink():
+        return True
+    result = subprocess.run(
+        ['systemctl', 'list-unit-files', '--type=service', '--no-legend', unit],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return bool((result.stdout or '').strip())
+
+
+def collect_uninstall_service_commands(project_root: Path | str) -> list[str]:
+    """uninstall_service_commands только для модулей, у которых unit уже стоит.
+
+    Если в записи нет service_units — команды всё равно выполняем (скрипт сам
+    разбирается, что удалять).
+    """
+    seen: set[str] = set()
+    commands: list[str] = []
+    for entry in load_host_lifecycle_entries(str(Path(project_root).resolve())):
+        if not entry.uninstall_service_commands:
+            continue
+        if entry.service_units and not any(unit_is_installed(unit) for unit in entry.service_units):
+            continue
+        for cmd in entry.uninstall_service_commands:
+            if cmd in seen:
+                continue
+            seen.add(cmd)
+            commands.append(cmd)
+    return commands
 
 
 def dump_host_lifecycle_json(project_root: Path | str) -> str:

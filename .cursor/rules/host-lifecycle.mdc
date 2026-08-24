@@ -15,6 +15,7 @@ alwaysApply: false
 - Потребители:
   - `ergoms install-services` / `uninstall-services` → [`ModuleHostServicesStep`](../../core/deployment/lifecycle/steps/host_lifecycle_steps.py) (`install` / `uninstall`)
   - `ergoms start` / `stop` / `restart` — в консоль и в действие попадают только установленные `service_units` (не установленные не перечисляют и не пишут `[SKIP]`); `stop_commands` после systemctl, и только если unit не установлен или ещё active (иначе ложный «процесс не найден»)
+  - `ergoms uninstall-services` — `uninstall_service_commands` модуля не вызываются, если все его `service_units` отсутствуют; `systemctl disable` только для установленных unit'ов (без «Failed to disable unit»)
   - `ergoms status` — `service_units` в списке, в том числе ещё не установленные
   - `ergoms setup` / `setup-full` → [`StopSetupStartedInfraStep`](../../core/deployment/lifecycle/steps/infra_steps.py) вызывает `stop_commands` в конце (вместе с nginx/redis)
   - тесты deployment [`lib.ps1`](../../core/deployment/windows/lib/test/lib.ps1) (`Stop-AllErgoms`, `Invoke-ModuleHostInstallServiceCommands`)
