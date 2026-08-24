@@ -20,10 +20,14 @@ from scenario_test.live_stack import (
     migrate_command,
     module_run_command,
 )
+from scenario_test.sidecars import ensure_mssql_database
 from scenario_test.matrix import ScenarioSpec, spec_env_overrides
 from scenario_test.stack import (
     NGINX_IMAGE,
     RUNTIME_ENV_NAME,
+    SCENARIO_DB_NAME,
+    SCENARIO_MSSQL_PASSWORD,
+    SCENARIO_MYSQL_PASSWORD,
     modules_with_bridge,
     posix,
     write_databases_yaml,
@@ -46,17 +50,151 @@ def docker_env_extra(
     bridge_token: str,
 ) -> dict[str, str]:
     extra = spec_env_overrides(spec)
-    extra['REDIS_PORT'] = '6379'
-    extra['ERGO_DOCKER_DB_PORT'] = '5432'
     extra['MEDIA_API_BIND_PORT'] = str(int(ports['media']))
     extra['NGINX_ENABLED'] = 'true' if spec.use_nginx else 'false'
     extra['ERGO_JUPYTER'] = spec.jupyter if spec.use_jupyter else 'none'
+    extra['ERGO_DB'] = spec.db
+    if spec.use_redis:
+        extra['REDIS_PORT'] = '6379'
+        extra['REDIS_HOST'] = 'redis'
+    else:
+        extra['REDIS_ENABLED'] = 'false'
+    if spec.use_postgres:
+        extra['ERGO_DOCKER_DB_PORT'] = '5432'
+        extra['ERGO_DOCKER_DB_HOST'] = 'postgres'
+    elif spec.use_mysql:
+        extra['ERGO_DOCKER_DB_PORT'] = '3306'
+        extra['ERGO_DOCKER_DB_HOST'] = 'mysql'
+        extra['DOCKER_PROFILE_POSTGRES'] = 'false'
+    elif spec.use_mssql:
+        extra['ERGO_DOCKER_DB_PORT'] = '1433'
+        extra['ERGO_DOCKER_DB_HOST'] = 'mssql'
+        extra['DOCKER_PROFILE_POSTGRES'] = 'false'
+    elif spec.use_sqlite:
+        extra['DOCKER_PROFILE_POSTGRES'] = 'false'
     if spec.module_runtime == 'microservice' and module_name:
         extra['MICROSERVICE_MODULES'] = module_name
         extra['MODULE_RUNTIME'] = 'microservice'
         extra['BRIDGE_INTERNAL_TOKEN'] = bridge_token
         extra[module_name.upper().replace('-', '_') + '_PORT'] = str(int(ports['module']))
     return extra
+
+
+def _write_docker_databases(run_dir: Path, spec: ScenarioSpec) -> None:
+    path = run_dir / 'databases.yaml'
+    if spec.use_sqlite:
+        write_databases_yaml(
+            path,
+            db='sqlite',
+            sqlite_path=Path('/app/logs/scenario.sqlite3'),
+        )
+        return
+    if spec.use_mysql:
+        write_databases_yaml(path, db='mysql', db_host='mysql', db_port=3306)
+        return
+    if spec.use_mssql:
+        write_databases_yaml(path, db='mssql', db_host='mssql', db_port=1433)
+        return
+    write_databases_yaml(path, db='postgres', db_host='postgres', db_port=5432)
+
+
+def _wait_infra(run_cmd: RunCmd, names: Mapping[str, str], spec: ScenarioSpec, log) -> bool:
+    if spec.use_redis and not _wait_exec(run_cmd, exec_command(names['redis'], 'redis-cli', 'ping'), log):
+        return False
+    if spec.use_postgres and not _wait_exec(
+        run_cmd,
+        exec_command(names['postgres'], 'pg_isready', '-U', 'postgres', '-d', SCENARIO_DB_NAME),
+        log,
+    ):
+        return False
+    if spec.use_mysql and not _wait_exec(
+        run_cmd,
+        exec_command(
+            names['mysql'],
+            'mysqladmin',
+            'ping',
+            '-h',
+            '127.0.0.1',
+            '-uroot',
+            f'-p{SCENARIO_MYSQL_PASSWORD}',
+            '--silent',
+        ),
+        log,
+        attempts=40,
+    ):
+        return False
+    if spec.use_mssql:
+        ready = _wait_exec(
+            run_cmd,
+            exec_command(
+                names['mssql'],
+                '/opt/mssql-tools18/bin/sqlcmd',
+                '-C',
+                '-S',
+                'localhost',
+                '-U',
+                'sa',
+                '-P',
+                SCENARIO_MSSQL_PASSWORD,
+                '-Q',
+                'SELECT 1',
+            ),
+            log,
+            attempts=45,
+        )
+        if not ready:
+            ready = _wait_exec(
+                run_cmd,
+                exec_command(
+                    names['mssql'],
+                    '/opt/mssql-tools/bin/sqlcmd',
+                    '-S',
+                    'localhost',
+                    '-U',
+                    'sa',
+                    '-P',
+                    SCENARIO_MSSQL_PASSWORD,
+                    '-Q',
+                    'SELECT 1',
+                ),
+                log,
+                attempts=10,
+            )
+        if not ready:
+            return False
+        try:
+            ensure_mssql_database(names['mssql'])
+        except Exception:
+            return False
+    if not _wait_exec(
+        run_cmd,
+        exec_command(
+            names['meilisearch'],
+            'wget',
+            '-q',
+            '-O',
+            '-',
+            'http://127.0.0.1:7700/health',
+        ),
+        log,
+    ):
+        return False
+    return True
+
+
+def _infra_hosts(names: Mapping[str, str], spec: ScenarioSpec) -> dict[str, str]:
+    hosts: dict[str, str] = {
+        'meilisearch': container_ip(names['meilisearch']),
+    }
+    if spec.use_redis:
+        hosts['redis'] = container_ip(names['redis'])
+    if spec.use_postgres:
+        hosts['postgres'] = container_ip(names['postgres'])
+    if spec.use_mysql:
+        hosts['mysql'] = container_ip(names['mysql'])
+    if spec.use_mssql:
+        hosts['mssql'] = container_ip(names['mssql'])
+    return hosts
 
 
 def _wait_exec(run_cmd: RunCmd, cmd: Sequence[str], log, *, attempts: int = 24, delay: float = 2.0) -> bool:
@@ -102,7 +240,7 @@ def run_docker_scenario(
             return SKIP
         module_name = bridges[0]
     try:
-        write_databases_yaml(run_dir / 'databases.yaml')
+        _write_docker_databases(run_dir, spec)
         extra = docker_env_extra(
             spec,
             ports=ports,
@@ -129,7 +267,13 @@ def run_docker_scenario(
             microservice_modules=module_name,
             module_port=str(int(ports['module'])) if module_name else '',
         )
-        for cmd in infra_run_commands(project=project, ports=ports, meili_key=meili_key):
+        for cmd in infra_run_commands(
+            project=project,
+            ports=ports,
+            meili_key=meili_key,
+            db=spec.db,
+            use_redis=spec.use_redis,
+        ):
             try:
                 code = run_cmd(cmd, log=log, env=env, timeout=60)
             except subprocess.TimeoutExpired:
@@ -138,35 +282,10 @@ def run_docker_scenario(
             if code != 0:
                 log.write(format_console('error', t('scenario_test_up_failed')))
                 return FAIL
-        if not _wait_exec(run_cmd, exec_command(names['redis'], 'redis-cli', 'ping'), log):
+        if not _wait_infra(run_cmd, names, spec, log):
             log.write(format_console('error', t('scenario_test_up_failed')))
             return FAIL
-        if not _wait_exec(
-            run_cmd,
-            exec_command(names['postgres'], 'pg_isready', '-U', 'postgres', '-d', 'ergo_ms_scenario'),
-            log,
-        ):
-            log.write(format_console('error', t('scenario_test_up_failed')))
-            return FAIL
-        if not _wait_exec(
-            run_cmd,
-            exec_command(
-                names['meilisearch'],
-                'wget',
-                '-q',
-                '-O',
-                '-',
-                'http://127.0.0.1:7700/health',
-            ),
-            log,
-        ):
-            log.write(format_console('error', t('scenario_test_up_failed')))
-            return FAIL
-        extra_hosts = {
-            'redis': container_ip(names['redis']),
-            'postgres': container_ip(names['postgres']),
-            'meilisearch': container_ip(names['meilisearch']),
-        }
+        extra_hosts = _infra_hosts(names, spec)
         log.write(f'infra_hosts={extra_hosts}')
         if not all(extra_hosts.values()):
             log.write(format_console('error', t('scenario_test_up_failed')))
@@ -352,7 +471,7 @@ def run_docker_scenario(
             timeout=30,
         ) != 0:
             failed = True
-        if run_cmd(
+        if spec.use_redis and run_cmd(
             exec_command(names['redis'], 'redis-cli', 'ping'),
             log=log,
             env=env,

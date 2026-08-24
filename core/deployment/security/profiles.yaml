@@ -743,6 +743,21 @@ controls:
     status: implemented
     check: client_browser_log
 
+  - id: client.dev_tools
+    layer: api
+    title: Режим разработчика (просмотр как пользователь)
+    kind: value
+    env_key: ERGO_DEV_TOOLS
+    profiles:
+      open: false
+      standard: false
+      hardened: false
+      maximum: false
+    violation: error
+    waivable: false
+    status: implemented
+    check: dev_tools
+
   - id: audit.retention_min
     layer: api
     title: Минимальный срок хранения аудита (дни)

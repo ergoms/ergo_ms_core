@@ -282,7 +282,7 @@ sections:
       Docker
   - name: deployment-scenario-test
     invoke: ergoms deployment-scenario-test
-    summary: Scénario Docker isolé (projet ergo_ms_scenario, ports et journaux séparés ; n'écrit pas le .env hôte)
+    summary: Scénarios isolés hôte et Docker (ports et répertoires séparés ; n'écrit pas le .env du dépôt)
 
   - name: ps1-encoding-check
     invoke: ergoms ps1-encoding-check [--fix]

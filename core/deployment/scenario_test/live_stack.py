@@ -13,11 +13,16 @@ from typing import Mapping, Sequence
 
 from scenario_test.stack import (
     MEILI_IMAGE,
+    MYSQL_IMAGE,
+    MSSQL_IMAGE,
     NGINX_IMAGE,
     POSTGRES_IMAGE,
     PYTHON_IMAGE,
     REDIS_IMAGE,
     RUNTIME_ENV_NAME,
+    SCENARIO_DB_NAME,
+    SCENARIO_MSSQL_PASSWORD,
+    SCENARIO_MYSQL_PASSWORD,
     docker_volume_flags,
     posix,
     python_bind_specs,
@@ -28,6 +33,8 @@ def container_names(project: str) -> dict[str, str]:
     return {
         'redis': f'{project}_redis',
         'postgres': f'{project}_postgres',
+        'mysql': f'{project}_mysql',
+        'mssql': f'{project}_mssql',
         'meilisearch': f'{project}_meilisearch',
         'api': f'{project}_api',
         'media': f'{project}_media',
@@ -87,31 +94,70 @@ def infra_run_commands(
     project: str,
     ports: Mapping[str, int],
     meili_key: str,
+    db: str = 'postgres',
+    use_redis: bool = True,
 ) -> list[list[str]]:
     names = container_names(project)
-    return [
-        [
-            'docker',
-            'run',
-            '-d',
-            '--name',
-            names['redis'],
-            REDIS_IMAGE,
-        ],
-        [
-            'docker',
-            'run',
-            '-d',
-            '--name',
-            names['postgres'],
-            '-e',
-            'POSTGRES_USER=postgres',
-            '-e',
-            'POSTGRES_PASSWORD=admin',
-            '-e',
-            'POSTGRES_DB=ergo_ms_scenario',
-            POSTGRES_IMAGE,
-        ],
+    commands: list[list[str]] = []
+    if use_redis:
+        commands.append(
+            [
+                'docker',
+                'run',
+                '-d',
+                '--name',
+                names['redis'],
+                REDIS_IMAGE,
+            ]
+        )
+    if db == 'postgres':
+        commands.append(
+            [
+                'docker',
+                'run',
+                '-d',
+                '--name',
+                names['postgres'],
+                '-e',
+                'POSTGRES_USER=postgres',
+                '-e',
+                'POSTGRES_PASSWORD=admin',
+                '-e',
+                f'POSTGRES_DB={SCENARIO_DB_NAME}',
+                POSTGRES_IMAGE,
+            ]
+        )
+    elif db == 'mysql':
+        commands.append(
+            [
+                'docker',
+                'run',
+                '-d',
+                '--name',
+                names['mysql'],
+                '-e',
+                f'MYSQL_ROOT_PASSWORD={SCENARIO_MYSQL_PASSWORD}',
+                '-e',
+                f'MYSQL_DATABASE={SCENARIO_DB_NAME}',
+                MYSQL_IMAGE,
+            ]
+        )
+    elif db == 'mssql':
+        commands.append(
+            [
+                'docker',
+                'run',
+                '-d',
+                '--name',
+                names['mssql'],
+                '-e',
+                'ACCEPT_EULA=Y',
+                '-e',
+                f'MSSQL_SA_PASSWORD={SCENARIO_MSSQL_PASSWORD}',
+                MSSQL_IMAGE,
+            ]
+        )
+    commands.append(
         [
             'docker',
             'run',
@@ -125,8 +171,9 @@ def infra_run_commands(
             '-e',
             'MEILI_NO_ANALYTICS=true',
             MEILI_IMAGE,
-        ],
-    ]
+        ]
+    )
+    return commands
 
 
 def python_run_command(

@@ -29,8 +29,10 @@ class ScenarioPortPickerTests(unittest.TestCase):
         assert ports is not None
         self.assertEqual(
             set(ports),
-            {'api', 'nginx', 'jupyter', 'postgres', 'redis', 'media', 'module'},
+            {'api', 'nginx', 'jupyter', 'postgres', 'redis', 'media', 'module', 'mysql', 'mssql'},
         )
+        reserved = {80, 5432, 3306, 1433, 6379, 8000, 8001, 8002}
+        self.assertTrue(reserved.isdisjoint(ports.values()))
 
     def test_extract_assets_and_ready_json(self) -> None:
         html = b'<html><script src="/assets/index-abc.js"></script></html>'

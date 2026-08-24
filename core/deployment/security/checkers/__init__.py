@@ -26,6 +26,7 @@ from . import (
     presence,
     search_master_key,
     secrets,
+    dev_tools,
 )
 
 CheckContext = dict[str, Any]
@@ -45,6 +46,7 @@ _REGISTRY: dict[str, Checker] = {
     'jupyter_exposure': jupyter_exposure.run,
     'anonymous_endpoints': anonymous_endpoints.run,
     'client_browser_log': client_browser_log.run,
+    'dev_tools': dev_tools.run,
     'broker_redis_password': broker_redis.run,
     'db_postgres_password': db_password.run,
     'search_master_key': search_master_key.run,

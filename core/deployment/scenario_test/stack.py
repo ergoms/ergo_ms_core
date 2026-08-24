@@ -15,7 +15,12 @@ POSTGRES_IMAGE = 'postgres:16-alpine'
 REDIS_IMAGE = 'redis:7-alpine'
 NGINX_IMAGE = 'nginx:1.27-alpine'
 MEILI_IMAGE = 'getmeili/meilisearch:v1.43.1'
+MYSQL_IMAGE = 'mysql:8'
+MSSQL_IMAGE = 'mcr.microsoft.com/mssql/server:2022-latest'
 RUNTIME_ENV_NAME = '.env'
+SCENARIO_DB_NAME = 'ergo_ms_scenario'
+SCENARIO_MYSQL_PASSWORD = 'admin'
+SCENARIO_MSSQL_PASSWORD = 'Scenario_Adm1n!'
 
 
 def posix(path: Path) -> str:
@@ -43,17 +48,40 @@ def write_databases_yaml(
     sqlite_path: Path | None = None,
 ) -> None:
     if db == 'sqlite':
-        sqlite = posix(sqlite_path or (path.parent / 'scenario.sqlite3'))
+        raw_sqlite = sqlite_path or (path.parent / 'scenario.sqlite3')
+        sqlite = str(raw_sqlite).replace('\\', '/')
+        if not sqlite.startswith('/'):
+            sqlite = posix(Path(raw_sqlite))
         default_block = (
             '  default:\n'
             '    engine: sqlite\n'
             f'    name: {sqlite}\n'
         )
+    elif db == 'mysql':
+        default_block = (
+            '  default:\n'
+            '    engine: mysql\n'
+            f'    name: {SCENARIO_DB_NAME}\n'
+            '    user: root\n'
+            f'    password: {SCENARIO_MYSQL_PASSWORD}\n'
+            f'    host: {db_host}\n'
+            f'    port: {int(db_port)}\n'
+        )
+    elif db == 'mssql':
+        default_block = (
+            '  default:\n'
+            '    engine: mssql\n'
+            f'    name: {SCENARIO_DB_NAME}\n'
+            '    user: sa\n'
+            f'    password: {SCENARIO_MSSQL_PASSWORD}\n'
+            f'    host: {db_host}\n'
+            f'    port: {int(db_port)}\n'
+        )
     else:
         default_block = (
             '  default:\n'
             '    engine: postgresql\n'
-            '    name: ergo_ms_scenario\n'
+            f'    name: {SCENARIO_DB_NAME}\n'
             '    user: postgres\n'
             '    password: admin\n'
             f'    host: {db_host}\n'

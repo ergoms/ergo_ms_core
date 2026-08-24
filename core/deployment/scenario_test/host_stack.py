@@ -10,14 +10,21 @@ import time
 from pathlib import Path
 from typing import Mapping
 
-from env_file_loader import apply_project_env_to_environ
 from install_redis import redis_server_path
 from lifecycle.modules.catalog import ModuleCatalog
 from nginx_foreground import nginx_paths
 from postgres_common import postgres_bin
 from project_layout import ensure_dir
+from scenario_test.isolation import sanitized_os_env
+from scenario_test.jupyter_overlay import apply_jupyter_isolation
 from scenario_test.matrix import ScenarioSpec, spec_env_overrides
-from scenario_test.stack import posix, write_databases_yaml, write_nginx_conf, write_runtime_env
+from scenario_test.stack import (
+    SCENARIO_DB_NAME,
+    posix,
+    write_databases_yaml,
+    write_nginx_conf,
+    write_runtime_env,
+)
 
 
 class HostBinaryMissing(Exception):
@@ -49,7 +56,8 @@ def build_host_env(
     ports: Mapping[str, int],
     extra: Mapping[str, str] | None = None,
 ) -> dict[str, str]:
-    env = os.environ.copy()
+    env = sanitized_os_env()
+    tmp_dir = ensure_dir(run_dir / 'tmp')
     overlay = spec_env_overrides(spec)
     overlay.update({
         'ERGO_DATABASES_YAML': str(run_dir / 'databases.yaml'),
@@ -70,16 +78,18 @@ def build_host_env(
         'ERGO_DOCKER_REQUIRES_SETUP': '0',
         'PYTHONIOENCODING': 'utf-8',
         'PYTHONUTF8': '1',
+        'TMP': str(tmp_dir),
+        'TEMP': str(tmp_dir),
+        'TMPDIR': str(tmp_dir),
     })
     if spec.disable_all_modules:
         overlay['DISABLED_MODULES'] = disabled_modules_csv(project_root)
     if extra:
         overlay.update({key: str(value) for key, value in extra.items()})
     env.update(overlay)
-    apply_project_env_to_environ(project_root, env, override_existing=False)
     path_entries = [str(project_root), str(project_root / 'core' / 'api')]
-    existing = env.get('PYTHONPATH', '')
-    env['PYTHONPATH'] = os.pathsep.join(path_entries + ([existing] if existing else []))
+    env['PYTHONPATH'] = os.pathsep.join(path_entries)
+    apply_jupyter_isolation(env, run_dir)
     return env
 
 
@@ -94,24 +104,42 @@ def write_host_artifacts(
     media_internal_key: str,
     meili_key: str,
     jupyter_token: str,
+    module_name: str = '',
 ) -> None:
-    sqlite_path = run_dir / 'scenario.sqlite3'
+    yaml_kwargs: dict = {
+        'redis_host': '127.0.0.1',
+        'redis_port': int(ports['redis']),
+    }
     if spec.use_postgres:
         write_databases_yaml(
             run_dir / 'databases.yaml',
             db='postgres',
             db_host='127.0.0.1',
             db_port=int(ports['postgres']),
-            redis_host='127.0.0.1',
-            redis_port=int(ports['redis']),
+            **yaml_kwargs,
+        )
+    elif spec.use_mysql:
+        write_databases_yaml(
+            run_dir / 'databases.yaml',
+            db='mysql',
+            db_host='127.0.0.1',
+            db_port=int(ports['mysql']),
+            **yaml_kwargs,
+        )
+    elif spec.use_mssql:
+        write_databases_yaml(
+            run_dir / 'databases.yaml',
+            db='mssql',
+            db_host='127.0.0.1',
+            db_port=int(ports['mssql']),
+            **yaml_kwargs,
         )
     else:
         write_databases_yaml(
             run_dir / 'databases.yaml',
             db='sqlite',
-            redis_host='127.0.0.1',
-            redis_port=int(ports['redis']),
-            sqlite_path=sqlite_path,
+            sqlite_path=run_dir / 'scenario.sqlite3',
+            **yaml_kwargs,
         )
     extra = spec_env_overrides(spec)
     extra.update({
@@ -145,6 +173,9 @@ def write_host_artifacts(
             jupyter_upstream='127.0.0.1',
             jupyter_port=int(ports['jupyter']),
             media_port=int(ports['media']),
+            module_runtime=spec.module_runtime,
+            microservice_modules=module_name,
+            module_port=str(int(ports['module'])) if module_name else '',
         )
 
 
@@ -209,17 +240,6 @@ def run_django(
     )
 
 
-def jupyterlab_installed(project_root: Path) -> bool:
-    python = venv_python(project_root)
-    result = subprocess.run(
-        [str(python), '-c', 'import jupyterlab'],
-        capture_output=True,
-        timeout=30,
-        check=False,
-    )
-    return result.returncode == 0
-
-
 def require_host_binaries(project_root: Path, spec: ScenarioSpec) -> None:
     if not venv_python(project_root).is_file():
         raise HostBinaryMissing('python')
@@ -231,8 +251,6 @@ def require_host_binaries(project_root: Path, spec: ScenarioSpec) -> None:
         _nginx_dir, exe, _conf = nginx_paths()
         if not exe.is_file():
             raise HostBinaryMissing('nginx')
-    if spec.use_jupyter and not jupyterlab_installed(project_root):
-        raise HostBinaryMissing('jupyter')
 
 
 def start_throwaway_postgres(project_root: Path, data_dir: Path, port: int, log_file: Path) -> None:
@@ -343,7 +361,7 @@ def start_throwaway_postgres(project_root: Path, data_dir: Path, port: int, log_
             str(int(port)),
             '-U',
             'postgres',
-            'ergo_ms_scenario',
+            SCENARIO_DB_NAME,
         ],
         env=env,
         stdin=subprocess.DEVNULL,

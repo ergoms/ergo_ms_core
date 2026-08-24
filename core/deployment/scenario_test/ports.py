@@ -12,6 +12,8 @@ POSTGRES_CANDIDATES = tuple(range(15432, 15441))
 REDIS_CANDIDATES = tuple(range(16379, 16389))
 MEDIA_CANDIDATES = tuple(range(18103, 18112))
 MODULE_CANDIDATES = tuple(range(18200, 18210))
+MYSQL_CANDIDATES = tuple(range(13306, 13316))
+MSSQL_CANDIDATES = tuple(range(11433, 11443))
 
 
 def pick_free_port(candidates: tuple[int, ...], *, used: set[int] | None = None) -> int | None:
@@ -40,7 +42,9 @@ def pick_scenario_ports() -> dict[str, int] | None:
     redis = take(REDIS_CANDIDATES)
     media = take(MEDIA_CANDIDATES)
     module = take(MODULE_CANDIDATES)
-    if None in (api, nginx, jupyter, postgres, redis, media, module):
+    mysql = take(MYSQL_CANDIDATES)
+    mssql = take(MSSQL_CANDIDATES)
+    if None in (api, nginx, jupyter, postgres, redis, media, module, mysql, mssql):
         return None
     return {
         'api': int(api),
@@ -50,4 +54,6 @@ def pick_scenario_ports() -> dict[str, int] | None:
         'redis': int(redis),
         'media': int(media),
         'module': int(module),
+        'mysql': int(mysql),
+        'mssql': int(mssql),
     }

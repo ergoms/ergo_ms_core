@@ -282,7 +282,7 @@ sections:
     summary: Unit-тесты deployment (docker_runtime, ergo_modes, env_resolvers, recipes, nginx render) без Docker daemon
   - name: deployment-scenario-test
     invoke: ergoms deployment-scenario-test
-    summary: Изолированный Docker-прогон сценариев (проект ergo_ms_scenario, отдельные порты и логи; хостовый .env не меняет)
+    summary: Изолированный прогон сценариев на хосте и в Docker (отдельные порты и каталоги; рабочий .env не меняет)
 
   - name: ps1-encoding-check
     invoke: ergoms ps1-encoding-check [--fix]

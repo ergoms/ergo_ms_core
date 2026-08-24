@@ -7,6 +7,7 @@ Logs: virtual_env/cache/tmp/scenario-test/<stamp>/.
 
 from __future__ import annotations
 
+import argparse
 import os
 import re
 import secrets
@@ -36,7 +37,8 @@ from project_layout import cache_dir, ensure_dir  # noqa: E402
 from scenario_test.docker_live import SKIP as DOCKER_SKIP  # noqa: E402
 from scenario_test.docker_live import run_docker_scenario  # noqa: E402
 from scenario_test.host_live import run_host_scenario  # noqa: E402
-from scenario_test.matrix import all_specs  # noqa: E402
+from scenario_test.isolation import sanitized_os_env, workspace_config_fingerprint  # noqa: E402
+from scenario_test.matrix import filter_specs  # noqa: E402
 from scenario_test.ports import pick_scenario_ports  # noqa: E402
 from scenario_test.stack import (  # noqa: E402
     COMPOSE_PROJECT,
@@ -287,7 +289,7 @@ def _probe_docker(log: RunLog, root: Path, probe_dir: Path) -> bool:
         project_name=COMPOSE_PROJECT,
     )
     write_modules_compose(probe_dir / 'modules.generated.yml', root)
-    env = os.environ.copy()
+    env = sanitized_os_env()
     if _run(_compose_cmd(compose_bin, probe_dir, 'config'), log=log, env=env, timeout=60, quiet=True) != 0:
         log.write(format_console('error', t('scenario_test_compose_config_failed')))
         raise ComposeConfigFailed()
@@ -303,15 +305,26 @@ def _probe_docker(log: RunLog, root: Path, probe_dir: Path) -> bool:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description='Isolated deployment scenario runner')
+    parser.add_argument('--spec', '--id', action='append', dest='spec_ids', default=None)
+    parser.add_argument('--launch', choices=('host', 'docker'), default=None)
+    parser.add_argument('--db', choices=('sqlite', 'postgres', 'mysql', 'mssql'), default=None)
+    args = parser.parse_args()
     configure_stdio_utf8()
     root = _PROJECT_ROOT.resolve()
     run_dir = _prepare_run_dir(root)
     log = RunLog(run_dir / 'run.log', run_dir / 'compose.log')
     docker_ok: bool | None = None
     outcomes: list[tuple[str, int]] = []
+    specs = filter_specs(spec_ids=args.spec_ids, launch=args.launch, db=args.db)
+    before = workspace_config_fingerprint(root)
+    process_env = sanitized_os_env()
     try:
         log.write(format_console('info', t('scenario_test_run_dir', path=str(run_dir))))
-        for spec in all_specs():
+        if not specs:
+            log.write(format_console('error', t('scenario_test_failed', path=str(run_dir))))
+            return 1
+        for spec in specs:
             spec_dir = _prepare_spec_dir(run_dir, spec.id)
             log.write(
                 format_console(
@@ -360,7 +373,7 @@ def main() -> int:
                     bridge_token=secrets_map['bridge_token'],
                     log=log,
                     run_cmd=_run,
-                    env=os.environ.copy(),
+                    env=process_env,
                     remove_containers=_remove_containers,
                 )
                 if code == DOCKER_SKIP:
@@ -377,8 +390,15 @@ def main() -> int:
                     meili_key=secrets_map['meili_key'],
                     jupyter_token=secrets_map['jupyter_token'],
                     log=log,
+                    bridge_token=secrets_map['bridge_token'],
                 )
             outcomes.append((spec.id, code))
+            if workspace_config_fingerprint(root) != before:
+                log.write(format_console(
+                    'error',
+                    t('scenario_test_host_config_changed', id=spec.id),
+                ))
+                return 1
         failed = [item_id for item_id, code in outcomes if code == 1]
         for item_id, code in outcomes:
             log.write(f'spec {item_id} result={code}')

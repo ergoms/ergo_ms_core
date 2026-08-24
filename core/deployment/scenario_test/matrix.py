@@ -1,6 +1,6 @@
 """Матрица изолированных сценариев развёртывания.
 
-Не декартово все ERGO_*: mysql/mssql/smtp/security не меняют топологию запуска.
+Покрытие осей launch/proxy/broker/db/module_runtime, не полное декартово произведение.
 Службы ОС (NSSM/systemd) живьём не ставим — это перезаписало бы хост.
 """
 
@@ -36,16 +36,33 @@ class ScenarioSpec:
         return self.db == 'postgres'
 
     @property
+    def use_mysql(self) -> bool:
+        return self.db == 'mysql'
+
+    @property
+    def use_mssql(self) -> bool:
+        return self.db == 'mssql'
+
+    @property
+    def use_sqlite(self) -> bool:
+        return self.db == 'sqlite'
+
+    @property
+    def needs_docker_db(self) -> bool:
+        return self.db in ('mysql', 'mssql')
+
+    @property
     def disable_all_modules(self) -> bool:
-        return self.launch == 'host' and self.db == 'sqlite'
+        return self.launch == 'host' and self.db == 'sqlite' and self.module_runtime == 'monolith'
 
 
 def spec_env_overrides(spec: ScenarioSpec) -> dict[str, str]:
     jupyter_mode = spec.jupyter if spec.use_jupyter else 'none'
+    db = spec.db if spec.db in ('sqlite', 'postgres', 'mysql', 'mssql') else 'postgres'
     return {
         'ERGO_RUNTIME': spec.launch if spec.launch in ('host', 'docker') else 'docker',
         'ERGO_BROKER': spec.broker,
-        'ERGO_DB': 'sqlite' if spec.db == 'sqlite' else 'postgres',
+        'ERGO_DB': db,
         'ERGO_PROXY': spec.proxy,
         'ERGO_JUPYTER': jupyter_mode,
         'ERGO_SEARCH_ENABLED': 'true' if spec.launch == 'docker' else 'false',
@@ -97,6 +114,33 @@ def all_specs() -> tuple[ScenarioSpec, ...]:
             'microservice',
         ),
         ScenarioSpec(
+            'docker_mysql_nginx',
+            'docker',
+            'nginx',
+            'none',
+            'mysql',
+            'redis',
+            'monolith',
+        ),
+        ScenarioSpec(
+            'docker_mssql_nginx',
+            'docker',
+            'nginx',
+            'none',
+            'mssql',
+            'redis',
+            'monolith',
+        ),
+        ScenarioSpec(
+            'docker_sqlite_direct',
+            'docker',
+            'none',
+            'none',
+            'sqlite',
+            'local',
+            'monolith',
+        ),
+        ScenarioSpec(
             'host_sqlite_direct',
             'host',
             'none',
@@ -123,4 +167,48 @@ def all_specs() -> tuple[ScenarioSpec, ...]:
             'local',
             'monolith',
         ),
+        ScenarioSpec(
+            'host_microservice',
+            'host',
+            'nginx',
+            'none',
+            'postgres',
+            'redis',
+            'microservice',
+        ),
+        ScenarioSpec(
+            'host_mysql_redis_direct',
+            'host',
+            'none',
+            'none',
+            'mysql',
+            'redis',
+            'monolith',
+        ),
+        ScenarioSpec(
+            'host_mssql_redis_nginx',
+            'host',
+            'nginx',
+            'none',
+            'mssql',
+            'redis',
+            'monolith',
+        ),
     )
+
+
+def filter_specs(
+    *,
+    spec_ids: list[str] | None = None,
+    launch: str | None = None,
+    db: str | None = None,
+) -> tuple[ScenarioSpec, ...]:
+    specs = all_specs()
+    if spec_ids:
+        wanted = set(spec_ids)
+        specs = tuple(item for item in specs if item.id in wanted)
+    if launch:
+        specs = tuple(item for item in specs if item.launch == launch)
+    if db:
+        specs = tuple(item for item in specs if item.db == db)
+    return specs

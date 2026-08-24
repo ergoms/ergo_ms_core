@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 import tempfile
 import unittest
@@ -110,6 +111,29 @@ class ScenarioStackTests(unittest.TestCase):
             self.assertNotIn('--network', cmd)
             self.assertNotIn('-p', cmd)
 
+    def test_live_infra_mysql_and_sqlite_skip_postgres(self) -> None:
+        mysql_cmds = infra_run_commands(
+            project='ergo_ms_scenario',
+            ports={'mysql': 13306},
+            meili_key='k',
+            db='mysql',
+            use_redis=True,
+        )
+        mysql_joined = ' '.join(' '.join(cmd) for cmd in mysql_cmds)
+        self.assertIn('mysql:8', mysql_joined)
+        self.assertNotIn('postgres:16-alpine', mysql_joined)
+        sqlite_cmds = infra_run_commands(
+            project='ergo_ms_scenario',
+            ports={},
+            meili_key='k',
+            db='sqlite',
+            use_redis=False,
+        )
+        sqlite_joined = ' '.join(' '.join(cmd) for cmd in sqlite_cmds)
+        self.assertNotIn('postgres:16-alpine', sqlite_joined)
+        self.assertNotIn('redis:7-alpine', sqlite_joined)
+        self.assertIn('getmeili/meilisearch', sqlite_joined)
+
     def test_app_run_commands_use_add_host_without_publish(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / 'project'
@@ -177,6 +201,60 @@ class ScenarioStackTests(unittest.TestCase):
             text = path.read_text(encoding='utf-8')
         self.assertIn('engine: sqlite', text)
         self.assertNotIn('engine: postgresql', text)
+
+    def test_mysql_and_mssql_databases_yaml_use_engine_and_loopback_port(self) -> None:
+        from scenario_test.stack import write_databases_yaml
+
+        with tempfile.TemporaryDirectory() as tmp:
+            mysql_path = Path(tmp) / 'mysql.yaml'
+            mssql_path = Path(tmp) / 'mssql.yaml'
+            write_databases_yaml(mysql_path, db='mysql', db_host='127.0.0.1', db_port=13306)
+            write_databases_yaml(mssql_path, db='mssql', db_host='127.0.0.1', db_port=11433)
+            mysql_text = mysql_path.read_text(encoding='utf-8')
+            mssql_text = mssql_path.read_text(encoding='utf-8')
+        self.assertIn('engine: mysql', mysql_text)
+        self.assertIn('port: 13306', mysql_text)
+        self.assertNotIn('port: 3306', mysql_text)
+        self.assertIn('engine: mssql', mssql_text)
+        self.assertIn('port: 11433', mssql_text)
+        self.assertNotIn('port: 1433', mssql_text)
+
+    def test_build_host_env_does_not_inherit_workspace_env(self) -> None:
+        from scenario_test.host_stack import build_host_env
+        from scenario_test.isolation import workspace_config_fingerprint
+        from scenario_test.matrix import all_specs
+
+        spec = next(item for item in all_specs() if item.id == 'host_postgres_redis_nginx')
+        probe = 'ERGO_SCENARIO_ISOLATION_PROBE'
+        os.environ[probe] = 'unique-not-for-scenario'
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                run_dir = Path(tmp)
+                env = build_host_env(
+                    project_root=run_dir,
+                    run_dir=run_dir,
+                    spec=spec,
+                    ports={
+                        'api': 18000,
+                        'nginx': 18080,
+                        'jupyter': 18002,
+                        'postgres': 15432,
+                        'redis': 16379,
+                        'media': 18103,
+                        'module': 18200,
+                        'mysql': 13306,
+                        'mssql': 11433,
+                    },
+                )
+                (run_dir / '.env').write_text('A=1\n', encoding='utf-8')
+                (run_dir / 'databases.yaml').write_text('databases: {}\n', encoding='utf-8')
+                first = workspace_config_fingerprint(run_dir)
+                second = workspace_config_fingerprint(run_dir)
+        finally:
+            del os.environ[probe]
+        self.assertNotIn(probe, env)
+        self.assertEqual(first, second)
+        self.assertNotEqual(first['.env'], '')
 
     def test_exec_command_is_plain_docker_exec(self) -> None:
         cmd = exec_command('box', 'redis-cli', 'ping')

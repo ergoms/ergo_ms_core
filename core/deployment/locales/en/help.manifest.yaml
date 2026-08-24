@@ -281,7 +281,7 @@ sections:
     summary: Deployment unit tests (docker_runtime, ergo_modes, env_resolvers, recipes, nginx render) without Docker daemon
   - name: deployment-scenario-test
     invoke: ergoms deployment-scenario-test
-    summary: Isolated Docker scenario run (project ergo_ms_scenario, separate ports and logs; does not write host .env)
+    summary: Isolated host and Docker scenario runs (separate ports and directories; does not change the workspace .env)
 
   - name: ps1-encoding-check
     invoke: ergoms ps1-encoding-check [--fix]
