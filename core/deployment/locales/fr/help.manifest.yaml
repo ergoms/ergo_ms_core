@@ -273,7 +273,7 @@ sections:
     invoke: ergoms deps-audit
     summary: Vérifier les dépendances Python et npm (OSV, npm audit) ; High/Critical font échouer la commande
   - name: security-modes
-    summary: Référence des niveaux ERGO_SECURITY (étape 2 : clés absentes au runtime ; n'écrit pas .env)
+    summary: "Référence des niveaux ERGO_SECURITY (étape 2 : clés absentes au runtime ; n'écrit pas .env)"
   - name: security-check
     summary: Rapport de conformité au niveau de sécurité (étape 2)
   - name: deployment-test

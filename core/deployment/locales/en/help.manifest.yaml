@@ -273,7 +273,7 @@ sections:
     invoke: ergoms deps-audit
     summary: Check Python and npm dependencies for known vulnerabilities (OSV, npm audit); High/Critical fail the command
   - name: security-modes
-    summary: ERGO_SECURITY levels reference (stage 2: profile fills unset keys; does not write .env)
+    summary: 'ERGO_SECURITY levels reference (stage 2: profile fills unset keys; does not write .env)'
   - name: security-check
     summary: Report whether the install matches the security level (stage 2)
   - name: deployment-test
