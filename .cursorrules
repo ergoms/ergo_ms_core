@@ -5,56 +5,73 @@ When Cursor auto-generates a Git commit message for this repository (✨ Generat
 - Format: `<type>: <описание на русском>` — only the type prefix, then a colon and description.
 - Do NOT add a scope in parentheses after the type: no `feat(video_analysis):`, `fix(api):`, `refactor(client):`, module names, `api`/`client`/`server`, or any path segment between type and colon.
 
-How to judge scale (do this before writing):
+Length:
 
-- Read the **diff hunks**, not the file list. Many files moving the same way are usually **one** system change, not many small ones.
-- Ask first: what changed in how the system is built? Layers, who owns a concern, a shared contract, duplicated logic that became one place, a new subsystem, who may talk to whom. That is the subject.
-- Number of files is not importance. A one-line contract change can outweigh edits in ten templates.
-- Do not rank a local edit (a key in `.env.example`, a test, a comment) equal to an architectural change. Put the smaller companion in the body, or omit it if the subject already implies it.
-- Split the message into two stories only when the diff contains two **different system changes**, not because two directories were touched.
-- Do not copy the vague style of older auto-generated commits (`Добавлены новые настройки…`, `Добавлены улучшения…`, `Обновлены правила…`).
+- The whole message is **1–3 complete sentences**, no more. Subject is the first sentence. Body is at most two more.
+- Skip the body when one sentence already names what changed. Do not pad to three.
 
-What to write:
+How to judge what happened (do this before choosing type or wording):
 
-- Subject: the architectural or system-level change in one complete sentence. Say how the system works differently, not which files were edited and not a catalog of flags.
-- Body: only what the subject cannot honestly cover. Prefer one or two sentences that complete the system picture (who uses the new shared place, which limit now wins, which class of URLs is now long-lived). Concrete names (`TIME_ZONE`, `/upload/`, `--cleanup-users`) belong here as anchors, not as the headline.
-- Docs and Cursor rules count when they change an instruction for the system. Still describe the instruction, not that “rules were updated”.
-- Do not dump files. Do not write filler (`улучшения`, `доработки`, `рефакторинг` without saying what the structure became).
+- Read the **diff hunks**, not the file list. Many files in one commit are usually one existing flow touched in several places, not a new product.
+- Ask: did the user gain a capability that did not exist, or did something that already existed become more complete, clearer, faster, or less wrong?
+- Number of files is not a new feature. Spreading one improvement across templates, tests, and config is still that improvement.
+- Do not invent a subsystem, “платформенный контракт”, or architecture story unless the hunks actually introduce one. Stay at changelog / patch-note height: what a reader of git log needs to know.
+- Split into two stories only when the diff contains two **unrelated** changes, not because two directories were touched. Prefer one honest sentence over two inflated ones.
+
+Choose the type by the nature of the change, not by how impressive the file list looks:
+
+- `feat` — only if after this commit the system can do something that previously did not exist (new screen, new command, new API, new user-facing capability).
+- Existing screen, API, command, or rule that was completed, aligned, tightened, or made consistent → **not** `feat`. Use `fix` if behavior was wrong or incomplete, `refactor` if structure moved without changing behavior, `perf` / `style` / `docs` / `chore` / `test` / `ci` / `build` when that is the real story.
+- Do not upgrade a polish pass or a multi-file consistency edit into `feat`.
+
+What to write (patch-note style):
+
+- Write as a short changelog entry for someone who will not open the diff: name the actual behavior that changed (the page, the limit, the command, the rule).
+- Subject: one concrete sentence. Prefer “стало так” over “добавлена новая система”.
+- Body: only an anchor the subject cannot hold (`TIME_ZONE`, `/upload/`, `--cleanup-users`) or a second real consequence. Not a file dump.
+- Docs and Cursor rules: say what the instruction became, not that “правила обновлены”.
+- Do not copy the vague style of older auto-generated commits (`Добавлены новые настройки…`, `Добавлены улучшения…`, `Обновлены правила…`). Name what improved.
+- Do not dump files. Do not write filler (`улучшения`, `доработки`, `рефакторинг` without saying what already existed and what is now different).
 
 Language: plain Russian, full sentences. No Anglicisms when a Russian word exists. Keep identifiers as in the diff.
 
-Good (system first; files are the means):
+Good (one existing flow, several files, not a new feature):
+```
+refactor: Выбор даты на страницах анализа видео идёт через общий DatePicker.
+
+Фильтр по дате загрузки и поле в форме больше не расходятся по разным виджетам.
+```
+
+Good (real new capability):
 ```
 feat: Загрузки обычного пользователя и администратора больше не делят один лимит.
 
-Частоту считают одно место для media_api и nginx. Зона nginx на /upload/ берёт потолок администратора, чтобы его запросы не резались общим лимитом.
+Частоту считают одно место для media_api и nginx. Зона nginx на /upload/ берёт потолок администратора.
 ```
 
-Good (smaller config does not steal the subject):
+Good (small change stays one sentence):
 ```
-feat: Nginx больше не обрывает длинные SSE-потоки модулей.
-
-Для /api/realtime/stream/ и адресов вида /api/.../stream/ отключены сжатие и буферизация, таймаут чтения увеличен. В .env.example задан TIME_ZONE для Django, Celery и логов.
+fix: На странице анализа видео фильтр учитывает дату загрузки, а не только дату съёмки.
 ```
 
-Good (small change stays small):
+Bad (multi-file improvement inflated to a new feature):
 ```
-feat: На странице анализа видео добавлен фильтр по дате загрузки.
+feat: Добавлена новая система фильтрации и выбора даты на страницах анализа видео.
 ```
 
-Bad (file-scale: counts files, misses the system):
+Bad (architecture story the hunks do not support):
+```
+feat: Единый контракт лимитов загрузки вынесен в платформенный слой media_api и nginx.
+```
+
+Bad (file-scale: counts files, misses what changed):
 ```
 feat: Обновлены render_common.py, шаблоны nginx, профили безопасности и тесты загрузки.
 ```
 
-Bad (inventory of keys, still not the architecture):
+Bad (inventory of keys):
 ```
 feat: Добавлены MEDIA_API_UPLOAD_RATE_ADMIN, upload_rate.py и правки profiles.yaml.
-```
-
-Bad (two file facts as equals; neither is the system story):
-```
-feat: Добавлены новые настройки для часового пояса и обновлены правила Nginx для потоков SSE.
 ```
 
 Bad (empty label):
