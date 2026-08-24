@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shlex
 import subprocess
 import sys
 from dataclasses import asdict, dataclass, field
@@ -29,6 +30,8 @@ from console_tags import configure_stdio_utf8, format_console  # noqa: E402
 from lifecycle.modules.catalog import ModuleCatalog  # noqa: E402
 
 HOST_LIFECYCLE_FILENAME = 'host_lifecycle.yaml'
+_INSTALL_MODULE_SERVICE = 'install-module-service'
+_UNINSTALL_MODULE_SERVICE = 'uninstall-module-service'
 
 
 @dataclass(frozen=True)
@@ -47,6 +50,7 @@ class HostLifecycleAggregate:
     uninstall_service_commands: list[str] = field(default_factory=list)
     service_units: list[str] = field(default_factory=list)
     modules: list[str] = field(default_factory=list)
+    skipped_process_install_commands: list[str] = field(default_factory=list)
 
 
 def _warn(message: str) -> None:
@@ -69,6 +73,60 @@ def _as_str_list(value: Any) -> list[str]:
                 items.append(text)
         return items
     return []
+
+
+def _safe_module_token(name: str) -> str:
+    return ''.join(ch if ch.isalnum() or ch == '_' else '_' for ch in name)
+
+
+def parse_module_process_service_command(cmd: str) -> tuple[str, str, str] | None:
+    """Разбор install/uninstall-module-service: (install|uninstall, module, kind)."""
+    try:
+        parts = shlex.split(cmd)
+    except ValueError:
+        return None
+    if not parts:
+        return None
+    verb = parts[0]
+    if verb == _INSTALL_MODULE_SERVICE:
+        action = 'install'
+    elif verb == _UNINSTALL_MODULE_SERVICE:
+        action = 'uninstall'
+    else:
+        return None
+    module = ''
+    kind = 'api'
+    index = 1
+    while index < len(parts):
+        token = parts[index]
+        if token.startswith('--module='):
+            module = token.split('=', 1)[1]
+        elif token == '--module' and index + 1 < len(parts):
+            index += 1
+            module = parts[index]
+        elif token.startswith('--kind='):
+            kind = token.split('=', 1)[1]
+        elif token == '--kind' and index + 1 < len(parts):
+            index += 1
+            kind = parts[index]
+        index += 1
+    module = module.strip()
+    kind = kind.strip() or 'api'
+    if not module:
+        return None
+    return action, module, kind
+
+
+def process_service_unit_name(module: str, kind: str) -> str:
+    return f'ergo_ms_module_{_safe_module_token(module)}_{kind}'
+
+
+def is_module_process_service_unit(unit: str, module: str) -> bool:
+    short = unit[: -len('.service')] if unit.endswith('.service') else unit
+    return short in (
+        process_service_unit_name(module, 'api'),
+        process_service_unit_name(module, 'worker'),
+    )
 
 
 def _parse_file(path: Path, *, module_dir_name: str) -> HostLifecycleEntry | None:
@@ -159,20 +217,30 @@ def load_host_lifecycle_entries(project_root: str) -> tuple[HostLifecycleEntry, 
 
 
 def aggregate_host_lifecycle(project_root: Path | str) -> HostLifecycleAggregate:
-    entries = load_host_lifecycle_entries(str(Path(project_root).resolve()))
+    root = Path(project_root).resolve()
+    entries = load_host_lifecycle_entries(str(root))
+    catalog = ModuleCatalog.from_project_env(root)
     agg = HostLifecycleAggregate()
     seen_stop: set[str] = set()
     seen_install: set[str] = set()
     seen_uninstall: set[str] = set()
     seen_units: set[str] = set()
+    seen_skipped: set[str] = set()
 
     for entry in entries:
+        process_ok = catalog.allows_module_process_os_services(entry.module)
         agg.modules.append(entry.module)
         for cmd in entry.stop_commands:
             if cmd not in seen_stop:
                 seen_stop.add(cmd)
                 agg.stop_commands.append(cmd)
         for cmd in entry.install_service_commands:
+            parsed = parse_module_process_service_command(cmd)
+            if parsed is not None and not process_ok:
+                if cmd not in seen_skipped:
+                    seen_skipped.add(cmd)
+                    agg.skipped_process_install_commands.append(cmd)
+                continue
             if cmd not in seen_install:
                 seen_install.add(cmd)
                 agg.install_service_commands.append(cmd)
@@ -181,6 +249,8 @@ def aggregate_host_lifecycle(project_root: Path | str) -> HostLifecycleAggregate
                 seen_uninstall.add(cmd)
                 agg.uninstall_service_commands.append(cmd)
         for unit in entry.service_units:
+            if not process_ok and is_module_process_service_unit(unit, entry.module):
+                continue
             if unit not in seen_units:
                 seen_units.add(unit)
                 agg.service_units.append(unit)
@@ -225,6 +295,32 @@ def collect_uninstall_service_commands(project_root: Path | str) -> list[str]:
         if entry.service_units and not any(unit_is_installed(unit) for unit in entry.service_units):
             continue
         for cmd in entry.uninstall_service_commands:
+            if cmd in seen:
+                continue
+            seen.add(cmd)
+            commands.append(cmd)
+    return commands
+
+
+def collect_stale_module_process_uninstall_commands(project_root: Path | str) -> list[str]:
+    """Снять API/worker OS-службы модуля, если текущий режим их больше не ставит."""
+    root = Path(project_root).resolve()
+    catalog = ModuleCatalog.from_project_env(root)
+    seen: set[str] = set()
+    commands: list[str] = []
+    for entry in load_host_lifecycle_entries(str(root)):
+        if catalog.allows_module_process_os_services(entry.module):
+            continue
+        process_units = [
+            unit for unit in entry.service_units
+            if is_module_process_service_unit(unit, entry.module)
+        ]
+        if not process_units or not any(unit_is_installed(unit) for unit in process_units):
+            continue
+        for cmd in entry.uninstall_service_commands:
+            parsed = parse_module_process_service_command(cmd)
+            if parsed is None or parsed[0] != 'uninstall':
+                continue
             if cmd in seen:
                 continue
             seen.add(cmd)

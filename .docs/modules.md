@@ -269,10 +269,10 @@ host:
 
 | Поле | Когда вызывается |
 |------|------------------|
-| `install_service_commands` | `ergoms install-services` |
+| `install_service_commands` | `ergoms install-services`. Команды `install-module-service` (API/worker модуля) — только при `MODULE_RUNTIME=microservice` и имени в `MICROSERVICE_MODULES`; демоны без split процесса ставятся всегда |
 | `uninstall_service_commands` | `ergoms uninstall-services` |
 | `stop_commands` | остановка демонов в тестах deployment |
-| `service_units` | имена OS-служб для `ergoms start` / `stop` / `restart` / `status`; start/stop/restart и uninstall молча пропускают не установленные |
+| `service_units` | имена OS-служб для `ergoms start` / `stop` / `restart` / `status`; start/stop/restart и uninstall молча пропускают не установленные. API/worker модуля в start/stop только в microservice-режиме |
 
 Снимается **служба**, не portable-пакет. Подробности: [deployment.md](deployment.md), [lifecycle-pipeline.md](lifecycle-pipeline.md), [`.cursor/rules/host-lifecycle.mdc`](../.cursor/rules/host-lifecycle.mdc).
 

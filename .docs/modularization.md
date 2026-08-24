@@ -65,7 +65,7 @@
 
 1. В `.env`: `MODULE_RUNTIME=microservice`, `MICROSERVICE_MODULES=<name>`, `BRIDGE_TRANSPORT=http`, `BRIDGE_EVENT_BUS=redis`, `BRIDGE_SERVICE_URLS`, `BRIDGE_CORE_URL`, `<NAME>_PORT`. Токен `BRIDGE_INTERNAL_TOKEN` обязателен вне DEBUG.
 2. У модуля — `api/bridge_manifest.yaml`. Без файла `ergoms core-rules-check` падает, если имя есть в `MICROSERVICE_MODULES`.
-3. Запуск: `ergoms start-module --module=<name>`, `ergoms start-worker --module=<name>`. OS-службы: `ergoms install-module-service --module=<name> --kind=api|worker` (или hook `host_lifecycle.yaml`).
+3. Запуск: `ergoms start-module --module=<name>`, `ergoms start-worker --module=<name>`. OS-службы API/worker: `ergoms install-module-service --module=<name> --kind=api|worker` (или hook `host_lifecycle.yaml`) — `install-services` ставит их только при `MODULE_RUNTIME=microservice` и имени в `MICROSERVICE_MODULES`.
 4. Прокси: `ergoms reload-nginx`. Location `/api/<name>/` не failover’ит на ядро; при 502/503 клиент получает JSON `module_unavailable`.
 5. Docker: `ergoms docker-gen-modules` + `ergoms docker-up`. Compose добавляет сервис API и worker модуля.
 6. Откат: `MODULE_RUNTIME=monolith`, `BRIDGE_TRANSPORT=local`. Режим разработки не ломается.
@@ -146,7 +146,7 @@ ergoms db-move-core-schema
 1. `ergoms data-inventory` — нет `cross_module_fk` и `requires_peer`.
 2. Снять FK на `AUTH_USER_MODEL` → `user_public_id`; каскад удаления — подписка на `core.user_delete`.
 3. `api/bridge_manifest.yaml`, `api/schema.yaml` (`isolated: true`).
-4. `host_lifecycle.yaml` + `process_roles.yaml` (API и worker через `install-module-service`).
+4. `host_lifecycle.yaml` + `process_roles.yaml` (API и worker через `install-module-service`; службы ставятся только в microservice-режиме).
 5. Очередь Celery = имя модуля; worker только с `--module=`.
 6. Файлы через media_api; поиск — `search_indexes.py` с префиксом uid.
 7. Прогон: monolith не сломан; microservice на хосте и `ergoms docker-gen-modules`.

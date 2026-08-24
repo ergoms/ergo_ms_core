@@ -180,6 +180,12 @@ def main() -> int:
         if os.name == 'nt':
             return _uninstall_windows(name)
         return _uninstall_linux(name)
+    from lifecycle.modules.catalog import ModuleCatalog  # noqa: WPS433
+
+    catalog = ModuleCatalog.from_project_env(PROJECT_ROOT)
+    if not catalog.allows_module_process_os_services(module):
+        print(format_console('skip', t('module_process_service_skip_runtime', name=module)))
+        return 0
     bat, sh_path = _write_wrappers(module, kind)
     if os.name == 'nt':
         return _install_windows(module, kind, bat)
