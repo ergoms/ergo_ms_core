@@ -402,7 +402,9 @@ status_all() {
   local u
   for u in $(units_list "$root"); do
     if _unit_is_present "$u"; then
-      systemctl_do status "$u" | cat
+      # systemctl status: 0 — active, 3 — inactive. Для просмотра это не ошибка;
+      # иначе set -e / pipefail рвёт install-services до шага nginx.
+      systemctl_do --no-pager status "$u" || true
     else
       echo "[SKIP] $u — unit не установлен"
     fi
