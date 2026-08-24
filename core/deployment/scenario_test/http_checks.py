@@ -143,20 +143,38 @@ def jupyter_probe_paths(port: str, token: str) -> tuple[tuple[str, str], ...]:
     )
 
 
+def http_request_direct(
+    url: str,
+    *,
+    method: str = 'GET',
+    headers: Mapping[str, str] | None = None,
+    json_body: dict[str, Any] | None = None,
+    timeout: float = 20,
+) -> tuple[int, bytes]:
+    """HTTP без прокси процесса — как probe-скрипт в контейнере."""
+    request = urllib.request.Request(url, method=method.upper())
+    for key, value in (headers or {}).items():
+        request.add_header(key, value)
+    if json_body is not None:
+        request.data = json.dumps(json_body).encode('utf-8')
+        request.add_header('Content-Type', 'application/json')
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        with opener.open(request, timeout=timeout) as response:
+            return int(response.status), response.read()
+    except urllib.error.HTTPError as exc:
+        return int(exc.code), exc.read() if exc.fp else b''
+    except (TimeoutError, OSError, urllib.error.URLError):
+        return 0, b''
+
+
 def http_get(
     url: str,
     *,
     headers: Mapping[str, str] | None = None,
     timeout: float = 20,
 ) -> tuple[int, bytes]:
-    request = urllib.request.Request(url, method='GET')
-    for key, value in (headers or {}).items():
-        request.add_header(key, value)
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            return int(response.status), response.read()
-    except urllib.error.HTTPError as exc:
-        return int(exc.code), exc.read() if exc.fp else b''
+    return http_request_direct(url, method='GET', headers=headers, timeout=timeout)
 
 
 def wait_status(

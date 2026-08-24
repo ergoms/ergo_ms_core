@@ -2,7 +2,7 @@
 Isolated deployment scenario runner.
 
 Does not write host .env, docker/.compose.env, or OS services.
-Compose project: ergo_ms_scenario. Logs: virtual_env/cache/tmp/scenario-test/<stamp>/.
+Logs: virtual_env/cache/tmp/scenario-test/<stamp>/.
 """
 
 from __future__ import annotations
@@ -13,7 +13,6 @@ import secrets
 import shutil
 import subprocess
 import sys
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import IO, Sequence
@@ -34,27 +33,17 @@ for _path in (_DEPLOYMENT_DIR, _DOCKER_DIR, _NGINX_DIR):
 from cli_locale import t  # noqa: E402
 from console_tags import configure_stdio_utf8, format_console  # noqa: E402
 from project_layout import cache_dir, ensure_dir  # noqa: E402
-from scenario_test.live_checks import run_live_http_checks  # noqa: E402
-from scenario_test.live_stack import (  # noqa: E402
-    all_container_names,
-    app_run_commands,
-    container_ip,
-    container_names,
-    container_running,
-    exec_command,
-    infra_run_commands,
-    migrate_command,
-)
+from scenario_test.docker_live import SKIP as DOCKER_SKIP  # noqa: E402
+from scenario_test.docker_live import run_docker_scenario  # noqa: E402
+from scenario_test.host_live import run_host_scenario  # noqa: E402
+from scenario_test.matrix import all_specs  # noqa: E402
 from scenario_test.ports import pick_scenario_ports  # noqa: E402
 from scenario_test.stack import (  # noqa: E402
     COMPOSE_PROJECT,
-    NGINX_IMAGE,
     PYTHON_IMAGE,
     REDIS_IMAGE,
     RUNTIME_ENV_NAME,
-    posix,
     write_compose_file,
-    write_databases_yaml,
     write_modules_compose,
     write_nginx_conf,
     write_runtime_env,
@@ -78,7 +67,9 @@ class RunLog:
         self._fh.close()
 
 
-_ACTIVE_PROJECT = COMPOSE_PROJECT
+class ComposeConfigFailed(RuntimeError):
+    pass
+
 
 _SECRET_LINE = re.compile(
     r'(?im)^(.*(?:API_SECRET_KEY|API_JWT_SIGNING_KEY|MEDIA_API_INTERNAL_KEY|'
@@ -133,7 +124,6 @@ def _image_exists(name: str) -> bool:
 
 
 def _docker_can_start(log: RunLog) -> bool:
-    """Проверка, что движок Docker реально стартует контейнер, а не только create."""
     cmd = [
         'docker',
         'run',
@@ -164,7 +154,7 @@ def _compose_cmd(
     return [
         *compose,
         '--project-name',
-        _ACTIVE_PROJECT,
+        COMPOSE_PROJECT,
         '--project-directory',
         str(run_dir),
         '-f',
@@ -222,22 +212,16 @@ def _run(
 def _prepare_run_dir(root: Path) -> Path:
     stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
     run_dir = ensure_dir(cache_dir(root) / 'tmp' / 'scenario-test' / stamp)
-    for name in ('logs', 'logs/docker', 'media', 'notebooks', 'jupyter', 'http', 'static_api', 'modules'):
+    for name in ('logs', 'http'):
         ensure_dir(run_dir / name)
     return run_dir
 
 
-def _wait_exec(cmd: Sequence[str], log: RunLog, *, attempts: int = 24, delay: float = 2.0) -> bool:
-    last = 1
-    for _ in range(max(1, attempts)):
-        try:
-            last = _run(cmd, log=log, timeout=20, quiet=True)
-        except subprocess.TimeoutExpired:
-            last = 1
-        if last == 0:
-            return True
-        time.sleep(delay)
-    return last == 0
+def _prepare_spec_dir(parent: Path, spec_id: str) -> Path:
+    run_dir = ensure_dir(parent / spec_id)
+    for name in ('logs', 'logs/docker', 'media', 'notebooks', 'jupyter', 'http', 'static_api', 'modules'):
+        ensure_dir(run_dir / name)
+    return run_dir
 
 
 def _remove_containers(names: Sequence[str], log: RunLog) -> None:
@@ -250,286 +234,154 @@ def _remove_containers(names: Sequence[str], log: RunLog) -> None:
             log.write(f'down error {name}: {exc}')
 
 
+def _new_secrets() -> dict[str, str]:
+    media_key = secrets.token_hex(32)
+    api_secret = secrets.token_hex(32)
+    while media_key == api_secret:
+        media_key = secrets.token_hex(32)
+    return {
+        'meili_key': secrets.token_hex(16),
+        'jupyter_token': secrets.token_hex(16),
+        'api_secret': api_secret,
+        'jwt_secret': secrets.token_hex(32),
+        'media_key': media_key,
+        'bridge_token': secrets.token_hex(32),
+    }
+
+
+def _probe_docker(log: RunLog, root: Path, probe_dir: Path) -> bool:
+    compose_bin = _docker()
+    if compose_bin is None:
+        log.write(format_console('warning', t('scenario_test_no_docker')))
+        return False
+    if not _image_exists(PYTHON_IMAGE):
+        log.write(format_console('warning', t('scenario_test_no_python_image', image=PYTHON_IMAGE)))
+        return False
+    ports = pick_scenario_ports()
+    if ports is None:
+        log.write(format_console('warning', t('scenario_test_ports_busy')))
+        return False
+    write_runtime_env(
+        probe_dir / RUNTIME_ENV_NAME,
+        ports=ports,
+        api_secret='a' * 32,
+        jwt_secret='b' * 32,
+        media_internal_key='c' * 32,
+        meili_key='probe',
+        jupyter_token='probe',
+    )
+    write_nginx_conf(
+        probe_dir / 'nginx.conf',
+        api_port=ports['api'],
+        nginx_port=ports['nginx'],
+        jupyter_port=ports['jupyter'],
+        media_port=ports['media'],
+    )
+    write_compose_file(
+        probe_dir / 'docker-compose.yml',
+        project_root=root,
+        run_dir=probe_dir,
+        ports=ports,
+        meili_key='probe',
+        jupyter_token='probe',
+        project_name=COMPOSE_PROJECT,
+    )
+    write_modules_compose(probe_dir / 'modules.generated.yml', root)
+    env = os.environ.copy()
+    if _run(_compose_cmd(compose_bin, probe_dir, 'config'), log=log, env=env, timeout=60, quiet=True) != 0:
+        log.write(format_console('error', t('scenario_test_compose_config_failed')))
+        raise ComposeConfigFailed()
+    log.write('compose config ok')
+    try:
+        modules_data = yaml.safe_load((probe_dir / 'modules.generated.yml').read_text(encoding='utf-8'))
+        services = list((modules_data or {}).get('services') or {})
+        log.write(f'modules_yaml_ok services={services}')
+    except yaml.YAMLError as exc:
+        log.write(format_console('warning', t('scenario_test_modules_config_failed')))
+        log.write(str(exc))
+    return _docker_can_start(log)
+
+
 def main() -> int:
-    global _ACTIVE_PROJECT
     configure_stdio_utf8()
     root = _PROJECT_ROOT.resolve()
     run_dir = _prepare_run_dir(root)
     log = RunLog(run_dir / 'run.log', run_dir / 'compose.log')
-    failed = False
-    compose_bin = _docker()
+    docker_ok: bool | None = None
+    outcomes: list[tuple[str, int]] = []
     try:
         log.write(format_console('info', t('scenario_test_run_dir', path=str(run_dir))))
-        if compose_bin is None:
-            log.write(format_console('warning', t('scenario_test_no_docker')))
-            return 0
-        if not _image_exists(PYTHON_IMAGE):
-            log.write(format_console('warning', t('scenario_test_no_python_image', image=PYTHON_IMAGE)))
-            return 0
-
-        _ACTIVE_PROJECT = f'{COMPOSE_PROJECT}_{run_dir.name.lower()}'
-        log.write(f'compose_project={_ACTIVE_PROJECT}')
-
-        ports = pick_scenario_ports()
-        if ports is None:
-            log.write(format_console('warning', t('scenario_test_ports_busy')))
-            return 0
-        log.write(f'ports={ports}')
-
-        meili_key = secrets.token_hex(16)
-        jupyter_token = secrets.token_hex(16)
-        api_secret = secrets.token_hex(32)
-        jwt_secret = secrets.token_hex(32)
-        media_key = secrets.token_hex(32)
-        while media_key == api_secret:
-            media_key = secrets.token_hex(32)
-        write_databases_yaml(run_dir / 'databases.yaml')
-        write_nginx_conf(
-            run_dir / 'nginx.conf',
-            api_port=ports['api'],
-            nginx_port=ports['nginx'],
-            jupyter_port=ports['jupyter'],
-        )
-        write_runtime_env(
-            run_dir / RUNTIME_ENV_NAME,
-            ports=ports,
-            api_secret=api_secret,
-            jwt_secret=jwt_secret,
-            media_internal_key=media_key,
-            meili_key=meili_key,
-            jupyter_token=jupyter_token,
-        )
-        write_compose_file(
-            run_dir / 'docker-compose.yml',
-            project_root=root,
-            run_dir=run_dir,
-            ports=ports,
-            meili_key=meili_key,
-            jupyter_token=jupyter_token,
-            project_name=_ACTIVE_PROJECT,
-        )
-        module_count = write_modules_compose(run_dir / 'modules.generated.yml', root)
-        log.write(f'module_compose_services={module_count}')
-        try:
-            modules_data = yaml.safe_load(
-                (run_dir / 'modules.generated.yml').read_text(encoding='utf-8')
+        for spec in all_specs():
+            spec_dir = _prepare_spec_dir(run_dir, spec.id)
+            log.write(
+                format_console(
+                    'info',
+                    t(
+                        'scenario_test_spec_start',
+                        id=spec.id,
+                        launch=spec.launch,
+                        proxy=spec.proxy,
+                        jupyter=spec.jupyter,
+                        db=spec.db,
+                        broker=spec.broker,
+                        module_runtime=spec.module_runtime,
+                    ),
+                )
             )
-            services = list((modules_data or {}).get('services') or {})
-            log.write(f'modules_yaml_ok services={services}')
-        except yaml.YAMLError as exc:
-            log.write(format_console('warning', t('scenario_test_modules_config_failed')))
-            log.write(str(exc))
-
-        env = os.environ.copy()
-        config_cmd = _compose_cmd(compose_bin, run_dir, 'config')
-        if _run(config_cmd, log=log, env=env, timeout=60, quiet=True) != 0:
-            log.write(format_console('error', t('scenario_test_compose_config_failed')))
-            return 1
-        log.write('compose config ok')
-
-        if not _docker_can_start(log):
-            return 0
-
-        names = container_names(_ACTIVE_PROJECT)
-
-        for cmd in infra_run_commands(project=_ACTIVE_PROJECT, ports=ports, meili_key=meili_key):
-            try:
-                code = _run(cmd, log=log, env=env, timeout=60)
-            except subprocess.TimeoutExpired:
-                log.write(format_console('warning', t('scenario_test_docker_start_hung')))
-                return 0
-            if code != 0:
-                log.write(format_console('error', t('scenario_test_up_failed')))
-                failed = True
-                return 1
-
-        if not _wait_exec(exec_command(names['redis'], 'redis-cli', 'ping'), log):
-            log.write(format_console('error', t('scenario_test_up_failed')))
-            failed = True
-            return 1
-        if not _wait_exec(
-            exec_command(names['postgres'], 'pg_isready', '-U', 'postgres', '-d', 'ergo_ms_scenario'),
-            log,
-        ):
-            log.write(format_console('error', t('scenario_test_up_failed')))
-            failed = True
-            return 1
-        if not _wait_exec(
-            exec_command(
-                names['meilisearch'],
-                'wget',
-                '-q',
-                '-O',
-                '-',
-                'http://127.0.0.1:7700/health',
-            ),
-            log,
-        ):
-            log.write(format_console('error', t('scenario_test_up_failed')))
-            failed = True
-            return 1
-
-        extra_hosts = {
-            'redis': container_ip(names['redis']),
-            'postgres': container_ip(names['postgres']),
-            'meilisearch': container_ip(names['meilisearch']),
-        }
-        log.write(f'infra_hosts={extra_hosts}')
-        if not all(extra_hosts.values()):
-            log.write(format_console('error', t('scenario_test_up_failed')))
-            failed = True
-            return 1
-
-        if _run(
-            migrate_command(
-                project=_ACTIVE_PROJECT,
-                project_root=root,
-                run_dir=run_dir,
-                extra_hosts=extra_hosts,
-            ),
-            log=log,
-            env=env,
-            timeout=300,
-        ) != 0:
-            log.write(format_console('error', t('scenario_test_migrate_failed')))
-            failed = True
-            return 1
-
-        app_cmds = app_run_commands(
-            project=_ACTIVE_PROJECT,
-            project_root=root,
-            run_dir=run_dir,
-            jupyter_token=jupyter_token,
-            extra_hosts=extra_hosts,
-            api_host='127.0.0.1',
-            media_host='127.0.0.1',
-        )
-        for cmd in app_cmds[:2]:
-            try:
-                code = _run(cmd, log=log, env=env, timeout=90)
-            except subprocess.TimeoutExpired:
-                log.write(format_console('warning', t('scenario_test_docker_start_hung')))
-                return 0
-            if code != 0:
-                log.write(format_console('error', t('scenario_test_up_failed')))
-                failed = True
-                return 1
-        api_ip = container_ip(names['api'])
-        media_ip = container_ip(names['media'])
-        if not api_ip or not media_ip:
-            log.write(format_console('error', t('scenario_test_up_failed')))
-            failed = True
-            return 1
-        extra_hosts = dict(extra_hosts)
-        extra_hosts['api'] = api_ip
-        extra_hosts['media-api'] = media_ip
-        app_cmds = app_run_commands(
-            project=_ACTIVE_PROJECT,
-            project_root=root,
-            run_dir=run_dir,
-            jupyter_token=jupyter_token,
-            extra_hosts=extra_hosts,
-            api_host=api_ip,
-            media_host=media_ip,
-        )
-        try:
-            code = _run(app_cmds[2], log=log, env=env, timeout=90)
-        except subprocess.TimeoutExpired:
-            log.write(format_console('warning', t('scenario_test_docker_start_hung')))
-            return 0
-        if code != 0:
-            log.write(format_console('error', t('scenario_test_up_failed')))
-            failed = True
-            return 1
-        jupyter_ip = container_ip(names['jupyter'])
-        if not jupyter_ip:
-            log.write(format_console('error', t('scenario_test_up_failed')))
-            failed = True
-            return 1
-        extra_hosts['jupyter'] = jupyter_ip
-        write_nginx_conf(
-            run_dir / 'nginx.conf',
-            api_port=ports['api'],
-            nginx_port=ports['nginx'],
-            api_upstream=api_ip,
-            media_upstream=media_ip,
-            jupyter_upstream=jupyter_ip,
-            jupyter_port=ports['jupyter'],
-        )
-        app_cmds = app_run_commands(
-            project=_ACTIVE_PROJECT,
-            project_root=root,
-            run_dir=run_dir,
-            jupyter_token=jupyter_token,
-            extra_hosts=extra_hosts,
-            api_host=api_ip,
-            media_host=media_ip,
-            jupyter_host=jupyter_ip,
-        )
-        nginx_cmd = app_cmds[3]
-        nginx_conf = posix(run_dir / 'nginx.conf')
-        try:
-            _run(
-                [
-                    'docker',
-                    'run',
-                    '--rm',
-                    '--name',
-                    f'{_ACTIVE_PROJECT}_nginx_test',
-                    '-v',
-                    f'{nginx_conf}:/etc/nginx/conf.d/default.conf:ro',
-                    NGINX_IMAGE,
-                    'nginx',
-                    '-t',
-                ],
-                log=log,
-                env=env,
-                timeout=45,
-            )
-        except subprocess.TimeoutExpired:
-            log.write(format_console('warning', t('scenario_test_docker_start_hung')))
-            return 0
-        try:
-            code = _run(nginx_cmd, log=log, env=env, timeout=90)
-        except subprocess.TimeoutExpired:
-            log.write(format_console('warning', t('scenario_test_docker_start_hung')))
-            return 0
-        if code != 0:
-            log.write(format_console('error', t('scenario_test_up_failed')))
-            failed = True
-            return 1
-        if not container_running(names['nginx']):
-            try:
-                _run(['docker', 'logs', '--tail', '80', names['nginx']], log=log, timeout=20)
-            except subprocess.TimeoutExpired:
-                pass
-
-        if not run_live_http_checks(
-            names=names,
-            ports=ports,
-            run_dir=run_dir,
-            project_root=root,
-            jupyter_token=jupyter_token,
-            log=log,
-        ):
-            failed = True
-
-        if _run(
-            exec_command(names['meilisearch'], 'wget', '-q', '-O', '-', 'http://127.0.0.1:7700/health'),
-            log=log,
-            env=env,
-            timeout=30,
-        ) != 0:
-            failed = True
-
-        if _run(
-            exec_command(names['redis'], 'redis-cli', 'ping'),
-            log=log,
-            env=env,
-            timeout=20,
-        ) != 0:
-            failed = True
-
+            ports = pick_scenario_ports()
+            if ports is None:
+                log.write(format_console('warning', t('scenario_test_ports_busy')))
+                outcomes.append((spec.id, DOCKER_SKIP))
+                continue
+            log.write(f'ports={ports}')
+            secrets_map = _new_secrets()
+            if spec.launch == 'docker':
+                if docker_ok is None:
+                    try:
+                        docker_ok = _probe_docker(log, root, spec_dir)
+                    except ComposeConfigFailed:
+                        log.write(format_console('error', t('scenario_test_failed', path=str(run_dir))))
+                        return 1
+                if not docker_ok:
+                    outcomes.append((spec.id, DOCKER_SKIP))
+                    continue
+                project = f'{COMPOSE_PROJECT}_{run_dir.name.lower()}_{spec.id}'
+                code = run_docker_scenario(
+                    project=project,
+                    project_root=root,
+                    run_dir=spec_dir,
+                    spec=spec,
+                    ports=ports,
+                    api_secret=secrets_map['api_secret'],
+                    jwt_secret=secrets_map['jwt_secret'],
+                    media_key=secrets_map['media_key'],
+                    meili_key=secrets_map['meili_key'],
+                    jupyter_token=secrets_map['jupyter_token'],
+                    bridge_token=secrets_map['bridge_token'],
+                    log=log,
+                    run_cmd=_run,
+                    env=os.environ.copy(),
+                    remove_containers=_remove_containers,
+                )
+                if code == DOCKER_SKIP:
+                    docker_ok = False
+            else:
+                code = run_host_scenario(
+                    project_root=root,
+                    run_dir=spec_dir,
+                    spec=spec,
+                    ports=ports,
+                    api_secret=secrets_map['api_secret'],
+                    jwt_secret=secrets_map['jwt_secret'],
+                    media_key=secrets_map['media_key'],
+                    meili_key=secrets_map['meili_key'],
+                    jupyter_token=secrets_map['jupyter_token'],
+                    log=log,
+                )
+            outcomes.append((spec.id, code))
+        failed = [item_id for item_id, code in outcomes if code == 1]
+        for item_id, code in outcomes:
+            log.write(f'spec {item_id} result={code}')
         if failed:
             log.write(format_console('error', t('scenario_test_failed', path=str(run_dir))))
             return 1
@@ -539,10 +391,6 @@ def main() -> int:
         log.write(format_console('error', t('scenario_test_timeout')))
         return 1
     finally:
-        _remove_containers(
-            [*all_container_names(_ACTIVE_PROJECT), f'{_ACTIVE_PROJECT}_migrate', f'{_ACTIVE_PROJECT}_nginx_test'],
-            log,
-        )
         log.close()
 
 

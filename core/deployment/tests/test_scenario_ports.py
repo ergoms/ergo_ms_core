@@ -29,7 +29,7 @@ class ScenarioPortPickerTests(unittest.TestCase):
         assert ports is not None
         self.assertEqual(
             set(ports),
-            {'api', 'nginx', 'jupyter', 'postgres'},
+            {'api', 'nginx', 'jupyter', 'postgres', 'redis', 'media', 'module'},
         )
 
     def test_extract_assets_and_ready_json(self) -> None:

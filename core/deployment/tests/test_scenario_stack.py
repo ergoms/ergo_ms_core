@@ -90,6 +90,7 @@ class ScenarioStackTests(unittest.TestCase):
             text = path.read_text(encoding='utf-8')
             self.assertIn('API_SECRET_KEY=' + 'a' * 32, text)
             self.assertIn('ERGO_DOCKER_DB_PORT=5432', text)
+            self.assertIn('REDIS_PORT=6379', text)
             self.assertIn('ERGO_EMAIL=none', text)
             self.assertIn('MODULE_RUNTIME=monolith', text)
             self.assertIn('ERGO_JUPYTER=nginx', text)
@@ -140,6 +141,42 @@ class ScenarioStackTests(unittest.TestCase):
             self.assertNotIn('--network', cmd)
             self.assertNotIn('-p', cmd)
             self.assertNotIn('compose', cmd)
+
+    def test_app_run_commands_omit_jupyter_and_nginx(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / 'project'
+            run_dir = Path(tmp) / 'run'
+            for rel in ('core/api', 'core/client/dist', 'core/deployment', 'core/media_api', 'core/shared', 'modules'):
+                (root / rel).mkdir(parents=True, exist_ok=True)
+            for rel in ('logs', 'media', 'notebooks', 'jupyter', 'static_api', 'modules'):
+                (run_dir / rel).mkdir(parents=True, exist_ok=True)
+            (run_dir / RUNTIME_ENV_NAME).write_text('API_PORT=18000\n', encoding='utf-8')
+            commands = app_run_commands(
+                project='ergo_ms_scenario',
+                project_root=root,
+                run_dir=run_dir,
+                jupyter_token='tok',
+                extra_hosts={'redis': '172.17.0.2'},
+                api_host='172.17.0.4',
+                media_host='172.17.0.5',
+                include_jupyter=False,
+                include_nginx=False,
+            )
+        self.assertEqual(len(commands), 2)
+        joined = ' '.join(' '.join(cmd) for cmd in commands)
+        self.assertNotIn('jupyter_boot.py', joined)
+        self.assertNotIn('nginx:1.27', joined)
+
+    def test_sqlite_databases_yaml_uses_file_engine(self) -> None:
+        from scenario_test.stack import write_databases_yaml
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'databases.yaml'
+            sqlite = Path(tmp) / 'scenario.sqlite3'
+            write_databases_yaml(path, db='sqlite', sqlite_path=sqlite)
+            text = path.read_text(encoding='utf-8')
+        self.assertIn('engine: sqlite', text)
+        self.assertNotIn('engine: postgresql', text)
 
     def test_exec_command_is_plain_docker_exec(self) -> None:
         cmd = exec_command('box', 'redis-cli', 'ping')

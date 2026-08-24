@@ -32,21 +32,41 @@ def modules_with_bridge(project_root: Path) -> list[str]:
     return names
 
 
-def write_databases_yaml(path: Path) -> None:
-    path.write_text(
-        (
-            'databases:\n'
+def write_databases_yaml(
+    path: Path,
+    *,
+    db: str = 'postgres',
+    db_host: str = 'postgres',
+    db_port: int = 5432,
+    redis_host: str = 'redis',
+    redis_port: int = 6379,
+    sqlite_path: Path | None = None,
+) -> None:
+    if db == 'sqlite':
+        sqlite = posix(sqlite_path or (path.parent / 'scenario.sqlite3'))
+        default_block = (
+            '  default:\n'
+            '    engine: sqlite\n'
+            f'    name: {sqlite}\n'
+        )
+    else:
+        default_block = (
             '  default:\n'
             '    engine: postgresql\n'
             '    name: ergo_ms_scenario\n'
             '    user: postgres\n'
             '    password: admin\n'
-            '    host: postgres\n'
-            '    port: 5432\n'
+            f'    host: {db_host}\n'
+            f'    port: {int(db_port)}\n'
+        )
+    path.write_text(
+        (
+            'databases:\n'
+            f'{default_block}'
             '  redis:\n'
             '    engine: redis\n'
-            '    host: redis\n'
-            '    port: 6379\n'
+            f'    host: {redis_host}\n'
+            f'    port: {int(redis_port)}\n'
             '    user: ""\n'
             '    password: ""\n'
             '    db_channel: 0\n'
@@ -67,6 +87,10 @@ def write_nginx_conf(
     media_upstream: str = 'media-api',
     jupyter_upstream: str = '127.0.0.1',
     jupyter_port: int = 8002,
+    media_port: int = 8003,
+    module_runtime: str = 'monolith',
+    microservice_modules: str = '',
+    module_port: str = '',
 ) -> None:
     template = (
         Path(__file__).resolve().parents[1]
@@ -78,14 +102,18 @@ def write_nginx_conf(
         'DOCKER_SERVICE_API': api_upstream,
         'DOCKER_SERVICE_MEDIA': media_upstream,
         'API_PORT': str(api_port),
-        'MEDIA_API_BIND_PORT': '8003',
+        'MEDIA_API_BIND_PORT': str(int(media_port)),
         'NGINX_LISTEN_PORT': str(nginx_port),
         'NGINX_SERVER_NAME': 'localhost',
-        'MODULE_RUNTIME': 'monolith',
+        'MODULE_RUNTIME': module_runtime,
+        'MICROSERVICE_MODULES': microservice_modules,
         'API_JUPYTER_BIND_PORT': str(int(jupyter_port)),
         'API_JUPYTER_ACCESS_MODE': 'nginx',
         'ERGO_JUPYTER': 'nginx',
     }
+    if microservice_modules and module_port:
+        key = microservice_modules.split(',')[0].strip().upper().replace('-', '_') + '_PORT'
+        raw[key] = str(module_port)
     render_docker_nginx_config(raw, template_path=template, output_path=path)
     text = path.read_text(encoding='utf-8').replace('\r\n', '\n')
     text = text.replace('http://jupyter:', f'http://{jupyter_upstream}:')
@@ -107,8 +135,10 @@ def write_runtime_env(
     media_internal_key: str,
     meili_key: str,
     jupyter_token: str,
+    extra: Mapping[str, str] | None = None,
 ) -> None:
     """Одноразовый env прогона. Не корневой .env хоста."""
+    media_port = int(ports.get('media', 8003))
     values = {
         'API_SECRET_KEY': api_secret,
         'API_JWT_SIGNING_KEY': jwt_secret,
@@ -139,7 +169,7 @@ def write_runtime_env(
         'MEILI_HOST': 'http://meilisearch:7700',
         'MEILI_MASTER_KEY': meili_key,
         'MEDIA_API_BIND_HOST': '0.0.0.0',
-        'MEDIA_API_BIND_PORT': '8003',
+        'MEDIA_API_BIND_PORT': str(media_port),
         'MEDIA_STORAGE_PATH': '/app/media',
         'ERGO_DOCKER_LOG_DIR': '/app/logs/docker',
         'ERGO_DOCKER_CONSOLE_OUTPUT': '1',
@@ -151,6 +181,8 @@ def write_runtime_env(
         'API_JUPYTER_BIND_PORT': str(int(ports['jupyter'])),
         'API_JUPYTER_TOKEN': jupyter_token,
     }
+    if extra:
+        values.update({key: str(value) for key, value in extra.items()})
     lines = [f'{key}={value}' for key, value in values.items()]
     path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
 

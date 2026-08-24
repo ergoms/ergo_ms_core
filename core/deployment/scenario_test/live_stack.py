@@ -33,6 +33,7 @@ def container_names(project: str) -> dict[str, str]:
         'media': f'{project}_media',
         'jupyter': f'{project}_jupyter',
         'nginx': f'{project}_nginx',
+        'module': f'{project}_module',
     }
 
 
@@ -138,6 +139,7 @@ def python_run_command(
     extra_volumes: list[tuple[str, str, str]] | None = None,
     extra_hosts: Mapping[str, str] | None = None,
     command: Sequence[str],
+    modules_dir: Path | None = None,
 ) -> list[str]:
     names = container_names(project)
     env_file = posix(run_dir / RUNTIME_ENV_NAME)
@@ -164,7 +166,7 @@ def python_run_command(
             project_root=project_root,
             run_dir=run_dir,
             extra=extra_volumes,
-            modules_dir=run_dir / 'modules',
+            modules_dir=modules_dir if modules_dir is not None else run_dir / 'modules',
         )
     ))
     cmd.append(PYTHON_IMAGE)
@@ -182,6 +184,9 @@ def app_run_commands(
     api_host: str,
     media_host: str,
     jupyter_host: str = '127.0.0.1',
+    include_jupyter: bool = True,
+    include_nginx: bool = True,
+    jupyter_mode: str = 'nginx',
 ) -> list[list[str]]:
     names = container_names(project)
     dist = posix(project_root / 'core' / 'client' / 'dist')
@@ -196,7 +201,7 @@ def app_run_commands(
     nginx_hosts['api'] = api_host
     nginx_hosts['media-api'] = media_host
     nginx_hosts['jupyter'] = jupyter_host
-    return [
+    commands = [
         python_run_command(
             project=project,
             service='api',
@@ -215,40 +220,75 @@ def app_run_commands(
             extra_env=(('ERGO_DOCKER_SERVICE_NAME', 'media-api'),),
             command=('python', 'core/api/scripts/start_media_api.py'),
         ),
-        python_run_command(
-            project=project,
-            service='jupyter',
-            run_dir=run_dir,
-            project_root=project_root,
-            extra_hosts=extra_hosts,
-            extra_env=(
-                ('ERGO_DOCKER_SERVICE_NAME', 'jupyter'),
-                ('ERGO_JUPYTER', 'nginx'),
-                ('API_JUPYTER_ACCESS_MODE', 'nginx'),
-                ('API_JUPYTER_BIND_HOST', '0.0.0.0'),
-                ('API_JUPYTER_TOKEN', jupyter_token),
-            ),
-            extra_volumes=jupyter_extra,
-            command=('python', '/app/core/deployment/scenario_test/jupyter_boot.py'),
-        ),
-        [
-            'docker',
-            'run',
-            '-d',
-            '--name',
-            names['nginx'],
-            *add_host_flags(nginx_hosts),
-            '-v',
-            f'{nginx_conf}:/etc/nginx/conf.d/default.conf:ro',
-            '-v',
-            f'{dist}:/usr/share/nginx/html:ro',
-            '-v',
-            f'{static_api}:/usr/share/nginx/static:ro',
-            '-v',
-            f'{logs}:/var/log/ergo',
-            NGINX_IMAGE,
-        ],
     ]
+    if include_jupyter:
+        commands.append(
+            python_run_command(
+                project=project,
+                service='jupyter',
+                run_dir=run_dir,
+                project_root=project_root,
+                extra_hosts=extra_hosts,
+                extra_env=(
+                    ('ERGO_DOCKER_SERVICE_NAME', 'jupyter'),
+                    ('ERGO_JUPYTER', jupyter_mode),
+                    ('API_JUPYTER_ACCESS_MODE', jupyter_mode),
+                    ('API_JUPYTER_BIND_HOST', '0.0.0.0'),
+                    ('API_JUPYTER_TOKEN', jupyter_token),
+                ),
+                extra_volumes=jupyter_extra,
+                command=('python', '/app/core/deployment/scenario_test/jupyter_boot.py'),
+            )
+        )
+    if include_nginx:
+        commands.append(
+            [
+                'docker',
+                'run',
+                '-d',
+                '--name',
+                names['nginx'],
+                *add_host_flags(nginx_hosts),
+                '-v',
+                f'{nginx_conf}:/etc/nginx/conf.d/default.conf:ro',
+                '-v',
+                f'{dist}:/usr/share/nginx/html:ro',
+                '-v',
+                f'{static_api}:/usr/share/nginx/static:ro',
+                '-v',
+                f'{logs}:/var/log/ergo',
+                NGINX_IMAGE,
+            ]
+        )
+    return commands
+
+
+def module_run_command(
+    *,
+    project: str,
+    project_root: Path,
+    run_dir: Path,
+    extra_hosts: Mapping[str, str],
+    module_name: str,
+    module_port: str,
+) -> list[str]:
+    return python_run_command(
+        project=project,
+        service='module',
+        run_dir=run_dir,
+        project_root=project_root,
+        extra_hosts=extra_hosts,
+        extra_env=(
+            ('ERGO_DOCKER_SERVICE_NAME', module_name),
+            ('ERGO_PROCESS_ROLE', f'module:{module_name}'),
+            ('PROCESS_MODULES', module_name),
+            ('MODULE_RUNTIME', 'microservice'),
+            ('MODULE_API_BIND_PORT', str(module_port)),
+            ('API_PORT', str(module_port)),
+        ),
+        modules_dir=project_root / 'modules',
+        command=('python', 'core/api/scripts/start_module_api.py', f'--module={module_name}'),
+    )
 
 
 def migrate_command(
