@@ -53,7 +53,7 @@ alwaysApply: false
 
 Компонент: `@/components/DatePicker.vue`. Обёртка над `@vuepic/vue-datepicker`.
 
-`v-model` — **строка** `YYYY-MM-DD`; при `enableTime` — `YYYY-MM-DDTHH:mm`. Нативный `input type="date"` не используй.
+`v-model` — **строка** `YYYY-MM-DD`; при `enableTime` — `YYYY-MM-DDTHH:mm`; при `monthPicker` — `YYYY-MM`. Нативный `input type="date"` не используй.
 
 ```vue
 <script setup>
@@ -65,16 +65,18 @@ import DatePicker from '@/components/DatePicker.vue'
   <DatePicker id="end-date" v-model="endDate" :min-date="startDate || null" />
   <DatePicker id="start-at" v-model="startAt" enable-time />
   <DatePicker id="start-at-12" v-model="startAt" enable-time time-format="12" />
+  <DatePicker id="from-month" v-model="fromMonth" month-picker :min-date="minMonth" :max-date="maxMonth" />
 </template>
 ```
 
 | Prop | Когда |
 |------|-------|
-| `minDate` / `maxDate` | граница календаря (`YYYY-MM-DD` / `YYYY-MM-DDTHH:mm` или `Date`) |
+| `minDate` / `maxDate` | граница календаря (`YYYY-MM-DD` / `YYYY-MM` / `YYYY-MM-DDTHH:mm` или `Date`) |
 | `id` | для `<label for>` / `FormField` `label-for` |
-| `placeholder` | своя подсказка; иначе `components.datePicker.placeholder` / `placeholderDateTime` / `placeholderDateTime12` |
+| `placeholder` | своя подсказка; иначе `components.datePicker.placeholder` / `placeholderDateTime` / `placeholderDateTime12` / `placeholderMonth` |
 | `enableTime` | выбор и отображение времени (по умолчанию выкл.) |
 | `timeFormat` | `'24'` (по умолчанию) или `'12'`; только вместе с `enableTime` |
+| `monthPicker` | выбор месяца и года, значение `YYYY-MM` |
 | `disabled` | блокировка |
 | `invalid` | красная рамка (`is-invalid`) |
 

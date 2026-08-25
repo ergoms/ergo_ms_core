@@ -163,7 +163,7 @@ modules/<имя>/
 | `layout.plugin_registry` | LayoutPlugin / offcanvas |
 | `header.userMenu.items` | Пункты меню пользователя в шапке |
 | `apps.menu.items` | Пункты AppsMenu в toolbar |
-| `shell.floating_widgets` | Плавающие виджеты (мини-чат и т.п.) |
+| `shell.floating_widgets` | Плавающие виджеты (`id`, `component`, `order`, `isVisible`) |
 | `session_scope.module_context` | Контекст session-scoped модуля |
 | `session.scope_entry_routes` | Welcome / home / onboarding |
 | `session.scope_gating_claim` | JWT claim активного scope |

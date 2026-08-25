@@ -136,7 +136,7 @@ controls:
 
 Контроль `api.object_permissions` (**phase 1, status `partial`**): в ядре есть `ObjectPermissionMixin` / `filter_queryset_for_user`; ViewSet ещё не мигрированы массово. На `hardened`/`maximum` `security-check` даёт warning, не ложный OK.
 
-Контроль `adp.default_role_view_grants`: env `API_ADP_DEFAULT_VIEW_GRANTS` (`granted`/`denied`); при unset runtime подставляет значение профиля. На `hardened`/`maximum` явный `granted` — нарушение.
+Контроль `adp.default_role_view_grants`: env `API_ADP_DEFAULT_VIEW_GRANTS` (`granted`/`denied`); при unset runtime подставляет значение профиля. На `granted` роль «Пользователь» без групп получает все `_view`. На `denied` — `_view` только у модулей без API-deny. На `hardened`/`maximum` явный `granted` — нарушение.
 
 ### Транспорт и заголовки
 

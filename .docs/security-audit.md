@@ -243,7 +243,7 @@ ADMIN_PASSWORD=admin
 
 В [core/api/src/core/cms/adp/services/permissions.py](../core/api/src/core/cms/adp/services/permissions.py) (строки 562–594) при отсутствии у пользователя групп роли любой ключ права, оканчивающийся на `_view`, считается выданным. Это удобно при первичной настройке, но означает, что незаполненная конфигурация групп не ограничивает просмотр, а открывает его.
 
-**Исправлено.** Авто-выдача `_view` для роли «Пользователь» без групп зависит от `API_ADP_DEFAULT_VIEW_GRANTS` (`granted` | `denied`). Профиль: `open`/`standard` → `granted`, `hardened`/`maximum` → `denied`. Контроль `adp.default_role_view_grants`, check `adp_default_role_view_grants`, status `implemented`.
+**Исправлено.** Авто-выдача `_view` для роли «Пользователь» без групп зависит от `API_ADP_DEFAULT_VIEW_GRANTS` (`granted` | `denied`). Профиль: `open`/`standard` → `granted` (все `_view`), `hardened`/`maximum` → `denied` (`_view` только у модулей, которые API-политика deny не закрыла). Контроль `adp.default_role_view_grants`, check `adp_default_role_view_grants`, status `implemented`.
 
 ### С8. Объектные проверки прав нигде не формализованы
 
