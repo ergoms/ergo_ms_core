@@ -138,6 +138,80 @@ function isDockerNpmInstall() {
   return Boolean(process.env.ERGO_DOCKER_SERVICE_NAME?.trim())
 }
 
+function latestNpmDebugLogText() {
+  const logsDir = path.join(NPM_CACHE, '_logs')
+  if (!fs.existsSync(logsDir)) {
+    return ''
+  }
+  let newestPath = ''
+  let newestMtime = 0
+  for (const entry of fs.readdirSync(logsDir, { withFileTypes: true })) {
+    if (!entry.isFile()) {
+      continue
+    }
+    const full = path.join(logsDir, entry.name)
+    try {
+      const mtime = fs.statSync(full).mtimeMs
+      if (mtime >= newestMtime) {
+        newestMtime = mtime
+        newestPath = full
+      }
+    } catch {
+      // ignore
+    }
+  }
+  if (!newestPath) {
+    return ''
+  }
+  try {
+    return fs.readFileSync(newestPath, 'utf8')
+  } catch {
+    return ''
+  }
+}
+
+function npmFailureLooksLikeCorruptCache() {
+  const lower = latestNpmDebugLogText().toLowerCase()
+  if (!lower.includes('enoent')) {
+    return false
+  }
+  return (
+    lower.includes('_cacache')
+    || lower.includes('content-v2')
+    || lower.includes('invalid response body')
+  )
+}
+
+function repairNpmCache({ purge = false } = {}) {
+  if (purge) {
+    console.log('[npm] Кэш npm повреждён — полная очистка (_cacache).')
+    runNpm(['cache', 'clean', '--force'], { cwd: NPM_ROOT, stdio: 'inherit' })
+    return
+  }
+  console.log('[npm] Кэш npm повреждён — проверка и сборка (_cacache verify).')
+  runNpm(['cache', 'verify'], { cwd: NPM_ROOT, stdio: 'inherit' })
+}
+
+function runNpmInstallWithCacheRepair(runOnce) {
+  let result = runOnce()
+  if (!result || result.status === 0) {
+    return result
+  }
+  if (!npmFailureLooksLikeCorruptCache()) {
+    return result
+  }
+  repairNpmCache({ purge: false })
+  result = runOnce()
+  if (!result || result.status === 0) {
+    return result
+  }
+  if (!npmFailureLooksLikeCorruptCache()) {
+    return result
+  }
+  repairNpmCache({ purge: true })
+  return runOnce()
+}
+
 function copyPackageTree(sourceDir, targetDir) {
   if (fs.existsSync(targetDir)) {
     fs.rmSync(targetDir, { recursive: true, force: true })
@@ -154,7 +228,7 @@ function installMissingPackagesDocker(specs) {
   console.log(`[npm] Доустановка пакетов в staging (${specs.length}): ${specs.join(', ')}`)
 
   try {
-    const result = spawnSync(
+    const result = runNpmInstallWithCacheRepair(() => spawnSync(
       npmCmd,
       ['install', ...specs, ...DOCKER_NPM_FLAGS, '--loglevel=warn'],
       {
@@ -162,10 +236,10 @@ function installMissingPackagesDocker(specs) {
         stdio: 'inherit',
         env: process.env,
       },
-    )
+    ))
 
-    if (result.status !== 0) {
-      process.exit(result.status ?? 1)
+    if (!result || result.status !== 0) {
+      process.exit(result?.status ?? 1)
     }
 
     const stagingModules = path.join(staging, 'node_modules')
@@ -206,7 +280,7 @@ function installPackageSpecs(specs, label) {
 
   console.log(`[npm] ${label} (${specs.length}): ${specs.join(', ')}`)
 
-  const result = runNpm(
+  const result = runNpmInstallWithCacheRepair(() => runNpm(
     [
       'install',
       ...specs,
@@ -217,10 +291,10 @@ function installPackageSpecs(specs, label) {
       '--no-fund',
     ],
     { cwd: NPM_ROOT },
-  )
+  ))
 
-  if (result.status !== 0) {
-    process.exit(result.status ?? 1)
+  if (!result || result.status !== 0) {
+    process.exit(result?.status ?? 1)
   }
 }
 
@@ -277,9 +351,11 @@ function installCorePackagesIfNeeded(moduleDeps) {
     console.log('[npm] Установка зависимостей ядра...')
   }
 
-  const result = runNpm(['install', ...specs, ...CORE_INSTALL_FLAGS], { cwd: NPM_ROOT })
-  if (result.status !== 0) {
-    process.exit(result.status ?? 1)
+  const result = runNpmInstallWithCacheRepair(
+    () => runNpm(['install', ...specs, ...CORE_INSTALL_FLAGS], { cwd: NPM_ROOT }),
+  )
+  if (!result || result.status !== 0) {
+    process.exit(result?.status ?? 1)
   }
   writeCoreTreeStamp(NPM_ROOT, NODE_MODULES)
   return true
@@ -445,7 +521,7 @@ function pruneUnusedNpmCache() {
     }
   }
 
-  // cache clean по ключу часто оставляет blob'ы в _cacache — verify их собирает.
+  // cache clean по ключу рвёт индекс _cacache (лишние blob'ы или запись без файла) — verify собирает.
   console.log('[npm] Кэш npm: проверка и сжатие (_cacache verify)...')
   runNpm(['cache', 'verify'], {
     cwd: NPM_ROOT,
