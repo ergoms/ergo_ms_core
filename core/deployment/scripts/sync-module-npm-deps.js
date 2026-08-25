@@ -16,6 +16,7 @@
  * не хватает пакетов ядра. В тот же `npm install` передаются пакеты модулей
  * (`--no-save`), чтобы npm не снимал их как лишние и не ставил вторым проходом.
  * С --update — переустанавливает модульные пакеты в пределах semver из package.json.
+ * С --check — код 0, если прямые пакеты ядра и модулей есть в node_modules, иначе 1.
  */
 
 import fs from 'node:fs'
@@ -25,6 +26,7 @@ import { fileURLToPath } from 'node:url'
 import { loadDisabledModules } from '../../../core/client/scripts/lib/parse-disabled-modules.js'
 import { runNpm } from './run_npm_spawn.js'
 import {
+  collectCoreDirectNames,
   collectKeepDirectNames,
   isCoreTreeCurrent,
   isKeepTreeCurrent,
@@ -44,6 +46,7 @@ const MODULES_ROOT = path.join(ROOT, 'modules')
 const NODE_MODULES = path.join(NPM_ROOT, 'node_modules')
 const INSTALL_ALL = process.argv.includes('--install-all')
 const UPDATE = process.argv.includes('--update')
+const CHECK_ONLY = process.argv.includes('--check')
 const INSTALL_MISSING = process.argv.includes('--install-missing') || INSTALL_ALL
 const CORE_INSTALL_FLAGS = [
   '--no-save',
@@ -94,33 +97,17 @@ function collectModuleDependencies() {
 }
 
 function isDependencyInstalled(depName) {
-  const rootDepPath = path.join(NPM_ROOT, 'node_modules', depName)
-  if (fs.existsSync(rootDepPath)) {
-    return true
-  }
+  // Vite резолвит только hoisted node_modules — вложенные копии в modules/*/client не считаем.
+  return fs.existsSync(path.join(NPM_ROOT, 'node_modules', depName))
+}
 
-  if (!fs.existsSync(MODULES_ROOT)) {
-    return false
-  }
-
-  for (const dirent of fs.readdirSync(MODULES_ROOT, { withFileTypes: true })) {
-    if (!dirent.isDirectory()) {
-      continue
-    }
-
-    const nestedDepPath = path.join(
-      MODULES_ROOT,
-      dirent.name,
-      'client',
-      'node_modules',
-      depName,
-    )
-    if (fs.existsSync(nestedDepPath)) {
+function hasMissingDirectPackages(moduleDeps) {
+  for (const name of collectCoreDirectNames(NPM_ROOT)) {
+    if (!isDependencyInstalled(name)) {
       return true
     }
   }
-
-  return false
+  return moduleDeps.some((entry) => !isDependencyInstalled(entry.depName))
 }
 
 function uniqueMissingPackages(missing) {
@@ -521,9 +508,12 @@ function ensureModulePackagesInstalled(moduleDeps) {
 }
 
 function main() {
-  ensureNpmCacheEnv()
   const allModuleDeps = collectModuleDependencies()
   const moduleDeps = filterModuleDeps(allModuleDeps)
+  if (CHECK_ONLY) {
+    process.exit(hasMissingDirectPackages(allModuleDeps) ? 1 : 0)
+  }
+  ensureNpmCacheEnv()
   const applyChanges = INSTALL_MISSING || UPDATE
 
   if (!applyChanges) {

@@ -409,14 +409,41 @@ def _package_json_direct_dep_names(pkg_path: Path) -> list[str]:
     return names
 
 
+def _disabled_npm_modules() -> frozenset[str]:
+    from lifecycle.modules.catalog import parse_disabled_modules_raw
+
+    return parse_disabled_modules_raw(os.environ.get('DISABLED_MODULES', ''))
+
+
+def _client_package_module_name(pkg_path: Path, project_root: Path) -> str | None:
+    """modules/<name>/client/package.json → имя модуля, иначе None."""
+    try:
+        relative = pkg_path.resolve().relative_to(project_root.resolve())
+    except ValueError:
+        return None
+    parts = relative.parts
+    if (
+        len(parts) >= 4
+        and parts[0] == 'modules'
+        and parts[-2] == 'client'
+        and parts[-1] == 'package.json'
+    ):
+        return parts[1]
+    return None
+
+
 def host_npm_direct_deps_present(project_root: Path) -> bool:
-    """Прямые пакеты из манифестов ядра и модулей лежат в node_modules."""
+    """Прямые пакеты из манифестов ядра и включённых модулей лежат в node_modules."""
     node_modules = npm_node_modules_dir(project_root)
     if not node_modules.is_dir():
         return False
+    disabled = _disabled_npm_modules()
     checked = 0
     for pkg_path in npm_deps_input_paths(project_root):
         if pkg_path.name != 'package.json' or not pkg_path.is_file():
+            continue
+        module_name = _client_package_module_name(pkg_path, project_root)
+        if module_name and module_name in disabled:
             continue
         for name in _package_json_direct_dep_names(pkg_path):
             target = node_modules.joinpath(*name.split('/'))
@@ -427,13 +454,15 @@ def host_npm_direct_deps_present(project_root: Path) -> bool:
 
 
 def host_npm_deps_up_to_date(project_root: Path) -> bool:
-    """Smart-skip для host npm по содержимому манифестов, не по mtime."""
+    """Пропуск install:all только если манифесты те же и пакеты реально на месте."""
     node_modules = npm_node_modules_dir(project_root)
     if not node_modules.is_dir():
         return False
     try:
         next(node_modules.iterdir())
     except StopIteration:
+        return False
+    if not host_npm_direct_deps_present(project_root):
         return False
     current = npm_deps_fingerprint(project_root)
     marker = host_npm_deps_marker(project_root)
@@ -446,9 +475,7 @@ def host_npm_deps_up_to_date(project_root: Path) -> bool:
     if stamped == current:
         return True
     # Маркер «ok» / отсутствует: checkout обновляет mtime, но пакеты уже на месте.
-    if stamped in ('', 'ok') and host_npm_direct_deps_present(project_root):
-        return True
-    return False
+    return stamped in ('', 'ok')
 
 
 def touch_host_npm_deps_marker(project_root: Path) -> None:
