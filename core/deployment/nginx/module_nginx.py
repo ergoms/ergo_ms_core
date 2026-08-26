@@ -108,6 +108,10 @@ def render_module_locations_host(values: Mapping[str, str]) -> str:
     blocks: list[str] = []
     for name in modules:
         safe = _upstream_safe_name(name)
+        resolved = _env_module_host_port(values, name)
+        # Host процесса модуля (IP из BRIDGE_SERVICE_URLS), не публичный $host:
+        # соседний Django иначе отвечает 400 (ALLOWED_HOSTS).
+        upstream_host = resolved[0] if resolved else '127.0.0.1'
         blocks.append(
             f"""    location /api/{name}/ {{
         if ($maintenance = 1) {{ return 503; }}
@@ -118,6 +122,8 @@ def render_module_locations_host(values: Mapping[str, str]) -> str:
         proxy_pass http://ergo_module_{safe};
         proxy_intercept_errors on;
         error_page 502 503 504 =503 @module_unavailable;
+        proxy_set_header Host {upstream_host};
+        proxy_set_header X-Forwarded-Host $host;
         proxy_set_header X-Request-ID $request_id;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;

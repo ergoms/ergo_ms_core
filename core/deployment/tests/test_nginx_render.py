@@ -205,11 +205,14 @@ class ModuleNginxTests(unittest.TestCase):
             'MODULE_RUNTIME': 'microservice',
             'MICROSERVICE_MODULES': 'demo_mod',
             'DEMO_MOD_PORT': '8123',
+            'BRIDGE_SERVICE_URLS': 'demo_mod=http://10.1.2.3:8123',
         })
         self.assertIn('location /api/demo_mod/', block)
         self.assertIn('error_page 502 503 504 =503 @module_unavailable', block)
         self.assertIn('location @module_unavailable', block)
         self.assertIn('X-Request-ID', block)
+        self.assertIn('proxy_set_header Host 10.1.2.3;', block)
+        self.assertIn('proxy_set_header X-Forwarded-Host $host;', block)
 
     def test_upstreams_have_max_fails(self) -> None:
         from module_nginx import render_module_upstreams_host
