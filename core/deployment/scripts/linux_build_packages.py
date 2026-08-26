@@ -34,6 +34,7 @@ _PROFILES: dict[str, dict[str, list[str]]] = {
             'bison',
             'libxml2-dev',
             'libssl-dev',
+            'liblz4-dev',
         ],
         'dnf': [
             'gcc',
@@ -44,6 +45,7 @@ _PROFILES: dict[str, dict[str, list[str]]] = {
             'bison',
             'libxml2-devel',
             'openssl-devel',
+            'lz4-devel',
         ],
         'pacman': [
             'base-devel',
@@ -53,6 +55,7 @@ _PROFILES: dict[str, dict[str, list[str]]] = {
             'libxml2',
             'flex',
             'bison',
+            'lz4',
         ],
     },
     'redis': {

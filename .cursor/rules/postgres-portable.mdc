@@ -25,6 +25,7 @@ alwaysApply: false
 - Наши службы **не** считаются системными: имена из `env/postgres.env` (`POSTGRES_SERVICE_WINDOWS` / `POSTGRES_SERVICE_LINUX`, по умолчанию `ergo_ms_postgres` на Windows и Linux)
 - Нет системной службы → latest stable → initdb → БД `ergo_ms` → OS-служба на **5433** → дальше `MigrateStep`
 - Linux: перед сборкой из исходников setup сам ставит gcc/make и заголовки через apt/dnf/yum/pacman (`sudo`), как nginx
+- Linux systemd: процесс **не** `root` (PostgreSQL так не стартует). Пользователь — `POSTGRES_SERVICE_USER` или владелец `packages/postgres/data`
 - Есть системная служба → `[SKIP]` portable (если не force)
 - Режим: `ERGO_DB=portable_postgres` в `.env`; force — legacy `POSTGRES_FORCE_INSTALL=true` или `ergoms setup-full --with-postgres` — portable на **5433**
 - Host/port/credentials — только `databases.yaml`; служба и нагрузка (`postgresql.conf`) — только [`env/postgres.env.example`](../../env/postgres.env.example)

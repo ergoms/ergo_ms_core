@@ -116,13 +116,54 @@ def service_restart_delay_ms(root: Path | None = None) -> int:
 
 def load_portable_conf_settings(root: Path | None = None) -> dict[str, str]:
     """Параметры нагрузки для postgresql.conf (env/postgres.env)."""
-    _ = root
     settings = dict(_DEFAULT_CONF_SETTINGS)
     for env_key, conf_key in _CONF_SETTING_ENV_KEYS:
         value = _read_postgres_env(env_key, settings[conf_key])
         if value:
             settings[conf_key] = value
+    if root is not None:
+        settings = _sanitize_wal_compression(root, settings)
     return settings
+
+
+def _pg_config_configure(root: Path) -> str:
+    binary = postgres_bin(root, 'pg_config')
+    if not binary.is_file():
+        return ''
+    try:
+        result = subprocess.run(
+            [str(binary), '--configure'],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=15,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ''
+    return result.stdout or ''
+
+
+def _sanitize_wal_compression(root: Path, settings: dict[str, str]) -> dict[str, str]:
+    value = (settings.get('wal_compression') or '').strip().lower()
+    if value in ('', 'pglz', 'on', 'off'):
+        return settings
+    flags = _pg_config_configure(root)
+    built = {
+        'lz4': '--with-lz4' in flags,
+        'zstd': '--with-zstd' in flags,
+    }
+    if built.get(value):
+        return settings
+    fallback = 'pglz'
+    print(
+        format_console(
+            'warning',
+            t('postgres_wal_compression_fallback', value=value, fallback=fallback),
+        )
+    )
+    adjusted = dict(settings)
+    adjusted['wal_compression'] = fallback
+    return adjusted
 
 
 def postgres_packages_dir(root: Path) -> Path:

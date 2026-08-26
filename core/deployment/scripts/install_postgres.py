@@ -191,7 +191,14 @@ def _install_linux(root: Path, version: str, force: bool) -> None:
         jobs = str(max(1, (os.cpu_count() or 2)))
         print(t('postgres_building', version=version))
         configure = ['./configure', f'--prefix={prefix}', '--without-icu']
-        cfg = subprocess.run([*configure, '--with-openssl'], cwd=str(source), check=False)
+        cfg = subprocess.run(
+            [*configure, '--with-openssl', '--with-lz4'],
+            cwd=str(source),
+            check=False,
+        )
+        if cfg.returncode != 0:
+            print(format_console('warning', t('postgres_lz4_configure_fallback')))
+            cfg = subprocess.run([*configure, '--with-openssl'], cwd=str(source), check=False)
         if cfg.returncode != 0:
             print(format_console('warning', t('postgres_openssl_configure_fallback')))
             subprocess.run(configure, cwd=str(source), check=True)
