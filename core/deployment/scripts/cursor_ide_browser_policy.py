@@ -41,7 +41,7 @@ def _configure_stdio_utf8() -> None:
                 pass
 
 
-def cursor_user_dir() -> Path | None:
+def cursor_desktop_user_dir() -> Path | None:
     if sys.platform == 'win32':
         appdata = os.environ.get('APPDATA', '').strip()
         if not appdata:
@@ -50,6 +50,21 @@ def cursor_user_dir() -> Path | None:
     if sys.platform == 'darwin':
         return Path.home() / 'Library' / 'Application Support' / 'Cursor' / 'User'
     return Path.home() / '.config' / 'Cursor' / 'User'
+
+
+def cursor_remote_user_dir() -> Path | None:
+    path = Path.home() / '.cursor-server' / 'data' / 'User'
+    return path if path.is_dir() else None
+
+
+def cursor_user_dir() -> Path | None:
+    desktop = cursor_desktop_user_dir()
+    if desktop is not None and desktop.is_dir():
+        return desktop
+    remote = cursor_remote_user_dir()
+    if remote is not None:
+        return remote
+    return None
 
 
 def cursor_state_db(user_dir: Path) -> Path:
@@ -124,7 +139,9 @@ def main() -> int:
     parser.add_argument('--json', action='store_true', help='machine-readable result')
     args = parser.parse_args()
 
-    user_dir = cursor_user_dir()
+    desktop = cursor_desktop_user_dir()
+    remote = cursor_remote_user_dir()
+    user_dir = desktop if desktop is not None and desktop.is_dir() else remote
     if user_dir is None or not user_dir.is_dir():
         payload = {
             'ok': True,
@@ -138,10 +155,15 @@ def main() -> int:
 
     db_path = cursor_state_db(user_dir)
     if not db_path.is_file():
+        reason_key = (
+            'cursor_browser_policy_remote_only'
+            if (desktop is None or not desktop.is_dir()) and remote is not None
+            else 'cursor_browser_policy_no_db'
+        )
         payload = {
             'ok': True,
             'skipped': True,
-            'reason': t('cursor_browser_policy_no_db'),
+            'reason': t(reason_key),
             'changed': [],
             'unchanged': [],
         }

@@ -8,6 +8,7 @@ import {
   copyDirectory,
   installExtensionFromVsix,
   removeLegacyExtensionDirs,
+  resolveProjectPython,
   runCodeCli,
 } from '../lib/extension-cli.js';
 import { createRequire } from 'module';
@@ -23,19 +24,6 @@ const repoRoot = join(projectRoot, '..');
 const extensionsDir = join(projectRoot, 'local-extensions');
 const sourceExtensionsDir = join(projectRoot, 'extensions');
 const tempRoot = join(projectRoot, '.temp-extract');
-
-function resolveProjectPython(root) {
-  const candidates = process.platform === 'win32'
-    ? [
-        join(root, 'virtual_env', 'python', 'Scripts', 'python.exe'),
-        join(root, 'virtual_env', 'packages', 'python', 'python.exe'),
-      ]
-    : [
-        join(root, 'virtual_env', 'python', 'bin', 'python'),
-        join(root, 'virtual_env', 'packages', 'python', 'python'),
-      ];
-  return candidates.find((p) => existsSync(p)) || '';
-}
 
 function applyCursorBrowserPolicy(root) {
   const pythonExe = resolveProjectPython(root);
@@ -149,13 +137,23 @@ async function installUserConfigToRemote() {
       return false;
     }
 
+    const packageJson = JSON.parse(
+      await readFile(join(sourceExtensionDir, 'package.json'), 'utf-8'),
+    );
+    const publisher = String(packageJson.publisher || '');
+    const name = String(packageJson.name || '');
+    const version = String(packageJson.version || '');
+    if (!publisher || !name || !version) {
+      return false;
+    }
+    const extensionDirName = `${publisher}.${name}-${version}`;
+
     let installed = false;
-    const extensionName = 'ergo-ms-user-config-1.2.0';
 
     for (const remoteDir of remoteDirs) {
       try {
         await mkdir(remoteDir, { recursive: true });
-        const targetDir = join(remoteDir, extensionName);
+        const targetDir = join(remoteDir, extensionDirName);
 
         if (existsSync(targetDir)) {
           await rm(targetDir, { recursive: true, force: true });

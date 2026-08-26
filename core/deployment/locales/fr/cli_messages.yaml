@@ -1193,6 +1193,7 @@ cursor_browser_policy_already: "L'ouverture automatique du navigateur intégré 
 cursor_browser_policy_reload: "Rechargez la fenêtre Cursor (Developer: Reload Window) pour appliquer la politique dans cette session"
 cursor_browser_policy_no_cursor: "Répertoire de configuration Cursor introuvable — politique du navigateur intégré ignorée"
 cursor_browser_policy_no_db: "Le stockage Cursor n'existe pas encore — ouvrez Cursor une fois puis réinstallez les extensions"
+cursor_browser_policy_remote_only: "La politique du navigateur intégré Cursor s'applique dans l'application locale, pas sur l'hôte SSH"
 cursor_browser_policy_db_error: "Impossible d'écrire la politique du navigateur Cursor : {exc}"
 
 # --- portable runtime ---

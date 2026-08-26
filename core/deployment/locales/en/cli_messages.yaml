@@ -1193,6 +1193,7 @@ cursor_browser_policy_already: "Cursor built-in browser auto-open is already dis
 cursor_browser_policy_reload: "Reload the Cursor window (Developer: Reload Window) so this session picks up the policy"
 cursor_browser_policy_no_cursor: "Cursor settings directory not found — skipping built-in browser policy"
 cursor_browser_policy_no_db: "Cursor storage is not created yet — open Cursor once and install extensions again"
+cursor_browser_policy_remote_only: "Cursor built-in browser policy is applied in the local Cursor app, not on the SSH host"
 cursor_browser_policy_db_error: "Failed to write Cursor browser policy: {exc}"
 
 # --- portable runtime ---

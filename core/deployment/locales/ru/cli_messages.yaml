@@ -1195,6 +1195,7 @@ cursor_browser_policy_already: "Автооткрытие встроенного 
 cursor_browser_policy_reload: "Перезагрузите окно Cursor (Developer: Reload Window), чтобы политика применилась в этой сессии"
 cursor_browser_policy_no_cursor: "Каталог настроек Cursor не найден — пропускаем политику встроенного браузера"
 cursor_browser_policy_no_db: "Хранилище Cursor ещё не создано — откройте Cursor один раз и снова поставьте расширения"
+cursor_browser_policy_remote_only: "Политика встроенного браузера Cursor задаётся в локальном приложении, не на SSH-хосте"
 cursor_browser_policy_db_error: "Не удалось записать политику браузера Cursor: {exc}"
 
 # --- portable runtime ---
