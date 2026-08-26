@@ -481,7 +481,12 @@ def _patch_conf_file(path: Path, replacements: dict[str, str]) -> None:
         stripped = line.lstrip()
         replaced = False
         for key, value in replacements.items():
-            if stripped.startswith(f'{key}') and (stripped.startswith(f'{key} ') or stripped.startswith(f'{key}=') or stripped.startswith(f'#{key}')):
+            if (
+                stripped.startswith(f'{key} ')
+                or stripped.startswith(f'{key}=')
+                or stripped.startswith(f'{key}\t')
+                or stripped.startswith(f'#{key}')
+            ):
                 out.append(f"{key} = {value}")
                 seen.add(key)
                 replaced = True
@@ -495,13 +500,17 @@ def _patch_conf_file(path: Path, replacements: dict[str, str]) -> None:
 
 
 def _configure_cluster(root: Path, port: int, bind: str) -> None:
+    from log_env import log_basename, resolve_logs_dir
+
     data = postgres_data_dir(root)
+    logs_dir = resolve_logs_dir(root)
+    logs_dir.mkdir(parents=True, exist_ok=True)
     replacements = {
         'listen_addresses': f"'{bind}'",
         'port': str(port),
         'logging_collector': 'on',
-        'log_directory': f"'{(postgres_packages_dir(root) / 'logs').as_posix()}'",
-        'log_filename': "'postgresql.log'",
+        'log_directory': f"'{logs_dir.as_posix()}'",
+        'log_filename': f"'{log_basename('POSTGRES', root)}'",
     }
     for conf_key, value in load_portable_conf_settings(root).items():
         # Строковые размеры (128MB) — без кавычек; числа — как есть.

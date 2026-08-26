@@ -28,6 +28,7 @@ LOG_FILE_DEFAULTS: dict[str, str] = {
     'NGINX_ERROR': 'nginx-error.log',
     'REDIS': 'redis.log',
     'MEILISEARCH': 'meilisearch.log',
+    'POSTGRES': 'postgresql.log',
     'CLIENT_DEV': 'client-dev.log',
     'CLIENT_BROWSER': 'client-browser.log',
     'CLIENT_MONITOR': 'client-monitor.log',

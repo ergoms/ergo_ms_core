@@ -497,7 +497,22 @@ show_service_logs() {
   # shellcheck source=lib/logs_paths.sh
   source "$(dirname "${BASH_SOURCE[0]}")/logs_paths.sh"
 
+  case "$service_name" in
+    ergo_ms_postgres|ergo_ms_postgres.service|ergo-postgres|ergo-postgres.service|ergo_ms_db|ergo_ms_sqlite|ergo_ms_mysql|ergo_ms_mssql)
+      local db_py="$root/virtual_env/python/bin/python"
+      local db_script="$root/core/deployment/scripts/start_db_logs_dev.py"
+      if [[ -x "$db_py" && -f "$db_script" ]]; then
+        exec "$db_py" -u "$db_script"
+      fi
+      ;;
+  esac
+
   if [[ "$service_name" == "ergo_ms_nginx" || "$service_name" == "ergo_ms_nginx.service" ]]; then
+    local nginx_py="$root/virtual_env/python/bin/python"
+    local nginx_script="$root/core/deployment/scripts/start_nginx_logs_dev.py"
+    if [[ -x "$nginx_py" && -f "$nginx_script" ]]; then
+      exec "$nginx_py" -u "$nginx_script" "$lines"
+    fi
     local files=()
     while IFS= read -r file; do
       [[ -n "$file" && -f "$file" ]] && files+=("$file")
@@ -509,7 +524,7 @@ show_service_logs() {
     fi
     write_ergoms_message svc_tail_nginx_logs cyan "" "lines=$lines"
     echo ""
-    tail -n "$lines" -F "${files[@]}" | cat
+    tail -n "$lines" -q -F "${files[@]}" | cat
     return 0
   fi
 

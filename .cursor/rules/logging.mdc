@@ -27,8 +27,9 @@ alwaysApply: false
 | `celery_beat.log` | `celery.beat`, **`celery.beat.module.*`** |
 | `celery_tasks.log` | `celery.task`, **`celery.module.*`** |
 | `celery_broker.log` | `kombu` |
-| `nginx-access.log`, `nginx-error.log` | nginx |
+| `nginx-access.log`, `nginx-error.log` | nginx (хвост: `ergoms logs ergo_ms_nginx`; пустые файлы — служба не запущена или ещё не было запросов) |
 | `redis.log` | redis |
+| `postgresql.log` | portable PostgreSQL (`ERGO_DB=portable_postgres`; хвост: `ergoms logs ergo_ms_postgres` / `ergoms start-db-dev`) |
 | `client-dev.log` | Vite (служба) |
 | `client-browser.log` | `client.browser` (ошибки из браузера) |
 | `client-check/<timestamp>/` | артефакты `ergoms client-check` (01-lint…04-a11y, summary, full); не RotatingFileHandler |
@@ -39,7 +40,7 @@ alwaysApply: false
 | `ergoms.log` | остальные конечные команды `ergoms` (не `logs`/`help` и не долгий start/dev) |
 | `<service>.stderr.log` | crash/traceback служб (не дублирует app-логи) |
 
-**Ротация:** Python (`api.log`, Celery, …) — `RotatingFileHandler` (`ERGO_LOG_MAX_BYTES`). nginx / Redis / `client-dev.log` / `ollama-serve.log` / `jupyter.log` / `meilisearch.log` / `setup-full.log` / `ergoms.log` — `ergoms rotate-logs` (`ERGO_LOG_INFRA_*`); ежедневно — `ergoms install-infra-log-rotate`. Сессия CLI перед записью тоже крутит файл по `ERGO_LOG_MAX_BYTES`.
+**Ротация:** Python (`api.log`, Celery, …) — `RotatingFileHandler` (`ERGO_LOG_MAX_BYTES`). nginx / Redis / `client-dev.log` / `ollama-serve.log` / `jupyter.log` / `meilisearch.log` / `postgresql.log` / `setup-full.log` / `ergoms.log` — `ergoms rotate-logs` (`ERGO_LOG_INFRA_*`); ежедневно — `ergoms install-infra-log-rotate`. Сессия CLI перед записью тоже крутит файл по `ERGO_LOG_MAX_BYTES`.
 
 PID и temp nginx/redis — в `virtual_env/packages/*/run|temp`, **не** в `logs/`.
 

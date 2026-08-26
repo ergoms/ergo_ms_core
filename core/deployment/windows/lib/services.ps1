@@ -850,6 +850,26 @@ function Show-ServiceLogs {
 
     }
 
+    if ($ServiceName -eq 'ergo_ms_nginx' -or $ServiceName -eq 'ergo_ms_nginx.service') {
+
+        $py = Join-Path $ProjectRoot 'virtual_env\python\Scripts\python.exe'
+
+        $script = Join-Path $ProjectRoot 'core\deployment\scripts\start_nginx_logs_dev.py'
+
+        if (-not (Test-Path $py)) {
+
+            Write-ErgomsMessage -Key 'svc_log_file_not_found' -Color Red -Stderr -Param @{ path = $script }
+
+            exit 1
+
+        }
+
+        & $py -u $script $Lines
+
+        exit $LASTEXITCODE
+
+    }
+
     
 
     $logsDir = Get-ProjectLogsDir -ProjectRoot $ProjectRoot
