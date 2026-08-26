@@ -80,6 +80,7 @@ def _write_systemd_unit(module: str, kind: str, sh_path: Path) -> Path:
         f'ExecStart=/bin/bash "{sh_path}"\n'
         'Restart=always\n'
         'RestartSec=5\n'
+        'TimeoutStopSec=30\n'
         'Environment=PYTHONUNBUFFERED=1\n'
         'Environment=ERGO_LOG_CONSOLE=false\n'
         'StandardOutput=null\n'

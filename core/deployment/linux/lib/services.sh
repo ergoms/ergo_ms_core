@@ -241,10 +241,54 @@ kill_ergo_project_session_processes() {
   return 0
 }
 
+# systemd по умолчанию ждёт TimeoutStopSec=90 с на каждый unit. Celery/Ollama
+# часто не выходят по SIGTERM сразу — последовательный stop тогда тянется минутами.
+_SYSTEMD_STOP_WAIT_SEC=30
+export _SYSTEMD_STOP_WAIT_SEC
+
+_units_still_busy() {
+  local states st
+  [[ $# -eq 0 ]] && return 1
+  states="$(systemctl show -p ActiveState --value -- "$@" 2>/dev/null || true)"
+  while IFS= read -r st; do
+    [[ -z "$st" ]] && continue
+    case "$st" in
+      inactive|failed) ;;
+      *) return 0 ;;
+    esac
+  done <<< "$states"
+  return 1
+}
+
+_stop_units_parallel() {
+  local -a units=("$@") leftover=()
+  local started st idx
+  [[ ${#units[@]} -eq 0 ]] && return 0
+  systemctl_do stop --no-block "${units[@]}" >/dev/null 2>&1 || true
+  started="$SECONDS"
+  while (( SECONDS - started < _SYSTEMD_STOP_WAIT_SEC )); do
+    _units_still_busy "${units[@]}" || return 0
+    sleep 0.25
+  done
+  idx=0
+  while IFS= read -r st; do
+    [[ -z "$st" ]] && continue
+    case "$st" in
+      inactive|failed) ;;
+      *) leftover+=("${units[$idx]}") ;;
+    esac
+    idx=$((idx + 1))
+  done < <(systemctl show -p ActiveState --value -- "${units[@]}" 2>/dev/null || true)
+  if ((${#leftover[@]})); then
+    systemctl_do kill --kill-whom=all -s SIGKILL "${leftover[@]}" >/dev/null 2>&1 || true
+    systemctl_do stop "${leftover[@]}" >/dev/null 2>&1 || true
+  fi
+}
+
 stop_all() {
   local root="${SERVICE_PROJECT_ROOT:-}"
-  local u name err cmd items
-  local -a planned=()
+  local u name items
+  local -a planned=() pending=()
   local stopped=0 skipped=0 missing=0 failed=0
   # Unit'ы с Requires= гаснут каскадом при stop зависимости — снимок, чтобы не писать «уже остановлены».
   declare -A _stop_was_active=()
@@ -258,12 +302,20 @@ stop_all() {
     [[ "$u" == "ergo_ms_redis.service" || "$u" == "ergo_ms_redis" ]] && continue
     [[ "$u" == "ergo_ms_meilisearch.service" || "$u" == "ergo_ms_meilisearch" ]] && continue
     name="$(_unit_short_name "$u")"
-    if _unit_is_present "$u" && systemctl is-active --quiet "$u" 2>/dev/null; then
+    if ! _unit_is_present "$u"; then
+      continue
+    fi
+    if systemctl is-active --quiet "$u" 2>/dev/null; then
       _stop_was_active["$name"]=1
+      pending+=("$u")
     fi
   done
 
-  # Сначала systemctl unit'ы — чтобы не путать OK модульного stop с SKIP по уже неактивному unit.
+  # Один systemctl stop — как start_all, иначе 20+ unit'ов ждут друг друга.
+  if ((${#pending[@]})); then
+    _stop_units_parallel "${pending[@]}"
+  fi
+
   for u in $(units_list "$root"); do
     [[ "$u" == "ergo_ms_redis.service" || "$u" == "ergo_ms_redis" ]] && continue
     [[ "$u" == "ergo_ms_meilisearch.service" || "$u" == "ergo_ms_meilisearch" ]] && continue
@@ -271,22 +323,17 @@ stop_all() {
     if ! _unit_is_present "$u"; then
       continue
     fi
-    if ! systemctl is-active --quiet "$u" 2>/dev/null; then
-      if [[ -n "${_stop_was_active[$name]:-}" ]]; then
-        write_ergoms_message svc_stopped_cascade green "" "name=$name"
-        stopped=$((stopped + 1))
-      else
-        skipped=$((skipped + 1))
-      fi
+    if [[ -z "${_stop_was_active[$name]:-}" ]]; then
+      skipped=$((skipped + 1))
       continue
     fi
-    err="$(systemctl_do stop "$u" 2>&1)" && {
-      write_ergoms_message svc_stopped_ok green "" "name=$name"
-      stopped=$((stopped + 1))
+    if systemctl is-active --quiet "$u" 2>/dev/null; then
+      write_ergoms_message svc_stop_failed red --stderr "name=$name" "error=systemctl stop failed"
+      failed=$((failed + 1))
       continue
-    }
-    write_ergoms_message svc_stop_failed red --stderr "name=$name" "error=${err:-systemctl stop failed}"
-    failed=$((failed + 1))
+    fi
+    write_ergoms_message svc_stopped_ok green "" "name=$name"
+    stopped=$((stopped + 1))
   done
 
   # Модульные stop_commands — только если нет установленных unit'ов или какой-то ещё active.
@@ -353,7 +400,7 @@ stop_all() {
 restart_all() {
   local root="${SERVICE_PROJECT_ROOT:-}"
   local u name err items
-  local -a planned=()
+  local -a planned=() pending=()
   local restarted=0 missing=0 failed=0
 
   _collect_managed_service_names "$root" planned
@@ -380,18 +427,25 @@ restart_all() {
   for u in $(units_list "$root"); do
     [[ "$u" == "ergo_ms_redis.service" || "$u" == "ergo_ms_redis" ]] && continue
     [[ "$u" == "ergo_ms_meilisearch.service" || "$u" == "ergo_ms_meilisearch" ]] && continue
-    name="$(_unit_short_name "$u")"
     if ! _unit_is_present "$u"; then
       continue
     fi
-    err="$(systemctl_do restart "$u" 2>&1)" && {
-      write_ergoms_message svc_restarted_ok green "" "name=$name"
-      restarted=$((restarted + 1))
-      continue
-    }
-    write_ergoms_message svc_restart_failed red --stderr "name=$name" "error=${err:-systemctl restart failed}"
-    failed=$((failed + 1))
+    pending+=("$u")
   done
+  if ((${#pending[@]})); then
+    systemctl_do restart "${pending[@]}" >/dev/null 2>&1 || true
+    for u in "${pending[@]}"; do
+      name="$(_unit_short_name "$u")"
+      if systemctl is-active --quiet "$u" 2>/dev/null; then
+        write_ergoms_message svc_restarted_ok green "" "name=$name"
+        restarted=$((restarted + 1))
+      else
+        err="$(systemctl is-failed "$u" 2>/dev/null || true)"
+        write_ergoms_message svc_restart_failed red --stderr "name=$name" "error=${err:-systemctl restart failed}"
+        failed=$((failed + 1))
+      fi
+    done
+  fi
 
   write_ergoms_message svc_restart_summary green "" \
     "restarted=$restarted" "missing=$missing" "failed=$failed"
@@ -770,6 +824,8 @@ install_single_service() {
 export -f disable_client_service_if_nginx
 export -f set_service_project_root
 export -f start_all
+export -f _units_still_busy
+export -f _stop_units_parallel
 export -f stop_all
 export -f restart_all
 export -f status_all

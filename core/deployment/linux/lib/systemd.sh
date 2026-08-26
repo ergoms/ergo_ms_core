@@ -116,6 +116,7 @@ EnvironmentFile=__ERGO_MS_ENV__
 ExecStart=/bin/bash -lc 'cd "\$ERGO_ROOT" && . "\$ERGO_ROOT/virtual_env/python/bin/activate" && python core/api/scripts/start_api.py'
 Restart=always
 RestartSec=5
+TimeoutStopSec=30
 Environment=PYTHONUNBUFFERED=1
 Environment=ERGO_LOG_CONSOLE=false
 StandardOutput=null
@@ -137,6 +138,7 @@ EnvironmentFile=__ERGO_MS_ENV__
 ExecStart=/bin/bash -lc 'cd "\$ERGO_ROOT" && . "\$ERGO_ROOT/virtual_env/python/bin/activate" && python core/deployment/scripts/start_client_if_dev.py'
 Restart=always
 RestartSec=5
+TimeoutStopSec=30
 Environment=NODE_ENV=development
 StandardOutput=${client_stdout}
 StandardError=${client_stderr}
@@ -158,6 +160,7 @@ EnvironmentFile=__ERGO_MS_ENV__
 ExecStart=/bin/bash -lc 'cd "\$ERGO_ROOT/core" && . "\$ERGO_ROOT/virtual_env/python/bin/activate" && python api/scripts/start_celery_beat.py'
 Restart=always
 RestartSec=5
+TimeoutStopSec=30
 Environment=PYTHONUNBUFFERED=1
 Environment=ERGO_LOG_CONSOLE=false
 StandardOutput=null
@@ -181,6 +184,7 @@ Environment=ERGO_LOG_CONSOLE=false
 ExecStart=/bin/bash -lc 'cd "\$ERGO_ROOT" && . "\$ERGO_ROOT/virtual_env/python/bin/activate" && python core/api/scripts/start_media_api.py'
 Restart=always
 RestartSec=5
+TimeoutStopSec=30
 StandardOutput=null
 StandardError=append:${media_stderr}
 
@@ -213,6 +217,7 @@ EnvironmentFile=__ERGO_MS_ENV__
 ExecStart=/bin/bash -lc 'cd "\$ERGO_ROOT/core" && . "\$ERGO_ROOT/virtual_env/python/bin/activate" && python api/scripts/start_celery_worker.py --worker=$worker_name'
 Restart=always
 RestartSec=5
+TimeoutStopSec=30
 Environment=PYTHONUNBUFFERED=1
 Environment=ERGO_LOG_CONSOLE=false
 StandardOutput=null
@@ -240,6 +245,7 @@ EnvironmentFile=__ERGO_MS_ENV__
 ExecStart=/bin/bash -lc 'cd "\$ERGO_ROOT/core" && . "\$ERGO_ROOT/virtual_env/python/bin/activate" && python api/scripts/start_celery_worker.py'
 Restart=always
 RestartSec=5
+TimeoutStopSec=30
 Environment=PYTHONUNBUFFERED=1
 Environment=ERGO_LOG_CONSOLE=false
 StandardOutput=null
