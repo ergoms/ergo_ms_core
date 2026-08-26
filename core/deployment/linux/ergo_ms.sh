@@ -35,6 +35,8 @@ source "$LIB_DIR/tls.sh"
 source "$LIB_DIR/lifecycle.sh"
 # shellcheck source=lib/help.sh
 source "$LIB_DIR/help.sh"
+# shellcheck source=lib/cli_log.sh
+source "$LIB_DIR/cli_log.sh"
 
 main() {
   local command=""
@@ -208,6 +210,8 @@ main() {
     else
       ERGO_ROOT="$(detect_project_root)"
     fi
+
+    attach_cli_session_log "$ERGO_ROOT" "$command"
     
     # Execute clean and update-submodules as built-in first (avoid recursion via commands.conf)
     if [[ "$is_clean_command" == true ]]; then
@@ -397,6 +401,12 @@ main() {
         show_celery_beat_logs "$module_filter" "$lines"
         exit 0
       fi
+
+      if [[ "$service_name" == "setup-full" || "$service_name" == "setup" || "$service_name" == "ergoms" ]]; then
+        set_service_project_root "$ERGO_ROOT"
+        show_service_logs "$service_name" "$lines"
+        exit 0
+      fi
       
       set_service_project_root "$ERGO_ROOT"
 
@@ -435,7 +445,7 @@ main() {
 
       if [[ "$valid" == false ]]; then
         write_ergoms_message 'unknown_service' red stderr "name=$service_name"
-        write_ergoms_message available_services yellow --stderr "items=$(units_list "$ERGO_ROOT" | tr '\n' ' ') ergo_ms_nginx ergo_ms_redis ergo_ms_meilisearch $postgres_svc celery-tasks celery-beat"
+        write_ergoms_message available_services yellow --stderr "items=$(units_list "$ERGO_ROOT" | tr '\n' ' ') ergo_ms_nginx ergo_ms_redis ergo_ms_meilisearch $postgres_svc celery-tasks celery-beat setup-full ergoms"
         exit 1
       fi
 
@@ -503,6 +513,7 @@ main() {
 
   # Устанавливаем корень проекта для функций служб
   set_service_project_root "$ERGO_ROOT"
+  attach_cli_session_log "$ERGO_ROOT" "$command"
 
   # Fast-path commands that don't need install
   case "$command" in

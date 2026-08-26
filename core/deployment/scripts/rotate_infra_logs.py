@@ -1,5 +1,5 @@
 ﻿"""
-Ротация логов nginx, Redis, client-dev, LLM serve, Jupyter и Meilisearch по размеру.
+Ротация логов nginx, Redis, client-dev, LLM serve, Jupyter, Meilisearch и CLI ergoms по размеру.
 
 nginx: переименование + nginx -s reopen (открывает новые файлы по конфигу).
 Остальные: copytruncate (процесс держит тот же дескриптор).
@@ -169,6 +169,20 @@ def rotate_infra_logs(root: Path, *, dry_run: bool = False, verbose: bool = Fals
         (
             'meilisearch',
             log_file_path('MEILISEARCH', root),
+            int(settings['copytruncate_max_bytes']),
+            int(settings['copytruncate_backup_count']),
+            'copytruncate',
+        ),
+        (
+            'setup-full',
+            log_file_path('SETUP_FULL', root),
+            int(settings['copytruncate_max_bytes']),
+            int(settings['copytruncate_backup_count']),
+            'copytruncate',
+        ),
+        (
+            'ergoms',
+            log_file_path('ERGOMS', root),
             int(settings['copytruncate_max_bytes']),
             int(settings['copytruncate_backup_count']),
             'copytruncate',

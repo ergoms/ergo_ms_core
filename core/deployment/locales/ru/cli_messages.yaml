@@ -20,7 +20,7 @@ admin_required: "[ERROR] Для команды «{name}» требуются п�
 admin_powershell_hint: "Запустите PowerShell от имени администратора"
 service_name_required: "[ERROR] Укажите имя службы"
 unknown_service: "[ERROR] Неизвестная служба: {name}"
-logs_usage: "Использование: ergoms logs <имя-службы> [строки]"
+logs_usage: "Использование: ergoms logs <имя-службы|setup-full|ergoms> [строки]"
 available_services: "Доступные службы: {items}"
 unknown_message_key: "[ERROR] Неизвестный ключ сообщения: {key}"
 specify_key_or_text: "[ERROR] Укажите --key или --text"

@@ -19,7 +19,7 @@ admin_required: "[ERROR] La commande « {name} » nécessite les droits administ
 admin_powershell_hint: "Lancez PowerShell en tant qu'administrateur"
 service_name_required: "[ERROR] Indiquez le nom du service"
 unknown_service: "[ERROR] Service inconnu : {name}"
-logs_usage: "Utilisation : ergoms logs <nom-service> [lignes]"
+logs_usage: "Utilisation : ergoms logs <nom-service|setup-full|ergoms> [lignes]"
 available_services: "Services disponibles : {items}"
 unknown_message_key: "[ERROR] Clé de message inconnue : {key}"
 specify_key_or_text: "[ERROR] Indiquez --key ou --text"

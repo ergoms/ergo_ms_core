@@ -34,6 +34,8 @@ LOG_FILE_DEFAULTS: dict[str, str] = {
     'AUDIT': 'audit.log',
     'OLLAMA': 'ollama-serve.log',
     'JUPYTER': 'jupyter.log',
+    'SETUP_FULL': 'setup-full.log',
+    'ERGOMS': 'ergoms.log',
 }
 
 
@@ -296,6 +298,9 @@ def service_log_map(project_root: Path | None = None) -> dict[str, list[str]]:
         'ergo-celery-worker': [log_basename('CELERY_WORKER', project_root)],
         'ergo-client-dev': [log_basename('CLIENT_DEV', project_root)],
         'ergo-redis': [log_basename('REDIS', project_root)],
+        'setup-full': [log_basename('SETUP_FULL', project_root)],
+        'setup': [log_basename('SETUP_FULL', project_root)],
+        'ergoms': [log_basename('ERGOMS', project_root)],
     }
 
 

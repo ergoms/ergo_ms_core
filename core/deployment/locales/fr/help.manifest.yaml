@@ -46,8 +46,8 @@ sections:
     invoke: ergoms uninstall-services [-Purge|--purge]
     summary: Supprimer les services OS (modules via host_lifecycle.yaml ; avec --purge — supprimer les données)
   - name: logs
-    invoke: ergoms logs <nom_du_service> [lignes]
-    summary: Journal du service
+    invoke: ergoms logs <nom_du_service|setup-full|ergoms> [lignes]
+    summary: Journal du service ou de la session CLI (setup-full.log / ergoms.log)
   - name: setup-full
     summary: Configuration initiale complète ; Redis/nginx — si ERGO_BROKER=redis / ERGO_PROXY=nginx
   - name: install-cli

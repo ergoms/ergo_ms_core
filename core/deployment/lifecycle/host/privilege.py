@@ -25,6 +25,15 @@ def needs_sudo_reexec(recipe_needs_sudo: bool) -> bool:
     return shutil.which('sudo') is not None
 
 
+def sudo_env_assignments() -> list[str]:
+    """Переменные, которые sudo должен протащить без ``-E``."""
+    assignments: list[str] = []
+    attached = os.environ.get('ERGO_CLI_LOG_ATTACHED', '').strip()
+    if attached:
+        assignments.append(f'ERGO_CLI_LOG_ATTACHED={attached}')
+    return assignments
+
+
 def reexec_with_sudo(argv: list[str], *, cwd: Path | None = None) -> int:
-    cmd = ['sudo', *argv]
+    cmd = ['sudo', *sudo_env_assignments(), *argv]
     return subprocess.call(cmd, cwd=str(cwd) if cwd else None)
