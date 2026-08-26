@@ -79,6 +79,9 @@ bridge.provideMany(HOST_SETTINGS_ADDITIONAL_PANELS_GROUP, '<provider>_panel', { 
 | `notifications.event_definitions` | group | Каталог уведомлений | модули |
 | `notifications.email_context` | group | Контекст письма | модули |
 | `adp.permission_check` | event | Контекстная проверка прав | модуль |
+| `adp.is_admin` | op | Глобальный админ по `user_id` / `user_public_id` (для процесса модуля в `jwt_claims`) | ядро |
+| `adp.check_api_access` | op | Политика API-пути на ядре (`api_path`) | ядро |
+| `adp.check_module_permission` | op | Право модуля на ядре (`module_name`, `permission_key`, `extra`) | ядро |
 | `adp.session_scoped_denied_permissions` | event | Вычитание пар `(module_name, permission_key)` из снимка прав текущего session-scope | модуль |
 | `menu.prepare_visibility` | event | Фильтр меню | модуль |
 | `menu.can_see_item` | event | Видимость пункта | модуль |
