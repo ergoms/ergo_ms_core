@@ -441,6 +441,15 @@ sections:
   - name: package-uninstall
     invoke: ergoms package-uninstall <name> [--purge-extra]
     summary: Удалить каталог пакета (--purge-extra — также extra_dirs)
+- id: huggingface
+  title: Снимки Hugging Face
+  note: 'Реестр virtual_env/trained_models/huggingface: modules/*/huggingface_models.yaml. Не путать с ollama pull и packages.yaml.'
+  commands:
+  - name: huggingface-models
+    summary: Список снимков из huggingface_models.yaml и статус на диске
+  - name: pull-huggingface-models
+    invoke: ergoms pull-huggingface-models [--force] [--repo org/name]
+    summary: Скачать объявленные снимки (авто в setup-full)
 - id: postgres
   title: PostgreSQL (portable)
   note: Авто в setup-full при отсутствии системной службы. Каталог virtual_env/packages/postgres.

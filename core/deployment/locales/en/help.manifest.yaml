@@ -441,6 +441,15 @@ sections:
   - name: package-uninstall
     invoke: ergoms package-uninstall <name> [--purge-extra]
     summary: Remove the package directory (--purge-extra also removes extra_dirs)
+- id: huggingface
+  title: Hugging Face snapshots
+  note: 'Registry under virtual_env/trained_models/huggingface: modules/*/huggingface_models.yaml. Not ollama pull and not packages.yaml.'
+  commands:
+  - name: huggingface-models
+    summary: List snapshots from huggingface_models.yaml and on-disk status
+  - name: pull-huggingface-models
+    invoke: ergoms pull-huggingface-models [--force] [--repo org/name]
+    summary: Download declared snapshots (automatic in setup-full)
 - id: postgres
   title: PostgreSQL (portable)
   note: Automatic in setup-full when no system service is present. Directory virtual_env/packages/postgres.

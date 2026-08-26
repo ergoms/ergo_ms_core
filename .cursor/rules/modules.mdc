@@ -20,6 +20,7 @@ globs:
   - "modules/*/process_roles.yaml"
   - "modules/*/host_lifecycle.yaml"
   - "modules/*/packages.yaml"
+  - "modules/*/huggingface_models.yaml"
   - "modules/*/vscode.tasks.yaml"
   - "modules/*/task_footprint.yaml"
 alwaysApply: false
@@ -64,6 +65,7 @@ modules/<имя>/
 ├── task_footprint.yaml      # footprint задач для ergoms celery-balance (если есть Celery)
 ├── host_lifecycle.yaml      # install/uninstall/stop демона в install-services и тестах (если есть служба/процесс)
 ├── packages.yaml            # portable-пакеты в virtual_env/packages (если модуль ставит бинарники)
+├── huggingface_models.yaml  # снимки Hugging Face в virtual_env/trained_models/huggingface/
 ├── vscode.tasks.yaml        # задачи Run Task + include_in setup-full/start-all (необязательно)
 ├── integrations.yaml        # depends: requires (обязательные) / extends (опциональные)
 ```
@@ -89,6 +91,7 @@ modules/<имя>/
 | Celery balance | `task_footprint.yaml` | [`celery-balance.mdc`](celery-balance.mdc) |
 | OS-службы | `host_lifecycle.yaml` | [`host-lifecycle.mdc`](host-lifecycle.mdc) |
 | Portable-пакеты | `packages.yaml` | [`packages.mdc`](packages.mdc) |
+| Снимки Hugging Face | `huggingface_models.yaml` | [`huggingface-models.mdc`](huggingface-models.mdc) |
 | Run Task / setup-full | `vscode.tasks.yaml` | [`module-vscode-tasks.mdc`](module-vscode-tasks.mdc) |
 | Схема PostgreSQL | `api/schema.yaml` | [`modularization.mdc`](modularization.mdc) |
 | HTTP-мост | `api/bridge_manifest.yaml` | [`modularization.mdc`](modularization.mdc) |
@@ -103,6 +106,8 @@ modules/<имя>/
 Install/uninstall/stop модульного демона в `ergoms install-services` / `uninstall-services` и Windows-тестах deployment — только через `host_lifecycle.yaml` ([`host-lifecycle.mdc`](host-lifecycle.mdc)).
 
 Portable-бинарники модуля (ollama, ffmpeg и т.п.) — только через `packages.yaml` и `ergoms package-install` ([`packages.mdc`](packages.mdc)); не дублируй download в Django management и не хардкодь имена модулей в ядре.
+
+Снимки Hugging Face (`org/name`) — только через `huggingface_models.yaml` и `ergoms pull-huggingface-models` ([`huggingface-models.mdc`](huggingface-models.mdc)); не клади их в `ollama_models.yaml` и не качай в `~/.cache`.
 
 Задачи VS Code / Cursor (Run Task) и участие в **Setup Full** / **Start All** — только через `vscode.tasks.yaml` (`include_in: setup-full` / `start-all`): hook модульности, не правка монолита ядра. Подробности — [`module-vscode-tasks.mdc`](module-vscode-tasks.mdc); формат shell-задач ядра — [`vscode-tasks.mdc`](vscode-tasks.mdc).
 

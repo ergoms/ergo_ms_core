@@ -64,6 +64,7 @@ from lifecycle.steps.infra_steps import (  # noqa: E402
     StopSetupStartedInfraStep,
 )
 from lifecycle.steps.host_lifecycle_steps import ModuleHostServicesStep
+from lifecycle.steps.huggingface_steps import PullHuggingfaceModelsStep
 from lifecycle.steps.module_tasks_steps import (
     ModuleSetupTasksAfterMigrateStep,
     ModuleSetupTasksStep,
@@ -116,6 +117,7 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
                     NpmInstallStep(),
                     name='python_and_npm',
                 ),
+                PullHuggingfaceModelsStep(),
                 EnsurePostgresStep(),
                 EnsureRedisStep(),
                 EnsureMeilisearchStep(),

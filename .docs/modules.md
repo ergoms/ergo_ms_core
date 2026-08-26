@@ -54,6 +54,7 @@ modules/<имя>/
 ├── ergoms.help.yaml            # справка help module
 ├── locales/<lang>/ergoms.help.yaml
 ├── packages.yaml               # portable-бинарники
+├── huggingface_models.yaml     # снимки Hugging Face
 ├── host_lifecycle.yaml         # install/uninstall/stop OS-службы
 ├── process_roles.yaml          # роли в ergoms resource-usage
 ├── vscode.tasks.yaml           # Run Task + setup-full / start-all
@@ -77,6 +78,7 @@ modules/<имя>/
 | Участие в Setup Full / Start All | `vscode.tasks.yaml` → `include_in` |
 | OS-служба вместе с install-services | `host_lifecycle.yaml` (install **и** uninstall) |
 | Portable-бинарник (ollama, ffmpeg…) | `packages.yaml` |
+| Снимок Hugging Face (`org/name`) | `huggingface_models.yaml` |
 | Учёт процесса в resource-usage | `process_roles.yaml` |
 | Отдельная тема оформления | `theme-defaults.js` + `theme-bootstrap.scss` |
 | Инструменты агента Cursor | `mcp/` + `.cursor/rules/` |
@@ -279,6 +281,10 @@ host:
 ### Portable-пакеты (`packages.yaml`)
 
 Бинарники в `virtual_env/packages/` объявляют в `packages.yaml`; установка — `ergoms package-install <пакет>` (часто алиас в `ergoms.conf`). Download в Django management и хардкод имён модулей в ядре запрещены. Правило: [`.cursor/rules/packages.mdc`](../.cursor/rules/packages.mdc).
+
+### Снимки Hugging Face (`huggingface_models.yaml`)
+
+Веса `org/name` (sentence-transformers и аналоги) объявляют в `huggingface_models.yaml`; установка — `ergoms pull-huggingface-models` (шаг setup-full). Каталог — `virtual_env/trained_models/huggingface/`. Это не `ollama pull` и не `packages.yaml`. Правило: [`.cursor/rules/huggingface-models.mdc`](../.cursor/rules/huggingface-models.mdc).
 
 ### Роли процессов (`process_roles.yaml`)
 

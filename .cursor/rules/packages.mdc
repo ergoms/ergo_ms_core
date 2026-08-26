@@ -23,7 +23,7 @@ alwaysApply: false
 4. Пути только через `project_layout` / `package_dir`.
 5. Конфликт имён пакетов (ядро ↔ модуль) — ошибка при discovery, не молчаливое перекрытие.
 6. Службы ОС (NSSM/systemd, конфиг redis/nginx) — отдельно от `package-install` (lifecycle `install-redis` и т.п.).
-7. Vendor git-репозитории (например код Silero для torch.hub) допустимы как `kind: custom` в `packages/`; **веса моделей** — в `trained_models/` / `resources/`, не как отдельный portable-пакет.
+7. Vendor git-репозитории (например код Silero для torch.hub) допустимы как `kind: custom` в `packages/`; **веса моделей** — в `trained_models/` / `resources/`, не как отдельный portable-пакет. Снимки Hugging Face `org/name` — [`huggingface-models.mdc`](huggingface-models.mdc), не этот реестр.
 
 ## Запрещено
 

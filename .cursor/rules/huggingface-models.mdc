@@ -1,0 +1,71 @@
+---
+description: Снимки Hugging Face — huggingface_models.yaml, ergoms pull-huggingface-models
+globs:
+  - "**/huggingface_models.yaml"
+  - "core/deployment/huggingface/**"
+  - "core/api/src/core/utils/huggingface_snapshot.py"
+alwaysApply: false
+---
+
+# Снимки Hugging Face
+
+Веса `org/name` (sentence-transformers и аналоги) ставятся **централизованно**: hook модуля + discovery ядра, как [`packages.mdc`](packages.mdc). Это не `ollama pull` и не portable-пакет.
+
+## Кратко
+
+- Hook: `modules/<name>/huggingface_models.yaml`
+- Веса: `virtual_env/trained_models/huggingface/<org>/<name>`
+- Кэш Hub (`HF_HOME`): `virtual_env/cache/huggingface/`
+- Discovery: [`core/deployment/huggingface/`](../../core/deployment/huggingface/)
+- CLI: `ergoms huggingface-models`, `ergoms pull-huggingface-models`
+- Setup-full: шаг `PullHuggingfaceModelsStep` после `python-install`
+- Runtime: [`resolve_huggingface_source`](../../core/api/src/core/utils/huggingface_snapshot.py)
+
+## Обязательно
+
+1. Новая sentence-transformers / Hub-модель модуля — строка в `huggingface_models.yaml`, не download в Django management и не запись в `ollama_models.yaml`.
+2. Имя — `repo:` / `name:` или `env:` + `default:` (как в `ollama_models.yaml`).
+3. Загрузка модели в коде — `resolve_huggingface_source(repo_id)`: локальный снимок, если готов, иначе id с Hub.
+4. Пути только через `project_layout` (`huggingface_snapshot_dir`, `resolve_huggingface_source`).
+
+## Запрещено
+
+```yaml
+# BAD — снимок Hub в реестре Ollama
+# modules/<name>/ollama_models.yaml
+models:
+  - env: SOME_EMBEDDING_MODEL
+    default: org/model-name
+```
+
+```python
+# BAD — свой кэш вне корня проекта
+SentenceTransformer('org/model-name', cache_folder=os.path.expanduser('~/.cache'))
+```
+
+```yaml
+# GOOD
+# modules/<name>/huggingface_models.yaml
+module: <name>
+models:
+  - env: SOME_EMBEDDING_MODEL
+    default: org/model-name
+    required: true
+```
+
+```python
+# GOOD
+from src.core.utils.huggingface_snapshot import resolve_huggingface_source
+
+model = SentenceTransformer(resolve_huggingface_source(repo_id))
+```
+
+`ollama_models.yaml` — только имена библиотеки Ollama (или `hf.co/…` GGUF). Веса моделей — не `packages.yaml` ([`packages.mdc`](packages.mdc)).
+
+## Связанные правила
+
+| Тема | Файл |
+|---|---|
+| Portable-бинарники | [`packages.mdc`](packages.mdc) |
+| Артефакты в корне | [`project-root-artifacts.mdc`](project-root-artifacts.mdc) |
+| Модули, hook’и | [`modules.mdc`](modules.mdc) |
