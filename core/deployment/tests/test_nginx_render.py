@@ -15,6 +15,7 @@ from render_common import (  # noqa: E402
     build_docker_upstream_blocks,
     build_host_upstream_blocks,
     render_docker_nginx_config,
+    resolve_host_api_upstream,
 )
 
 
@@ -50,6 +51,33 @@ class NginxRenderTests(unittest.TestCase):
         self.assertIn('127.0.0.1:8003', host_media)
         self.assertIn('api:8000', docker_api)
         self.assertIn('media-api:8003', docker_media)
+
+    def test_host_api_upstream_can_point_to_remote_core(self) -> None:
+        self.assertEqual(
+            resolve_host_api_upstream({'API_PORT': '8000'}),
+            '127.0.0.1:8000',
+        )
+        self.assertEqual(
+            resolve_host_api_upstream({
+                'API_PORT': '8000',
+                'NGINX_API_UPSTREAM': '10.0.0.2:8000',
+            }),
+            '10.0.0.2:8000',
+        )
+        self.assertEqual(
+            resolve_host_api_upstream({
+                'API_PORT': '9000',
+                'NGINX_API_UPSTREAM': 'http://core.internal:8000',
+            }),
+            'core.internal:8000',
+        )
+        host_api, _ = build_host_upstream_blocks({
+            'API_PORT': '8000',
+            'MEDIA_API_BIND_PORT': '8003',
+            'NGINX_API_UPSTREAM': '10.0.0.2:8000',
+        })
+        self.assertIn('10.0.0.2:8000', host_api)
+        self.assertNotIn('127.0.0.1:8000', host_api)
 
     def test_host_and_docker_renderers_use_shared_function(self) -> None:
         deployment_dir = Path(__file__).resolve().parents[1]
@@ -223,6 +251,22 @@ class ModuleNginxTests(unittest.TestCase):
             'DEMO_MOD_PORT': '8123',
         })
         self.assertIn('max_fails=3 fail_timeout=10s', block)
+
+    def test_bind_any_module_host_proxies_loopback(self) -> None:
+        from module_nginx import render_module_locations_host, render_module_upstreams_host
+
+        values = {
+            'MODULE_RUNTIME': 'microservice',
+            'MICROSERVICE_MODULES': 'demo_mod',
+            'DEMO_MOD_HOST': '0.0.0.0',
+            'DEMO_MOD_PORT': '8123',
+        }
+        upstreams = render_module_upstreams_host(values)
+        locations = render_module_locations_host(values)
+        self.assertIn('server 127.0.0.1:8123', upstreams)
+        self.assertNotIn('0.0.0.0', upstreams)
+        self.assertIn('proxy_set_header Host 127.0.0.1;', locations)
+        self.assertNotIn('Host 0.0.0.0', locations)
 
     def test_monolith_module_blocks_empty(self) -> None:
         from module_nginx import render_module_locations_docker, render_module_upstreams_docker

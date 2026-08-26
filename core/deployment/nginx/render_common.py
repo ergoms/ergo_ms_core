@@ -10,6 +10,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 from typing import Literal, Mapping
+from urllib.parse import urlparse
 
 _DEPLOYMENT_DIR = Path(__file__).resolve().parent.parent
 if str(_DEPLOYMENT_DIR) not in sys.path:
@@ -37,6 +38,35 @@ def resolve_client_max_body_size(values: Mapping[str, str]) -> str:
     return format_nginx_body_size(compute_client_max_body_bytes(values))
 
 
+def resolve_host_api_upstream(values: Mapping[str, str]) -> str:
+    """host:port для ``upstream ergo_api``.
+
+    Пусто — локальный Django ``127.0.0.1:API_PORT``.
+    ``NGINX_API_UPSTREAM`` — ядро на другом хосте; location ``/api/<module>/``
+    этот ключ не меняет.
+    """
+    default_port = _env(values, 'API_PORT', '8000')
+    raw = _env(values, 'NGINX_API_UPSTREAM')
+    if not raw:
+        return f'127.0.0.1:{default_port}'
+    return _parse_upstream_host_port(raw, default_port)
+
+
+def _parse_upstream_host_port(raw: str, default_port: str) -> str:
+    text = raw.strip()
+    if '://' in text:
+        parsed = urlparse(text)
+        host = (parsed.hostname or '').strip() or '127.0.0.1'
+        port = parsed.port or int(default_port)
+        return f'{host}:{port}'
+    if text.count(':') == 1:
+        host, _, port = text.partition(':')
+        host = host.strip() or '127.0.0.1'
+        port = port.strip() or default_port
+        return f'{host}:{port}'
+    return f'{text}:{default_port}'
+
+
 def render_upstream_block(
     name: str,
     server: str,
@@ -58,11 +88,10 @@ def render_upstream_block(
 
 
 def build_host_upstream_blocks(values: Mapping[str, str]) -> tuple[str, str]:
-    api_port = _env(values, 'API_PORT', '8000')
     media_port = _env(values, 'MEDIA_API_BIND_PORT', '8003')
     api = render_upstream_block(
         'ergo_api',
-        f'127.0.0.1:{api_port}',
+        resolve_host_api_upstream(values),
         no_keepalive_comment=True,
     )
     media = render_upstream_block('ergo_media', f'127.0.0.1:{media_port}')

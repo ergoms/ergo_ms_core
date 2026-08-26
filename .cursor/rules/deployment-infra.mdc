@@ -97,6 +97,7 @@ ergoms status-nginx
 - `ERGO_PROXY=nginx` в корневом `.env`
 - `CLIENT_USE_RELATIVE_API` — effective `true` при `ERGO_PROXY=nginx`; явный override в `env/nginx.env`
 - `NGINX_SERVER_NAME`, `NGINX_PUBLIC_HOST` — в [`env/nginx.env.example`](../../env/nginx.env.example)
+- `NGINX_API_UPSTREAM` — если общий `/api/` должен идти на Django ядра на другом хосте; модули из `MICROSERVICE_MODULES` этот ключ не трогает
 
 SSE: location `/api/realtime/stream/` — `proxy_buffering off`, `proxy_read_timeout 3600s` в `ergo_ms.conf.template`.
 

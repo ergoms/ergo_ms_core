@@ -62,6 +62,13 @@ def _env_module_host_port(
     return parsed.hostname, int(port)
 
 
+def _nginx_peer_host(host: str) -> str:
+    """0.0.0.0 / :: — адрес прослушивания процесса, не цель proxy_pass."""
+    if host in ('0.0.0.0', '::', '[::]'):
+        return '127.0.0.1'
+    return host
+
+
 def _upstream_safe_name(module_name: str) -> str:
     return re.sub(r'[^a-zA-Z0-9_]', '_', module_name)
 
@@ -88,7 +95,7 @@ def render_module_upstreams_host(values: Mapping[str, str]) -> str:
         if resolved is None:
             host, port = '127.0.0.1', 8100 + (sum(ord(c) for c in name) % 500)
         else:
-            host, port = resolved
+            host, port = _nginx_peer_host(resolved[0]), resolved[1]
         safe = _upstream_safe_name(name)
         lines.append(f'upstream ergo_module_{safe} {{')
         lines.append(f'    server {host}:{port} max_fails=3 fail_timeout=10s;')
@@ -111,7 +118,7 @@ def render_module_locations_host(values: Mapping[str, str]) -> str:
         resolved = _env_module_host_port(values, name)
         # Host процесса модуля (IP из BRIDGE_SERVICE_URLS), не публичный $host:
         # соседний Django иначе отвечает 400 (ALLOWED_HOSTS).
-        upstream_host = resolved[0] if resolved else '127.0.0.1'
+        upstream_host = _nginx_peer_host(resolved[0]) if resolved else '127.0.0.1'
         blocks.append(
             f"""    location /api/{name}/ {{
         if ($maintenance = 1) {{ return 503; }}

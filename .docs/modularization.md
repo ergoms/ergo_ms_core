@@ -31,6 +31,8 @@
 
 **Клиент** ходит только на входной прокси (`ERGO_PROXY=nginx` / relative API). Раздельная сборка (`CLIENT_MODULARITY=federated|standalone`) не блокирует пилот API.
 
+Если входной сайт — хост модулей, а Django ядра на другой машине: в `env/nginx.env` задайте `NGINX_API_UPSTREAM=<хост-ядра>:8000`. Общий `/api/` и `/ws/` уйдут туда; `/api/<name>/` по-прежнему на локальные процессы из `MICROSERVICE_MODULES`. В `CLIENT_MODULES` перечислите только модули этого хоста. На ядре в `API_ALLOWED_HOSTS` и `CSRF_TRUSTED_ORIGINS` должен быть публичный origin этого nginx.
+
 ## Несколько серверов без выноса всего хоста
 
 Монолит на одной машине может звать модуль, который живёт на другой: `MODULE_RUNTIME` на этом хосте остаётся `monolith`, а мост переключается на HTTP только для отсутствующих ops.
