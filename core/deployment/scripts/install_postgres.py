@@ -45,9 +45,14 @@ from postgres_common import (  # noqa: E402
     resolve_latest_version,
     resolve_portable_bind,
     resolve_portable_listen_port,
+    postgres_bin,
+    postgres_packages_dir,
     start_server,
     stop_server,
 )
+
+# Django-аудит (core_audit) и поиск по журналу требуют contrib/pg_trgm.
+LINUX_CONTRIB_EXTENSIONS = ('pg_trgm',)
 
 
 def _force_install_from_env() -> bool:
@@ -77,6 +82,93 @@ def _copy_tree_merge(src: Path, dest: Path) -> None:
             _copy_tree_merge(item, target)
         else:
             shutil.copy2(item, target)
+
+
+def _contrib_control_path(root: Path, name: str) -> Path:
+    return postgres_packages_dir(root) / 'share' / 'extension' / f'{name}.control'
+
+
+def _missing_linux_contrib(root: Path) -> tuple[str, ...]:
+    return tuple(name for name in LINUX_CONTRIB_EXTENSIONS if not _contrib_control_path(root, name).is_file())
+
+
+def _install_linux_contrib_from_source(root: Path, source: Path, *, jobs: str) -> None:
+    """Собрать contrib рядом с уже установленным prefix (make install ядра уже был)."""
+    missing = _missing_linux_contrib(root)
+    if not missing:
+        return
+    pg_config = postgres_bin(root, 'pg_config')
+    if not pg_config.is_file():
+        raise RuntimeError(t('postgres_tool_not_found', tool='pg_config', binary=pg_config))
+    for name in missing:
+        contrib_dir = source / 'contrib' / name
+        if not contrib_dir.is_dir():
+            raise RuntimeError(t('postgres_contrib_source_missing', name=name, path=contrib_dir))
+        print(format_console('info', t('postgres_contrib_building', name=name)))
+        pg_cfg = f'PG_CONFIG={pg_config}'
+        env = {**os.environ, 'PATH': f'{pg_config.parent}{os.pathsep}{os.environ.get("PATH", "")}'}
+        subprocess.run(
+            ['make', f'-j{jobs}', 'USE_PGXS=1', pg_cfg],
+            cwd=str(contrib_dir),
+            check=True,
+            env=env,
+        )
+        subprocess.run(
+            ['make', 'install', 'USE_PGXS=1', pg_cfg],
+            cwd=str(contrib_dir),
+            check=True,
+            env=env,
+        )
+        if not _contrib_control_path(root, name).is_file():
+            raise RuntimeError(t('postgres_contrib_install_failed', name=name))
+        print(format_console('ok', t('postgres_contrib_ready', name=name)))
+
+
+def ensure_linux_contrib_extensions(root: Path) -> None:
+    """Дособрать pg_trgm и др. для уже стоящего portable (без полной пересборки ядра)."""
+    if platform.system().lower() != 'linux':
+        return
+    if not is_installed(root):
+        return
+    missing = _missing_linux_contrib(root)
+    if not missing:
+        return
+    version = read_installed_version(root)
+    if not version:
+        raise RuntimeError(t('postgres_contrib_no_version'))
+    from download_cache import cached_archive_path, download_with_cache
+
+    cache_tmp = root / 'virtual_env' / 'cache' / 'tmp'
+    cache_tmp.mkdir(parents=True, exist_ok=True)
+    tarball = f'postgresql-{version}.tar.bz2'
+    url = f'{PG_FTP_SOURCE}v{version}/{tarball}'
+    with tempfile.TemporaryDirectory(dir=str(cache_tmp)) as tmp:
+        tmp_path = Path(tmp)
+        tar_path = tmp_path / tarball
+        if download_with_cache(
+            root,
+            'postgres',
+            tar_path,
+            lambda dest: _download(url, dest),
+        ):
+            print(
+                format_console(
+                    'info',
+                    t(
+                        'archive_using_cache',
+                        path=cached_archive_path(root, 'postgres', tar_path.name),
+                    ),
+                )
+            )
+        extract_dir = tmp_path / 'src'
+        extract_dir.mkdir()
+        with tarfile.open(tar_path, 'r:bz2') as archive:
+            archive.extractall(extract_dir)
+        source_dirs = list(extract_dir.glob(f'postgresql-{version}'))
+        if not source_dirs:
+            raise RuntimeError(t('postgres_sources_not_found'))
+        jobs = str(max(1, (os.cpu_count() or 2)))
+        _install_linux_contrib_from_source(root, source_dirs[0], jobs=jobs)
 
 
 def _install_windows(root: Path, version: str, force: bool) -> None:
@@ -204,6 +296,7 @@ def _install_linux(root: Path, version: str, force: bool) -> None:
             subprocess.run(configure, cwd=str(source), check=True)
         subprocess.run(['make', f'-j{jobs}'], cwd=str(source), check=True)
         subprocess.run(['make', 'install'], cwd=str(source), check=True)
+        _install_linux_contrib_from_source(root, source, jobs=jobs)
 
     postgres_version_file(root).write_text(version + '\n', encoding='utf-8')
     print(format_console('ok', t('postgres_installed_at', version=version, base=paths['base'])))
@@ -299,6 +392,8 @@ def install_postgres(
             else:
                 raise RuntimeError(t('postgres_unsupported_platform', system=system))
 
+        if system == 'linux':
+            ensure_linux_contrib_extensions(root)
         _initdb_if_needed(root, user, password, listen_port, listen_bind)
         if start:
             start_server(root)

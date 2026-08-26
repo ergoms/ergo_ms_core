@@ -24,7 +24,7 @@ alwaysApply: false
 - Детект «уже есть Postgres» — **по системной службе** `postgresql*`, не по подключению из `databases.yaml`
 - Наши службы **не** считаются системными: имена из `env/postgres.env` (`POSTGRES_SERVICE_WINDOWS` / `POSTGRES_SERVICE_LINUX`, по умолчанию `ergo_ms_postgres` на Windows и Linux)
 - Нет системной службы → latest stable → initdb → БД `ergo_ms` → OS-служба на **5433** → дальше `MigrateStep`
-- Linux: перед сборкой из исходников setup сам ставит gcc/make и заголовки через apt/dnf/yum/pacman (`sudo`), как nginx
+- Linux: перед сборкой из исходников setup сам ставит gcc/make и заголовки через apt/dnf/yum/pacman (`sudo`), как nginx. Вместе с ядром ставятся contrib-расширения, которые нужны миграциям (`pg_trgm`); если portable уже стоит без них — `ergoms install-postgres` дособирает contrib из кэша исходников, без полной пересборки
 - Linux systemd: процесс **не** `root` (PostgreSQL так не стартует). Пользователь — `POSTGRES_SERVICE_USER` или владелец `packages/postgres/data`
 - Есть системная служба → `[SKIP]` portable (если не force)
 - Режим: `ERGO_DB=portable_postgres` в `.env`; force — legacy `POSTGRES_FORCE_INSTALL=true` или `ergoms setup-full --with-postgres` — portable на **5433**
