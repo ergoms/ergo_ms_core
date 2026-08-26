@@ -30,7 +30,7 @@ ergoms start
 ergoms status
 ```
 
-CLI лежит в `core/deployment/bin`. Команда `uninstall-cli` напоминает удалить симлинки вручную — см. [cli.md](cli.md).
+CLI лежит в `core/deployment/bin`. На Linux `install-cli` ставит симлинк `/usr/local/bin/ergoms` на этот файл (нужны права root, если каталог недоступен на запись). `uninstall-cli` снимает только эту ссылку, если она указывает на текущий проект; сами файлы в `bin` не удаляются. См. [cli.md](cli.md).
 
 ### Низкоуровневые скрипты (редко)
 

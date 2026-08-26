@@ -57,6 +57,16 @@ BRIDGE_TRANSPORT=local
 ergoms start-all
 ```
 
+**Монолит и сосед на другом сервере.** Этот хост остаётся монолитом; отсутствующий модуль зовут по HTTP. Подробности — [modularization.md](modularization.md#несколько-серверов-без-выноса-всего-хоста).
+
+```cmd
+MODULE_RUNTIME=monolith
+BRIDGE_TRANSPORT=http
+BRIDGE_SERVICE_URLS=<peer>=http://peer.example:8000
+```
+
+Не добавляйте `<peer>` в `MICROSERVICE_MODULES` на этом хосте. Токен `BRIDGE_INTERNAL_TOKEN` одинаковый на обоих концах. Пользователей связывают по `public_id`.
+
 **Microservice (приближение к боевому).** Отдельный API модуля за nginx, HTTP-мост, worker только своей очереди:
 
 ```cmd
@@ -89,7 +99,7 @@ ergoms build-all
 
 ## Зависимости и первичная настройка {#зависимости-и-первичная-настройка}
 
-При первом клонировании репозитория файлы **`core/deployment/bin/ergoms.cmd`** / **`ergoms`** уже на месте. Команда работает только из каталога проекта и его подпапок. Полная первичная настройка (`setup-full`) — по инструкции в [README.md](../README.md). После неё доступны, в частности:
+При первом клонировании репозитория файлы **`core/deployment/bin/ergoms.cmd`** / **`ergoms`** уже на месте. Команда работает только из каталога проекта и его подпапок. На Linux `ergoms install-cli` ставит симлинк `/usr/local/bin/ergoms`, чтобы `sudo` видел ту же утилиту (обёртка разрешает ссылку и считает корень по реальному файлу). Полная первичная настройка (`setup-full`) — по инструкции в [README.md](../README.md). После неё доступны, в частности:
 
 ```cmd
 ergoms setup

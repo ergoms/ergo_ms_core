@@ -22,7 +22,7 @@ ergoms python-install
 
 ## Команда ergoms не найдена
 
-Утилита **ergoms** лежит в **`core/deployment/bin/`**: `ergoms.cmd` (Windows) и `ergoms` (Linux/macOS). Она не ставится в System32 или `/usr/local/bin`. Запускайте её из корня проекта или подпапки (проверка по текущему каталогу).
+Утилита **ergoms** лежит в **`core/deployment/bin/`**: `ergoms.cmd` (Windows) и `ergoms` (Linux/macOS). Запускайте её из корня проекта или подпапки (проверка по текущему каталогу). На Linux `ergoms install-cli` дополнительно ставит симлинк `/usr/local/bin/ergoms` на этот файл, чтобы работал `sudo ergoms`. В System32 Windows по-прежнему ничего не копируется.
 
 **В Cursor / VS Code** откройте профиль терминала **Project-Shell** (каталог `bin` уже в PATH) или выполняйте задачи с `cwd` = корень workspace.
 
@@ -40,7 +40,7 @@ cd /path/to/ergo_ms
 ./core/deployment/bin/ergoms help
 ```
 
-Локальный CLI — `core/deployment/bin/ergoms` (и `ergoms.cmd` на Windows). Он входит в репозиторий и не удаляется командой `uninstall-cli` (она только сообщает об этом). Убедитесь, что `core/deployment/bin` в PATH (профиль Project-Shell в Cursor/VS Code).
+Локальный CLI — `core/deployment/bin/ergoms` (и `ergoms.cmd` на Windows). Он входит в репозиторий. На Linux `uninstall-cli` снимает только симлинк `/usr/local/bin/ergoms`, если он указывает на этот проект; файлы в `bin` не удаляются. Убедитесь, что `core/deployment/bin` в PATH (профиль Project-Shell в Cursor/VS Code) либо что системная ссылка уже создана.
 
 Либо повторите полную настройку из README: `setup-full` проверит локальный CLI.
 

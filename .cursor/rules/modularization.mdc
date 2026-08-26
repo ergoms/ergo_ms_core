@@ -17,7 +17,8 @@ alwaysApply: false
 
 ## Кратко
 
-- Связь модулей и ядра — ModuleBridge (JSON-примитивы по HTTP), не ORM и не `request.user`.
+- Связь модулей и ядра — ModuleBridge (JSON-примитивы по HTTP: `user_public_id`, не ORM и не `request.user`).
+- Сосед на другом сервере при монолите на этом хосте: `BRIDGE_TRANSPORT=http` и ключ в `BRIDGE_SERVICE_URLS`. Это закрывает `requires` без checkout папки. Не пиши удалённое имя в `MICROSERVICE_MODULES`.
 - Схема модуля — `m_<name>` (hook `api/schema.yaml`). Ядро — схема `core`. Схемы `public` нет. SQLite схемы не использует. Даже в монолите таблицы модуля живут в `m_<name>` (migrate ставит схему приложения первой). Физический перенос без запрета FK — `isolated: false`.
 - Изолированный модуль (`isolated: true`) не ставит `ForeignKey` / `OneToOne` на чужой `app_label` и не на `AUTH_USER_MODEL`. Владелец пользователя — ядро; в модуле — `user_public_id`.
 - `Meta.db_table` **без** префикса схемы (иначе сломается SQLite).
@@ -31,7 +32,8 @@ alwaysApply: false
 | Вынести процесс | `bridge_manifest.yaml`, `MICROSERVICE_MODULES=<name>`, `ergoms start-module --module=<name>` |
 | Изолировать данные | `api/schema.yaml`, снять FK наружу (`isolated: true`), `ergoms db-migrate-module` / `db-move-module-schema` / `db-move-core-schema` |
 | Удаление пользователя | подписка на `core.user_delete` по `user_public_id` / `user_id`, не ORM `user=` |
-| HTTP-мост | kwargs JSON-сериализуемые; при отсутствии провайдера — `default` |
+| HTTP-мост | kwargs JSON-сериализуемые (`user_public_id`); объект `user=` локально оставляй; при отсутствии провайдера — `default` |
+| Сосед на другом хосте | `BRIDGE_SERVICE_URLS=<name>=http://peer.example:8000`, общий `BRIDGE_INTERNAL_TOKEN`, один `public_id`; URL — Django во внутренней сети |
 | Уровень 3 | `MODULE_AUTH_MODE=jwt_claims`, outbox до отдельной БД |
 
 ## Запрещено

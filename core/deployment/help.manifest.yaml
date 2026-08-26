@@ -51,9 +51,9 @@ sections:
   - name: setup-full
     summary: Полная первичная настройка; Redis/nginx — при ERGO_BROKER=redis / ERGO_PROXY=nginx
   - name: install-cli
-    summary: Проверить локальный ergoms в PATH
+    summary: Проверить локальный ergoms и на Linux поставить /usr/local/bin/ergoms
   - name: uninstall-cli
-    summary: 'Сообщение: локальный CLI в core/deployment/bin не удаляется'
+    summary: Снять системную ссылку /usr/local/bin/ergoms; файлы в bin не удаляются
 - id: development
   title: Локальная разработка
   commands:

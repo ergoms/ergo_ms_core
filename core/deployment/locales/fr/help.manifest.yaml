@@ -51,9 +51,9 @@ sections:
   - name: setup-full
     summary: Configuration initiale complète ; Redis/nginx — si ERGO_BROKER=redis / ERGO_PROXY=nginx
   - name: install-cli
-    summary: Vérifier que ergoms local est dans le PATH
+    summary: Vérifier ergoms local et sous Linux créer /usr/local/bin/ergoms
   - name: uninstall-cli
-    summary: 'Message : le CLI local sous core/deployment/bin n''est pas supprimé'
+    summary: Retirer le lien /usr/local/bin/ergoms ; les fichiers dans bin restent
 - id: development
   title: Développement local
   commands:

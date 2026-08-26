@@ -334,7 +334,7 @@ ADMIN_PASSWORD=admin
 
 **Как исправить.** Как у media-api: не публиковать порт API на хост в dev без явного флага; в nginx добавить `location /internal/ { deny all; }` на случай catch-all; при непустом токене ограничить клиентов loopback/CIDR (аналог `MEDIA_API_TRUSTED_PROXIES`), кроме осмысленного списка сервисов microservice.
 
-**Исправлено.** В host и Docker nginx добавлен `location /internal/ { deny all; }`. После проверки токена `_guard` требует loopback в монолите и private/link-local при `MODULE_RUNTIME=microservice|split`. Сообщения 401 для чужого адреса и чужого токена одинаковые. Публикация `API_PORT` в docker-dev сохранена для публичного API.
+**Исправлено.** В host и Docker nginx добавлен `location /internal/ { deny all; }`. После проверки токена `_guard` требует loopback либо private/link-local, если `BRIDGE_TRANSPORT=http` или `MODULE_RUNTIME=microservice|split`. Сообщения 401 для чужого адреса и чужого токена одинаковые. Публикация `API_PORT` в docker-dev сохранена для публичного API.
 
 #### С13. Шлюз Jupyter в nginx указывает на несуществующее представление
 

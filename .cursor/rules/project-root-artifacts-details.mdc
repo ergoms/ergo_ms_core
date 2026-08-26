@@ -83,6 +83,8 @@ certbot_bin="$root/virtual_env/python/bin/certbot"
 
 Тесты deployment могут использовать `%TEMP%` для изоляции прогона — не копируй это в install-скрипты.
 
+На Linux `ergoms install-cli` может создать симлинк `/usr/local/bin/ergoms` на `core/deployment/bin/ergoms`. Это регистрация CLI для `sudo`, не данные приложения. `uninstall-cli` снимает ссылку только если она указывает на этот проект.
+
 ## Связанные правила
 
 | Тема | Файл |
