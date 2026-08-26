@@ -104,6 +104,30 @@ SSE: location `/api/realtime/stream/` — `proxy_buffering off`, `proxy_read_tim
 
 После правок Vue nginx по-прежнему отдаёт **`core/client/dist`**: нужен `ergoms client-build`. Пустая консоль браузера при вечной маске — смотри access-лог, не `client-browser.log` (гость без JWT). Подробности — [`nginx-spa-boot.mdc`](nginx-spa-boot.mdc).
 
+### Logout: не отдавать 429 клиенту
+
+`POST /api/cms/adp/logout/` идемпотентен. Зависший клиентский цикл `401 → logout` не должен класть Daphne и не должен получать **429**: 429 выглядит как сбой и провоцирует повторные POST.
+
+- Location точнее общего `/api/`: `build_logout_location()` в [`render_common.py`](../../core/deployment/nginx/render_common.py)
+- В API проходит только `rate=2r/s` + `burst=5`; избыток — `error_page 429 =204 @logout_limited` (без прокси)
+- Не ставьте `limit_req_status 503`: server-level `error_page` maintenance превратит POST в GET (405)
+- Клиент: один POST на волну до следующего login (`performServerLogout` в `tokenRefresh.js`), голый axios без интерцепторов, гейт в `sessionStorage` + `localStorage` + `window`
+- Интерцептор `apiClient` не вызывает logout на сам `/logout/`
+- Проверка: `ergoms core-rules-check`, `ergoms deployment-test`
+
+```nginx
+# BAD — клиент ретраит 429 → шторм в access/error
+limit_req zone=ergo_logout burst=5 nodelay;
+limit_req_status 429;
+proxy_pass http://ergo_api;
+
+# GOOD — лишние POST для клиента успешный выход, API не трогаем
+limit_req zone=ergo_logout burst=5 nodelay;
+limit_req_status 429;
+error_page 429 =204 @logout_limited;
+proxy_pass http://ergo_api;
+```
+
 ## Jupyter
 
 Запуск: `ergoms start-jupyter`. Задача **Start All Services** и `ergoms start-all` открывают отдельный терминал JupyterLab, если `ERGO_JUPYTER` не `none` (`ergoms start-jupyter-dev`). Effective-настройки — [`jupyter_runtime.py`](../../core/api/src/config/jupyter_runtime.py).

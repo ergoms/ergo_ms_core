@@ -32,6 +32,10 @@ class NginxRenderTests(unittest.TestCase):
         docker_internal = docker_block[docker_block.find('location /internal/'):]
         self.assertIn('deny all', host_internal[:160])
         self.assertIn('deny all', docker_internal[:160])
+        for block in (host_block, docker_block):
+            self.assertIn('location = /api/cms/adp/logout/', block)
+            self.assertIn('error_page 429 =204 @logout_limited', block)
+            self.assertIn('location @logout_limited', block)
 
     def test_upstream_targets_differ_host_vs_docker(self) -> None:
         values = {

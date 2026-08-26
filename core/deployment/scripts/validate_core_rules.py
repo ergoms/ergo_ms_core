@@ -18,6 +18,7 @@
 - LF без BOM в .sh deployment (Linux shebang и source)
 - сырой ModelViewSet в core/api без ObjectPermissionMixin / BaseModelViewSet / admin-маркера
 - README.md и AGENTS.md у каждого установленного модуля (есть api/apps.py или client/)
+- контракт logout: один POST на волну, nginx избыток → 204 (не 429)
 """
 
 from __future__ import annotations
@@ -54,6 +55,7 @@ from validate_data_boundaries import (  # noqa: E402
     find_isolated_auth_fk_violations,
 )
 from security.checkers.object_permissions import find_raw_model_viewsets  # noqa: E402
+from validate_logout_storm_guards import find_logout_storm_guard_violations  # noqa: E402
 API_DIR = PROJECT_ROOT / 'core' / 'api'
 CLIENT_SRC = PROJECT_ROOT / 'core' / 'client' / 'src'
 CORE_DIR = PROJECT_ROOT / 'core'
@@ -828,6 +830,16 @@ def main() -> int:
             print(format_console('error', msg))
     else:
         print(format_console('ok', t('core_rules_sh_ok')))
+
+    _section('core_rules_heading_logout_storm')
+    logout_storm_violations = find_logout_storm_guard_violations()
+    if logout_storm_violations:
+        for rel, marker in logout_storm_violations:
+            msg = t('core_rules_logout_storm_missing', rel=rel, marker=marker)
+            all_errors.append(msg)
+            print(format_console('error', msg))
+    else:
+        print(format_console('ok', t('core_rules_logout_storm_ok')))
 
     if all_errors:
         print()

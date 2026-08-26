@@ -135,6 +135,39 @@ def build_realtime_stream_location(*, variant: Literal['host', 'docker'] = 'host
 """
 
 
+def build_logout_location(*, include_maintenance: bool) -> str:
+    """Идемпотентный logout: в API только burst, остальное — 204 без прокси.
+
+    limit_req_status 429, не default 503: иначе server-level error_page
+    maintenance превращает POST в GET (405). Сами 429 с этой location
+    отвечаем 204: повторный выход не ошибка и не повод ретраить.
+    """
+    maintenance = (
+        '        if ($maintenance = 1) { return 503; }\n'
+        if include_maintenance
+        else ''
+    )
+    return (
+        '    # Точный logout раньше общего /api/: шторм не бьёт в Daphne.\n'
+        '    location = /api/cms/adp/logout/ {\n'
+        f'{maintenance}'
+        '        limit_req zone=ergo_logout burst=5 nodelay;\n'
+        '        limit_req_status 429;\n'
+        '        limit_req_log_level notice;\n'
+        '        limit_conn ergo_conn 10;\n'
+        '        limit_conn_status 429;\n'
+        '        error_page 429 =204 @logout_limited;\n'
+        '        proxy_pass http://ergo_api;\n'
+        '    }\n'
+        '\n'
+        '    location @logout_limited {\n'
+        '        internal;\n'
+        '        access_log off;\n'
+        '        return 204;\n'
+        '    }\n'
+    )
+
+
 def build_host_api_ws_locations() -> str:
     return """    # Служебный ModuleBridge не через публичный reverse proxy (С12).
     location /internal/ {
@@ -142,17 +175,7 @@ def build_host_api_ws_locations() -> str:
         access_log off;
     }
 
-    # Точный logout раньше общего /api/: жёсткий лимит против клиентского шторма.
-    location = /api/cms/adp/logout/ {
-        if ($maintenance = 1) { return 503; }
-        # 429, не default 503: иначе error_page maintenance ломает POST → 405.
-        limit_req zone=ergo_logout burst=5 nodelay;
-        limit_req_status 429;
-        limit_conn ergo_conn 10;
-        limit_conn_status 429;
-        proxy_pass http://ergo_api;
-    }
-
+""" + build_logout_location(include_maintenance=True) + """
     # Только auth_request из location Jupyter; прямой браузерный GET — 404.
     location = /api/internal/jupyter-access/ {
         internal;
@@ -216,20 +239,14 @@ def build_docker_core_proxy_locations() -> str:
     (клиент с хоста виден как docker-gateway). Healthcheck compose бьёт в media-api.
     """
     stream = build_realtime_stream_location(variant='docker')
+    logout = build_logout_location(include_maintenance=False)
     return f"""{stream}
     location /internal/ {{
         deny all;
         access_log off;
     }}
 
-    location = /api/cms/adp/logout/ {{
-        limit_req zone=ergo_logout burst=5 nodelay;
-        limit_req_status 429;
-        limit_conn ergo_conn 10;
-        limit_conn_status 429;
-        proxy_pass http://ergo_api;
-    }}
-
+{logout}
     location = /api/internal/jupyter-access/ {{
         internal;
         proxy_pass http://ergo_api;
