@@ -15,7 +15,9 @@ from render_common import (  # noqa: E402
     build_docker_upstream_blocks,
     build_host_upstream_blocks,
     render_docker_nginx_config,
+    render_spa_locations_host,
     resolve_host_api_upstream,
+    resolve_host_client_upstream,
 )
 
 
@@ -78,6 +80,50 @@ class NginxRenderTests(unittest.TestCase):
         })
         self.assertIn('10.0.0.2:8000', host_api)
         self.assertNotIn('127.0.0.1:8000', host_api)
+
+    def test_host_client_upstream_proxies_spa_to_remote_host(self) -> None:
+        self.assertIsNone(resolve_host_client_upstream({}))
+        self.assertEqual(
+            resolve_host_client_upstream({'NGINX_CLIENT_UPSTREAM': '10.0.0.8:80'}),
+            '10.0.0.8:80',
+        )
+        self.assertEqual(
+            resolve_host_client_upstream({
+                'NGINX_CLIENT_UPSTREAM': 'http://modules.internal',
+            }),
+            'modules.internal:80',
+        )
+        local = render_spa_locations_host({})
+        self.assertIn('try_files $uri $uri/ /index.html;', local)
+        self.assertNotIn('proxy_pass http://ergo_client', local)
+        remote = render_spa_locations_host({
+            'NGINX_CLIENT_UPSTREAM': '10.0.0.8:80',
+        })
+        self.assertIn('proxy_pass http://ergo_client;', remote)
+        self.assertIn('proxy_set_header Host 10.0.0.8;', remote)
+        self.assertNotIn('try_files $uri $uri/ /index.html;', remote)
+
+        deployment_dir = Path(__file__).resolve().parents[1]
+        host_template = deployment_dir / 'nginx' / 'ergo_ms_http.conf.template'
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / '.env').write_text(
+                'NGINX_CLIENT_UPSTREAM=10.0.0.8:80\n',
+                encoding='utf-8',
+            )
+            rendered = render_nginx_config.render_template(
+                host_template,
+                root=root,
+                server_name='core.local',
+                listen_host='0.0.0.0',
+                listen_port='80',
+                use_https=False,
+            )
+        self.assertIn('upstream ergo_client', rendered)
+        self.assertIn('server 10.0.0.8:80;', rendered)
+        self.assertIn('proxy_pass http://ergo_client;', rendered)
+        self.assertNotIn('${ERGO_SPA_LOCATIONS}', rendered)
+        self.assertNotIn('${ERGO_CLIENT_UPSTREAM_BLOCK}', rendered)
 
     def test_host_and_docker_renderers_use_shared_function(self) -> None:
         deployment_dir = Path(__file__).resolve().parents[1]

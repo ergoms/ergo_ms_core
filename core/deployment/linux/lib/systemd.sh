@@ -2,10 +2,22 @@
 # Systemd management for Linux services
 # Управление systemd для служб Linux
 
+_systemd_no_proxy_csv() {
+  local root="$1"
+  local py="$root/virtual_env/python/bin/python"
+  local script="$root/core/deployment/no_proxy_hosts.py"
+  if [[ -x "$py" && -f "$script" ]]; then
+    "$py" "$script" "$root" 2>/dev/null && return 0
+  fi
+  echo 'localhost,127.0.0.1,::1'
+}
+
 write_env_file() {
   local root="$1"
   local env_file="$root/core/deployment/wrappers/ergo_ms.env"
   local legacy="/etc/default/ergo_ms"
+  local no_proxy
+  no_proxy="$(_systemd_no_proxy_csv "$root")"
 
   mkdir -p "$(dirname "$env_file")" "$root/logs"
   # systemd EnvironmentFile не снимает кавычки — значения без quotes.
@@ -15,8 +27,8 @@ ERGO_ROOT=$root
 PYTHONUNBUFFERED=1
 NODE_ENV=development
 ERGO_LOG_CONSOLE=false
-NO_PROXY=127.0.0.1,localhost,::1
-no_proxy=127.0.0.1,localhost,::1
+NO_PROXY=$no_proxy
+no_proxy=$no_proxy
 EOF
   chmod 0644 "$env_file" 2>/dev/null || true
   ERGO_ROOT="$root" write_ergoms_message systemd_env_written white "" "path=$env_file" "root=$root"

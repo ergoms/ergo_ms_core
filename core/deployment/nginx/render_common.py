@@ -87,6 +87,100 @@ def render_upstream_block(
     return '\n'.join(lines)
 
 
+def resolve_host_client_upstream(values: Mapping[str, str]) -> str | None:
+    """host:port SPA на другом хосте. Пусто — локальный ``core/client/dist``."""
+    raw = _env(values, 'NGINX_CLIENT_UPSTREAM')
+    if not raw:
+        return None
+    return _parse_upstream_host_port(raw, '80')
+
+
+def render_client_upstream_block(values: Mapping[str, str]) -> str:
+    peer = resolve_host_client_upstream(values)
+    if not peer:
+        return ''
+    return render_upstream_block('ergo_client', peer, no_keepalive_comment=True) + '\n'
+
+
+def render_spa_locations_host(values: Mapping[str, str]) -> str:
+    """``/`` ``/assets/`` ``/index.html``: локальный dist или proxy на NGINX_CLIENT_UPSTREAM."""
+    peer = resolve_host_client_upstream(values)
+    if not peer:
+        return (
+            '    location /assets/ {\n'
+            '        expires 1y;\n'
+            '        add_header Cache-Control "public, immutable" always;\n'
+            '        try_files $uri =404;\n'
+            '    }\n'
+            '\n'
+            '    location = /client-build.json {\n'
+            '        add_header Cache-Control "no-store" always;\n'
+            '        include ${ERGO_NGINX_SNIPPETS}/security_headers.conf;\n'
+            '        try_files $uri =404;\n'
+            '    }\n'
+            '\n'
+            '    location = /index.html {\n'
+            '        if ($maintenance = 1) { return 503; }\n'
+            '        add_header Cache-Control "no-store" always;\n'
+            '        include ${ERGO_NGINX_SNIPPETS}/security_headers.conf;\n'
+            '    }\n'
+            '\n'
+            '    location = / {\n'
+            '        if ($maintenance = 1) { return 503; }\n'
+            '        add_header Cache-Control "no-store" always;\n'
+            '        include ${ERGO_NGINX_SNIPPETS}/security_headers.conf;\n'
+            '        try_files /index.html =404;\n'
+            '    }\n'
+            '\n'
+            '    location / {\n'
+            '        if ($maintenance = 1) { return 503; }\n'
+            '        limit_conn ergo_conn 50;\n'
+            '        try_files $uri $uri/ /index.html;\n'
+            '    }\n'
+        )
+    host = peer.rsplit(':', 1)[0]
+    proxy = (
+        f'        proxy_pass http://ergo_client;\n'
+        f'        proxy_set_header Host {host};\n'
+        '        proxy_set_header X-Forwarded-Host $host;\n'
+        '        proxy_set_header X-Forwarded-Proto $scheme;\n'
+        '        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n'
+    )
+    return (
+        '    location /assets/ {\n'
+        '        expires 1y;\n'
+        '        add_header Cache-Control "public, immutable" always;\n'
+        f'{proxy}'
+        '    }\n'
+        '\n'
+        '    location = /client-build.json {\n'
+        '        add_header Cache-Control "no-store" always;\n'
+        '        include ${ERGO_NGINX_SNIPPETS}/security_headers.conf;\n'
+        f'{proxy}'
+        '    }\n'
+        '\n'
+        '    location = /index.html {\n'
+        '        if ($maintenance = 1) { return 503; }\n'
+        '        add_header Cache-Control "no-store" always;\n'
+        '        include ${ERGO_NGINX_SNIPPETS}/security_headers.conf;\n'
+        f'{proxy}'
+        '    }\n'
+        '\n'
+        '    location = / {\n'
+        '        if ($maintenance = 1) { return 503; }\n'
+        '        add_header Cache-Control "no-store" always;\n'
+        '        include ${ERGO_NGINX_SNIPPETS}/security_headers.conf;\n'
+        f'{proxy}'
+        '    }\n'
+        '\n'
+        '    location / {\n'
+        '        if ($maintenance = 1) { return 503; }\n'
+        '        limit_conn ergo_conn 50;\n'
+        f'{proxy}'
+        '    }\n'
+    )
+
+
 def build_host_upstream_blocks(values: Mapping[str, str]) -> tuple[str, str]:
     media_port = _env(values, 'MEDIA_API_BIND_PORT', '8003')
     api = render_upstream_block(
@@ -352,6 +446,8 @@ def build_host_nginx_shared_replacements(values: Mapping[str, str]) -> dict[str,
     return {
         '${ERGO_API_UPSTREAM_BLOCK}': api_upstream,
         '${ERGO_MEDIA_UPSTREAM_BLOCK}': media_upstream,
+        '${ERGO_CLIENT_UPSTREAM_BLOCK}': render_client_upstream_block(values),
+        '${ERGO_SPA_LOCATIONS}': render_spa_locations_host(values),
         '${ERGO_REALTIME_STREAM_LOCATION}': build_realtime_stream_location(variant='host'),
         '${ERGO_HOST_API_WS_PROXY}': build_host_api_ws_locations(),
         '${ERGO_HOST_MEDIA_PROXY}': build_host_media_locations(),

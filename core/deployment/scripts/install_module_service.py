@@ -69,6 +69,7 @@ def _write_systemd_unit(module: str, kind: str, sh_path: Path) -> Path:
     name = _service_name(module, kind)
     unit = unit_dir / f'{name}.service'
     stderr = PROJECT_ROOT / 'logs' / f'{name}.stderr.log'
+    env_file = WRAPPERS / 'ergo_ms.env'
     content = (
         '[Unit]\n'
         f'Description=ERGO MS module {kind} ({module})\n'
@@ -76,7 +77,7 @@ def _write_systemd_unit(module: str, kind: str, sh_path: Path) -> Path:
         '\n'
         '[Service]\n'
         'Type=simple\n'
-        'EnvironmentFile=__ERGO_MS_ENV__\n'
+        f'EnvironmentFile=-{env_file}\n'
         f'ExecStart=/bin/bash "{sh_path}"\n'
         'Restart=always\n'
         'RestartSec=5\n'

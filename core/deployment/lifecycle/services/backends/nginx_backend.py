@@ -100,7 +100,7 @@ def _site_template(root: Path, *, use_https: bool) -> Path:
 
 
 def _rewrite_site_conf(root: Path) -> int:
-    """Пересобрать ergo_ms.conf из env (NGINX_API_UPSTREAM, модули)."""
+    """Пересобрать ergo_ms.conf из env (NGINX_API_UPSTREAM, NGINX_CLIENT_UPSTREAM, модули)."""
     from env_file_loader import load_project_env
     from env_resolvers import resolve_nginx_vars
     from render_common import use_https as nginx_use_https
