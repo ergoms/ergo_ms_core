@@ -204,3 +204,9 @@
 	branch = dev
 	update = merge
 	ignore = all
+[submodule "modules/educational_trajectories"]
+	path = modules/educational_trajectories
+	url = https://github.com/ergoms/ergo_ms_educational_trajectories.git
+	branch = dev
+	update = merge
+	ignore = all
