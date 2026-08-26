@@ -78,6 +78,14 @@ class _ModuleTasksStepBase(DeploymentStep):
                 env=env,
             )
             if code != 0:
+                if entry.get('optional'):
+                    print(
+                        format_console(
+                            'warning',
+                            t('module_task_optional_failed', label=label, code=code),
+                        )
+                    )
+                    continue
                 print(
                     format_console(
                         'error',

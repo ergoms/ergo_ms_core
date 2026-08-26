@@ -224,6 +224,7 @@ module_setup_tasks_after_migrate_running: "Tâches module setup-full-after-migra
 hf_models_pulling: "Téléchargement des instantanés Hugging Face (huggingface_models.yaml)…"
 hf_models_failed: "Échec du téléchargement des instantanés Hugging Face obligatoires"
 module_task_failed: "La tâche module « {label} » s'est terminée avec le code {code}"
+module_task_optional_failed: "La tâche facultative « {label} » s'est terminée avec le code {code} — setup continue"
 module_task_exec_failed: "Échec de l'exécution de {command}"
 no_module_host_install_services: "Aucune commande install_service_commands dans host_lifecycle.yaml"
 module_host_install_services_running: "Installation des services OS des modules ({count})…"

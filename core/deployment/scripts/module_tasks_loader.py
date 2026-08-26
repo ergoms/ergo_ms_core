@@ -53,6 +53,7 @@ class ModuleTaskEntry:
     panel: str = 'shared'
     stop_command: str = ''
     service_key: str = ''
+    optional: bool = False
 
 
 @dataclass
@@ -192,6 +193,7 @@ def _parse_tasks(path: Path, *, module_dir_name: str) -> list[ModuleTaskEntry]:
                 panel=panel,
                 stop_command=stop_command,
                 service_key=_service_key_from_label(label, module_dir_name),
+                optional=_yaml_truthy(raw.get('optional')),
             )
         )
     return entries

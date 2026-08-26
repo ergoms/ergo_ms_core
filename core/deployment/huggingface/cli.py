@@ -81,18 +81,24 @@ def cmd_install(root: Path, *, repo: str, force: bool) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     configure_stdio_utf8()
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument('--root', type=Path, default=_PROJECT_ROOT)
     parser = argparse.ArgumentParser(
         prog='ergoms pull-huggingface-models',
         description='Снимки Hugging Face из modules/*/huggingface_models.yaml',
+        parents=[common],
     )
-    parser.add_argument('--root', type=Path, default=_PROJECT_ROOT)
     sub = parser.add_subparsers(dest='command', required=True)
-    sub.add_parser('list', help='Список объявленных снимков')
-    install_parser = sub.add_parser('install', help='Скачать объявленные снимки')
+    sub.add_parser('list', help='Список объявленных снимков', parents=[common])
+    install_parser = sub.add_parser(
+        'install',
+        help='Скачать объявленные снимки',
+        parents=[common],
+    )
     install_parser.add_argument('--force', action='store_true')
     install_parser.add_argument('--repo', default='', help='Только этот org/name')
     args = parser.parse_args(argv)
-    root = _resolve_root(args.root)
+    root = _resolve_root(getattr(args, 'root', None))
     if args.command == 'list':
         return cmd_list(root)
     return cmd_install(root, repo=args.repo, force=args.force)

@@ -117,6 +117,7 @@ tasks:
 | `include_in` | Список: `setup-full`, `setup-full-after-migrate`, `start-all`, `logs-all` |
 | `order` | Порядок внутри агрегата (меньше — раньше) |
 | `panel` | `shared` или `new` (терминал Run Task) |
+| `optional` | `true` — ошибка задачи в setup-full / setup-full-after-migrate не останавливает рецепт (предупреждение и дальше) |
 
 Эталон: `modules/<name>/vscode.tasks.yaml` рядом с `ergoms.conf` (шаблон модуля в репозитории).
 

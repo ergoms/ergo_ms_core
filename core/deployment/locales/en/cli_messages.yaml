@@ -224,6 +224,7 @@ module_setup_tasks_after_migrate_running: "Module setup-full-after-migrate tasks
 hf_models_pulling: "Downloading Hugging Face snapshots from huggingface_models.yaml…"
 hf_models_failed: "Failed to download required Hugging Face snapshots"
 module_task_failed: "Module task \"{label}\" exited with code {code}"
+module_task_optional_failed: "Optional task \"{label}\" exited with code {code} — setup continues"
 module_task_exec_failed: "Failed to run {command}"
 no_module_host_install_services: "No module install_service_commands in host_lifecycle.yaml"
 module_host_install_services_running: "Installing module OS services ({count})…"
