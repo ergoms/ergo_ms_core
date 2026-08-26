@@ -148,7 +148,7 @@ ergoms db-move-core-schema
 
 Бэкап схемы (уровень 2): дамп схемы `m_<name>`. Бэкап базы (уровень 3): дамп alias целиком. Восстановление — на пустую схему/БД, затем `ergoms db-migrate-module`. Падение БД пилота не должно валить процесс ядра (отдельный alias, деградация `/api/<name>/`).
 
-На уровне 3 модуль не читает `auth_user`: principal из JWT, `device_id` — op `session.device_active`.
+На уровне 3 модуль не читает `auth_user`: principal из JWT, `device_id` — op `session.device_active`. Ответ — `False` или снимок `{active, user_public_id, username, is_superuser, is_staff}`: в токене старого логина может не быть `user_public_id`.
 
 ## Этап 6 — клиент и сопровождение
 

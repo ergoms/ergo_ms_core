@@ -203,7 +203,9 @@ def build_docker_upstream_blocks(values: Mapping[str, str]) -> tuple[str, str]:
 
 
 def build_realtime_stream_location(*, variant: Literal['host', 'docker'] = 'host') -> str:
-    # SSE: realtime + модульные */stream/ (chat и т.п.). Без имён модулей в ядре.
+    # SSE: realtime + */stream/ процессов на ergo_api (монолит / ядро).
+    # В microservice location ^~ /api/<module>/ забирает stream у модуля:
+    # regex иначе бьёт в Django ядра (404). Без имён модулей в этом блоке.
     # Docker без maintenance-map; host — с проверкой $maintenance.
     if variant == 'docker':
         return """    location ^~ /api/realtime/stream/ {

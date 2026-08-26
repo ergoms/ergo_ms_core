@@ -281,7 +281,9 @@ class ModuleNginxTests(unittest.TestCase):
             'DEMO_MOD_PORT': '8123',
             'BRIDGE_SERVICE_URLS': 'demo_mod=http://10.1.2.3:8123',
         })
-        self.assertIn('location /api/demo_mod/', block)
+        self.assertIn('location ^~ /api/demo_mod/', block)
+        self.assertIn('location ~ /stream/?$', block)
+        self.assertIn('proxy_buffering off;', block)
         self.assertIn('error_page 502 503 504 =503 @module_unavailable', block)
         self.assertIn('location @module_unavailable', block)
         self.assertIn('X-Request-ID', block)
@@ -333,7 +335,8 @@ class ModuleNginxTests(unittest.TestCase):
         locations = render_module_locations_docker(values)
         self.assertIn('upstream ergo_module_demo_mod', upstreams)
         self.assertIn('server demo_mod:8123', upstreams)
-        self.assertIn('location /api/demo_mod/', locations)
+        self.assertIn('location ^~ /api/demo_mod/', locations)
+        self.assertIn('location ~ /stream/?$', locations)
         self.assertIn('@module_unavailable', locations)
 
     def test_docker_template_renders_module_proxy(self) -> None:
@@ -355,7 +358,7 @@ class ModuleNginxTests(unittest.TestCase):
             render_docker_nginx_config(raw_env, template_path=docker_template, output_path=out)
             rendered = out.read_text(encoding='utf-8')
         self.assertIn('listen 18080', rendered)
-        self.assertIn('location /api/demo_mod/', rendered)
+        self.assertIn('location ^~ /api/demo_mod/', rendered)
         self.assertIn('demo_mod:8123', rendered)
         self.assertIn('location /internal/', rendered)
         self.assertIn('/api/realtime/stream/', rendered)

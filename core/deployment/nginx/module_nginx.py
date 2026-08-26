@@ -105,7 +105,7 @@ def render_module_upstreams_host(values: Mapping[str, str]) -> str:
 
 
 def render_module_locations_host(values: Mapping[str, str]) -> str:
-    """location /api/<module>/ → upstream (перед общим /api/)."""
+    """location ^~ /api/<module>/ → upstream (перед общим /api/ и regex */stream/)."""
     if not _runtime_is_microservice(values):
         return ''
     modules = _microservice_module_names(values)
@@ -120,7 +120,7 @@ def render_module_locations_host(values: Mapping[str, str]) -> str:
         # соседний Django иначе отвечает 400 (ALLOWED_HOSTS).
         upstream_host = _nginx_peer_host(resolved[0]) if resolved else '127.0.0.1'
         blocks.append(
-            f"""    location /api/{name}/ {{
+            f"""    location ^~ /api/{name}/ {{
         if ($maintenance = 1) {{ return 503; }}
         limit_req zone=ergo_api burst=50 nodelay;
         limit_req_status 429;
@@ -134,6 +134,26 @@ def render_module_locations_host(values: Mapping[str, str]) -> str:
         proxy_set_header X-Request-ID $request_id;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+
+        location ~ /stream/?$ {{
+            if ($maintenance = 1) {{ return 503; }}
+            limit_conn ergo_conn 20;
+            limit_conn_status 429;
+            proxy_pass http://ergo_module_{safe};
+            proxy_intercept_errors on;
+            error_page 502 503 504 =503 @module_unavailable;
+            proxy_buffering off;
+            proxy_cache off;
+            gzip off;
+            chunked_transfer_encoding on;
+            proxy_read_timeout 3600s;
+            proxy_send_timeout 3600s;
+            proxy_set_header Host {upstream_host};
+            proxy_set_header X-Forwarded-Host $host;
+            proxy_set_header X-Request-ID $request_id;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }}
     }}
 """
         )
@@ -177,7 +197,7 @@ def render_module_locations_docker(values: Mapping[str, str]) -> str:
     for name in modules:
         safe = _upstream_safe_name(name)
         blocks.append(
-            f"""    location /api/{name}/ {{
+            f"""    location ^~ /api/{name}/ {{
         limit_req zone=ergo_api burst=50 nodelay;
         limit_req_status 429;
         limit_conn ergo_conn 50;
@@ -191,6 +211,26 @@ def render_module_locations_docker(values: Mapping[str, str]) -> str:
         proxy_set_header X-Request-ID $request_id;
         proxy_intercept_errors on;
         error_page 502 503 504 =503 @module_unavailable;
+
+        location ~ /stream/?$ {{
+            limit_conn ergo_conn 20;
+            limit_conn_status 429;
+            proxy_pass http://ergo_module_{safe};
+            proxy_http_version 1.1;
+            proxy_buffering off;
+            proxy_cache off;
+            gzip off;
+            chunked_transfer_encoding on;
+            proxy_read_timeout 3600s;
+            proxy_send_timeout 3600s;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header X-Request-ID $request_id;
+            proxy_intercept_errors on;
+            error_page 502 503 504 =503 @module_unavailable;
+        }}
     }}
 """
         )
