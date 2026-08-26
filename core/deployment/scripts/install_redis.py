@@ -376,27 +376,6 @@ def _install_windows(root: Path, force: bool) -> None:
     )
 
 
-def _linux_build_tools_hint() -> str:
-    if Path('/etc/debian_version').is_file():
-        return 'sudo apt-get install -y build-essential'
-    if Path('/etc/redhat-release').is_file():
-        return 'sudo dnf groupinstall -y "Development Tools"  # or: yum groupinstall'
-    return 'Install gcc and make (build-essential / Development Tools)'
-
-
-def _require_linux_build_tools() -> None:
-    missing = []
-    for tool in ('gcc', 'make'):
-        if shutil.which(tool) is None:
-            missing.append(tool)
-    if missing:
-        raise RuntimeError(
-            'Linux portable Redis requires a C compiler and make. Missing: '
-            + ', '.join(missing)
-            + f'. Install with: {_linux_build_tools_hint()}'
-        )
-
-
 def _install_linux(root: Path, force: bool) -> None:
     paths = _ensure_layout(root)
     server = redis_server_path(root)
@@ -404,7 +383,9 @@ def _install_linux(root: Path, force: bool) -> None:
         print('[ergoms] Redis already installed (use --force to reinstall)')
         return
 
-    _require_linux_build_tools()
+    from linux_build_packages import ensure_linux_build_packages
+
+    ensure_linux_build_packages('redis')
 
     prefix = paths['base']
     if force:

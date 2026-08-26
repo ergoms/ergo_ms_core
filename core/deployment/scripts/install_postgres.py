@@ -137,29 +137,6 @@ def _install_windows(root: Path, version: str, force: bool) -> None:
     print(format_console('ok', t('postgres_installed_at', version=version, base=paths['base'])))
 
 
-def _linux_build_tools_hint() -> str:
-    if Path('/etc/debian_version').is_file():
-        return (
-            'sudo apt-get install -y build-essential libreadline-dev '
-            'zlib1g-dev flex bison libxml2-dev libssl-dev'
-        )
-    if Path('/etc/redhat-release').is_file():
-        return 'sudo dnf groupinstall -y "Development Tools" && sudo dnf install -y readline-devel zlib-devel'
-    return t('postgres_linux_build_tools')
-
-
-def _require_linux_build_tools() -> None:
-    missing = [tool for tool in ('gcc', 'make') if shutil.which(tool) is None]
-    if missing:
-        raise RuntimeError(
-            t(
-                'postgres_linux_build_required',
-                tools=', '.join(missing),
-                hint=_linux_build_tools_hint(),
-            )
-        )
-
-
 def _install_linux(root: Path, version: str, force: bool) -> None:
     paths = _ensure_layout(root)
     if is_installed(root) and not force:
@@ -170,7 +147,9 @@ def _install_linux(root: Path, version: str, force: bool) -> None:
         print(format_console('info', t('postgres_upgrading', installed=installed, version=version)))
         force = True
 
-    _require_linux_build_tools()
+    from linux_build_packages import ensure_linux_build_packages
+
+    ensure_linux_build_packages('postgres')
 
     if force and paths['bin'].is_dir():
         stop_server(root)
