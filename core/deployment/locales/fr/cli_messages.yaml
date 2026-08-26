@@ -148,6 +148,8 @@ git_submodules_already_init_skip: "Sous-modules Git déjà initialisés — upda
 # --- lifecycle infra / postgres ---
 redis_skip_broker: "ERGO_BROKER≠redis (et REDIS_ENABLED n'est pas true) — Redis ne sera pas installé"
 redis_already_installed_skip: "Redis déjà installé — installation ignorée"
+redis_starting_for_setup: "Redis est installé mais ne répond pas — démarrage pour les étapes de setup"
+redis_start_failed: "Échec du démarrage de Redis"
 installing_redis: "Installation / vérification de Redis (ERGO_BROKER=redis)…"
 redis_install_failed: "Échec de l'installation de Redis"
 redis_ready: "Redis est prêt"

@@ -45,6 +45,7 @@ from lifecycle.steps.docker_steps import (
 from lifecycle.steps.host_steps import (
     ConfigScaffoldStep,
     CreateVenvStep,
+    RestoreArtifactOwnershipStep,
     EnsurePortableNodejsStep,
     EnsurePortablePythonStep,
     GitSubmoduleUpdateStep,
@@ -103,6 +104,7 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
                 HostExecutionPolicyStep(),
                 GitSubmoduleUpdateStep(remote=False),
                 ConfigScaffoldStep(),
+                RestoreArtifactOwnershipStep(),
                 EnsureApiSecretStep(),
                 ParallelStepGroup(
                     EnsurePortablePythonStep(),

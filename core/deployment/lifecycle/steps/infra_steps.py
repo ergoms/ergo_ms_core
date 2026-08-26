@@ -114,19 +114,30 @@ class EnsureRedisStep(DeploymentStep):
         from install_redis import is_installed as redis_is_installed  # noqa: WPS433
 
         if redis_is_installed(ctx.project_root) and not ctx.option_bool('force'):
-            from install_redis import render_redis_conf  # noqa: WPS433
+            from install_redis import ping_redis, render_redis_conf  # noqa: WPS433
             from security.ensure_infra_credentials import ensure_infra_credentials  # noqa: WPS433
 
             ensure_infra_credentials(ctx.project_root)
             render_redis_conf(ctx.project_root)
-            print(format_console('skip', t('redis_already_installed_skip')))
-            return StepResult()
+            if ping_redis(ctx.project_root):
+                print(format_console('skip', t('redis_already_installed_skip')))
+                return StepResult()
+            print(format_console('info', t('redis_starting_for_setup')))
+            return self._start_redis(ctx)
 
         print(format_console('info', t('installing_redis')))
         ctx.options.setdefault('needs_sudo', True)
         code = invoke_dispatch(ctx, 'redis', 'install')
         if code != 0:
             return StepResult(exit_code=code, message=t('redis_install_failed'))
+        print(format_console('ok', t('redis_ready')))
+        return StepResult()
+
+    def _start_redis(self, ctx: DeploymentContext) -> StepResult:
+        ctx.options.setdefault('needs_sudo', True)
+        code = invoke_dispatch(ctx, 'redis', 'start')
+        if code != 0:
+            return StepResult(exit_code=code, message=t('redis_start_failed'))
         print(format_console('ok', t('redis_ready')))
         return StepResult()
 

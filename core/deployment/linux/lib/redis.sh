@@ -151,6 +151,7 @@ _redis_run_install_script() {
     return 1
   fi
   "$py" "$root/core/deployment/scripts/install_redis.py" --root "$root" --port "$port"
+  restore_project_ownership "$root" "$(_redis_dir "$root")"
 }
 
 _redis_ping() {

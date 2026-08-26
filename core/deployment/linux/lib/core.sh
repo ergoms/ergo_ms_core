@@ -40,6 +40,26 @@ require_root_or_sudo() {
   fi
 }
 
+# portable-пакеты в virtual_env принадлежат владельцу корня, не root.
+restore_project_ownership() {
+  local root="$1"
+  local path="$2"
+  [[ -e "$path" ]] || return 0
+  local owner group
+  owner="$(stat -c '%U' "$root" 2>/dev/null || true)"
+  group="$(stat -c '%G' "$root" 2>/dev/null || true)"
+  [[ -n "$owner" && "$owner" != "root" ]] || return 0
+  if [[ "$(id -u)" -eq 0 ]]; then
+    chown -R "$owner:$group" "$path"
+    return 0
+  fi
+  local current
+  current="$(stat -c '%U' "$path" 2>/dev/null || true)"
+  [[ "$current" == "$owner" ]] && return 0
+  command -v sudo >/dev/null 2>&1 || return 1
+  sudo chown -R "$owner:$group" "$path"
+}
+
 write_ergoms_message() {
   local key="$1"
   local color="${2:-white}"
@@ -337,6 +357,7 @@ daemon_reload() {
 }
 
 export -f require_root_or_sudo
+export -f restore_project_ownership
 export -f write_ergoms_message
 export -f write_ergoms_text
 export -f detect_project_root

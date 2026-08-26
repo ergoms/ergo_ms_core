@@ -396,6 +396,7 @@ nginx_install() {
   write_ergoms_message ok_config_written green "" "path=$site_conf"
 
   _nginx_write_main_conf "$root" "$site_conf"
+  restore_project_ownership "$root" "$(_nginx_packages_dir "$root")"
 
   local nginx_bin main_conf nginx_dir
   nginx_bin="$(_nginx_binary "$root")"
@@ -411,6 +412,7 @@ nginx_install() {
   fi
 
   nginx_install_service "$root"
+  restore_project_ownership "$root" "$nginx_dir"
 
   write_ergoms_message ok_installed_and_running green "" "name=Nginx"
   write_ergoms_message label_path cyan "" "path=$nginx_dir"

@@ -324,7 +324,15 @@ def render_redis_conf(
         .replace('{{REDIS_LOGLEVEL}}', log_level)
         .replace('{{REDIS_DATA_DIR}}', data_dir)
     )
-    conf_path.write_text(content, encoding='utf-8')
+    from lifecycle.host.privilege import restore_project_ownership
+
+    try:
+        conf_path.write_text(content, encoding='utf-8')
+    except PermissionError:
+        if not restore_project_ownership(root, paths['base']):
+            raise
+        conf_path.write_text(content, encoding='utf-8')
+    restore_project_ownership(root, paths['base'])
     return conf_path
 
 

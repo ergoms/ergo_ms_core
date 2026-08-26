@@ -20,7 +20,7 @@ from security.ensure_secret import (  # noqa: E402
     ensure_mode_secrets,
 )
 
-from lifecycle.context import DeploymentContext  # noqa: E402
+from lifecycle.context import DeploymentContext, HostPlatform  # noqa: E402
 from lifecycle.docker import ops as docker_ops  # noqa: E402
 from lifecycle.host import ops as host_ops  # noqa: E402
 from lifecycle.steps.base import DeploymentStep, StepResult  # noqa: E402
@@ -193,6 +193,13 @@ class ClientBuildStep(DeploymentStep):
             print(format_console('skip', t('client_build_already_fresh_skip')))
             return StepResult()
         print(format_console('info', t('building_client')))
+        if ctx.platform != HostPlatform.WIN32:
+            from lifecycle.host.privilege import restore_project_ownership
+
+            restore_project_ownership(
+                ctx.project_root,
+                ctx.project_root / 'core' / 'client' / 'node_modules',
+            )
         code = host_ops.run_npm(ctx, 'build')
         if code == 0:
             host_ops.write_client_build_stamp(ctx.project_root, ctx.raw_env)
