@@ -673,6 +673,7 @@ postgres_not_accepting: "PostgreSQL n'a pas accepté les connexions après le d�
 postgres_create_database_arrow: "-> CREATE DATABASE {dbname}"
 postgres_db_created: "Base de données créée : {dbname}"
 postgres_db_exists: "La base de données existe déjà : {dbname}"
+postgres_pg_trgm_in_core: "L'extension pg_trgm est dans le schéma core"
 postgres_db_access_summary: "BD : {name}  host={host}  port={port}  user={user}  password={password}"
 postgres_migrate_no_sections: "Aucune section PostgreSQL à migrer dans databases.yaml"
 postgres_tool_failed: "{label} s'est terminé avec le code {code}"

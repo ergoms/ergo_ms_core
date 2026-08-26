@@ -675,6 +675,7 @@ postgres_not_accepting: "PostgreSQL не принял подключения п�
 postgres_create_database_arrow: "-> CREATE DATABASE {dbname}"
 postgres_db_created: "База данных создана: {dbname}"
 postgres_db_exists: "База данных уже есть: {dbname}"
+postgres_pg_trgm_in_core: "Расширение pg_trgm в схеме core"
 postgres_db_access_summary: "БД: {name}  host={host}  port={port}  user={user}  password={password}"
 postgres_migrate_no_sections: "В databases.yaml нет секций PostgreSQL для переноса"
 postgres_tool_failed: "{label} завершился с кодом {code}"

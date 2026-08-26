@@ -665,6 +665,8 @@ def ensure_databases(root: Path, port: int | None = None) -> None:
     else:
         print(format_console('skip', t('postgres_db_exists', dbname=dbname)))
 
+    _ensure_pg_trgm_in_core(_exec_sql, root, dbname)
+
     for extra in load_extra_db_sections(root):
         ename = extra['name']
         euser = extra['user']
@@ -691,6 +693,35 @@ def ensure_databases(root: Path, port: int | None = None) -> None:
             print(format_console('ok', t('postgres_db_created', dbname=ename)))
 
     print_db_access_summary(root, port=port_i)
+
+
+def _pg_trgm_control_file(root: Path) -> Path | None:
+    base = postgres_packages_dir(root)
+    candidates = (
+        base / 'share' / 'extension' / 'pg_trgm.control',
+        base / 'share' / 'postgresql' / 'extension' / 'pg_trgm.control',
+        base / 'pgsql' / 'share' / 'extension' / 'pg_trgm.control',
+    )
+    for path in candidates:
+        if path.is_file():
+            return path
+    return None
+
+
+def _ensure_pg_trgm_in_core(exec_sql, root: Path, dbname: str) -> None:
+    """pg_trgm в схеме core: Django не кладёт public в search_path."""
+    if _pg_trgm_control_file(root) is None:
+        return
+    exec_sql(
+        'CREATE SCHEMA IF NOT EXISTS core; '
+        'DO $$ BEGIN '
+        "IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm') THEN "
+        'ALTER EXTENSION pg_trgm SET SCHEMA core; '
+        'ELSE CREATE EXTENSION pg_trgm SCHEMA core; '
+        'END IF; END $$;',
+        database=dbname,
+    )
+    print(format_console('ok', t('postgres_pg_trgm_in_core')))
 
 
 def print_db_access_summary(root: Path, port: int | None = None) -> None:
