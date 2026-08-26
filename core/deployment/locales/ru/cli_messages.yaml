@@ -174,6 +174,10 @@ postgres_portable_found: "Portable PostgreSQL найден — проверка 
 installing_portable_postgres: "Установка / проверка portable PostgreSQL…"
 postgres_portable_install_failed: "Не удалось установить portable PostgreSQL"
 postgres_ready: "PostgreSQL готов"
+postgres_service_skip: "ERGO_DB не portable_postgres — служба portable PostgreSQL не создаётся"
+installing_postgres_service: "Установка службы portable PostgreSQL…"
+postgres_service_install_failed: "Не удалось установить службу portable PostgreSQL"
+postgres_service_ready: "Служба portable PostgreSQL готова"
 
 # --- lifecycle docker / modules / compose ---
 docker_images_already_built: "Локальные образы уже собраны (DOCKER_BUILD_POLICY=if-missing)"

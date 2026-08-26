@@ -59,6 +59,7 @@ from lifecycle.steps.infra_steps import (  # noqa: E402
     EnsureMeilisearchStep,
     EnsureNginxOsServiceStep,
     EnsureNginxStep,
+    EnsurePostgresOsServiceStep,
     EnsureRedisOsServiceStep,
     EnsureRedisStep,
     InfraOperationStep,
@@ -121,6 +122,7 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
                 ),
                 PullHuggingfaceModelsStep(),
                 EnsurePostgresStep(),
+                EnsurePostgresOsServiceStep(),
                 EnsureRedisStep(),
                 EnsureMeilisearchStep(),
                 EnsureNginxStep(),
@@ -399,11 +401,12 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
                 continue
             name = f'service-{op}-{sid}'
             if name == 'service-install-all':
-                # Redis → app-службы → модули (host_lifecycle) → nginx
+                # Postgres/Redis/Meili → app-службы → модули (host_lifecycle) → nginx
                 specs.append(
                     RecipeSpec(
                         name,
                         (
+                            EnsurePostgresOsServiceStep(),
                             EnsureRedisOsServiceStep(),
                             EnsureMeilisearchOsServiceStep(),
                             ServiceOperationStep(op, sid),
@@ -459,6 +462,7 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
         ('redis', 'status'),
         ('redis', 'test'),
         ('postgres', 'install'),
+        ('postgres', 'install-service'),
         ('postgres', 'uninstall'),
         ('postgres', 'start'),
         ('postgres', 'stop'),
@@ -537,6 +541,7 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
         'status-meilisearch': 'meilisearch-status',
         'test-meilisearch': 'meilisearch-test',
         'install-postgres': 'postgres-install',
+        'install-postgres-service': 'postgres-install-service',
         'uninstall-postgres': 'postgres-uninstall',
         'start-postgres': 'postgres-start',
         'stop-postgres': 'postgres-stop',

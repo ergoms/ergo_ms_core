@@ -372,13 +372,23 @@ postgres_start() {
     return 0
   fi
 
-  local pg_ctl data log_file
+  local pg_ctl data log_file owner
   pg_ctl="$(_postgres_bin "$root" pg_ctl)"
   data="$(_postgres_data "$root")"
   log_file="$(_postgres_dir "$root")/logs/pg_ctl.log"
   mkdir -p "$(_postgres_dir "$root")/logs"
   write_ergoms_message arrow_starting cyan "" "name=PostgreSQL"
-  if ! "$pg_ctl" start -D "$data" -l "$log_file" -w -t 60; then
+  # pg_ctl нельзя от root; при sudo стартуем от владельца data.
+  if [[ $(id -u) -eq 0 ]]; then
+    if ! owner="$(_postgres_resolve_service_user "$root")"; then
+      write_ergoms_message pg_error_need_unprivileged_user red --stderr
+      return 1
+    fi
+    if ! runuser -u "$owner" -- "$pg_ctl" start -D "$data" -l "$log_file" -w -t 60; then
+      write_ergoms_message error_start_failed_check_logs red --stderr "name=PostgreSQL" "path=$log_file"
+      return 1
+    fi
+  elif ! "$pg_ctl" start -D "$data" -l "$log_file" -w -t 60; then
     write_ergoms_message error_start_failed_check_logs red --stderr "name=PostgreSQL" "path=$log_file"
     return 1
   fi

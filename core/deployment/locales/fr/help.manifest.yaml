@@ -453,10 +453,12 @@ sections:
     summary: Télécharger les instantanés déclarés (automatique dans setup-full)
 - id: postgres
   title: PostgreSQL (portable)
-  note: Automatique dans setup-full en l'absence de service système. Répertoire virtual_env/packages/postgres.
+  note: Automatique dans setup-full si ERGO_DB=portable_postgres. Répertoire virtual_env/packages/postgres. install-services enregistre aussi le service.
   commands:
   - name: install-postgres
     summary: Installer PostgreSQL portable, le service et la base ergo_ms
+  - name: install-postgres-service
+    summary: Enregistrer le service OS PostgreSQL portable (setup-full et install-services)
   - name: uninstall-postgres
     summary: Arrêter PostgreSQL (--purge / -Purge supprime packages/postgres)
   - name: start-postgres

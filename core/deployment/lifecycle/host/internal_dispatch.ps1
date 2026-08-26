@@ -143,6 +143,7 @@ switch ($Category) {
                     Install-Postgres -Root $Root -ListenPort $port
                 }
             }
+            'install-service' { Install-PostgresService -Root $Root }
             'uninstall' {
                 $purge = $Extra -contains '--purge'
                 Uninstall-Postgres -Root $Root -PurgeData:$purge

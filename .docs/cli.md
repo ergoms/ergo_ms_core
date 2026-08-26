@@ -264,6 +264,8 @@ ergoms stop-redis
 
 В `.env`: `ERGO_BROKER=redis`, перезапустите API. Служба: `ergoms install-redis-service`.
 
+При `ERGO_DB=portable_postgres` `setup-full` ставит кластер и OS-службу `ergo_ms_postgres`. Ту же службу регистрирует `ergoms install-services`. Отдельно: `ergoms install-postgres-service`.
+
 ## Meilisearch (поиск BM25) {#meilisearch}
 
 Portable-сборка в `virtual_env/packages/meilisearch/`. При `ERGO_SEARCH_ENABLED=true` ставит `setup-full`. Переменные — `env/search.env.example`.

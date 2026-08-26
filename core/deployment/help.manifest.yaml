@@ -452,10 +452,12 @@ sections:
     summary: Скачать объявленные снимки (авто в setup-full)
 - id: postgres
   title: PostgreSQL (portable)
-  note: Авто в setup-full при отсутствии системной службы. Каталог virtual_env/packages/postgres.
+  note: Авто в setup-full при ERGO_DB=portable_postgres. Каталог virtual_env/packages/postgres. Службу также ставит install-services.
   commands:
   - name: install-postgres
     summary: Установить portable PostgreSQL, службу и БД ergo_ms
+  - name: install-postgres-service
+    summary: Зарегистрировать OS-службу portable PostgreSQL (setup-full и install-services)
   - name: uninstall-postgres
     summary: Остановить PostgreSQL (--purge / -Purge удаляет packages/postgres)
   - name: start-postgres

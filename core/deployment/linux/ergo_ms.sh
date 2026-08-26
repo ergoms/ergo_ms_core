@@ -343,8 +343,11 @@ main() {
       [[ -n "$pg_port" ]] && extra+=(--listen-port "$pg_port")
       [[ "$pg_force" == true ]] && extra+=(--with-postgres)
       case "$command" in
-        install-postgres|install-postgres-service)
+        install-postgres)
           invoke_lifecycle_runner "$ERGO_ROOT" install-postgres "${extra[@]}"
+          ;;
+        install-postgres-service)
+          invoke_lifecycle_runner "$ERGO_ROOT" install-postgres-service "${extra[@]}"
           ;;
         *)
           invoke_lifecycle_runner "$ERGO_ROOT" "$command" "${extra[@]}"

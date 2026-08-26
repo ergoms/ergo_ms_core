@@ -190,6 +190,7 @@ case "$category" in
           postgres_install "$root" "$port" "false"
         fi
         ;;
+      install-service) postgres_install_service "$root" ;;
       uninstall) postgres_uninstall "$root" "$purge" ;;
       start) postgres_start "$root" ;;
       stop) postgres_stop "$root" ;;

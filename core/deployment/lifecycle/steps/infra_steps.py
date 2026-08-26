@@ -228,6 +228,32 @@ class EnsureMeilisearchOsServiceStep(DeploymentStep):
         return StepResult()
 
 
+class EnsurePostgresOsServiceStep(DeploymentStep):
+    """При ERGO_DB=portable_postgres — зарегистрировать portable PostgreSQL как службу ОС."""
+
+    @property
+    def name(self) -> str:
+        return 'ensure_postgres_os_service'
+
+    def should_run(self, ctx: DeploymentContext) -> bool:
+        return ctx.runtime == 'host'
+
+    def run(self, ctx: DeploymentContext) -> StepResult:
+        from deployment_env import should_setup_portable_postgres  # noqa: WPS433
+
+        if not should_setup_portable_postgres():
+            print(format_console('skip', t('postgres_service_skip')))
+            return StepResult()
+
+        print(format_console('info', t('installing_postgres_service')))
+        ctx.options.setdefault('needs_sudo', True)
+        code = invoke_dispatch(ctx, 'postgres', 'install-service')
+        if code != 0:
+            return StepResult(exit_code=code, message=t('postgres_service_install_failed'))
+        print(format_console('ok', t('postgres_service_ready')))
+        return StepResult()
+
+
 class EnsureRedisOsServiceStep(DeploymentStep):
     """При REDIS_ENABLED=true — зарегистрировать Redis как службу ОС (install-services)."""
 
