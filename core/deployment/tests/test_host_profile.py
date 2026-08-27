@@ -15,6 +15,7 @@ from lifecycle.host_profile import (  # noqa: E402
     SERVICE_BEAT,
     SERVICE_MEDIA,
     SERVICE_MODULE_API,
+    SERVICE_MODULE_BEAT,
     SERVICE_MODULE_WORKER,
     SERVICE_YAML_WORKERS,
     resolve_host_profile,
@@ -39,6 +40,7 @@ class HostProfileTests(unittest.TestCase):
         self.assertTrue(profile.wants(SERVICE_BEAT))
         self.assertFalse(profile.wants(SERVICE_MODULE_API))
         self.assertFalse(profile.wants(SERVICE_MODULE_WORKER))
+        self.assertFalse(profile.wants(SERVICE_MODULE_BEAT))
 
     def test_modules_skips_core_api_beat_yaml(self) -> None:
         profile = resolve_host_profile({'HOST_PROFILE': PROFILE_MODULES})
@@ -47,6 +49,7 @@ class HostProfileTests(unittest.TestCase):
         self.assertFalse(profile.wants(SERVICE_YAML_WORKERS))
         self.assertTrue(profile.wants(SERVICE_MODULE_API))
         self.assertTrue(profile.wants(SERVICE_MODULE_WORKER))
+        self.assertTrue(profile.wants(SERVICE_MODULE_BEAT))
         self.assertEqual(profile.core_unit_names(), ())
         self.assertEqual(profile.docker_compose_profiles(), ())
 
@@ -93,6 +96,7 @@ class HostProfileTests(unittest.TestCase):
         })
         self.assertFalse(profile.wants(SERVICE_YAML_WORKERS))
         self.assertTrue(profile.wants(SERVICE_MODULE_WORKER))
+        self.assertTrue(profile.wants(SERVICE_MODULE_BEAT))
 
     def test_docker_profiles_for_full(self) -> None:
         profile = resolve_host_profile({'HOST_PROFILE': PROFILE_FULL})

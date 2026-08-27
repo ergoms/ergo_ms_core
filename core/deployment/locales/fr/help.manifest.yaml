@@ -29,11 +29,11 @@ sections:
   - name: install-media-service
     summary: Installer et démarrer Media API
   - name: install-module-service
-    invoke: ergoms install-module-service --module=<name> --kind=api|worker
-    summary: Installer le service OS API ou worker du module
+    invoke: ergoms install-module-service --module=<name> --kind=api|worker|beat
+    summary: Installer le service OS API, worker ou Beat du module
   - name: uninstall-module-service
-    invoke: ergoms uninstall-module-service --module=<name> --kind=api|worker
-    summary: Supprimer le service OS API ou worker du module
+    invoke: ergoms uninstall-module-service --module=<name> --kind=api|worker|beat
+    summary: Supprimer le service OS API, worker ou Beat du module
   - name: start
     summary: Démarrer tous les services
   - name: stop
@@ -72,9 +72,10 @@ sections:
     summary: Media API
   - name: start-worker
     invoke: ergoms start-worker [--worker=<nom>] [--module=<name>]
-    summary: Worker Celery (--module limite le worker à la file du module)
+    summary: Worker Celery (--module écoute toutes les files du module)
   - name: start-beat
-    summary: Celery beat
+    invoke: ergoms start-beat [--module=<name>]
+    summary: Celery beat (noyau, ou un module avec --module)
   - name: start-jupyter
     summary: JupyterLab avec le noyau Django (modes local/lan/nginx — API_JUPYTER_* dans .env)
   - name: start-jupyter-dev

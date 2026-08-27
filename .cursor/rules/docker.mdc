@@ -51,6 +51,7 @@ alwaysApply: false
 | Redis / PostgreSQL | portable или внешняя БД, `redis_runtime` | сервисы `redis` / `postgres`, profile; `wait_for_services.py`; хост БД `localhost` → `postgres` в `.compose.databases.yaml` |
 | nginx | `ergo_ms.conf.template`, `install-nginx` | profile `nginx`, `ergo_ms.docker.conf.template`, upstream — **имена сервисов**, не `127.0.0.1` |
 | Celery workers | `celery_workers.yaml`, `start-worker`, `ergoms celery-balance` | `ergoms docker-gen-workers` → `docker-compose.workers.generated.yml`; overlay и история в `virtual_env/cache` (том cache); бюджет — cgroup, если есть |
+| Beat вынесенного модуля | `ergoms start-beat --module=<name>`, `install-module-service --kind=beat` | `ergoms docker-gen-modules` добавляет `{name}-beat`, если в модуле есть `celery_beat_config.py` |
 | Env effective | `env_resolvers`, `*_runtime.py` | `build_compose_env_overrides()` в `docker_runtime.py` — не хардкодить в compose то, что уже выводится из `.env` |
 | Зависимости | `ergoms python-install`, `ergoms npm run install:all` | bootstrap: только `redis`+`postgres`+`api` → `api install` + npm + migrate → маркер `logs/.ergo-docker-setup-ok` → остальные сервисы; `Dockerfile.client` (Node + `ensure_npm_deps.sh`); npm-root `/app/virtual_env/npm`; env `DOCKER_NPM_INSTALL` |
 | Ожидание готовности | прогрев / health на хосте | `wait_for_docker_setup.py` + `wait_for_services.py`; журналы stdout в `logs/docker/<service>.log` |

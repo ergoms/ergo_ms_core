@@ -138,6 +138,15 @@ _kill_ergo_skip_pids_ancestor_chain() {
   done
 }
 
+# Долгий одноразовый прогон (не служба ergo_ms_*): маркер в cmdline или у предка.
+# Нужен, чтобы ergoms stop не рвал расчёт аналитики после закрытия IDE.
+_cmdline_is_keep_alive() {
+  local c="$1"
+  [[ -n "$c" ]] || return 1
+  [[ "$c" == *"ergo-keep-alive"* ]] && return 0
+  return 1
+}
+
 # Терминалы «Logs: All Services» / start-db-dev / module:logs-* — не останавливать вместе со службами.
 _cmdline_is_log_watcher() {
   local c="$1"
@@ -170,7 +179,7 @@ _read_proc_cmdline() {
   printf '%s' "$cmd"
 }
 
-# true, если процесс или его предок — сессия просмотра логов (не убивать при stop).
+# true, если процесс или его предок — просмотр логов или ergo-keep-alive (не убивать при stop).
 _pid_in_log_watch_session() {
   local pid="$1"
   local -n _skip_ref="$2"
@@ -179,7 +188,7 @@ _pid_in_log_watch_session() {
     # Дошли до цепочки самого ergoms stop — это не log-терминал.
     [[ -v "_skip_ref[$pid]" ]] && return 1
     cmd="$(_read_proc_cmdline "/proc/$pid")" || return 1
-    if _cmdline_is_log_watcher "$cmd"; then
+    if _cmdline_is_log_watcher "$cmd" || _cmdline_is_keep_alive "$cmd"; then
       return 0
     fi
     ppid="$(awk '/^PPid:/{print $2}' "/proc/$pid/status" 2>/dev/null || echo 1)"

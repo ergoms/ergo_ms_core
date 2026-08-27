@@ -82,6 +82,28 @@ SERVICE_TEMPLATE = """
     restart: unless-stopped
 """
 
+BEAT_TEMPLATE = """
+  {name}-beat:
+    image: ${{DOCKER_PYTHON_IMAGE:-ergo_ms-python:local}}
+    env_file:
+      - .compose.env
+    environment:
+      ERGO_DOCKER_SERVICE_NAME: "{name}-beat"
+      ERGO_DOCKER_REQUIRES_SETUP: "1"
+      ERGO_PROCESS_ROLE: module:{name}
+      PROCESS_MODULES: "{name}"
+{volumes}
+    depends_on:
+      redis:
+        condition: service_healthy
+      {name}:
+        condition: service_started
+    networks:
+      - ergo_net
+    command: ["python", "core/api/scripts/start_celery_beat.py", "--module={name}"]
+    restart: unless-stopped
+"""
+
 
 def parse_modules(raw: str = '') -> list[str]:
     return [m.strip() for m in (raw or '').split(',') if m.strip()]
@@ -110,11 +132,21 @@ _API_DEPENDS = """      api:
 """
 
 
+def module_has_beat_schedule(name: str, project_root: Path | None = None) -> bool:
+    """Есть ли у модуля celery_beat_config.py — тогда нужен свой Beat."""
+    root = project_root or PROJECT_ROOT
+    api_dir = root / 'modules' / name / 'api'
+    if not api_dir.is_dir():
+        return False
+    return any(api_dir.rglob('celery_beat_config.py'))
+
+
 def generate(
     modules: list[str],
     environ: dict[str, str] | None = None,
     *,
     depends_on_api: bool = True,
+    beat_modules: frozenset[str] | None = None,
 ) -> str:
     header = """# Автогенерация: ergoms docker-gen-modules (не редактировать вручную)
 services:
@@ -123,6 +155,11 @@ services:
         return header + "  {}\n"
 
     api_block = _API_DEPENDS if depends_on_api else ''
+    scheduled = (
+        beat_modules
+        if beat_modules is not None
+        else frozenset(name for name in modules if module_has_beat_schedule(name))
+    )
     blocks = []
     for name in modules:
         port = module_port(name, environ)
@@ -134,6 +171,13 @@ services:
                 depends_on_api=api_block,
             )
         )
+        if name in scheduled:
+            blocks.append(
+                BEAT_TEMPLATE.format(
+                    name=name,
+                    volumes=PYTHON_VOLUMES_YAML,
+                )
+            )
     return header + '\n'.join(blocks)
 
 

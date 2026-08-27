@@ -21,6 +21,7 @@ SERVICE_BEAT = 'beat'
 SERVICE_YAML_WORKERS = 'yaml_workers'
 SERVICE_MODULE_API = 'module_api'
 SERVICE_MODULE_WORKER = 'module_worker'
+SERVICE_MODULE_BEAT = 'module_beat'
 
 KNOWN_SERVICES: FrozenSet[str] = frozenset({
     SERVICE_API,
@@ -30,6 +31,7 @@ KNOWN_SERVICES: FrozenSet[str] = frozenset({
     SERVICE_YAML_WORKERS,
     SERVICE_MODULE_API,
     SERVICE_MODULE_WORKER,
+    SERVICE_MODULE_BEAT,
 })
 
 PROFILE_FULL = 'full'
@@ -53,6 +55,7 @@ _PROFILE_SERVICES: dict[str, FrozenSet[str]] = {
         SERVICE_YAML_WORKERS,
         SERVICE_MODULE_API,
         SERVICE_MODULE_WORKER,
+        SERVICE_MODULE_BEAT,
     }),
     PROFILE_CORE: frozenset({
         SERVICE_API,
@@ -64,6 +67,7 @@ _PROFILE_SERVICES: dict[str, FrozenSet[str]] = {
     PROFILE_MODULES: frozenset({
         SERVICE_MODULE_API,
         SERVICE_MODULE_WORKER,
+        SERVICE_MODULE_BEAT,
     }),
 }
 
@@ -133,10 +137,12 @@ def _apply_celery_workers(services: set[str], environ: Mapping[str, str]) -> Non
     if mode == 'modules':
         services.discard(SERVICE_YAML_WORKERS)
         services.add(SERVICE_MODULE_WORKER)
+        services.add(SERVICE_MODULE_BEAT)
         return
     if mode == 'none':
         services.discard(SERVICE_YAML_WORKERS)
         services.discard(SERVICE_MODULE_WORKER)
+        services.discard(SERVICE_MODULE_BEAT)
 
 
 @dataclass(frozen=True)
@@ -174,6 +180,7 @@ class HostProfile:
             'wants_yaml_workers': self.wants(SERVICE_YAML_WORKERS),
             'wants_module_api': self.wants(SERVICE_MODULE_API),
             'wants_module_worker': self.wants(SERVICE_MODULE_WORKER),
+            'wants_module_beat': self.wants(SERVICE_MODULE_BEAT),
         }
 
 

@@ -80,9 +80,9 @@ ergoms start-worker --module=<name>
 ergoms docker-gen-modules
 ```
 
-На машине, где ядро уже крутится в другом месте (`NGINX_API_UPSTREAM`, `BRIDGE_CORE_URL`), поставьте `HOST_PROFILE=modules` (или `auto`) и не держите локальный Django ядра, beat и worker из `celery_workers.yaml`. Чтобы процесс модуля не монтировал login/меню/WS ядра: `MODULE_PROCESS_PROFILE=slim` в `env/modules.env`. После смены профиля — `ergoms install-services`.
+На машине, где ядро уже крутится в другом месте (`NGINX_API_UPSTREAM`, `BRIDGE_CORE_URL`), поставьте `HOST_PROFILE=modules` (или `auto`) и не держите локальный Django ядра, общий Celery Beat и worker из `celery_workers.yaml`. Периодические задачи вынесенного модуля ставит Beat **этого** модуля (`ergoms start-beat --module=<name>`, служба `--kind=beat`). Чтобы процесс модуля не монтировал login/меню/WS ядра: `MODULE_PROCESS_PROFILE=slim` в `env/modules.env`. После смены профиля — `ergoms install-services`.
 
-Карта данных: `ergoms data-inventory`. Схема модуля: `ergoms db-migrate-module --module=<name>`. Перенос с `public`: `ergoms db-move-module-schema --all` (модули + ядро в `core`, `public` удаляется). OS-служба: `ergoms install-module-service --module=<name> --kind=api`.
+Карта данных: `ergoms data-inventory`. Схема модуля: `ergoms db-migrate-module --module=<name>`. Перенос с `public`: `ergoms db-move-module-schema --all` (модули + ядро в `core`, `public` удаляется). OS-служба: `ergoms install-module-service --module=<name> --kind=api|worker|beat`.
 
 ## База данных и статика
 

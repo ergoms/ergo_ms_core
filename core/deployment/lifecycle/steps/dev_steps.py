@@ -62,8 +62,8 @@ class DevForegroundStep(DeploymentStep):
         elif self._recipe_key == 'dev-media':
             os.environ.setdefault(_MEDIA_START_WALL_ENV, str(time.time()))
         script_args: list[str] = []
-        if self._recipe_key == 'sync-logs-services':
-            # ergoms sync-logs-services --json logs-all → runner parse_known_args
+        if self._recipe_key in ('sync-logs-services', 'dev-beat'):
+            # start-beat --module=<name> и sync-logs-services --json → runner parse_known_args
             script_args = [str(a) for a in (ctx.options.get('compose_extra_args') or [])]
         code = 0
         for rel in scripts:

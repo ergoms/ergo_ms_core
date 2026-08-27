@@ -27,7 +27,7 @@
 
 **На уровне 1 процесс модуля всё ещё видит стек ядра** и ту же БД, поэтому JWT с `device_id` работает как раньше. Режим `MODULE_AUTH_MODE=jwt_claims` (principal из claims, проверка устройства через `session.device_active`) нужен на уровне 3.
 
-**Beat один на систему** до выделения очередей пилота. Worker без `ERGO_PROCESS_ROLE=module:<name>` не должен грузить все модули в microservice.
+**Beat модуля живёт с модулем.** Общий Celery Beat на хосте ядра в `MODULE_RUNTIME=microservice` не планирует модули из `MICROSERVICE_MODULES`: их кода и `.env` на той машине может не быть. Если у модуля есть `api/**/celery_beat_config.py`, на хосте модуля ставят `ergoms start-beat --module=<name>` и OS-службу `--kind=beat`. Worker без `--module` не должен забирать чужие очереди; `ergoms start-worker --module=<name>` слушает все очереди этого модуля.
 
 **Клиент** ходит только на входной прокси (`ERGO_PROXY=nginx` / relative API). Раздельная сборка (`CLIENT_MODULARITY=federated|standalone`) не блокирует пилот API.
 
@@ -81,9 +81,9 @@
 
 1. В `.env`: `MODULE_RUNTIME=microservice`, `MICROSERVICE_MODULES=<name>`, `BRIDGE_TRANSPORT=http`, `BRIDGE_EVENT_BUS=redis`, `BRIDGE_SERVICE_URLS`, `BRIDGE_CORE_URL`, `<NAME>_PORT`. Токен `BRIDGE_INTERNAL_TOKEN` обязателен вне DEBUG.
 2. У модуля — `api/bridge_manifest.yaml`. Без файла `ergoms core-rules-check` падает, если имя есть в `MICROSERVICE_MODULES`.
-3. Запуск: `ergoms start-module --module=<name>`, `ergoms start-worker --module=<name>`. OS-службы API/worker: `ergoms install-module-service --module=<name> --kind=api|worker` (или hook `host_lifecycle.yaml`) — `install-services` ставит их только при `MODULE_RUNTIME=microservice`, имени в `MICROSERVICE_MODULES` и `HOST_PROFILE`, который допускает `module_api` / `module_worker`.
+3. Запуск: `ergoms start-module --module=<name>`, `ergoms start-worker --module=<name>`, при периодических задачах — `ergoms start-beat --module=<name>`. OS-службы: `ergoms install-module-service --module=<name> --kind=api|worker|beat` (или hook `host_lifecycle.yaml`) — `install-services` ставит их только при `MODULE_RUNTIME=microservice`, имени в `MICROSERVICE_MODULES` и `HOST_PROFILE`, который допускает `module_api` / `module_worker` / `module_beat`.
 4. Прокси: `ergoms reload-nginx`. Location `/api/<name>/` не failover’ит на ядро; при 502/503 клиент получает JSON `module_unavailable`.
-5. Docker: `ergoms docker-gen-modules` + `ergoms docker-up`. Compose добавляет сервис API и worker модуля. Профили `host-api` / `host-media` / `host-beat` включаются по `HOST_PROFILE`.
+5. Docker: `ergoms docker-gen-modules` + `ergoms docker-up`. Compose добавляет API и worker модуля; Beat модуля — если в дереве модуля есть `celery_beat_config.py`. Профили `host-api` / `host-media` / `host-beat` (Beat **ядра**) включаются по `HOST_PROFILE`.
 6. Откат: `MODULE_RUNTIME=monolith`, `BRIDGE_TRANSPORT=local`. Режим разработки не ломается.
 
 Набор служб на машине задаёт `HOST_PROFILE` в корневом `.env` (`full` | `core` | `modules` | `auto`). `full` — как раньше. На хосте только модулей (nginx смотрит на чужое ядро через `NGINX_API_UPSTREAM`) поставьте `modules` или `auto` и выполните `ergoms install-services`. Детали — `HOST_SERVICES`, `HOST_MEDIA`, `HOST_CELERY_WORKERS` в `env/modules.env`.
@@ -128,7 +128,8 @@ ergoms db-move-core-schema
 
 ## Этап 4 — Celery, файлы, realtime, поиск
 
-- Очередь модуля = имя папки (`video_analysis`). `ergoms start-worker --module=<name>` ставит `-Q <name>` и `PROCESS_MODULES`.
+- Очередь по умолчанию = имя папки. Вложенные apps могут объявить свои очереди; `ergoms start-worker --module=<name>` ставит `-Q` на все очереди маршрутов `modules.<name>.*` и `PROCESS_MODULES`.
+- Расписание — `api/**/celery_beat_config.py`. На хосте модуля: `ergoms start-beat --module=<name>` (свой файл `celerybeat-schedule-<name>`). Общий Beat ядра эти задачи не дублирует.
 - Файлы — как media_api: модуль хранит путь, байты не отдаёт с module API.
 - Realtime: вход WS/SSE у ядра; модуль только публикует. Несколько процессов — Redis или Postgres channel layer.
 - Поиск: хук `api/search_indexes.py`, `uid` с префиксом имени модуля (`<name>_stored_video`).
@@ -166,8 +167,8 @@ ergoms db-move-core-schema
 1. `ergoms data-inventory` — нет `cross_module_fk` и `requires_peer`.
 2. Снять FK на `AUTH_USER_MODEL` → `user_public_id`; каскад удаления — подписка на `core.user_delete`.
 3. `api/bridge_manifest.yaml`, `api/schema.yaml` (`isolated: true`).
-4. `host_lifecycle.yaml` + `process_roles.yaml` (API и worker через `install-module-service`; службы ставятся только в microservice-режиме).
-5. Очередь Celery = имя модуля; worker только с `--module=`.
+4. `host_lifecycle.yaml` + `process_roles.yaml` (API, worker и при наличии расписания Beat через `install-module-service`; службы ставятся только в microservice-режиме).
+5. Worker только с `--module=`; очереди — все, что объявил модуль. Beat модуля — `--kind=beat`, не общий Beat ядра.
 6. Файлы через media_api; поиск — `search_indexes.py` с префиксом uid.
 7. Прогон: monolith не сломан; microservice на хосте и `ergoms docker-gen-modules`.
 8. Клиент: 503 модуля не роняет оболочку; при federation — запасной UI.

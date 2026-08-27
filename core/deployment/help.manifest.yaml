@@ -29,11 +29,11 @@ sections:
   - name: install-media-service
     summary: Установить и запустить Media API
   - name: install-module-service
-    invoke: ergoms install-module-service --module=<name> --kind=api|worker
-    summary: Установить OS-службу API или worker модуля
+    invoke: ergoms install-module-service --module=<name> --kind=api|worker|beat
+    summary: Установить OS-службу API, worker или Beat модуля
   - name: uninstall-module-service
-    invoke: ergoms uninstall-module-service --module=<name> --kind=api|worker
-    summary: Удалить OS-службу API или worker модуля
+    invoke: ergoms uninstall-module-service --module=<name> --kind=api|worker|beat
+    summary: Удалить OS-службу API, worker или Beat модуля
   - name: start
     summary: Запустить все службы
   - name: stop
@@ -72,9 +72,10 @@ sections:
     summary: Media API
   - name: start-worker
     invoke: ergoms start-worker [--worker=<имя>] [--module=<name>]
-    summary: Celery worker (с --module — только очередь этого модуля)
+    summary: Celery worker (с --module — все очереди этого модуля)
   - name: start-beat
-    summary: Celery beat
+    invoke: ergoms start-beat [--module=<name>]
+    summary: Celery beat (без --module — ядро; с --module — только этот модуль)
   - name: start-jupyter
     summary: JupyterLab с Django-ядром (режимы local/lan/nginx — API_JUPYTER_* в .env)
   - name: start-jupyter-dev

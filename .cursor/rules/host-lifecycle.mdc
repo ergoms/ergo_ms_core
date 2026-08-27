@@ -20,7 +20,7 @@ alwaysApply: false
   - `ergoms setup` / `setup-full` → [`StopSetupStartedInfraStep`](../../core/deployment/lifecycle/steps/infra_steps.py) вызывает `stop_commands` в конце (вместе с nginx/redis)
   - тесты deployment [`lib.ps1`](../../core/deployment/windows/lib/test/lib.ps1) (`Stop-AllErgoms`, `Invoke-ModuleHostInstallServiceCommands`)
 - `DISABLED_MODULES` — модуль не участвует
-- Команды `install-module-service` / `uninstall-module-service` (отдельные API и worker модуля) `install-services` выполняет только при `MODULE_RUNTIME=microservice` и имени модуля в `MICROSERVICE_MODULES`. Демоны без split процесса (portable-сервер и т.п.) ставятся в любом режиме. В монолите уже установленные API/worker unit'ы снимаются при следующем `install-services`.
+- Команды `install-module-service` / `uninstall-module-service` (API, worker и Beat модуля) `install-services` выполняет только при `MODULE_RUNTIME=microservice` и имени модуля в `MICROSERVICE_MODULES`. Демоны без split процесса (portable-сервер и т.п.) ставятся в любом режиме. В монолите уже установленные unit'ы API/worker/beat снимаются при следующем `install-services`. `--kind=beat` обязателен, если у модуля есть `celery_beat_config.py`: расписание не едет на хост ядра.
 
 Установка / старт в setup-full и start-all (dev-процессы) — `vscode.tasks.yaml` (`include_in`). Остановка демонов после setup-full — `stop_commands` этого hook.
 
@@ -65,9 +65,9 @@ host:
 | Поле | Смысл |
 |------|--------|
 | `stop_commands` | `ergoms stop` / `Stop-AllErgoms` / конец `setup-full` — доп. остановка процесса; при `ergoms stop` и установленных `service_units` не вызывается, если все unit уже inactive |
-| `install_service_commands` | шаг модульных служб в `ergoms install-services` и в `install_test.ps1`. Команды `install-module-service` — только при `MODULE_RUNTIME=microservice` и имени в `MICROSERVICE_MODULES` |
+| `install_service_commands` | шаг модульных служб в `ergoms install-services` и в `install_test.ps1`. Команды `install-module-service` (`--kind=api\|worker\|beat`) — только при `MODULE_RUNTIME=microservice` и имени в `MICROSERVICE_MODULES`. `HOST_PROFILE=modules` допускает `module_api`, `module_worker` и `module_beat` |
 | `uninstall_service_commands` | шаг модульных служб в `ergoms uninstall-services` (парно с install) |
-| `service_units` | имена OS-служб в `ergoms start` / `stop` / `restart` / `status` (если unit установлен). Unit'ы API/worker модуля в списке start/stop только в microservice-режиме |
+| `service_units` | имена OS-служб в `ergoms start` / `stop` / `restart` / `status` (если unit установлен). Unit'ы API/worker/beat модуля в списке start/stop только в microservice-режиме |
 
 CLI: `virtual_env/python/bin/python core/deployment/scripts/host_lifecycle_loader.py --root . --json`  
 (на Windows — `virtual_env\python\Scripts\python.exe …`)

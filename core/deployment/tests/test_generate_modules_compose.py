@@ -36,6 +36,16 @@ class GenerateModulesComposeTests(unittest.TestCase):
             worker['command'],
             ['python', 'core/api/scripts/start_celery_worker.py', '--module=demo_mod'],
         )
+        self.assertNotIn('demo_mod-beat', services)
+
+    def test_microservice_beat_when_requested(self) -> None:
+        text = generate(['demo_mod'], {'DEMO_MOD_PORT': '8123'}, beat_modules=frozenset({'demo_mod'}))
+        data = yaml.safe_load(text)
+        beat = data['services']['demo_mod-beat']
+        self.assertEqual(
+            beat['command'],
+            ['python', 'core/api/scripts/start_celery_beat.py', '--module=demo_mod'],
+        )
 
     def test_modules_host_omits_api_depends(self) -> None:
         text = generate(['demo_mod'], {'DEMO_MOD_PORT': '8123'}, depends_on_api=False)

@@ -118,6 +118,7 @@ ergoms docker-gen-workers
 - **`docker-install-deps`** — Python-зависимости (poetry) внутри контейнера `api`
 - **`docker-install-npm`** — npm-зависимости внутри стека Docker
 - **`docker-gen-workers`** — пересоздать `docker-compose.workers.generated.yml` после правки `celery_workers.yaml`
+- **`docker-gen-modules`** — сервисы API и worker вынесенных модулей; Beat модуля добавляется, если в модуле есть `celery_beat_config.py`
 - **`docker-shell-api`** — интерактивная shell в контейнере API; внутри доступны `ergoms api …` и `ergoms media_api …` (тонкая обёртка, не полный CLI хоста)
 
 Миграции и Django-команды в контейнере — через `ergoms docker-migrate` или `ergoms docker-shell-api` (например `ergoms api createsuperuser`), не `python manage.py` на хосте.

@@ -7,8 +7,9 @@ alwaysApply: false
 ## Запуск
 
 - Worker: `ergoms start-worker` (или `--worker=<имя>`)
-- Worker модуля при `MODULE_RUNTIME=microservice`: `ergoms start-worker --module=<name>` — не все очереди; см. [`modularization.mdc`](modularization.mdc)
-- Планировщик: `ergoms start-beat`
+- Worker модуля при `MODULE_RUNTIME=microservice`: `ergoms start-worker --module=<name>` — все очереди этого модуля (`modules.<name>.*`), не все очереди хоста; см. [`modularization.mdc`](modularization.mdc)
+- Планировщик ядра: `ergoms start-beat` (на хосте ядра; в microservice не ставит задачи `MICROSERVICE_MODULES`)
+- Планировщик модуля: `ergoms start-beat --module=<name>` и OS-служба `--kind=beat`, если есть `api/**/celery_beat_config.py`
 - Остановка: `ergoms stop-worker`, `ergoms stop-beat`
 
 Worker и Beat должны смотреть на **один** брокер. Источник настроек:
@@ -37,6 +38,8 @@ Worker и Beat должны смотреть на **один** брокер. И�
 ```python
 'modules.<name>.api.tasks.*': {'queue': '<name>'}
 ```
+
+Вложенные Django-apps могут объявить свои очереди. Worker `--module=<name>` слушает их все. Не рассчитывай, что общий Beat на другом сервере увидит `celery_beat_config.py` модуля, которого там нет.
 
 Регистрация вручную не нужна — подхватывает `CeleryModuleManager`.
 

@@ -126,6 +126,7 @@ def is_module_process_service_unit(unit: str, module: str) -> bool:
     return short in (
         process_service_unit_name(module, 'api'),
         process_service_unit_name(module, 'worker'),
+        process_service_unit_name(module, 'beat'),
     )
 
 
@@ -222,6 +223,8 @@ def _kind_from_process_unit(unit: str, module: str) -> str | None:
         return 'api'
     if short == process_service_unit_name(module, 'worker'):
         return 'worker'
+    if short == process_service_unit_name(module, 'beat'):
+        return 'beat'
     return None
 
 
@@ -232,6 +235,8 @@ def allows_module_kind(catalog: ModuleCatalog, host_profile, module: str, kind: 
         return host_profile.wants('module_api')
     if kind == 'worker':
         return host_profile.wants('module_worker')
+    if kind == 'beat':
+        return host_profile.wants('module_beat')
     return True
 
 

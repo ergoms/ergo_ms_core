@@ -1,7 +1,7 @@
-"""Установка OS-службы API/worker модуля без хардкода имён в ядре.
+"""Установка OS-службы API/worker/beat модуля без хардкода имён в ядре.
 
-Использование: ergoms install-module-service --module=<name> --kind=api|worker
-               ergoms uninstall-module-service --module=<name> --kind=api|worker
+Использование: ergoms install-module-service --module=<name> --kind=api|worker|beat
+               ergoms uninstall-module-service --module=<name> --kind=api|worker|beat
 """
 
 from __future__ import annotations
@@ -43,6 +43,9 @@ def _write_wrappers(module: str, kind: str) -> tuple[Path, Path]:
     py = PROJECT_ROOT / 'virtual_env' / 'python'
     if kind == 'api':
         script = 'core\\api\\scripts\\start_module_api.py' if os.name == 'nt' else 'core/api/scripts/start_module_api.py'
+        extra = f'--module={module}'
+    elif kind == 'beat':
+        script = 'core\\api\\scripts\\start_celery_beat.py' if os.name == 'nt' else 'core/api/scripts/start_celery_beat.py'
         extra = f'--module={module}'
     else:
         script = 'core\\api\\scripts\\start_celery_worker.py' if os.name == 'nt' else 'core/api/scripts/start_celery_worker.py'
@@ -169,7 +172,7 @@ def main() -> int:
     configure_stdio_utf8()
     parser = argparse.ArgumentParser(description='Install or remove a module OS service')
     parser.add_argument('--module', required=True)
-    parser.add_argument('--kind', choices=('api', 'worker'), default='api')
+    parser.add_argument('--kind', choices=('api', 'worker', 'beat'), default='api')
     parser.add_argument('--uninstall', action='store_true')
     args = parser.parse_args()
     module = args.module.strip()
