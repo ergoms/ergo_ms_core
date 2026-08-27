@@ -23,6 +23,7 @@ alwaysApply: false
 ```python
 from src.core.utils.media_signing import get_signed_media_url
 url = get_signed_media_url('path/to/file.jpg')
+# за nginx — относительный /serve/..., не http://NGINX_PUBLIC_HOST/serve/...
 ```
 
 ## Загрузка (сервер)
