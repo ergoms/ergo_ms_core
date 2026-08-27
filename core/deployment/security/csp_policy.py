@@ -6,7 +6,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from pathlib import Path
 from typing import Any, Mapping
+
+FEDERATION_IMPORTMAP_HASHES_REL = Path('core/client/dist/federation-importmap.hashes')
 
 CSP_MODES: tuple[str, ...] = (
     'as_is',
@@ -68,7 +72,41 @@ def resolve_csp_mode(values: Mapping[str, Any]) -> str:
     return csp_mode_from_values(merged)
 
 
-def build_csp_policy(mode: str | None = None) -> str:
+def read_federation_importmap_hashes(project_root: Path | None) -> list[str]:
+    """sha256-… из client-build для inline import map (без unsafe-inline)."""
+    if project_root is None:
+        return []
+    path = Path(project_root) / FEDERATION_IMPORTMAP_HASHES_REL
+    if not path.is_file():
+        return []
+    hashes: list[str] = []
+    for raw in path.read_text(encoding='utf-8').splitlines():
+        item = raw.strip()
+        if item.startswith('sha256-'):
+            hashes.append(item)
+    return hashes
+
+
+def _quote_script_hash(item: str) -> str:
+    text = (item or '').strip()
+    if text.startswith("'") and text.endswith("'"):
+        return text
+    return f"'{text}'"
+
+
+def _with_script_hashes(script: str, extra_script_hashes: Sequence[str] | None) -> str:
+    if not extra_script_hashes:
+        return script
+    quoted = ' '.join(_quote_script_hash(item) for item in extra_script_hashes if item)
+    if not quoted:
+        return script
+    return script.replace("script-src 'self'", f"script-src 'self' {quoted}", 1)
+
+
+def build_csp_policy(
+    mode: str | None = None,
+    extra_script_hashes: Sequence[str] | None = None,
+) -> str:
     """Строка Content-Security-Policy без кавычек обёртки nginx."""
     resolved = normalize_csp_mode(mode)
 
@@ -110,12 +148,17 @@ def build_csp_policy(mode: str | None = None) -> str:
         "base-uri 'self'",
         "form-action 'self'",
     ]
+    script = _with_script_hashes(script, extra_script_hashes)
+    parts[1] = script
     return '; '.join(parts)
 
 
-def build_security_headers_nginx(mode: str | None = None) -> str:
+def build_security_headers_nginx(
+    mode: str | None = None,
+    extra_script_hashes: Sequence[str] | None = None,
+) -> str:
     """Фрагмент nginx add_header (как snippets/security_headers.conf) для режима CSP."""
-    csp = build_csp_policy(mode)
+    csp = build_csp_policy(mode, extra_script_hashes=extra_script_hashes)
     return (
         '# HTTP security headers для SPA, static и proxy (add_header ... always).\n'
         'add_header X-Frame-Options "DENY" always;\n'
@@ -131,8 +174,9 @@ def substitute_security_headers_includes(content: str, headers_block: str) -> st
     """Подставляет блок заголовков вместо include …/security_headers.conf;"""
     import re
 
+    # После apply_template_replacements путь уже абсолютный; до него — ${ERGO_NGINX_SNIPPETS}.
     pattern = re.compile(
-        r'^([ \t]*)include \$\{ERGO_NGINX_SNIPPETS\}/security_headers\.conf;\s*$',
+        r'^([ \t]*)include \S+/security_headers\.conf;\s*$',
         re.MULTILINE,
     )
 

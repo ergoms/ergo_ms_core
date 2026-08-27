@@ -52,6 +52,21 @@ class CspPolicyBuilderTests(unittest.TestCase):
         self.assertIn("script-src 'self'", policy)
         self.assertIn('*.maps.yandex.net', policy)
 
+    def test_extra_script_hash_appends_to_script_src(self) -> None:
+        digest = 'sha256-GcFCXGcRBfkVT0d83GA/YpsKpjnsB2jkZ47h+yRpvcI='
+        policy = build_csp_policy(
+            'no_unsafe_plus_externals',
+            extra_script_hashes=[digest],
+        )
+        self.assertIn(f"script-src 'self' '{digest}'", policy)
+        self.assertNotIn('unsafe-inline', policy)
+
+    def test_extra_script_hash_keeps_as_is_maps(self) -> None:
+        digest = 'sha256-GcFCXGcRBfkVT0d83GA/YpsKpjnsB2jkZ47h+yRpvcI='
+        policy = build_csp_policy('as_is', extra_script_hashes=[digest])
+        self.assertIn(f"script-src 'self' '{digest}' 'unsafe-eval'", policy)
+        self.assertIn('api-maps.yandex.ru', policy)
+
     def test_nginx_snippet_embeds_policy(self) -> None:
         block = build_security_headers_nginx('no_unsafe')
         self.assertIn('X-Frame-Options', block)
@@ -78,6 +93,22 @@ class CspPolicyBuilderTests(unittest.TestCase):
         self.assertNotIn('security_headers.conf', out)
         self.assertIn('    add_header X-Frame-Options', out)
         self.assertIn('Content-Security-Policy', out)
+
+    def test_substitute_resolved_snippet_path(self) -> None:
+        template = (
+            '    location = /index.html {\n'
+            '        include /opt/ergo_ms_core/core/deployment/nginx/snippets/security_headers.conf;\n'
+            '    }\n'
+        )
+        out = substitute_security_headers_includes(
+            template,
+            build_security_headers_nginx(
+                'as_is',
+                extra_script_hashes=['sha256-GcFCXGcRBfkVT0d83GA/YpsKpjnsB2jkZ47h+yRpvcI='],
+            ),
+        )
+        self.assertNotIn('security_headers.conf', out)
+        self.assertIn("'sha256-GcFCXGcRBfkVT0d83GA/YpsKpjnsB2jkZ47h+yRpvcI='", out)
 
 
 class CspStrictCheckerTests(unittest.TestCase):

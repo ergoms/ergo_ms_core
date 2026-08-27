@@ -17,7 +17,11 @@ if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 
 from ergo_modes import env_bool
-from security.csp_policy import build_security_headers_nginx, resolve_csp_mode
+from security.csp_policy import (
+    build_security_headers_nginx,
+    read_federation_importmap_hashes,
+    resolve_csp_mode,
+)
 from upload_limits import compute_client_max_body_bytes, format_nginx_body_size
 from upload_rate import build_rate_limit_conf, resolve_upload_rates, upload_location_limit_lines
 
@@ -544,14 +548,28 @@ def build_docker_http_preamble(values: Mapping[str, str] | None = None) -> str:
     )
 
 
-def build_docker_nginx_shared_replacements(values: Mapping[str, str]) -> dict[str, str]:
+def _project_root_from_nginx_path(path: Path) -> Path | None:
+    for parent in Path(path).resolve().parents:
+        if (parent / 'core' / 'client').is_dir():
+            return parent
+    return None
+
+
+def build_docker_nginx_shared_replacements(
+    values: Mapping[str, str],
+    *,
+    project_root: Path | None = None,
+) -> dict[str, str]:
     api_upstream, media_upstream = build_docker_upstream_blocks(values)
     body_size = resolve_client_max_body_size(values)
     csp_mode = resolve_csp_mode(values)
     rates = resolve_upload_rates(values)
     return {
         '${ERGO_DOCKER_HTTP_PREAMBLE}': build_docker_http_preamble(values),
-        '${ERGO_DOCKER_SECURITY_HEADERS}': build_security_headers_nginx(csp_mode),
+        '${ERGO_DOCKER_SECURITY_HEADERS}': build_security_headers_nginx(
+            csp_mode,
+            extra_script_hashes=read_federation_importmap_hashes(project_root),
+        ),
         '${ERGO_DOCKER_PROXY_PARAMS}': _snippet_text('proxy_params.conf'),
         '${ERGO_API_UPSTREAM_BLOCK}': api_upstream,
         '${ERGO_MEDIA_UPSTREAM_BLOCK}': media_upstream,
@@ -577,7 +595,10 @@ def render_docker_nginx_config(
     )
 
     content = template_path.read_text(encoding='utf-8')
-    replacements = build_docker_nginx_shared_replacements(raw_env)
+    replacements = build_docker_nginx_shared_replacements(
+        raw_env,
+        project_root=_project_root_from_nginx_path(template_path),
+    )
     replacements['${ERGO_MODULE_UPSTREAMS}'] = render_module_upstreams_docker(raw_env)
     replacements['${ERGO_MODULE_LOCATIONS}'] = (
         render_module_media_locations_docker(raw_env) + render_module_locations_docker(raw_env)
