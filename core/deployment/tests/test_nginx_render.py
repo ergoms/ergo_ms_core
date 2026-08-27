@@ -18,6 +18,7 @@ from render_common import (  # noqa: E402
     render_spa_locations_host,
     resolve_host_api_upstream,
     resolve_host_client_upstream,
+    resolve_host_media_upstream,
 )
 
 
@@ -80,6 +81,32 @@ class NginxRenderTests(unittest.TestCase):
         })
         self.assertIn('10.0.0.2:8000', host_api)
         self.assertNotIn('127.0.0.1:8000', host_api)
+
+    def test_host_media_upstream_can_point_to_remote_media(self) -> None:
+        self.assertEqual(
+            resolve_host_media_upstream({'MEDIA_API_BIND_PORT': '8003'}),
+            '127.0.0.1:8003',
+        )
+        self.assertEqual(
+            resolve_host_media_upstream({
+                'MEDIA_API_BIND_PORT': '8003',
+                'NGINX_MEDIA_UPSTREAM': '10.0.0.8:80',
+            }),
+            '10.0.0.8:80',
+        )
+        self.assertEqual(
+            resolve_host_media_upstream({
+                'NGINX_MEDIA_UPSTREAM': 'http://modules.internal',
+            }),
+            'modules.internal:80',
+        )
+        _, host_media = build_host_upstream_blocks({
+            'API_PORT': '8000',
+            'MEDIA_API_BIND_PORT': '8003',
+            'NGINX_MEDIA_UPSTREAM': '10.0.0.8:80',
+        })
+        self.assertIn('10.0.0.8:80', host_media)
+        self.assertNotIn('127.0.0.1:8003', host_media)
 
     def test_host_client_upstream_proxies_spa_to_remote_host(self) -> None:
         self.assertIsNone(resolve_host_client_upstream({}))
