@@ -87,6 +87,20 @@ def render_upstream_block(
     return '\n'.join(lines)
 
 
+def resolve_host_media_upstream(values: Mapping[str, str]) -> str:
+    """host:port для ``upstream ergo_media``.
+
+    Пусто — местный media_api ``127.0.0.1:MEDIA_API_BIND_PORT``.
+    ``NGINX_MEDIA_UPSTREAM`` — media на другом хосте (nginx или сам media_api).
+    Без порта — 80 (nginx пира), не bind-порт media_api.
+    """
+    raw = _env(values, 'NGINX_MEDIA_UPSTREAM')
+    if not raw:
+        media_port = _env(values, 'MEDIA_API_BIND_PORT', '8003')
+        return f'127.0.0.1:{media_port}'
+    return _parse_upstream_host_port(raw, '80')
+
+
 def resolve_host_client_upstream(values: Mapping[str, str]) -> str | None:
     """host:port SPA на другом хосте. Пусто — локальный ``core/client/dist``."""
     raw = _env(values, 'NGINX_CLIENT_UPSTREAM')
@@ -182,13 +196,12 @@ def render_spa_locations_host(values: Mapping[str, str]) -> str:
 
 
 def build_host_upstream_blocks(values: Mapping[str, str]) -> tuple[str, str]:
-    media_port = _env(values, 'MEDIA_API_BIND_PORT', '8003')
     api = render_upstream_block(
         'ergo_api',
         resolve_host_api_upstream(values),
         no_keepalive_comment=True,
     )
-    media = render_upstream_block('ergo_media', f'127.0.0.1:{media_port}')
+    media = render_upstream_block('ergo_media', resolve_host_media_upstream(values))
     return api, media
 
 
