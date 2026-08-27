@@ -88,16 +88,20 @@ def render_upstream_block(
 
 
 def resolve_host_media_upstream(values: Mapping[str, str]) -> str:
-    """host:port для ``upstream ergo_media``.
+    """Местный media_api для ``/upload/`` и ``/serve/`` ядра (аватары, вложения)."""
+    media_port = _env(values, 'MEDIA_API_BIND_PORT', '8003')
+    return f'127.0.0.1:{media_port}'
 
-    Пусто — местный media_api ``127.0.0.1:MEDIA_API_BIND_PORT``.
-    ``NGINX_MEDIA_UPSTREAM`` — media на другом хосте (nginx или сам media_api).
-    Без порта — 80 (nginx пира), не bind-порт media_api.
+
+def resolve_host_media_modules_upstream(values: Mapping[str, str]) -> str | None:
+    """nginx пира для ``/upload/<module>/`` и ``/serve/<module>/``.
+
+    ``NGINX_MEDIA_UPSTREAM`` не подменяет местный ``ergo_media``: файлы ядра
+    остаются здесь. Без порта — 80 (nginx пира), не bind-порт media_api.
     """
     raw = _env(values, 'NGINX_MEDIA_UPSTREAM')
     if not raw:
-        media_port = _env(values, 'MEDIA_API_BIND_PORT', '8003')
-        return f'127.0.0.1:{media_port}'
+        return None
     return _parse_upstream_host_port(raw, '80')
 
 
@@ -196,12 +200,17 @@ def render_spa_locations_host(values: Mapping[str, str]) -> str:
 
 
 def build_host_upstream_blocks(values: Mapping[str, str]) -> tuple[str, str]:
+    from module_nginx import media_route_modules
+
     api = render_upstream_block(
         'ergo_api',
         resolve_host_api_upstream(values),
         no_keepalive_comment=True,
     )
     media = render_upstream_block('ergo_media', resolve_host_media_upstream(values))
+    peer = resolve_host_media_modules_upstream(values)
+    if peer and media_route_modules(values):
+        media = media + '\n\n' + render_upstream_block('ergo_media_modules', peer)
     return api, media
 
 
@@ -455,6 +464,8 @@ def apply_template_replacements(content: str, replacements: Mapping[str, str]) -
 
 
 def build_host_nginx_shared_replacements(values: Mapping[str, str]) -> dict[str, str]:
+    from module_nginx import render_module_media_locations_host
+
     api_upstream, media_upstream = build_host_upstream_blocks(values)
     body_size = resolve_client_max_body_size(values)
     rates = resolve_upload_rates(values)
@@ -465,7 +476,9 @@ def build_host_nginx_shared_replacements(values: Mapping[str, str]) -> dict[str,
         '${ERGO_SPA_LOCATIONS}': render_spa_locations_host(values),
         '${ERGO_REALTIME_STREAM_LOCATION}': build_realtime_stream_location(variant='host'),
         '${ERGO_HOST_API_WS_PROXY}': build_host_api_ws_locations(),
-        '${ERGO_HOST_MEDIA_PROXY}': build_host_media_locations(),
+        '${ERGO_HOST_MEDIA_PROXY}': (
+            render_module_media_locations_host(values) + build_host_media_locations()
+        ),
         '${ERGO_CLIENT_MAX_BODY_SIZE}': body_size,
         '${ERGO_RATE_LIMIT_CONF}': build_rate_limit_conf(values).rstrip('\n'),
         '${ERGO_UPLOAD_LIMIT_LINES}': upload_location_limit_lines(burst=int(rates['burst'])),
@@ -513,12 +526,18 @@ def render_docker_nginx_config(
     template_path: Path,
     output_path: Path,
 ) -> Path:
-    from module_nginx import render_module_locations_docker, render_module_upstreams_docker
+    from module_nginx import (
+        render_module_locations_docker,
+        render_module_media_locations_docker,
+        render_module_upstreams_docker,
+    )
 
     content = template_path.read_text(encoding='utf-8')
     replacements = build_docker_nginx_shared_replacements(raw_env)
     replacements['${ERGO_MODULE_UPSTREAMS}'] = render_module_upstreams_docker(raw_env)
-    replacements['${ERGO_MODULE_LOCATIONS}'] = render_module_locations_docker(raw_env)
+    replacements['${ERGO_MODULE_LOCATIONS}'] = (
+        render_module_media_locations_docker(raw_env) + render_module_locations_docker(raw_env)
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     rendered = apply_template_replacements(content, replacements).replace('\r\n', '\n')
     output_path.write_bytes(rendered.encode('utf-8'))

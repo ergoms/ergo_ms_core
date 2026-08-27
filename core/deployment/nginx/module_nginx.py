@@ -235,3 +235,86 @@ def render_module_locations_docker(values: Mapping[str, str]) -> str:
 """
         )
     return '\n'.join(blocks) + '\n' + _MODULE_UNAVAILABLE_LOCATION
+
+
+def media_route_modules(values: Mapping[str, str]) -> list[str]:
+    """Имена модулей, чьи ``/upload/<name>/`` и ``/serve/<name>/`` режутся отдельно.
+
+    Явный ``NGINX_MEDIA_UPSTREAM_MODULES`` перекрывает список.
+    Иначе — ``MICROSERVICE_MODULES`` в режиме microservice.
+    """
+    override = parse_csv(values.get('NGINX_MEDIA_UPSTREAM_MODULES', ''))
+    if override:
+        return override
+    if _runtime_is_microservice(values):
+        return _microservice_module_names(values)
+    return []
+
+
+def _media_modules_peer(values: Mapping[str, str]) -> str | None:
+    raw = (values.get('NGINX_MEDIA_UPSTREAM') or '').strip()
+    if not raw:
+        return None
+    if '://' in raw:
+        parsed = urlparse(raw)
+        host = (parsed.hostname or '').strip()
+        if not host:
+            return None
+        return f'{host}:{parsed.port or 80}'
+    if raw.count(':') == 1:
+        host, _, port = raw.partition(':')
+        host = host.strip()
+        port = (port or '').strip() or '80'
+        return f'{host}:{port}' if host else None
+    return f'{raw}:80'
+
+
+def _render_module_media_locations(
+    values: Mapping[str, str],
+    *,
+    include_maintenance: bool,
+) -> str:
+    modules = media_route_modules(values)
+    if not modules:
+        return ''
+    peer = _media_modules_peer(values)
+    upstream = 'ergo_media_modules' if peer else 'ergo_media'
+    peer_host = peer.rsplit(':', 1)[0] if peer else ''
+    extra_headers = ''
+    if peer_host:
+        extra_headers = (
+            f'        proxy_set_header Host {peer_host};\n'
+            '        proxy_set_header X-Forwarded-Host $host;\n'
+        )
+    maintenance = (
+        '        if ($maintenance = 1) { return 503; }\n'
+        if include_maintenance
+        else ''
+    )
+    blocks: list[str] = []
+    for name in modules:
+        blocks.append(
+            f"""    location ^~ /upload/{name}/ {{
+{maintenance}${{ERGO_UPLOAD_LIMIT_LINES}}        proxy_pass http://{upstream}/upload/;
+        client_max_body_size ${{ERGO_CLIENT_MAX_BODY_SIZE}};
+{extra_headers}    }}
+
+    location ^~ /serve/{name}/ {{
+{maintenance}        limit_req zone=ergo_serve burst=40 nodelay;
+        limit_req_status 429;
+        limit_conn ergo_conn 30;
+        limit_conn_status 429;
+        proxy_pass http://{upstream};
+{extra_headers}    }}
+"""
+        )
+    return '\n'.join(blocks)
+
+
+def render_module_media_locations_host(values: Mapping[str, str]) -> str:
+    """Префиксы media: местный media_api или nginx пира (``NGINX_MEDIA_UPSTREAM``)."""
+    return _render_module_media_locations(values, include_maintenance=True)
+
+
+def render_module_media_locations_docker(values: Mapping[str, str]) -> str:
+    return _render_module_media_locations(values, include_maintenance=False)

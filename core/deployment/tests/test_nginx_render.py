@@ -18,6 +18,7 @@ from render_common import (  # noqa: E402
     render_spa_locations_host,
     resolve_host_api_upstream,
     resolve_host_client_upstream,
+    resolve_host_media_modules_upstream,
     resolve_host_media_upstream,
 )
 
@@ -82,7 +83,7 @@ class NginxRenderTests(unittest.TestCase):
         self.assertIn('10.0.0.2:8000', host_api)
         self.assertNotIn('127.0.0.1:8000', host_api)
 
-    def test_host_media_upstream_can_point_to_remote_media(self) -> None:
+    def test_host_media_upstream_stays_local_when_modules_peer_is_set(self) -> None:
         self.assertEqual(
             resolve_host_media_upstream({'MEDIA_API_BIND_PORT': '8003'}),
             '127.0.0.1:8003',
@@ -92,10 +93,10 @@ class NginxRenderTests(unittest.TestCase):
                 'MEDIA_API_BIND_PORT': '8003',
                 'NGINX_MEDIA_UPSTREAM': '10.0.0.8:80',
             }),
-            '10.0.0.8:80',
+            '127.0.0.1:8003',
         )
         self.assertEqual(
-            resolve_host_media_upstream({
+            resolve_host_media_modules_upstream({
                 'NGINX_MEDIA_UPSTREAM': 'http://modules.internal',
             }),
             'modules.internal:80',
@@ -103,10 +104,13 @@ class NginxRenderTests(unittest.TestCase):
         _, host_media = build_host_upstream_blocks({
             'API_PORT': '8000',
             'MEDIA_API_BIND_PORT': '8003',
+            'MODULE_RUNTIME': 'microservice',
+            'MICROSERVICE_MODULES': 'demo_mod',
             'NGINX_MEDIA_UPSTREAM': '10.0.0.8:80',
         })
+        self.assertIn('127.0.0.1:8003', host_media)
+        self.assertIn('upstream ergo_media_modules', host_media)
         self.assertIn('10.0.0.8:80', host_media)
-        self.assertNotIn('127.0.0.1:8003', host_media)
 
     def test_host_client_upstream_proxies_spa_to_remote_host(self) -> None:
         self.assertIsNone(resolve_host_client_upstream({}))
@@ -389,6 +393,40 @@ class ModuleNginxTests(unittest.TestCase):
         self.assertIn('demo_mod:8123', rendered)
         self.assertIn('location /internal/', rendered)
         self.assertIn('/api/realtime/stream/', rendered)
+
+    def test_module_media_prefixes_stay_local_without_peer(self) -> None:
+        from module_nginx import render_module_media_locations_host
+
+        block = render_module_media_locations_host({
+            'MODULE_RUNTIME': 'microservice',
+            'MICROSERVICE_MODULES': 'demo_mod',
+        })
+        self.assertIn('location ^~ /upload/demo_mod/', block)
+        self.assertIn('location ^~ /serve/demo_mod/', block)
+        self.assertIn('proxy_pass http://ergo_media/upload/;', block)
+        self.assertIn('proxy_pass http://ergo_media;', block)
+        self.assertNotIn('ergo_media_modules', block)
+
+    def test_module_media_prefixes_go_to_peer(self) -> None:
+        from module_nginx import render_module_media_locations_host
+        from render_common import build_host_nginx_shared_replacements
+
+        values = {
+            'API_PORT': '8000',
+            'MEDIA_API_BIND_PORT': '8003',
+            'MODULE_RUNTIME': 'microservice',
+            'MICROSERVICE_MODULES': 'demo_mod',
+            'NGINX_MEDIA_UPSTREAM': '10.0.0.8:80',
+        }
+        block = render_module_media_locations_host(values)
+        self.assertIn('proxy_pass http://ergo_media_modules/upload/;', block)
+        self.assertIn('proxy_pass http://ergo_media_modules;', block)
+        self.assertIn('proxy_set_header Host 10.0.0.8;', block)
+        rendered = build_host_nginx_shared_replacements(values)['${ERGO_HOST_MEDIA_PROXY}']
+        self.assertIn('location ^~ /upload/demo_mod/', rendered)
+        self.assertIn('location /upload/', rendered)
+        upload_generic = rendered[rendered.find('    location /upload/'):]
+        self.assertIn('proxy_pass http://ergo_media;', upload_generic)
 
     def test_docker_template_proxies_jupyter(self) -> None:
         deployment_dir = Path(__file__).resolve().parents[1]
