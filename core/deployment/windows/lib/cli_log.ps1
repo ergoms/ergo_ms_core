@@ -42,7 +42,15 @@ function Attach-CliSessionLog {
         return
     }
 
-    $logPath = & $py $script prepare $Command $Root 2>$null
+    # PS 5.1 + ErrorActionPreference Stop: native stderr is a terminating error.
+    $prevEa = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $logPath = & $py $script prepare $Command $Root 2>$null
+    }
+    finally {
+        $ErrorActionPreference = $prevEa
+    }
     if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($logPath)) {
         return
     }

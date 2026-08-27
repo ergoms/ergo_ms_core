@@ -41,6 +41,10 @@ _SKIP_COMMANDS = frozenset({
     'start-media',
     'start-module',
     'start-all',
+    'start-meilisearch-dev',
+    'start-db-dev',
+    'start-redis-dev',
+    'start-nginx-dev',
     'docker-dev',
     'docker-prod',
     'docker-up',
@@ -107,8 +111,12 @@ def prepare_session_log(command: str, project_root: Path | None = None) -> Path 
         f'cwd={Path.cwd()}\n'
         f'----------\n'
     )
-    with path.open('a', encoding='utf-8') as handle:
-        handle.write(header)
+    try:
+        with path.open('a', encoding='utf-8') as handle:
+            handle.write(header)
+    except OSError:
+        # Журнал занят (Start-Transcript, другой процесс). Сессия идёт только в консоль.
+        return None
     return path
 
 
