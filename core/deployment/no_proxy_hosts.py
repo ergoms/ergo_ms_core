@@ -42,6 +42,7 @@ def collect_no_proxy_hosts(values: Mapping[str, str]) -> list[str]:
     _add(host_from_url_or_addr(values.get('BRIDGE_CORE_URL', '')), out, seen)
     _add(host_from_url_or_addr(values.get('NGINX_API_UPSTREAM', '')), out, seen)
     _add(host_from_url_or_addr(values.get('NGINX_CLIENT_UPSTREAM', '')), out, seen)
+    _add(host_from_url_or_addr(values.get('NGINX_CLIENT_REMOTES_UPSTREAM', '')), out, seen)
     _add(host_from_url_or_addr(values.get('NGINX_MEDIA_UPSTREAM', '')), out, seen)
     for part in (values.get('BRIDGE_SERVICE_URLS') or '').split(','):
         if '=' not in part:

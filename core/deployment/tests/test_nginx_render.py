@@ -17,6 +17,7 @@ from render_common import (  # noqa: E402
     render_docker_nginx_config,
     render_spa_locations_host,
     resolve_host_api_upstream,
+    resolve_host_client_remotes_upstream,
     resolve_host_client_upstream,
     resolve_host_media_modules_upstream,
     resolve_host_media_upstream,
@@ -155,6 +156,25 @@ class NginxRenderTests(unittest.TestCase):
         self.assertIn('proxy_pass http://ergo_client;', rendered)
         self.assertNotIn('${ERGO_SPA_LOCATIONS}', rendered)
         self.assertNotIn('${ERGO_CLIENT_UPSTREAM_BLOCK}', rendered)
+
+    def test_host_client_remotes_location_local_or_proxy(self) -> None:
+        self.assertIsNone(resolve_host_client_remotes_upstream({}))
+        self.assertEqual(
+            resolve_host_client_remotes_upstream({
+                'NGINX_CLIENT_REMOTES_UPSTREAM': '10.0.0.8:80',
+            }),
+            '10.0.0.8:80',
+        )
+        local = render_spa_locations_host({})
+        self.assertIn('location ^~ /remotes/', local)
+        self.assertIn('alias ${ERGO_ROOT}/virtual_env/client-remotes/;', local)
+        self.assertNotIn('proxy_pass http://ergo_client_remotes', local)
+        remote = render_spa_locations_host({
+            'NGINX_CLIENT_REMOTES_UPSTREAM': '10.0.0.8:80',
+        })
+        self.assertIn('proxy_pass http://ergo_client_remotes;', remote)
+        self.assertIn('proxy_set_header Host 10.0.0.8;', remote)
+        self.assertNotIn('alias ${ERGO_ROOT}/virtual_env/client-remotes/;', remote)
 
     def test_host_and_docker_renderers_use_shared_function(self) -> None:
         deployment_dir = Path(__file__).resolve().parents[1]

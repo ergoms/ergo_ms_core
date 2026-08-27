@@ -113,19 +113,62 @@ def resolve_host_client_upstream(values: Mapping[str, str]) -> str | None:
     return _parse_upstream_host_port(raw, '80')
 
 
+def resolve_host_client_remotes_upstream(values: Mapping[str, str]) -> str | None:
+    """host:port federated remotes. Пусто — местный ``virtual_env/client-remotes``."""
+    raw = _env(values, 'NGINX_CLIENT_REMOTES_UPSTREAM')
+    if not raw:
+        return None
+    return _parse_upstream_host_port(raw, '80')
+
+
 def render_client_upstream_block(values: Mapping[str, str]) -> str:
+    parts: list[str] = []
     peer = resolve_host_client_upstream(values)
-    if not peer:
+    if peer:
+        parts.append(render_upstream_block('ergo_client', peer, no_keepalive_comment=True))
+    remotes_peer = resolve_host_client_remotes_upstream(values)
+    if remotes_peer:
+        parts.append(
+            render_upstream_block('ergo_client_remotes', remotes_peer, no_keepalive_comment=True),
+        )
+    if not parts:
         return ''
-    return render_upstream_block('ergo_client', peer, no_keepalive_comment=True) + '\n'
+    return '\n'.join(parts) + '\n'
+
+
+def render_remotes_location_host(values: Mapping[str, str]) -> str:
+    """``/remotes/<name>/``: местные артефакты или proxy на NGINX_CLIENT_REMOTES_UPSTREAM."""
+    remotes_peer = resolve_host_client_remotes_upstream(values)
+    if remotes_peer:
+        host = remotes_peer.rsplit(':', 1)[0]
+        return (
+            '    location ^~ /remotes/ {\n'
+            '        proxy_pass http://ergo_client_remotes;\n'
+            f'        proxy_set_header Host {host};\n'
+            '        proxy_set_header X-Forwarded-Host $host;\n'
+            '        proxy_set_header X-Forwarded-Proto $scheme;\n'
+            '        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n'
+            '    }\n'
+            '\n'
+        )
+    return (
+        '    location ^~ /remotes/ {\n'
+        '        alias ${ERGO_ROOT}/virtual_env/client-remotes/;\n'
+        '        add_header Cache-Control "no-store" always;\n'
+        '        include ${ERGO_NGINX_SNIPPETS}/security_headers.conf;\n'
+        '    }\n'
+        '\n'
+    )
 
 
 def render_spa_locations_host(values: Mapping[str, str]) -> str:
     """``/`` ``/assets/`` ``/index.html``: локальный dist или proxy на NGINX_CLIENT_UPSTREAM."""
+    remotes = render_remotes_location_host(values)
     peer = resolve_host_client_upstream(values)
     if not peer:
         return (
-            '    location /assets/ {\n'
+            remotes
+            + '    location /assets/ {\n'
             '        expires 1y;\n'
             '        add_header Cache-Control "public, immutable" always;\n'
             '        try_files $uri =404;\n'
@@ -165,7 +208,8 @@ def render_spa_locations_host(values: Mapping[str, str]) -> str:
         '        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n'
     )
     return (
-        '    location /assets/ {\n'
+        remotes
+        + '    location /assets/ {\n'
         '        expires 1y;\n'
         '        add_header Cache-Control "public, immutable" always;\n'
         f'{proxy}'

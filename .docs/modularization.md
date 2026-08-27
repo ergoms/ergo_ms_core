@@ -33,7 +33,7 @@
 
 Если входной сайт — хост модулей, а Django ядра на другой машине: в `env/nginx.env` задайте `NGINX_API_UPSTREAM=<хост-ядра>:8000`. Общий `/api/` и `/ws/` уйдут туда; `/api/<name>/` по-прежнему на локальные процессы из `MICROSERVICE_MODULES`. В `CLIENT_MODULES` перечислите только модули этого хоста. На ядре в `API_ALLOWED_HOSTS` и `CSRF_TRUSTED_ORIGINS` должен быть публичный origin этого nginx.
 
-Если наоборот люди открывают nginx ядра, а собранный клиент живёт на хосте модулей: на ядре задайте `NGINX_CLIENT_UPSTREAM=<хост-модулей>:80` и выполните `ergoms reload-nginx`. Оболочка (`/`, `/assets/`) пойдёт на тот хост; `/api/` и `/ws/` останутся у ядра. На одном hostname это заменяет локальный `core/client/dist` ядра: страницы модулей, которых нет в той сборке, на этом адресе больше не откроются. Чтобы оба интерфейса жили на одном имени, нужна федеративная сборка (`CLIENT_MODULARITY=federated`), а не этот ключ. В Docker Compose `NGINX_CLIENT_UPSTREAM` не читается.
+Если наоборот люди открывают nginx ядра, а собранный клиент живёт на хосте модулей: на ядре задайте `NGINX_CLIENT_UPSTREAM=<хост-модулей>:80` и выполните `ergoms reload-nginx`. Оболочка (`/`, `/assets/`) пойдёт на тот хост; `/api/` и `/ws/` останутся у ядра. На одном hostname это заменяет локальный `core/client/dist` ядра: страницы модулей, которых нет в той сборке, на этом адресе больше не откроются. Чтобы оба интерфейса жили на одном имени, оставьте местный `dist` и задайте `CLIENT_MODULE_REMOTES` плюс `NGINX_CLIENT_REMOTES_UPSTREAM`: оболочка и локальные модули здесь, страницы микросервисов — `remoteEntry.js` с хоста модулей (`/remotes/<name>/`). Папка `modules/<name>/` на ядре для этого не нужна. В Docker Compose `NGINX_CLIENT_UPSTREAM` не читается.
 
 ## Несколько серверов без выноса всего хоста
 
@@ -156,7 +156,7 @@ ergoms db-move-core-schema
 
 ## Этап 6 — клиент и сопровождение
 
-- Federated remote: `ergoms client-build-remote --module=<name>`. Если remote недоступен, оболочка продолжает работу (предупреждение в логе, не белый экран).
+- Federated remote: `ergoms client-build-remote --module=<name>` на хосте, где лежит `modules/<name>/client`. Свой `federation-entry.js` не обязателен: сборка соберёт его из hook-файлов. Если remote недоступен, оболочка продолжает работу (предупреждение в логе, не белый экран).
 - Standalone SPA: `ergoms client-build-standalone --module=<name>`.
 - В логах смотрите поля `service` / `module` и `request_id`.
 - Следующий модуль выносят по чеклисту ниже; живой эталон файлов — `modules/module_template/`.

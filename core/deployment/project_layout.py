@@ -162,6 +162,11 @@ def nodejs_bin_dir(root: Path) -> Path:
     return base / 'bin'
 
 
+def client_remotes_dir(root: Path) -> Path:
+    """Собранные federated remotes: virtual_env/client-remotes/<name>/remoteEntry.js."""
+    return virtual_env_dir(root) / 'client-remotes'
+
+
 def jupyter_dir(root: Path) -> Path:
     return virtual_env_dir(root) / 'jupyter'
 
