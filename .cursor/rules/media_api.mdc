@@ -38,6 +38,8 @@ const { path } = await mediaApiClient.upload(file, { targetDir: 'tasks/attachmen
 
 Класс квоты ставит ядро по `target_dir` (группа `media.upload_quota_policies`). Клиент **не** передаёт `quota`. Частота модуля — в `modules/<name>/.env`, не в `MEDIA_API_UPLOAD_RATE` / `_ADMIN`. Потолок токена и nginx `/upload/` — `MEDIA_API_UPLOAD_RATE_CEILING` (после смены: `ergoms reload-nginx`).
 
+При `MODULE_RUNTIME=microservice` токен для `target_dir`, который начинается с имени из `MICROSERVICE_MODULES`, клиент берёт у процесса модуля (`/api/<name>/media/upload-token/`). Остальные загрузки (аватары, вложения ядра) по-прежнему идут в `utils/media/upload-token/` на ядре. Так файлы модуля остаются на хосте с `HOST_MEDIA=on`, а файлы ядра — на media_api ядра. `upload_url` и HMAC считает тот процесс, который делит диск с местным media_api (`API_SECRET_KEY` этого хоста).
+
 ## Скачивание (клиент)
 
 Единый хелпер — [`mediaDownload.js`](../../core/client/src/js/utils/mediaDownload.js). **Не** открывай signed URL через `target=_blank` для attachment (вкладка мигает и закрывается).
@@ -87,6 +89,8 @@ with get_scratch_store().session('job') as workdir:
 
 - `local` — API читает/пишет файлы на том же сервере
 - `remote` — через internal API media_api, нужен `MEDIA_API_INTERNAL_KEY`
+
+На хосте только модулей (`HOST_PROFILE=modules`, `HOST_MEDIA=on`) оставляйте `ERGO_MEDIA=local`: байты модуля пишутся в местный media_api. Не ставьте на этом хосте `ERGO_MEDIA=remote` «чтобы достучаться до ядра» — тогда модуль снова будет искать файлы не там, куда их загрузил браузер.
 
 Детали (`MEDIA_API_*`, лимиты): [`env/media.env.example`](../../env/media.env.example).
 
