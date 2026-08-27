@@ -14,6 +14,7 @@ import { getRelativeTime, formatDateTime } from '@/js/utils/timeUtils.js'
 |--------|---------|
 | «5 минут назад» | `getRelativeTime` |
 | Дата и время | `formatDateTime` |
+| Дата словами и время | `formatDateTimeLong` |
 | Дата со днём недели и временем | `formatDateWeekdayTime` |
 | Дата «01 января 2024» | `formatDate` |
 | Короткая дата | `formatDateShort` |
