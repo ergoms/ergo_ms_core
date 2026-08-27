@@ -89,7 +89,9 @@ def compose_file_list(mode: str, raw_env: dict[str, str]) -> list[Path]:
     if env_bool_key(raw_env, 'DOCKER_PROFILE_MEILISEARCH') or effective_docker_profile_meilisearch(raw_env):
         files.append(DOCKER_DIR / 'docker-compose.meilisearch.yml')
     workers = DOCKER_DIR / 'docker-compose.workers.generated.yml'
-    if workers.is_file():
+    from lifecycle.host_profile import SERVICE_YAML_WORKERS, resolve_host_profile
+
+    if workers.is_file() and resolve_host_profile(raw_env).wants(SERVICE_YAML_WORKERS):
         files.append(workers)
     modules = DOCKER_DIR / 'docker-compose.modules.generated.yml'
     runtime = (raw_env.get('MODULE_RUNTIME') or 'monolith').strip().lower()
@@ -283,10 +285,22 @@ def build_compose_cmd(
         cmd.extend(['-f', str(compose_file)])
 
     profiles = (
-        ['postgres', 'nginx', 'jupyter', 'loadtest', 'meilisearch']
+        [
+            'postgres',
+            'nginx',
+            'jupyter',
+            'loadtest',
+            'meilisearch',
+            'host-api',
+            'host-media',
+            'host-beat',
+        ]
         if for_clean
         else compose_profiles(raw)
     )
+    if action in ('run', 'exec') and extra_args and 'api' in extra_args:
+        if 'host-api' not in profiles:
+            profiles.append('host-api')
     for profile in profiles:
         cmd.extend(['--profile', profile])
 

@@ -394,6 +394,10 @@ def docker_mode(raw_env: dict[str, str]) -> str:
 
 def compose_profiles(raw_env: dict[str, str]) -> list[str]:
     profiles: list[str] = []
+    from lifecycle.host_profile import resolve_host_profile
+
+    host = resolve_host_profile(raw_env)
+    profiles.extend(host.docker_compose_profiles())
     if env_bool(raw_env.get('DOCKER_PROFILE_NGINX')) or effective_nginx_enabled(raw_env):
         profiles.append('nginx')
     if effective_docker_profile_jupyter(raw_env):

@@ -10,6 +10,7 @@ import _bootstrap  # noqa: F401
 from docker_runtime import (  # noqa: E402
     INFRA_PUBLISH_BIND,
     build_compose_env_overrides,
+    compose_profiles,
     build_publish_compose_content,
     build_redis_auth_compose_content,
     effective_db_host,
@@ -283,6 +284,19 @@ class InfraPublishBindTests(unittest.TestCase):
     def test_empty_publish_has_no_wildcard_ports(self) -> None:
         content = build_publish_compose_content({})
         self.assertIn('services: {}', content)
+
+
+class HostProfileComposeTests(unittest.TestCase):
+    def test_full_includes_host_api_media_beat(self) -> None:
+        profiles = compose_profiles({'HOST_PROFILE': 'full', 'ERGO_PROXY': 'none'})
+        self.assertIn('host-api', profiles)
+        self.assertIn('host-media', profiles)
+        self.assertIn('host-beat', profiles)
+
+    def test_modules_omits_host_api(self) -> None:
+        profiles = compose_profiles({'HOST_PROFILE': 'modules', 'ERGO_PROXY': 'none'})
+        self.assertNotIn('host-api', profiles)
+        self.assertNotIn('host-beat', profiles)
 
 
 if __name__ == '__main__':

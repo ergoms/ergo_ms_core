@@ -17,7 +17,7 @@ sections:
   - name: install
     summary: 'Alias for install-services: install and start all services'
   - name: install-services
-    summary: Install and start all OS services (modules from host_lifecycle.yaml; nginx/redis — when ERGO_PROXY/ERGO_BROKER is set in .env)
+    summary: Install and start OS services according to HOST_PROFILE (modules from host_lifecycle.yaml; nginx/redis — when ERGO_PROXY/ERGO_BROKER is set)
   - name: install-api-service
     summary: Install and start the API service only
   - name: install-client-service
@@ -65,7 +65,7 @@ sections:
     summary: API only
   - name: start-module
     invoke: ergoms start-module --module=<name>
-    summary: HTTP API of a single module (MODULE_RUNTIME=microservice)
+    summary: HTTP API of a single module (MODULE_RUNTIME=microservice; HOST_PROFILE and MODULE_PROCESS_PROFILE in env)
   - name: start-client
     summary: Client (Vite, or nginx when NGINX_ENABLED=true)
   - name: start-media

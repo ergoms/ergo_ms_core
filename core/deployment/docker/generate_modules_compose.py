@@ -44,8 +44,7 @@ SERVICE_TEMPLATE = """
     depends_on:
       redis:
         condition: service_healthy
-      api:
-        condition: service_started
+{depends_on_api}
     networks:
       - ergo_net
     command: ["python", "core/api/scripts/start_module_api.py", "--module={name}"]
@@ -106,13 +105,24 @@ def module_port(name: str, environ: dict[str, str] | None = None) -> str:
     return str(8100 + (sum(ord(c) for c in name) % 500))
 
 
-def generate(modules: list[str], environ: dict[str, str] | None = None) -> str:
+_API_DEPENDS = """      api:
+        condition: service_started
+"""
+
+
+def generate(
+    modules: list[str],
+    environ: dict[str, str] | None = None,
+    *,
+    depends_on_api: bool = True,
+) -> str:
     header = """# Автогенерация: ergoms docker-gen-modules (не редактировать вручную)
 services:
 """
     if not modules:
         return header + "  {}\n"
 
+    api_block = _API_DEPENDS if depends_on_api else ''
     blocks = []
     for name in modules:
         port = module_port(name, environ)
@@ -121,6 +131,7 @@ services:
                 name=name,
                 port=port,
                 volumes=PYTHON_VOLUMES_YAML,
+                depends_on_api=api_block,
             )
         )
     return header + '\n'.join(blocks)
@@ -161,7 +172,13 @@ def main() -> int:
     if not _is_microservice(runtime):
         modules = []
 
-    content = generate(modules, environ)
+    from lifecycle.host_profile import SERVICE_API, resolve_host_profile
+
+    content = generate(
+        modules,
+        environ,
+        depends_on_api=resolve_host_profile(environ).wants(SERVICE_API),
+    )
     args.output.write_text(content, encoding='utf-8')
     if not args.quiet:
         if hasattr(sys.stdout, 'reconfigure'):

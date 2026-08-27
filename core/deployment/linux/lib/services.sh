@@ -697,6 +697,48 @@ disable_client_service_if_nginx() {
   nginx_skip_client_message "$root"
 }
 
+_remove_unit_if_present() {
+  local unit="$1"
+  _unit_is_present "$unit" || return 0
+  systemctl_do stop "$unit" 2>/dev/null || true
+  systemctl_do disable "$unit" 2>/dev/null || true
+  if [[ -f "/etc/systemd/system/$unit" || -L "/etc/systemd/system/$unit" ]]; then
+    if [[ $(id -u) -eq 0 ]]; then
+      rm -f "/etc/systemd/system/$unit"
+    else
+      sudo rm -f "/etc/systemd/system/$unit"
+    fi
+    write_ergoms_message svc_unit_removed gray "" "path=/etc/systemd/system/$unit"
+  fi
+}
+
+remove_stale_host_profile_units() {
+  local root="$1"
+  local unit workers worker
+
+  if ! host_profile_wants "$root" api; then
+    _remove_unit_if_present ergo_ms_api_dev.service
+  fi
+  if ! host_profile_wants "$root" client; then
+    _remove_unit_if_present ergo_ms_client_dev.service
+  fi
+  if ! host_profile_wants "$root" media; then
+    _remove_unit_if_present ergo_ms_media_api.service
+  fi
+  if ! host_profile_wants "$root" beat; then
+    _remove_unit_if_present ergo_ms_celery_beat.service
+  fi
+  if ! host_profile_wants "$root" yaml_workers; then
+    workers="$(get_celery_workers "$root")"
+    if [[ -n "$workers" ]]; then
+      for worker in $workers; do
+        _remove_unit_if_present "ergo_ms_celery_worker_${worker}.service"
+      done
+    fi
+    _remove_unit_if_present ergo_ms_celery_worker.service
+  fi
+}
+
 install_services() {
   local root="$1"
   local skip_client=0
@@ -715,32 +757,51 @@ install_services() {
   
   # Получаем базовые unit definitions
   get_base_unit_definitions "$root"
+
+  reset_units_cache
+  remove_stale_host_profile_units "$root"
   
-  # Устанавливаем базовые службы
-  install_unit "ergo_ms_api_dev"        "$API_UNIT" "$root"
-  if (( skip_client == 0 )); then
-    install_unit "ergo_ms_client_dev"     "$CLIENT_UNIT" "$root"
+  if host_profile_wants "$root" api; then
+    install_unit "ergo_ms_api_dev"        "$API_UNIT" "$root"
+  fi
+  if host_profile_wants "$root" client; then
+    if (( skip_client == 0 )); then
+      install_unit "ergo_ms_client_dev"     "$CLIENT_UNIT" "$root"
+    else
+      disable_client_service_if_nginx "$root"
+    fi
   else
     disable_client_service_if_nginx "$root"
   fi
-  install_unit "ergo_ms_media_api"      "$MEDIA_API_UNIT" "$root"
-  install_unit "ergo_ms_celery_beat"    "$CELERY_BEAT_UNIT" "$root"
+  if host_profile_wants "$root" media; then
+    install_unit "ergo_ms_media_api"      "$MEDIA_API_UNIT" "$root"
+  fi
+  if host_profile_wants "$root" beat; then
+    install_unit "ergo_ms_celery_beat"    "$CELERY_BEAT_UNIT" "$root"
+  fi
   
-  # Устанавливаем воркеры из конфигурации
-  install_worker_units "$root"
+  if host_profile_wants "$root" yaml_workers; then
+    install_worker_units "$root"
+  fi
 
   daemon_reload
 
-  # Включаем и запускаем базовые службы
-  enable_and_start ergo_ms_api_dev.service
-  if (( skip_client == 0 )); then
+  if host_profile_wants "$root" api; then
+    enable_and_start ergo_ms_api_dev.service
+  fi
+  if host_profile_wants "$root" client && (( skip_client == 0 )); then
     enable_and_start ergo_ms_client_dev.service
   fi
-  enable_and_start ergo_ms_media_api.service
-  enable_and_start ergo_ms_celery_beat.service
+  if host_profile_wants "$root" media; then
+    enable_and_start ergo_ms_media_api.service
+  fi
+  if host_profile_wants "$root" beat; then
+    enable_and_start ergo_ms_celery_beat.service
+  fi
   
-  # Включаем и запускаем воркеры
-  enable_and_start_workers "$root"
+  if host_profile_wants "$root" yaml_workers; then
+    enable_and_start_workers "$root"
+  fi
 
   echo ""
   write_ergoms_message svc_installed_running_heading green
@@ -821,6 +882,7 @@ install_single_service() {
   write_ergoms_message svc_one_started_bang green "" "name=$service_name"
 }
 
+export -f remove_stale_host_profile_units
 export -f disable_client_service_if_nginx
 export -f set_service_project_root
 export -f start_all

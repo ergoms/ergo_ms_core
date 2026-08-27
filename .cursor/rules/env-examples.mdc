@@ -28,7 +28,7 @@ alwaysApply: false
 | [`env/celery.env.example`](../../env/celery.env.example) | `CELERY_BROKER_*`, `CELERY_BALANCE*` |
 | [`env/postgres.env.example`](../../env/postgres.env.example) | служба portable Postgres, knobs `postgresql.conf` |
 | [`env/search.env.example`](../../env/search.env.example) | Meilisearch / BM25 (`MEILI_*`); режим `ERGO_SEARCH_ENABLED` — в корне |
-| [`env/modules.env.example`](../../env/modules.env.example) | microservice / ModuleBridge (`MICROSERVICE_MODULES`, `BRIDGE_*`) |
+| [`env/modules.env.example`](../../env/modules.env.example) | microservice / ModuleBridge (`MICROSERVICE_MODULES`, `BRIDGE_*`, `HOST_SERVICES`, `MODULE_PROCESS_PROFILE`) |
 | [`databases.yaml.example`](../../databases.yaml.example) | SQL + секция `redis` |
 | [`celery_workers.yaml.example`](../../celery_workers.yaml.example) | процессы Celery worker |
 
@@ -50,6 +50,7 @@ ERGO_REALTIME=websocket|sse|http_polling
 ERGO_SEARCH_ENABLED=true|false
 ERGO_ENV=development|production
 MODULE_RUNTIME=monolith|microservice
+HOST_PROFILE=full|core|modules|auto
 ```
 
 Детали microservice / ModuleBridge — [`env/modules.env.example`](../../env/modules.env.example), не корневой `.env`.

@@ -542,6 +542,36 @@ function Test-PostgresPortableEnabled {
 
 
 
+function Test-HostProfileWants {
+    param(
+        [string]$ProjectRoot,
+        [string]$ServiceId
+    )
+    $python = Join-Path $ProjectRoot 'virtual_env\python\Scripts\python.exe'
+    $script = Join-Path $ProjectRoot 'core\deployment\lifecycle\host_profile.py'
+    if (-not (Test-Path -LiteralPath $python) -or -not (Test-Path -LiteralPath $script)) {
+        return $true
+    }
+    & $python $script --root $ProjectRoot --wants $ServiceId 2>$null | Out-Null
+    return ($LASTEXITCODE -eq 0)
+}
+
+function Get-HostProfileCoreUnits {
+    param([string]$ProjectRoot)
+    $python = Join-Path $ProjectRoot 'virtual_env\python\Scripts\python.exe'
+    $script = Join-Path $ProjectRoot 'core\deployment\lifecycle\host_profile.py'
+    if (-not (Test-Path -LiteralPath $python) -or -not (Test-Path -LiteralPath $script)) {
+        return @('ergo_ms_api_dev', 'ergo_ms_client_dev', 'ergo_ms_media_api', 'ergo_ms_celery_beat')
+    }
+    try {
+        $out = & $python $script --root $ProjectRoot --core-units 2>$null
+        if (-not $out) { return @() }
+        return @($out | ForEach-Object { "$_".Trim() } | Where-Object { $_ })
+    } catch {
+        return @('ergo_ms_api_dev', 'ergo_ms_client_dev', 'ergo_ms_media_api', 'ergo_ms_celery_beat')
+    }
+}
+
 function Get-ModuleHostServiceUnits {
     param([string]$ProjectRoot)
     $python = Join-Path $ProjectRoot 'virtual_env\python\Scripts\python.exe'
@@ -610,6 +640,9 @@ function Get-ServiceNames {
     $redisEnabled = Test-RedisEnabled -ProjectRoot $ProjectRoot
     $searchEnabled = Test-SearchEnabled -ProjectRoot $ProjectRoot
     $postgresEnabled = Test-PostgresPortableEnabled -ProjectRoot $ProjectRoot
+    $coreUnits = @(Get-HostProfileCoreUnits -ProjectRoot $ProjectRoot)
+    $coreKey = ($coreUnits -join ',')
+    $yamlWorkers = [bool](Test-HostProfileWants -ProjectRoot $ProjectRoot -ServiceId 'yaml_workers')
 
     if (
         $script:CachedServiceNames -and
@@ -617,12 +650,14 @@ function Get-ServiceNames {
         $script:CachedNginxEnabled -eq $nginxEnabled -and
         $script:CachedRedisEnabled -eq $redisEnabled -and
         $script:CachedSearchEnabled -eq $searchEnabled -and
-        $script:CachedPostgresEnabled -eq $postgresEnabled
+        $script:CachedPostgresEnabled -eq $postgresEnabled -and
+        $script:CachedHostCoreUnits -eq $coreKey -and
+        $script:CachedYamlWorkers -eq $yamlWorkers
     ) {
         return $script:CachedServiceNames
     }
 
-    $services = @() + $script:BaseServices
+    $services = @() + $coreUnits
 
     if ($postgresEnabled) {
         $postgresServiceName = 'ergo_ms_postgres'
@@ -646,14 +681,16 @@ function Get-ServiceNames {
         }
     }
 
-    $workers = Get-CeleryWorkers -ProjectRoot $ProjectRoot
-    if ($workers.Count -gt 0) {
-        foreach ($worker in $workers) {
-            $services += "ergo_ms_celery_worker_$worker"
+    if (Test-HostProfileWants -ProjectRoot $ProjectRoot -ServiceId 'yaml_workers') {
+        $workers = Get-CeleryWorkers -ProjectRoot $ProjectRoot
+        if ($workers.Count -gt 0) {
+            foreach ($worker in $workers) {
+                $services += "ergo_ms_celery_worker_$worker"
+            }
         }
-    }
-    else {
-        $services += "ergo_ms_celery_worker"
+        else {
+            $services += "ergo_ms_celery_worker"
+        }
     }
 
     foreach ($unit in @(Get-ModuleHostServiceUnits -ProjectRoot $ProjectRoot)) {
@@ -668,6 +705,8 @@ function Get-ServiceNames {
     $script:CachedRedisEnabled = $redisEnabled
     $script:CachedSearchEnabled = $searchEnabled
     $script:CachedPostgresEnabled = $postgresEnabled
+    $script:CachedHostCoreUnits = $coreKey
+    $script:CachedYamlWorkers = $yamlWorkers
 
     return $script:CachedServiceNames
 }
@@ -681,6 +720,10 @@ function Get-WorkerServiceNames {
     $services = @()
 
     
+
+    if (-not (Test-HostProfileWants -ProjectRoot $ProjectRoot -ServiceId 'yaml_workers')) {
+        return @()
+    }
 
     $workers = Get-CeleryWorkers -ProjectRoot $ProjectRoot
 
@@ -717,7 +760,10 @@ function Reset-ServiceNamesCache {
     $script:CachedProjectRoot = $null
     $script:CachedNginxEnabled = $null
     $script:CachedRedisEnabled = $null
+    $script:CachedSearchEnabled = $null
     $script:CachedPostgresEnabled = $null
+    $script:CachedHostCoreUnits = $null
+    $script:CachedYamlWorkers = $null
 }
 
 # Export-ModuleMember -Function *  # Удалено, так как это не модуль

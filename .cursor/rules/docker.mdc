@@ -13,7 +13,7 @@ alwaysApply: false
 - Каталог: `core/deployment/docker/` — compose-файлы, `Dockerfile.python`, `Dockerfile.client`, `docker_cli.py`, `docker_runtime.py`
 - OOP lifecycle: `core/deployment/lifecycle/` — `runner.py`, `DeploymentOrchestrator`, `recipes.py`, шаги compose (`compose_steps.py`); **`docker_cli.py`** делегирует `up`/`down`/`build`/`ps`/`logs`/`init` в `run_recipe('docker-*')`
 - Режимы: **`dev`** (bind-mount, Vite, runserver) и **`prod`** (daphne, `client-build`, опционально nginx)
-- Profiles: `postgres`, `nginx`, `jupyter`, `meilisearch` — через `DOCKER_PROFILE_*` в [`env/docker.env`](../../env/docker.env.example) (Meili по умолчанию из `ERGO_SEARCH_ENABLED`)
+- Profiles: `postgres`, `nginx`, `jupyter`, `meilisearch` — через `DOCKER_PROFILE_*` в [`env/docker.env`](../../env/docker.env.example) (Meili по умолчанию из `ERGO_SEARCH_ENABLED`). `host-api` / `host-media` / `host-beat` — из `HOST_PROFILE` (ядро на этой машине или нет)
 - Генерируемые артефакты — **не коммитить** (см. корневой `.gitignore`)
 - Скрипты **не пишут** в корневой `.env` / `databases.yaml` — только `.compose.env`, `.compose.databases.yaml` и др. — см. [`no-auto-env-write.mdc`](no-auto-env-write.mdc)
 - **При любой правке сценариев запуска или развёртывания** — сверяйся с разделом [«Параллельные сценарии»](#параллельные-сценарии-запуска) ниже

@@ -216,10 +216,32 @@ def load_host_lifecycle_entries(project_root: str) -> tuple[HostLifecycleEntry, 
     return tuple(entries)
 
 
+def _kind_from_process_unit(unit: str, module: str) -> str | None:
+    short = unit[: -len('.service')] if unit.endswith('.service') else unit
+    if short == process_service_unit_name(module, 'api'):
+        return 'api'
+    if short == process_service_unit_name(module, 'worker'):
+        return 'worker'
+    return None
+
+
+def allows_module_kind(catalog: ModuleCatalog, host_profile, module: str, kind: str) -> bool:
+    if not catalog.allows_module_process_os_services(module):
+        return False
+    if kind == 'api':
+        return host_profile.wants('module_api')
+    if kind == 'worker':
+        return host_profile.wants('module_worker')
+    return True
+
+
 def aggregate_host_lifecycle(project_root: Path | str) -> HostLifecycleAggregate:
     root = Path(project_root).resolve()
     entries = load_host_lifecycle_entries(str(root))
     catalog = ModuleCatalog.from_project_env(root)
+    from lifecycle.host_profile import resolve_host_profile_from_root  # noqa: WPS433
+
+    host_profile = resolve_host_profile_from_root(root)
     agg = HostLifecycleAggregate()
     seen_stop: set[str] = set()
     seen_install: set[str] = set()
@@ -228,7 +250,6 @@ def aggregate_host_lifecycle(project_root: Path | str) -> HostLifecycleAggregate
     seen_skipped: set[str] = set()
 
     for entry in entries:
-        process_ok = catalog.allows_module_process_os_services(entry.module)
         agg.modules.append(entry.module)
         for cmd in entry.stop_commands:
             if cmd not in seen_stop:
@@ -236,11 +257,13 @@ def aggregate_host_lifecycle(project_root: Path | str) -> HostLifecycleAggregate
                 agg.stop_commands.append(cmd)
         for cmd in entry.install_service_commands:
             parsed = parse_module_process_service_command(cmd)
-            if parsed is not None and not process_ok:
-                if cmd not in seen_skipped:
-                    seen_skipped.add(cmd)
-                    agg.skipped_process_install_commands.append(cmd)
-                continue
+            if parsed is not None:
+                _action, _module, kind = parsed
+                if not allows_module_kind(catalog, host_profile, entry.module, kind):
+                    if cmd not in seen_skipped:
+                        seen_skipped.add(cmd)
+                        agg.skipped_process_install_commands.append(cmd)
+                    continue
             if cmd not in seen_install:
                 seen_install.add(cmd)
                 agg.install_service_commands.append(cmd)
@@ -249,7 +272,10 @@ def aggregate_host_lifecycle(project_root: Path | str) -> HostLifecycleAggregate
                 seen_uninstall.add(cmd)
                 agg.uninstall_service_commands.append(cmd)
         for unit in entry.service_units:
-            if not process_ok and is_module_process_service_unit(unit, entry.module):
+            kind = _kind_from_process_unit(unit, entry.module)
+            if kind is not None and not allows_module_kind(
+                catalog, host_profile, entry.module, kind
+            ):
                 continue
             if unit not in seen_units:
                 seen_units.add(unit)
@@ -306,20 +332,21 @@ def collect_stale_module_process_uninstall_commands(project_root: Path | str) ->
     """Снять API/worker OS-службы модуля, если текущий режим их больше не ставит."""
     root = Path(project_root).resolve()
     catalog = ModuleCatalog.from_project_env(root)
+    from lifecycle.host_profile import resolve_host_profile_from_root  # noqa: WPS433
+
+    host_profile = resolve_host_profile_from_root(root)
     seen: set[str] = set()
     commands: list[str] = []
     for entry in load_host_lifecycle_entries(str(root)):
-        if catalog.allows_module_process_os_services(entry.module):
-            continue
-        process_units = [
-            unit for unit in entry.service_units
-            if is_module_process_service_unit(unit, entry.module)
-        ]
-        if not process_units or not any(unit_is_installed(unit) for unit in process_units):
-            continue
         for cmd in entry.uninstall_service_commands:
             parsed = parse_module_process_service_command(cmd)
             if parsed is None or parsed[0] != 'uninstall':
+                continue
+            kind = parsed[2]
+            if allows_module_kind(catalog, host_profile, entry.module, kind):
+                continue
+            unit = process_service_unit_name(entry.module, kind)
+            if not unit_is_installed(unit):
                 continue
             if cmd in seen:
                 continue

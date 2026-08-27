@@ -30,11 +30,19 @@ class GenerateModulesComposeTests(unittest.TestCase):
         api = services['demo_mod']
         self.assertEqual(api['command'], ['python', 'core/api/scripts/start_module_api.py', '--module=demo_mod'])
         self.assertIn('8123', api['expose'])
+        self.assertIn('api', api['depends_on'])
         worker = services['demo_mod-worker']
         self.assertEqual(
             worker['command'],
             ['python', 'core/api/scripts/start_celery_worker.py', '--module=demo_mod'],
         )
+
+    def test_modules_host_omits_api_depends(self) -> None:
+        text = generate(['demo_mod'], {'DEMO_MOD_PORT': '8123'}, depends_on_api=False)
+        data = yaml.safe_load(text)
+        depends = data['services']['demo_mod']['depends_on']
+        self.assertIn('redis', depends)
+        self.assertNotIn('api', depends)
 
     def test_healthcheck_is_cmd_list_not_shell(self) -> None:
         text = generate(['demo_mod'], {'DEMO_MOD_PORT': '8123'})

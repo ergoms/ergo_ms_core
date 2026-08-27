@@ -81,12 +81,16 @@
 
 1. В `.env`: `MODULE_RUNTIME=microservice`, `MICROSERVICE_MODULES=<name>`, `BRIDGE_TRANSPORT=http`, `BRIDGE_EVENT_BUS=redis`, `BRIDGE_SERVICE_URLS`, `BRIDGE_CORE_URL`, `<NAME>_PORT`. Токен `BRIDGE_INTERNAL_TOKEN` обязателен вне DEBUG.
 2. У модуля — `api/bridge_manifest.yaml`. Без файла `ergoms core-rules-check` падает, если имя есть в `MICROSERVICE_MODULES`.
-3. Запуск: `ergoms start-module --module=<name>`, `ergoms start-worker --module=<name>`. OS-службы API/worker: `ergoms install-module-service --module=<name> --kind=api|worker` (или hook `host_lifecycle.yaml`) — `install-services` ставит их только при `MODULE_RUNTIME=microservice` и имени в `MICROSERVICE_MODULES`.
+3. Запуск: `ergoms start-module --module=<name>`, `ergoms start-worker --module=<name>`. OS-службы API/worker: `ergoms install-module-service --module=<name> --kind=api|worker` (или hook `host_lifecycle.yaml`) — `install-services` ставит их только при `MODULE_RUNTIME=microservice`, имени в `MICROSERVICE_MODULES` и `HOST_PROFILE`, который допускает `module_api` / `module_worker`.
 4. Прокси: `ergoms reload-nginx`. Location `/api/<name>/` не failover’ит на ядро; при 502/503 клиент получает JSON `module_unavailable`.
-5. Docker: `ergoms docker-gen-modules` + `ergoms docker-up`. Compose добавляет сервис API и worker модуля.
+5. Docker: `ergoms docker-gen-modules` + `ergoms docker-up`. Compose добавляет сервис API и worker модуля. Профили `host-api` / `host-media` / `host-beat` включаются по `HOST_PROFILE`.
 6. Откат: `MODULE_RUNTIME=monolith`, `BRIDGE_TRANSPORT=local`. Режим разработки не ломается.
 
-Health процесса модуля — тот же `GET /api/system/ready/` на порту модуля (процесс грузит Django-стек ядра).
+Набор служб на машине задаёт `HOST_PROFILE` в корневом `.env` (`full` | `core` | `modules` | `auto`). `full` — как раньше. На хосте только модулей (nginx смотрит на чужое ядро через `NGINX_API_UPSTREAM`) поставьте `modules` или `auto` и выполните `ergoms install-services`. Детали — `HOST_SERVICES`, `HOST_MEDIA`, `HOST_CELERY_WORKERS` в `env/modules.env`.
+
+Процесс модуля по умолчанию грузит весь стек ядра. `MODULE_PROCESS_PROFILE=slim` оставляет JWT, мост, CMS ADP и аудит; лишние URL и WS-стек не монтируются. Дополнительные apps ядра — `MODULE_PROCESS_CORE_EXTRA` или hook `api/process_profile.yaml` (`core_apps`).
+
+Health процесса модуля — тот же `GET /api/system/ready/` на порту модуля.
 
 ## Этап 2 — схема PostgreSQL
 

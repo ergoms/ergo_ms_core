@@ -242,19 +242,50 @@ list_module_host_stop_pairs() {
   "$py" "$script" --root "$project_root" --stop-commands-paired 2>/dev/null || true
 }
 
+host_profile_script() {
+  echo "${1:-}/core/deployment/lifecycle/host_profile.py"
+}
+
+host_profile_python() {
+  echo "${1:-}/virtual_env/python/bin/python"
+}
+
+host_profile_wants() {
+  local project_root="${1:-}"
+  local service_id="${2:-}"
+  local py script
+  py="$(host_profile_python "$project_root")"
+  script="$(host_profile_script "$project_root")"
+  [[ -x "$py" && -f "$script" ]] || return 0
+  "$py" "$script" --root "$project_root" --wants "$service_id" >/dev/null 2>&1
+}
+
+host_profile_core_units() {
+  local project_root="${1:-}"
+  local py script
+  py="$(host_profile_python "$project_root")"
+  script="$(host_profile_script "$project_root")"
+  [[ -x "$py" && -f "$script" ]] || return 0
+  "$py" "$script" --root "$project_root" --core-units 2>/dev/null || true
+}
+
 # Генерация списка служб на основе конфигурации воркеров
 generate_units_list() {
   local project_root="${1:-}"
-  local units="ergo_ms_api_dev.service ergo_ms_media_api.service ergo_ms_celery_beat.service"
+  local units=""
   local postgres_svc='ergo_ms_postgres'
   local from_env
   local unit
   local module_unit
+  local core_unit
+
+  while IFS= read -r core_unit; do
+    [[ -z "$core_unit" ]] && continue
+    units="$units ${core_unit}.service"
+  done < <(host_profile_core_units "$project_root")
 
   if is_nginx_enabled "$project_root"; then
     units="$units ergo_ms_nginx.service"
-  else
-    units="ergo_ms_api_dev.service ergo_ms_client_dev.service ergo_ms_media_api.service ergo_ms_celery_beat.service"
   fi
 
   if is_redis_enabled "$project_root"; then
@@ -271,17 +302,17 @@ generate_units_list() {
     units="${postgres_svc}.service $units"
   fi
   
-  local workers
-  workers="$(get_celery_workers "$project_root")"
-  
-  if [[ -n "$workers" ]]; then
-    # Добавляем службы для каждого воркера из конфига
-    for worker in $workers; do
-      units="$units ergo_ms_celery_worker_${worker}.service"
-    done
-  else
-    # Если конфиг не найден, используем один общий воркер
-    units="$units ergo_ms_celery_worker.service"
+  if host_profile_wants "$project_root" yaml_workers; then
+    local workers
+    workers="$(get_celery_workers "$project_root")"
+
+    if [[ -n "$workers" ]]; then
+      for worker in $workers; do
+        units="$units ergo_ms_celery_worker_${worker}.service"
+      done
+    else
+      units="$units ergo_ms_celery_worker.service"
+    fi
   fi
 
   while IFS= read -r module_unit; do
@@ -302,10 +333,15 @@ generate_units_list() {
 get_worker_service_names() {
   local project_root="${1:-}"
   local services=""
-  
+
+  if ! host_profile_wants "$project_root" yaml_workers; then
+    echo ""
+    return 0
+  fi
+
   local workers
   workers="$(get_celery_workers "$project_root")"
-  
+
   if [[ -n "$workers" ]]; then
     for worker in $workers; do
       services="$services ergo_ms_celery_worker_${worker}"
@@ -313,7 +349,7 @@ get_worker_service_names() {
   else
     services="ergo_ms_celery_worker"
   fi
-  
+
   echo "$services"
 }
 
@@ -366,6 +402,8 @@ export -f get_celery_workers
 export -f list_module_host_units
 export -f list_module_host_stop_commands
 export -f list_module_host_stop_pairs
+export -f host_profile_wants
+export -f host_profile_core_units
 export -f generate_units_list
 export -f get_worker_service_names
 export -f units_list

@@ -28,6 +28,7 @@ services:
       retries: 10
 
   api:
+    profiles: ["host-api"]
     image: ${DOCKER_PYTHON_IMAGE:-ergo_ms-python:local}
     build:
       context: ../../..
@@ -56,6 +57,7 @@ services:
     restart: unless-stopped
 
   media-api:
+    profiles: ["host-media"]
     image: ${DOCKER_PYTHON_IMAGE:-ergo_ms-python:local}
     env_file:
       - .compose.env
@@ -76,6 +78,7 @@ services:
     restart: unless-stopped
 
   celery-beat:
+    profiles: ["host-beat"]
     image: ${DOCKER_PYTHON_IMAGE:-ergo_ms-python:local}
     env_file:
       - .compose.env

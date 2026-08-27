@@ -17,7 +17,7 @@ sections:
   - name: install
     summary: 'Алиас install-services: установить и запустить все службы'
   - name: install-services
-    summary: Установить и запустить все службы ОС (модули из host_lifecycle.yaml; nginx/redis — при ERGO_PROXY/ERGO_BROKER в .env)
+    summary: Установить и запустить службы ОС по HOST_PROFILE (модули из host_lifecycle.yaml; nginx/redis — при ERGO_PROXY/ERGO_BROKER)
   - name: install-api-service
     summary: Установить и запустить только службу API
   - name: install-client-service
@@ -65,7 +65,7 @@ sections:
     summary: Только API
   - name: start-module
     invoke: ergoms start-module --module=<name>
-    summary: HTTP API одного модуля (MODULE_RUNTIME=microservice)
+    summary: HTTP API одного модуля (MODULE_RUNTIME=microservice; HOST_PROFILE и MODULE_PROCESS_PROFILE — в env)
   - name: start-client
     summary: Клиент (Vite или nginx при NGINX_ENABLED=true)
   - name: start-media
