@@ -243,11 +243,17 @@ def _ensure_one_locked(
     return ACTION_GENERATED
 
 
-def ensure_mode_secrets(project_root: Path) -> dict[str, tuple[EnsureSecretAction, str]]:
+def ensure_mode_secrets(
+    project_root: Path,
+    *,
+    replace_template_infra: bool = True,
+) -> dict[str, tuple[EnsureSecretAction, str]]:
     """
     Заполняет пустые секреты, нужные текущим режимам.
 
     Возвращает key → (action, display_target). Не печатает значения.
+    ``replace_template_infra=False`` — в databases.yaml не подменять
+    уже заданные шаблонные пароли вроде admin (сброс из example).
     """
     root = project_root.resolve()
     lock_path = env_secrets_lock_path(root)
@@ -264,7 +270,11 @@ def ensure_mode_secrets(project_root: Path) -> dict[str, tuple[EnsureSecretActio
                     values[spec.key] = os.environ.get(spec.key, '')
             from security.ensure_infra_credentials import ensure_infra_credentials_locked
 
-            results.update(ensure_infra_credentials_locked(root, values))
+            results.update(ensure_infra_credentials_locked(
+                root,
+                values,
+                replace_template_values=replace_template_infra,
+            ))
     except OSError:
         for spec in SECRET_SPECS:
             if spec.needed(load_project_env(root)):

@@ -239,8 +239,14 @@ def _ensure_password_field(
     section: str,
     current: str,
     frozen: bool,
+    replace_template_values: bool = True,
 ) -> EnsureSecretAction:
-    if not _is_template_password(current):
+    should_fill = (
+        _is_template_password(current)
+        if replace_template_values
+        else secret_value_is_empty(current)
+    )
+    if not should_fill:
         return ACTION_ALREADY_SET
     if frozen:
         return ACTION_ALREADY_SET
@@ -248,25 +254,17 @@ def _ensure_password_field(
     return ACTION_GENERATED
 
 
-def _user_templates_for_section(section: str) -> frozenset[str]:
-    if section == 'redis':
-        return TEMPLATE_REDIS_USERS
-    return TEMPLATE_POSTGRES_USERS
-
-
 def _collect_section_credentials(
     section: str,
     data: Mapping[str, str],
 ) -> dict[tuple[str, str], str]:
-    """Нешаблонный пароль и связанный с ним логин; иначе только нешаблонный user."""
+    """Любые непустые user/password — при сбросе шаблона это уже заданные секреты."""
     preserved: dict[tuple[str, str], str] = {}
     user = data.get('user', '')
     password = data.get('password', '')
-    if not _is_template_password(password):
+    if not secret_value_is_empty(password):
         preserved[(section, 'password')] = password
-        if _normalize(user):
-            preserved[(section, 'user')] = user
-    elif not _is_template_user(user, _user_templates_for_section(section)):
+    if not secret_value_is_empty(user):
         preserved[(section, 'user')] = user
     return preserved
 
@@ -297,8 +295,14 @@ def _ensure_user_field(
     templates: frozenset[str],
     frozen: bool,
     password_already_set: bool = False,
+    replace_template_values: bool = True,
 ) -> EnsureSecretAction:
-    if not _is_template_user(current, templates):
+    already_set = (
+        not _is_template_user(current, templates)
+        if replace_template_values
+        else not secret_value_is_empty(current)
+    )
+    if already_set:
         return ACTION_ALREADY_SET
     if frozen or password_already_set:
         return ACTION_ALREADY_SET
@@ -309,8 +313,14 @@ def _ensure_user_field(
 def ensure_infra_credentials_locked(
     project_root: Path,
     values: Mapping[str, str],
+    *,
+    replace_template_values: bool = True,
 ) -> dict[str, tuple[EnsureSecretAction, str]]:
-    """Вызывать под тем же lock, что ensure_mode_secrets. Не печатает значения."""
+    """Вызывать под тем же lock, что ensure_mode_secrets. Не печатает значения.
+
+    ``replace_template_values=False`` — только пустые поля (сброс из example):
+    ``admin`` / ``postgres`` уже заданы человеком и не заменяются.
+    """
     root = project_root.resolve()
     display = DATABASES_REL
     results: dict[str, tuple[EnsureSecretAction, str]] = {}
@@ -330,7 +340,12 @@ def ensure_infra_credentials_locked(
                     'default',
                 )
                 frozen = _postgres_cluster_exists(root)
-                password_already_set = not _is_template_password(section.get('password', ''))
+                current_password = section.get('password', '')
+                password_already_set = (
+                    not _is_template_password(current_password)
+                    if replace_template_values
+                    else not secret_value_is_empty(current_password)
+                )
                 put(
                     'default.user',
                     _ensure_user_field(
@@ -340,6 +355,7 @@ def ensure_infra_credentials_locked(
                         templates=TEMPLATE_POSTGRES_USERS,
                         frozen=frozen,
                         password_already_set=password_already_set,
+                        replace_template_values=replace_template_values,
                     ),
                 )
                 section = _parse_simple_yaml_section(
@@ -353,6 +369,7 @@ def ensure_infra_credentials_locked(
                         section='default',
                         current=section.get('password', ''),
                         frozen=frozen,
+                        replace_template_values=replace_template_values,
                     ),
                 )
         else:
@@ -372,7 +389,12 @@ def ensure_infra_credentials_locked(
                     put('redis.password', ACTION_ENV_MISSING)
                 else:
                     frozen = _redis_conf_has_auth(root)
-                    password_already_set = not _is_template_password(section.get('password', ''))
+                    current_password = section.get('password', '')
+                    password_already_set = (
+                        not _is_template_password(current_password)
+                        if replace_template_values
+                        else not secret_value_is_empty(current_password)
+                    )
                     put(
                         'redis.user',
                         _ensure_user_field(
@@ -382,6 +404,7 @@ def ensure_infra_credentials_locked(
                             templates=TEMPLATE_REDIS_USERS,
                             frozen=frozen,
                             password_already_set=password_already_set,
+                            replace_template_values=replace_template_values,
                         ),
                     )
                     section = _parse_simple_yaml_section(
@@ -395,6 +418,7 @@ def ensure_infra_credentials_locked(
                             section='redis',
                             current=section.get('password', ''),
                             frozen=frozen,
+                            replace_template_values=replace_template_values,
                         ),
                     )
         else:

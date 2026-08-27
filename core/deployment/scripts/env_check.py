@@ -205,7 +205,10 @@ def _confirm_reset(*, assume_yes: bool, targets: list[str]) -> bool:
 
 def _print_secret_results(project_root: Path) -> int:
     write_failed = False
-    for key, (action, target) in ensure_mode_secrets(project_root).items():
+    for key, (action, target) in ensure_mode_secrets(
+        project_root,
+        replace_template_infra=False,
+    ).items():
         if action == ACTION_GENERATED:
             print(format_console('ok', t('secret_generated', key=key, target=target)))
         elif action == ACTION_ENV_MISSING:
