@@ -157,10 +157,6 @@ def _postgres_cluster_exists(project_root: Path) -> bool:
     return (project_root / 'virtual_env' / 'packages' / 'postgres' / 'data' / 'PG_VERSION').is_file()
 
 
-def _redis_conf_exists(project_root: Path) -> bool:
-    return (project_root / 'virtual_env' / 'packages' / 'redis' / 'conf' / 'redis.conf').is_file()
-
-
 def _redis_conf_has_auth(project_root: Path) -> bool:
     """True, если portable redis.conf уже задаёт requirepass (не комментарий)."""
     conf = project_root / 'virtual_env' / 'packages' / 'redis' / 'conf' / 'redis.conf'
@@ -252,6 +248,47 @@ def _ensure_password_field(
     return ACTION_GENERATED
 
 
+def _user_templates_for_section(section: str) -> frozenset[str]:
+    if section == 'redis':
+        return TEMPLATE_REDIS_USERS
+    return TEMPLATE_POSTGRES_USERS
+
+
+def _collect_section_credentials(
+    section: str,
+    data: Mapping[str, str],
+) -> dict[tuple[str, str], str]:
+    """Нешаблонный пароль и связанный с ним логин; иначе только нешаблонный user."""
+    preserved: dict[tuple[str, str], str] = {}
+    user = data.get('user', '')
+    password = data.get('password', '')
+    if not _is_template_password(password):
+        preserved[(section, 'password')] = password
+        if _normalize(user):
+            preserved[(section, 'user')] = user
+    elif not _is_template_user(user, _user_templates_for_section(section)):
+        preserved[(section, 'user')] = user
+    return preserved
+
+
+def _iter_databases_sections(text: str) -> tuple[str, ...]:
+    names: list[str] = []
+    in_databases = False
+    for raw in text.splitlines():
+        if not raw.strip() or raw.lstrip().startswith('#'):
+            continue
+        indent = len(raw) - len(raw.lstrip(' '))
+        stripped = raw.strip()
+        if stripped == 'databases:':
+            in_databases = True
+            continue
+        if not in_databases:
+            continue
+        if indent == 2 and stripped.endswith(':'):
+            names.append(stripped[:-1].strip())
+    return tuple(names)
+
+
 def _ensure_user_field(
     *,
     yaml_path: Path,
@@ -259,10 +296,11 @@ def _ensure_user_field(
     current: str,
     templates: frozenset[str],
     frozen: bool,
+    password_already_set: bool = False,
 ) -> EnsureSecretAction:
     if not _is_template_user(current, templates):
         return ACTION_ALREADY_SET
-    if frozen:
+    if frozen or password_already_set:
         return ACTION_ALREADY_SET
     upsert_yaml_section_key(yaml_path, section, 'user', generate_admin_name())
     return ACTION_GENERATED
@@ -292,6 +330,7 @@ def ensure_infra_credentials_locked(
                     'default',
                 )
                 frozen = _postgres_cluster_exists(root)
+                password_already_set = not _is_template_password(section.get('password', ''))
                 put(
                     'default.user',
                     _ensure_user_field(
@@ -300,6 +339,7 @@ def ensure_infra_credentials_locked(
                         current=section.get('user', ''),
                         templates=TEMPLATE_POSTGRES_USERS,
                         frozen=frozen,
+                        password_already_set=password_already_set,
                     ),
                 )
                 section = _parse_simple_yaml_section(
@@ -332,6 +372,7 @@ def ensure_infra_credentials_locked(
                     put('redis.password', ACTION_ENV_MISSING)
                 else:
                     frozen = _redis_conf_has_auth(root)
+                    password_already_set = not _is_template_password(section.get('password', ''))
                     put(
                         'redis.user',
                         _ensure_user_field(
@@ -340,6 +381,7 @@ def ensure_infra_credentials_locked(
                             current=section.get('user', ''),
                             templates=TEMPLATE_REDIS_USERS,
                             frozen=frozen,
+                            password_already_set=password_already_set,
                         ),
                     )
                     section = _parse_simple_yaml_section(
@@ -366,32 +408,60 @@ def ensure_infra_credentials_locked(
     return results
 
 
-def snapshot_live_credentials(
-    project_root: Path,
-    yaml_path: Path,
-) -> dict[tuple[str, str], str]:
-    """Нешаблонные user/password, если кластер Postgres или redis.conf уже есть."""
+def snapshot_live_credentials(yaml_path: Path) -> dict[tuple[str, str], str]:
+    """Нешаблонные user/password из любой секции, независимо от кластера."""
     if not yaml_path.is_file():
         return {}
     text = yaml_path.read_text(encoding='utf-8')
     preserved: dict[tuple[str, str], str] = {}
-    if _postgres_cluster_exists(project_root):
-        section = _parse_simple_yaml_section(text, 'default')
-        user = section.get('user', '')
-        password = section.get('password', '')
-        if not _is_template_user(user, TEMPLATE_POSTGRES_USERS):
-            preserved[('default', 'user')] = user
-        if not _is_template_password(password):
-            preserved[('default', 'password')] = password
-    if _redis_conf_exists(project_root):
-        section = _parse_simple_yaml_section(text, 'redis')
-        user = section.get('user', '')
-        password = section.get('password', '')
-        if not _is_template_user(user, TEMPLATE_REDIS_USERS):
-            preserved[('redis', 'user')] = user
-        if not _is_template_password(password):
-            preserved[('redis', 'password')] = password
+    for section in _iter_databases_sections(text):
+        data = _parse_simple_yaml_section(text, section)
+        preserved.update(_collect_section_credentials(section, data))
     return preserved
+
+
+def snapshot_secret_section_blocks(
+    yaml_path: Path,
+    skip: frozenset[str],
+) -> dict[str, str]:
+    """Секции с секретами, которые шаблон не копирует (celery, redis при local и т.п.)."""
+    if not yaml_path.is_file():
+        return {}
+    text = yaml_path.read_text(encoding='utf-8')
+    from config_scaffold.strategies import extract_databases_section_block
+
+    blocks: dict[str, str] = {}
+    for section in _iter_databases_sections(text):
+        if section in skip:
+            continue
+        data = _parse_simple_yaml_section(text, section)
+        if not _collect_section_credentials(section, data):
+            continue
+        block = extract_databases_section_block(text, section)
+        if block.strip():
+            blocks[section] = block
+    return blocks
+
+
+def restore_secret_section_blocks(
+    yaml_path: Path,
+    blocks: Mapping[str, str],
+) -> tuple[str, ...]:
+    """Дописывает сохранённые секции, если их нет после копирования шаблона."""
+    if not blocks or not yaml_path.is_file():
+        return ()
+    text = yaml_path.read_text(encoding='utf-8')
+    newline = _detect_newline(text)
+    added: list[str] = []
+    for section, block in blocks.items():
+        if databases_section_present(text, section):
+            continue
+        normalized = block.replace('\r\n', '\n').replace('\n', newline).rstrip() + newline
+        text = text.rstrip() + newline + newline + normalized
+        added.append(section)
+    if added:
+        yaml_path.write_text(text, encoding='utf-8')
+    return tuple(added)
 
 
 def restore_live_credentials(

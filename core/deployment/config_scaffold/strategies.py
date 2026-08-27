@@ -58,6 +58,9 @@ class DatabasesYamlCopyStrategy(CopyStrategy):
     Секция ``redis`` — при ERGO_BROKER=redis (или явном REDIS_ENABLED):
     в новый файл и в уже существующий, если секции ещё нет.
     Порт default: portable_postgres → 5433, postgres → 5432.
+    Уже заданные user/password возвращаются после копирования шаблона,
+    даже если portable-кластер ещё не создан. Секции с секретами вне
+    минимального набора дописываются обратно.
     Решение читается в момент copy (после scaffold .env в том же прогоне).
     """
 
@@ -71,17 +74,21 @@ class DatabasesYamlCopyStrategy(CopyStrategy):
     def copy(self, source: Path, target: Path) -> None:
         from security.ensure_infra_credentials import (
             restore_live_credentials,
+            restore_secret_section_blocks,
             snapshot_live_credentials,
+            snapshot_secret_section_blocks,
         )
 
-        preserved = snapshot_live_credentials(self._root, target)
+        preserved = snapshot_live_credentials(target)
         values = self._env_values()
         sections = self._sections(values)
+        extra_blocks = snapshot_secret_section_blocks(target, skip=frozenset(sections))
         NamedSectionsCopyStrategy(sections).copy(source, target)
         port = self._default_port_for_mode(values)
         if port is not None:
             self._rewrite_default_port(target, port)
         restored = restore_live_credentials(target, preserved)
+        restored_extra = restore_secret_section_blocks(target, extra_blocks)
 
         bits = ['default']
         if 'redis' in sections:
@@ -93,7 +100,7 @@ class DatabasesYamlCopyStrategy(CopyStrategy):
             extra = t('scaffold_redis_hint')
         elif port is None:
             extra = t('scaffold_celery_hint')
-        if restored:
+        if restored or restored_extra:
             extra += t('scaffold_credentials_kept')
         self.last_detail = ', '.join(bits) + extra
 
