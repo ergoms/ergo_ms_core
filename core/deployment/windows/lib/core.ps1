@@ -633,6 +633,22 @@ function Get-ModuleHostStopPairs {
     }
 }
 
+function Test-DedicatedInfraServiceName {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [string]$ProjectRoot
+    )
+    if ($Name -in @('ergo_ms_redis', 'ergo_ms_meilisearch', 'ergo_ms_nginx')) {
+        return $true
+    }
+    $postgresName = 'ergo_ms_postgres'
+    if ($ProjectRoot) {
+        $fromEnv = Get-ErgoEnvValue -Root $ProjectRoot -Name 'POSTGRES_SERVICE_WINDOWS'
+        if ($fromEnv) { $postgresName = $fromEnv }
+    }
+    return ($Name -eq $postgresName)
+}
+
 function Get-ServiceNames {
     param([string]$ProjectRoot)
 

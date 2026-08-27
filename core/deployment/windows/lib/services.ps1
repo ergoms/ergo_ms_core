@@ -18,6 +18,11 @@ function Install-Service {
 
     
 
+    # Redis / Meilisearch / Postgres / nginx ставят Ensure*OsServiceStep, не bat-wrapper.
+    if (Test-DedicatedInfraServiceName -Name $ServiceName -ProjectRoot $Root) {
+        return
+    }
+
     # Check if service already exists
 
     $existingService = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
