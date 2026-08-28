@@ -43,7 +43,7 @@ const { path } = await mediaApiClient.upload(file, { targetDir: 'tasks/attachmen
 
 ## Скачивание (клиент)
 
-Единый хелпер — [`mediaDownload.js`](../../core/client/src/js/utils/mediaDownload.js). **Не** открывай signed URL через `target=_blank` для attachment (вкладка мигает и закрывается).
+Единый хелпер — [`mediaDownload.js`](../../core/client/src/js/utils/mediaDownload.js). **Не** открывай signed URL через `target=_blank` для attachment (вкладка мигает и закрывается). `apiClient` с базой `/api/` не должен ходить на `/serve/` как на эндпоинт API: иначе получится `/api/serve/…` (404). Интерцептор в `manager.js` снимает эту склейку; лучше сразу `downloadMedia`.
 
 ```javascript
 import { downloadMedia, downloadMediaFromResult, MEDIA_DOWNLOAD_MODE } from '@/js/utils/mediaDownload.js'
