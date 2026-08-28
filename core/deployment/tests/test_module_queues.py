@@ -20,8 +20,9 @@ class ModuleQueuesTests(unittest.TestCase):
             'modules.demo_mod.api.source.tasks.*': {'queue': 'source_q'},
             'modules.other.api.tasks.*': {'queue': 'other'},
         }
+        missing = Path(self.id().replace('.', '_'))
         self.assertEqual(
-            queues_for_module('demo_mod', routes=routes),
+            queues_for_module('demo_mod', routes=routes, module_dir=missing),
             ['demo_mod', 'source_q'],
         )
 
@@ -32,10 +33,29 @@ class ModuleQueuesTests(unittest.TestCase):
         routes = {
             'modules.demo_mod.api.source.tasks.*': {'queue': 'source_q'},
         }
+        missing = Path(self.id().replace('.', '_'))
         self.assertEqual(
-            queues_for_module('demo_mod', routes=routes),
+            queues_for_module('demo_mod', routes=routes, module_dir=missing),
             ['demo_mod', 'source_q'],
         )
+
+    def test_reads_nested_celery_config_when_routes_empty(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            nested = root / 'roadmap_sh'
+            nested.mkdir()
+            (nested / 'celery_config.py').write_text(
+                "class Cfg:\n"
+                "    def get_task_routes(self):\n"
+                "        return {'modules.demo_mod.api.roadmap_sh.tasks.*': {'queue': 'roadmap_sh'}}\n",
+                encoding='utf-8',
+            )
+            self.assertEqual(
+                queues_for_module('demo_mod', routes={}, module_dir=root),
+                ['demo_mod', 'roadmap_sh'],
+            )
 
 
 if __name__ == '__main__':
