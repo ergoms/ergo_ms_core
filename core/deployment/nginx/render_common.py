@@ -140,24 +140,54 @@ def render_client_upstream_block(values: Mapping[str, str]) -> str:
     return '\n'.join(parts) + '\n'
 
 
+def _remotes_proxy_headers(host: str) -> str:
+    return (
+        '        proxy_pass http://ergo_client_remotes;\n'
+        f'        proxy_set_header Host {host};\n'
+        '        proxy_set_header X-Forwarded-Host $host;\n'
+        '        proxy_set_header X-Forwarded-Proto $scheme;\n'
+        '        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n'
+    )
+
+
 def render_remotes_location_host(values: Mapping[str, str]) -> str:
-    """``/remotes/<name>/``: местные артефакты или proxy на NGINX_CLIENT_REMOTES_UPSTREAM."""
+    """``/remotes/<name>/``: hashed chunks кэшируются, remoteEntry.js — нет."""
     remotes_peer = resolve_host_client_remotes_upstream(values)
     if remotes_peer:
         host = remotes_peer.rsplit(':', 1)[0]
+        proxy = _remotes_proxy_headers(host)
         return (
             '    location ^~ /remotes/ {\n'
-            '        proxy_pass http://ergo_client_remotes;\n'
-            f'        proxy_set_header Host {host};\n'
-            '        proxy_set_header X-Forwarded-Host $host;\n'
-            '        proxy_set_header X-Forwarded-Proto $scheme;\n'
-            '        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n'
+            f'{proxy}'
+            '        location ~* /(?:chunks|assets)/ {\n'
+            '            expires 1y;\n'
+            '            proxy_hide_header Cache-Control;\n'
+            '            add_header Cache-Control "public, immutable" always;\n'
+            f'{proxy}'
+            '        }\n'
+            '        location ~* "\\.[a-fA-F0-9]{8,}\\.(?:js|css)$" {\n'
+            '            expires 1y;\n'
+            '            proxy_hide_header Cache-Control;\n'
+            '            add_header Cache-Control "public, immutable" always;\n'
+            f'{proxy}'
+            '        }\n'
+            '        add_header Cache-Control "no-store" always;\n'
             '    }\n'
             '\n'
         )
     return (
         '    location ^~ /remotes/ {\n'
         '        alias ${ERGO_ROOT}/virtual_env/client-remotes/;\n'
+        '        location ~* /(?:chunks|assets)/ {\n'
+        '            expires 1y;\n'
+        '            add_header Cache-Control "public, immutable" always;\n'
+        '            include ${ERGO_NGINX_SNIPPETS}/security_headers.conf;\n'
+        '        }\n'
+        '        location ~* "\\.[a-fA-F0-9]{8,}\\.(?:js|css)$" {\n'
+        '            expires 1y;\n'
+        '            add_header Cache-Control "public, immutable" always;\n'
+        '            include ${ERGO_NGINX_SNIPPETS}/security_headers.conf;\n'
+        '        }\n'
         '        add_header Cache-Control "no-store" always;\n'
         '        include ${ERGO_NGINX_SNIPPETS}/security_headers.conf;\n'
         '    }\n'

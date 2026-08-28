@@ -168,12 +168,16 @@ class NginxRenderTests(unittest.TestCase):
         local = render_spa_locations_host({})
         self.assertIn('location ^~ /remotes/', local)
         self.assertIn('alias ${ERGO_ROOT}/virtual_env/client-remotes/;', local)
+        self.assertIn('location ~* /(?:chunks|assets)/', local)
+        self.assertIn('public, immutable', local)
         self.assertNotIn('proxy_pass http://ergo_client_remotes', local)
         remote = render_spa_locations_host({
             'NGINX_CLIENT_REMOTES_UPSTREAM': '10.0.0.8:80',
         })
         self.assertIn('proxy_pass http://ergo_client_remotes;', remote)
         self.assertIn('proxy_set_header Host 10.0.0.8;', remote)
+        self.assertIn('location ~* /(?:chunks|assets)/', remote)
+        self.assertIn('proxy_hide_header Cache-Control', remote)
         self.assertNotIn('alias ${ERGO_ROOT}/virtual_env/client-remotes/;', remote)
 
     def test_host_and_docker_renderers_use_shared_function(self) -> None:
