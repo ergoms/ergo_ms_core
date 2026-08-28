@@ -172,7 +172,7 @@ class MyModuleConfig(AppConfig):
 
 Пункты выпадающего меню пользователя в шапке (`UserMenu`) — через `bridge.provideMany` в группе `header.userMenu.items`. Эталон: `modules/<name>/client/js/headerUserMenu.js`, подключается из `integrations.js`. Сбор в ядре — [`headerUserMenu.js`](../../core/client/src/integrations/headerUserMenu.js). Это **не** боковое меню: sidebar — миграции API, шапка — ModuleBridge. Иконка — строка Lucide PascalCase (`icon: 'Building2'`), не Vue-компонент — [`icons.mdc`](icons.mdc).
 
-Пункты меню приложений (`AppsMenu` в toolbar) — через `bridge.provideMany` в группе `apps.menu.items`. Эталон: `modules/<name>/client/js/appsMenu.js`, подключается из `integrations.js`. Сбор в ядре — [`appsMenu.js`](../../core/client/src/integrations/appsMenu.js). В toolbar AppsMenu и уведомления показываются одновременно. Иконка — строка (`icon: 'Bot'`), рендер в ядре через `LucideIcon`.
+Пункты меню приложений (`AppsMenu` в toolbar) — через `bridge.provideMany` в группе `apps.menu.items`. Эталон: `modules/<name>/client/js/appsMenu.js`, подключается из `integrations.js`. Сбор в ядре — [`appsMenu.js`](../../core/client/src/integrations/appsMenu.js). Не ставьте `isVisible` ради права модуля: панель должна быть у всех вошедших, даже если модуль в ADP выключен. В toolbar AppsMenu и уведомления показываются одновременно. Иконка — строка (`icon: 'Bot'`), рендер в ядре через `LucideIcon`.
 
 Бренд в шапке сайдбара / mobile header — опционально через `shell.sidebar_brand` ([`sidebarBrand.js`](../../core/client/src/integrations/sidebarBrand.js)): модуль регистрирует `{ id, component, match?, to?, measureText? }`; без match ядро оставляет `SiteWordmark`.
 
