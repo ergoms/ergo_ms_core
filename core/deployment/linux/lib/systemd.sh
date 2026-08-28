@@ -16,12 +16,18 @@ write_env_file() {
   local root="$1"
   local env_file="$root/core/deployment/wrappers/ergo_ms.env"
   local legacy="/etc/default/ergo_ms"
-  local no_proxy
-  no_proxy="$(_systemd_no_proxy_csv "$root")"
+  local py="$root/virtual_env/python/bin/python"
+  local script="$root/core/deployment/no_proxy_hosts.py"
 
   mkdir -p "$(dirname "$env_file")" "$root/logs"
   # systemd EnvironmentFile не снимает кавычки — значения без quotes.
-  cat >"$env_file" <<EOF
+  # NO_PROXY и исходящий HTTP_PROXY берём из .env / env/*.env.
+  if [[ -x "$py" && -f "$script" ]] && "$py" "$script" --write-systemd-env "$root" "$env_file"; then
+    :
+  else
+    local no_proxy
+    no_proxy="$(_systemd_no_proxy_csv "$root")"
+    cat >"$env_file" <<EOF
 # Environment for ergo_ms services (внутри корня проекта)
 ERGO_ROOT=$root
 PYTHONUNBUFFERED=1
@@ -30,6 +36,7 @@ ERGO_LOG_CONSOLE=false
 NO_PROXY=$no_proxy
 no_proxy=$no_proxy
 EOF
+  fi
   chmod 0644 "$env_file" 2>/dev/null || true
   ERGO_ROOT="$root" write_ergoms_message systemd_env_written white "" "path=$env_file" "root=$root"
 

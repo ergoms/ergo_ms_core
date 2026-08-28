@@ -63,6 +63,7 @@ def install(root: Path, repo_id: str, *, force: bool = False) -> int:
             repo_id=repo_id,
             local_dir=str(dest),
             cache_dir=os.environ['HF_HUB_CACHE'],
+            local_dir_use_symlinks=False,
         )
     except Exception as exc:
         print(format_console('error', f'Не удалось скачать {repo_id}: {exc}'))
@@ -74,3 +75,18 @@ def install(root: Path, repo_id: str, *, force: bool = False) -> int:
 
     print(format_console('ok', f'{repo_id} готов: {dest}'))
     return 0
+
+
+def ensure_installed(root: Path, repo_id: str) -> Path:
+    """Локальный каталог снимка в trained_models; при отсутствии — качает его туда."""
+    root = root.resolve()
+    name = (repo_id or '').strip()
+    dest = huggingface_snapshot_dir(root, name)
+    if not name:
+        raise ValueError('repo_id Hugging Face пустой')
+    if is_installed(root, name):
+        return dest
+    code = install(root, name)
+    if code != 0 or not is_installed(root, name):
+        raise RuntimeError(f'Не удалось установить снимок Hugging Face: {name}')
+    return dest
