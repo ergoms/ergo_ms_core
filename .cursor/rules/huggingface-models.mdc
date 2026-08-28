@@ -15,17 +15,17 @@ alwaysApply: false
 
 - Hook: `modules/<name>/huggingface_models.yaml`
 - Веса: `virtual_env/trained_models/huggingface/<org>/<name>`
-- Кэш Hub (`HF_HOME`): `virtual_env/cache/huggingface/`
-- Discovery: [`core/deployment/huggingface/`](../../core/deployment/huggingface/)
+- Установка: [`core/deployment/huggingface/`](../../core/deployment/huggingface/)
+- Кэш Hub (`HF_HOME`): `virtual_env/cache/huggingface/` — только черновик качалки, не место модели
 - CLI: `ergoms huggingface-models`, `ergoms pull-huggingface-models`
 - Setup-full: шаг `PullHuggingfaceModelsStep` после `python-install`
-- Runtime: [`resolve_huggingface_source`](../../core/api/src/core/utils/huggingface_snapshot.py)
+- Runtime: [`huggingface_snapshot.py`](../../core/api/src/core/utils/huggingface_snapshot.py) — `resolve_huggingface_source` / `ensure_local_source`
 
 ## Обязательно
 
 1. Новая sentence-transformers / Hub-модель модуля — строка в `huggingface_models.yaml`, не download в Django management и не запись в `ollama_models.yaml`.
 2. Имя — `repo:` / `name:` или `env:` + `default:` (как в `ollama_models.yaml`).
-3. Загрузка модели в коде — `resolve_huggingface_source(repo_id)`: локальный снимок, если готов, иначе id с Hub.
+3. Загрузка модели в коде — `resolve_huggingface_source(repo_id)` (снимок после setup) или `ensure_local_source(repo_id)` (поставить в `trained_models`, если ещё нет). Не `from_pretrained(hub_id)` и не свой `HF_HOME` в кэше модуля.
 4. Пути только через `project_layout` (`huggingface_snapshot_dir`, `resolve_huggingface_source`).
 
 ## Запрещено
@@ -39,8 +39,9 @@ models:
 ```
 
 ```python
-# BAD — свой кэш вне корня проекта
+# BAD — свой кэш вне trained_models
 SentenceTransformer('org/model-name', cache_folder=os.path.expanduser('~/.cache'))
+os.environ['HF_HOME'] = str(CACHE_DIR / '<name>' / 'huggingface')
 ```
 
 ```yaml
@@ -55,9 +56,14 @@ models:
 
 ```python
 # GOOD
-from src.core.utils.huggingface_snapshot import resolve_huggingface_source
+from src.core.utils.huggingface_snapshot import (
+    ensure_local_source,
+    resolve_huggingface_source,
+)
 
 model = SentenceTransformer(resolve_huggingface_source(repo_id))
+# если снимок мог ещё не стоять:
+model = SentenceTransformer(ensure_local_source(repo_id))
 ```
 
 `ollama_models.yaml` — только имена библиотеки Ollama (или `hf.co/…` GGUF). Если в `OLLAMA_EMBEDDINGS_MODEL` по ошибке стоит `org/name`, pull и RAG берут `default` из yaml (`embeddinggemma`), а не `ollama pull` этого снимка. Веса моделей — не `packages.yaml` ([`packages.mdc`](packages.mdc)).

@@ -63,7 +63,6 @@ def install(root: Path, repo_id: str, *, force: bool = False) -> int:
             repo_id=repo_id,
             local_dir=str(dest),
             cache_dir=os.environ['HF_HUB_CACHE'],
-            local_dir_use_symlinks=False,
         )
     except Exception as exc:
         print(format_console('error', f'Не удалось скачать {repo_id}: {exc}'))

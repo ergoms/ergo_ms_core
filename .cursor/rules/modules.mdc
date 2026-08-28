@@ -107,7 +107,7 @@ Install/uninstall/stop модульного демона в `ergoms install-serv
 
 Portable-бинарники модуля (ollama, ffmpeg и т.п.) — только через `packages.yaml` и `ergoms package-install` ([`packages.mdc`](packages.mdc)); не дублируй download в Django management и не хардкодь имена модулей в ядре.
 
-Снимки Hugging Face (`org/name`) — только через `huggingface_models.yaml` и `ergoms pull-huggingface-models` ([`huggingface-models.mdc`](huggingface-models.mdc)); не клади их в `ollama_models.yaml` и не качай в `~/.cache`.
+Снимки Hugging Face (`org/name`) — только через `huggingface_models.yaml` и `ergoms pull-huggingface-models` ([`huggingface-models.mdc`](huggingface-models.mdc)); веса в `virtual_env/trained_models/huggingface/`, не в `ollama_models.yaml`, не в `~/.cache` и не в кэш модуля.
 
 Задачи VS Code / Cursor (Run Task) и участие в **Setup Full** / **Start All** — только через `vscode.tasks.yaml` (`include_in: setup-full` / `start-all`): hook модульности, не правка монолита ядра. Подробности — [`module-vscode-tasks.mdc`](module-vscode-tasks.mdc); формат shell-задач ядра — [`vscode-tasks.mdc`](vscode-tasks.mdc).
 

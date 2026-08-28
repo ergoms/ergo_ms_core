@@ -284,7 +284,7 @@ host:
 
 ### Снимки Hugging Face (`huggingface_models.yaml`)
 
-Веса `org/name` (sentence-transformers и аналоги) объявляют в `huggingface_models.yaml`; установка — `ergoms pull-huggingface-models` (шаг setup-full). Каталог — `virtual_env/trained_models/huggingface/`. Это не `ollama pull` и не `packages.yaml`. Правило: [`.cursor/rules/huggingface-models.mdc`](../.cursor/rules/huggingface-models.mdc).
+Веса `org/name` объявляют в `huggingface_models.yaml`; установка — `core/deployment/huggingface` и `ergoms pull-huggingface-models` (шаг setup-full). Рабочая копия — `virtual_env/trained_models/huggingface/<org>/<name>`. Кэш Hub в `virtual_env/cache/huggingface/` — только черновик качалки. Runtime — `resolve_huggingface_source` / `ensure_local_source`. Это не `ollama pull` и не `packages.yaml`. Правило: [`.cursor/rules/huggingface-models.mdc`](../.cursor/rules/huggingface-models.mdc).
 
 ### Роли процессов (`process_roles.yaml`)
 
