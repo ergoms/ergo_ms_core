@@ -6,11 +6,15 @@ from __future__ import annotations
 
 import argparse
 import os
+import runpy
 import subprocess
 import sys
 from pathlib import Path
 
-from lifecycle.services.backends import _bootstrap  # noqa: F401
+runpy.run_path(
+    str(Path(__file__).resolve().with_name('_bootstrap.py')),
+    run_name='_ergo_backend_bootstrap',
+)
 
 from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402

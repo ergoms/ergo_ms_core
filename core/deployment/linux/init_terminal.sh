@@ -4,6 +4,11 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+# Profile-Shell: source этого файла + exec bash. Функции export -f переживают
+# новый bash, обычные переменные — нет. Без export SCRIPT_DIR становится пустым
+# и вызов превращается в bash /ergo_ms.sh.
+export ERGO_PROJECT_ROOT="$PROJECT_ROOT"
+export ERGO_LINUX_DIR="$SCRIPT_DIR"
 
 # Activate venv if present
 if [[ -f "$PROJECT_ROOT/virtual_env/python/bin/activate" ]]; then
@@ -18,14 +23,19 @@ fi
 
 # Local ergoms; только из каталога проекта и подпапок
 ergoms() {
-  local cwd root
+  local cwd root script_dir
   cwd="$(pwd -P)"
-  root="$(cd "$PROJECT_ROOT" && pwd -P)"
+  root="${ERGO_PROJECT_ROOT:-}"
+  script_dir="${ERGO_LINUX_DIR:-}"
+  if [[ -z "$root" || -z "$script_dir" ]]; then
+    echo "[ERROR] Обёртка ergoms без пути проекта. Откройте новый терминал Project-Shell." >&2
+    return 1
+  fi
   if [[ "$cwd" != "$root" && "$cwd" != "$root"/* ]]; then
     echo "[ERROR] Запускайте ergoms из каталога проекта или его подпапок: $root" >&2
     return 1
   fi
-  bash "$SCRIPT_DIR/ergo_ms.sh" "$@"
+  bash "$script_dir/ergo_ms.sh" "$@"
 }
 
 # Wrappers: pass through when ergoms sets ERGOMS_INTERNAL=1; show hint for direct user calls.

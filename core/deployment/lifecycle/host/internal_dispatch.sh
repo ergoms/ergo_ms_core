@@ -45,13 +45,17 @@ _invoke_infra_backend() {
     echo "[ERROR] Backend не найден: $backend" >&2
     exit 1
   fi
+  local deployment_dir="$root/core/deployment"
   local py
   if py="$(lifecycle_python_exe "$root")"; then
-    "$py" "$backend" "$operation" --root "$root"
+    PYTHONPATH="$deployment_dir${PYTHONPATH:+:$PYTHONPATH}" \
+      "$py" "$backend" "$operation" --root "$root"
   elif command -v python3.12 >/dev/null 2>&1; then
-    python3.12 "$backend" "$operation" --root "$root"
+    PYTHONPATH="$deployment_dir${PYTHONPATH:+:$PYTHONPATH}" \
+      python3.12 "$backend" "$operation" --root "$root"
   else
-    python3 "$backend" "$operation" --root "$root"
+    PYTHONPATH="$deployment_dir${PYTHONPATH:+:$PYTHONPATH}" \
+      python3 "$backend" "$operation" --root "$root"
   fi
 }
 

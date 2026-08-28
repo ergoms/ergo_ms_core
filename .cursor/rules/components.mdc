@@ -152,6 +152,7 @@ import FormField from '@/components/FormField.vue'
 | `dropdown-menu-class="dropdown-menu-end"` | выравнивание вправо от триггера |
 | `menu-min-width` | минимальная ширина меню (по умолчанию 160) |
 | `offset="0,N"` | зазор снизу/сверху, px |
+| `placement="right"` | открыть справа от триггера (длинные каталоги) |
 
 ### Когда DropDown, а когда SelectBox
 
@@ -192,7 +193,8 @@ import { MoreHorizontal, Edit, Trash2 } from 'lucide-vue-next'
 
 ### Обязательно
 
-- Загрузка списка — через prop **`fetchUsers({ search, activeTab, roleGroupId })`**, не через API модулей в ядре.
+- Загрузка списка — через prop **`fetchUsers({ q, search, activeTab, roleGroupId })`**, не через API модулей в ядре. `q` и `search` — одна и та же строка поиска.
+- Ключ выбора — opaque `public_id` / `user_ref`. `assignedUserIds` и `excludedUserIds` — те же ссылки, не числовой pk.
 - В модуле с доменной логикой — обёртка с `fetchUsers` (эталон: `modules/<name>/client/components/…MemberPickerModal.vue`).
 - Используй `ModalCenter` + `SearchInput` — не делай свой picker с нуля.
 
