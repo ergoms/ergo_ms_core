@@ -68,7 +68,8 @@ def service_log_files_posix(service_name: str, project_root: Path | None = None)
 
 
 def celery_tasks_module_pattern(module_name: str) -> str:
-    return f'celery.module.{module_name}'
+    """Фильтр хвоста celery_tasks.log: задачи и код модуля в процессе worker."""
+    return rf'(celery\.module\.{module_name}|modules\.{module_name})'
 
 
 def _cli_main() -> int:

@@ -133,7 +133,7 @@ class AnonymousAllowlistTests(unittest.TestCase):
         self.assertIn('JupyterAccessView', allowlist.names())
         self.assertIn('DeviceBoundTokenRefreshView', allowlist.names())
 
-    def test_scan_temp_tree_extra(self) -> None:
+    def test_scan_temp_tree_base_api_view_not_anonymous(self) -> None:
         catalog = load_security_catalog()
         control = catalog.control_by_id('api.anonymous_endpoints')
         with tempfile.TemporaryDirectory() as tmp:
@@ -142,7 +142,32 @@ class AnonymousAllowlistTests(unittest.TestCase):
             core.mkdir()
             (core / 'views.py').write_text(
                 'from src.core.utils.base.base_views import BaseAPIView\n'
-                'class LeakyPublicView(BaseAPIView):\n'
+                'class AuthenticatedByDefaultView(BaseAPIView):\n'
+                '    pass\n',
+                encoding='utf-8',
+            )
+            finding = anonymous_endpoints_run(
+                control,
+                catalog,
+                {
+                    'values': {},
+                    'level': 'standard',
+                    'root': root,
+                    'core_api_root': core,
+                },
+            )
+            self.assertEqual(finding.severity, 'ok', msg=finding.message)
+
+    def test_scan_temp_tree_public_mixin_extra(self) -> None:
+        catalog = load_security_catalog()
+        control = catalog.control_by_id('api.anonymous_endpoints')
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            core = root / 'pkg'
+            core.mkdir()
+            (core / 'views.py').write_text(
+                'from src.core.utils.base.base_views import BaseAPIViewPublicMixin\n'
+                'class LeakyPublicView(BaseAPIViewPublicMixin):\n'
                 '    pass\n',
                 encoding='utf-8',
             )
@@ -181,6 +206,7 @@ class AnonymousAllowlistTests(unittest.TestCase):
         names = {f.name for f in found}
         self.assertIn('UserAuthorizationView', names)
         self.assertIn('ThemeViewSet', names)
+        self.assertIn('ReadyView', names)
 
 
 class LoginThrottleDefaultTests(unittest.TestCase):

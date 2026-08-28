@@ -18,6 +18,11 @@ function Install-Service {
 
     
 
+    # Redis / Meilisearch / Postgres / nginx ставят Ensure*OsServiceStep, не bat-wrapper.
+    if (Test-DedicatedInfraServiceName -Name $ServiceName -ProjectRoot $Root) {
+        return
+    }
+
     # Check if service already exists
 
     $existingService = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
@@ -210,6 +215,49 @@ function Disable-ClientServiceIfNginx {
 
 
 
+function Remove-StaleHostProfileServices {
+    param(
+        [string]$Root,
+        [string[]]$KeepNames,
+        [string]$NssmExe
+    )
+    $keep = @{}
+    foreach ($name in @($KeepNames)) {
+        if ($name) { $keep[$name] = $true }
+    }
+    $candidates = @(
+        'ergo_ms_api_dev',
+        'ergo_ms_client_dev',
+        'ergo_ms_media_api',
+        'ergo_ms_celery_beat'
+    )
+    foreach ($worker in @(Get-CeleryWorkers -ProjectRoot $Root)) {
+        $candidates += "ergo_ms_celery_worker_$worker"
+    }
+    $candidates += 'ergo_ms_celery_worker'
+    foreach ($serviceName in $candidates) {
+        if ($keep.ContainsKey($serviceName)) { continue }
+        $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+        if (-not $service) { continue }
+        Write-ErgomsMessage -Key 'svc_removing_named' -Color Gray -Param @{ name = $serviceName }
+        try {
+            if ($service.Status -ne 'Stopped') {
+                Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
+                Wait-ServiceStopped -ServiceName $serviceName -TimeoutSeconds 20 | Out-Null
+            }
+            if ($NssmExe -and (Test-Path $NssmExe)) {
+                & $NssmExe remove $serviceName confirm 2>&1 | Out-Null
+            }
+            if (Get-Service -Name $serviceName -ErrorAction SilentlyContinue) {
+                sc.exe delete $serviceName 2>$null
+            }
+            Write-ErgomsMessage -Key 'svc_removed_ok' -Color Green -Param @{ name = $serviceName }
+        } catch {
+            Write-ErgomsMessage -Key 'svc_remove_failed' -Color Red -Stderr -Param @{ name = $serviceName; error = $_.Exception.Message }
+        }
+    }
+}
+
 function Install-AllServices {
 
     param([string]$Root)
@@ -245,6 +293,8 @@ function Install-AllServices {
     # Get service names dynamically based on config
 
     $serviceNames = Get-ServiceNames -ProjectRoot $Root
+
+    Remove-StaleHostProfileServices -Root $Root -KeepNames $serviceNames -NssmExe $nssmExe
 
     
 
@@ -372,6 +422,12 @@ function Install-WorkerServices {
 
 
 
+function Test-OsServiceInstalled {
+    param([Parameter(Mandatory = $true)][string]$Name)
+    return $null -ne (Get-Service -Name $Name -ErrorAction SilentlyContinue)
+}
+
+
 function Start-AllServices {
     param([string]$ProjectRoot)
 
@@ -381,6 +437,7 @@ function Start-AllServices {
     if (Test-SearchEnabled -ProjectRoot $ProjectRoot) { [void]$planned.Add('Meilisearch') }
     foreach ($serviceName in $serviceNames) {
         if ($serviceName -eq 'ergo_ms_redis' -or $serviceName -eq 'ergo_ms_meilisearch') { continue }
+        if (-not (Test-OsServiceInstalled -Name $serviceName)) { continue }
         [void]$planned.Add($serviceName)
     }
     Write-ErgomsMessage -Key 'svc_starting_all' -Color Cyan -Param @{
@@ -431,28 +488,35 @@ function Start-AllServices {
         }
     }
 
+    $pending = New-Object System.Collections.Generic.List[object]
     foreach ($serviceName in $serviceNames) {
         if ($serviceName -eq 'ergo_ms_redis' -or $serviceName -eq 'ergo_ms_meilisearch') { continue }
+        $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+        if (-not $service) {
+            continue
+        }
+        if ($service.Status -eq 'Running') {
+            Write-ErgomsMessage -Key 'ok_service_already_running' -Color Green -Param @{ name = $serviceName }
+            $already++
+            continue
+        }
         try {
-            $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-            if ($service) {
-                if ($service.Status -eq 'Running') {
-                    Write-ErgomsMessage -Key 'ok_service_already_running' -Color Green -Param @{ name = $serviceName }
-                    $already++
-                }
-                else {
-                    Start-Service -Name $serviceName
-                    Write-ErgomsMessage -Key 'svc_started_ok' -Color Green -Param @{ name = $serviceName }
-                    $started++
-                }
-            }
-            else {
-                Write-ErgomsMessage -Key 'svc_not_installed_dash' -Color Gray -Param @{ name = $serviceName }
-                $missing++
-            }
+            $service.Start()
+            [void]$pending.Add($service)
         }
         catch {
             Write-ErgomsMessage -Key 'svc_start_failed' -Color Red -Stderr -Param @{ name = $serviceName; error = $_.Exception.Message }
+            $failed++
+        }
+    }
+    foreach ($service in $pending) {
+        try {
+            $service.WaitForStatus([System.ServiceProcess.ServiceControllerStatus]::Running, [TimeSpan]::FromSeconds(45))
+            Write-ErgomsMessage -Key 'svc_started_ok' -Color Green -Param @{ name = $service.Name }
+            $started++
+        }
+        catch {
+            Write-ErgomsMessage -Key 'svc_start_failed' -Color Red -Stderr -Param @{ name = $service.Name; error = $_.Exception.Message }
             $failed++
         }
     }
@@ -475,6 +539,7 @@ function Stop-AllServices {
     if (Test-SearchEnabled -ProjectRoot $ProjectRoot) { [void]$planned.Add('Meilisearch') }
     foreach ($serviceName in $serviceNames) {
         if ($serviceName -eq 'ergo_ms_redis' -or $serviceName -eq 'ergo_ms_meilisearch') { continue }
+        if (-not (Test-OsServiceInstalled -Name $serviceName)) { continue }
         [void]$planned.Add($serviceName)
     }
     Write-ErgomsMessage -Key 'svc_stopping_all' -Color Cyan -Param @{
@@ -501,8 +566,7 @@ function Stop-AllServices {
         try {
             $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
             if (-not $service) {
-                Write-ErgomsMessage -Key 'svc_not_installed_dash' -Color Gray -Param @{ name = $serviceName }
-                $missing++
+                continue
             }
             elseif ($service.Status -ne 'Stopped') {
                 Stop-Service -Name $serviceName -Force
@@ -610,6 +674,7 @@ function Restart-AllServices {
     if (Test-SearchEnabled -ProjectRoot $ProjectRoot) { [void]$planned.Add('Meilisearch') }
     foreach ($serviceName in $serviceNames) {
         if ($serviceName -eq 'ergo_ms_redis' -or $serviceName -eq 'ergo_ms_meilisearch') { continue }
+        if (-not (Test-OsServiceInstalled -Name $serviceName)) { continue }
         [void]$planned.Add($serviceName)
     }
     Write-ErgomsMessage -Key 'svc_restarting_all' -Color Cyan -Param @{
@@ -653,10 +718,6 @@ function Restart-AllServices {
                 Restart-Service -Name $serviceName -Force
                 Write-ErgomsMessage -Key 'svc_restarted_ok' -Color Green -Param @{ name = $serviceName }
                 $restarted++
-            }
-            else {
-                Write-ErgomsMessage -Key 'svc_not_installed_dash' -Color Gray -Param @{ name = $serviceName }
-                $missing++
             }
         }
         catch {
@@ -834,6 +895,26 @@ function Show-ServiceLogs {
         }
 
         & $py $script
+
+        exit $LASTEXITCODE
+
+    }
+
+    if ($ServiceName -eq 'ergo_ms_nginx' -or $ServiceName -eq 'ergo_ms_nginx.service') {
+
+        $py = Join-Path $ProjectRoot 'virtual_env\python\Scripts\python.exe'
+
+        $script = Join-Path $ProjectRoot 'core\deployment\scripts\start_nginx_logs_dev.py'
+
+        if (-not (Test-Path $py)) {
+
+            Write-ErgomsMessage -Key 'svc_log_file_not_found' -Color Red -Stderr -Param @{ path = $script }
+
+            exit 1
+
+        }
+
+        & $py -u $script $Lines
 
         exit $LASTEXITCODE
 

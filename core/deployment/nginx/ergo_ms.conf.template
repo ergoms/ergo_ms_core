@@ -23,6 +23,8 @@ ${ERGO_API_UPSTREAM_BLOCK}
 
 ${ERGO_MEDIA_UPSTREAM_BLOCK}
 
+${ERGO_CLIENT_UPSTREAM_BLOCK}
+
 ${ERGO_MODULE_UPSTREAMS}
 ${ERGO_JUPYTER_UPSTREAM}
 
@@ -78,41 +80,14 @@ ${ERGO_MAINTENANCE_SNIPPET}
         try_files /maintenance.json =404;
     }
 
-    # --- Vite hashed assets (ergoms client-build -> core/client/dist/assets) ---
-    # bootstrap-early — hashed /assets/bootstrap-early-*.js (см. vite bootstrapEarlyAssetPlugin)
-    location /assets/ {
-        expires 1y;
-        add_header Cache-Control "public, immutable" always;
-        try_files $uri =404;
-    }
-
-    # SPA shell не кэшировать: иначе после maintenance/client-build браузер
-    # держит старый index (304) и крутит boot-loader без новых /api запросов.
-    location = /client-build.json {
+    # След старта SPA без JWT: GET /__client-boot?e=… → nginx-access.log
+    location = /__client-boot {
         add_header Cache-Control "no-store" always;
-        include ${ERGO_NGINX_SNIPPETS}/security_headers.conf;
-        try_files $uri =404;
+        default_type text/plain;
+        return 204;
     }
 
-    location = /index.html {
-        if ($maintenance = 1) { return 503; }
-        add_header Cache-Control "no-store" always;
-        include ${ERGO_NGINX_SNIPPETS}/security_headers.conf;
-    }
-
-    location = / {
-        if ($maintenance = 1) { return 503; }
-        add_header Cache-Control "no-store" always;
-        include ${ERGO_NGINX_SNIPPETS}/security_headers.conf;
-        try_files /index.html =404;
-    }
-
-    # --- Клиент (Vue Router, history mode) ---
-    location / {
-        if ($maintenance = 1) { return 503; }
-        limit_conn ergo_conn 50;
-        try_files $uri $uri/ /index.html;
-    }
+${ERGO_SPA_LOCATIONS}
 
 ${ERGO_REALTIME_STREAM_LOCATION}
 ${ERGO_MODULE_LOCATIONS}

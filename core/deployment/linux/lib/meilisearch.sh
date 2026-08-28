@@ -74,7 +74,7 @@ _meilisearch_master_key() {
     echo "$found"
     return 0
   fi
-  echo "${MEILI_MASTER_KEY:-ergo_ms_dev_meili_key}"
+  echo "${MEILI_MASTER_KEY:-}"
 }
 
 _meilisearch_run_script() {

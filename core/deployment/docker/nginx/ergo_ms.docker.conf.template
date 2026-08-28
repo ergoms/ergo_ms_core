@@ -46,6 +46,12 @@ server {
         try_files $uri =404;
     }
 
+    location = /__client-boot {
+        add_header Cache-Control "no-store" always;
+        default_type text/plain;
+        return 204;
+    }
+
     location = /index.html {
         add_header Cache-Control "no-store" always;
         ${ERGO_DOCKER_SECURITY_HEADERS}

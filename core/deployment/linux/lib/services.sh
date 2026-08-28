@@ -41,6 +41,8 @@ _collect_managed_service_names() {
   for u in $(units_list "$root"); do
     [[ "$u" == "ergo_ms_redis.service" || "$u" == "ergo_ms_redis" ]] && continue
     [[ "$u" == "ergo_ms_meilisearch.service" || "$u" == "ergo_ms_meilisearch" ]] && continue
+    # Манифест модуля может объявлять unit, которого ещё нет в systemd.
+    _unit_is_present "$u" || continue
     _names_ref+=("$(_unit_short_name "$u")")
   done
 }
@@ -90,14 +92,13 @@ start_all() {
     fi
   fi
 
+  local -a pending=()
   for u in $(units_list "$root"); do
     # Redis / Meilisearch уже обработаны отдельно
     [[ "$u" == "ergo_ms_redis.service" || "$u" == "ergo_ms_redis" ]] && continue
     [[ "$u" == "ergo_ms_meilisearch.service" || "$u" == "ergo_ms_meilisearch" ]] && continue
     name="$(_unit_short_name "$u")"
     if ! _unit_is_present "$u"; then
-      write_ergoms_message svc_not_installed_dash gray "" "name=$name"
-      missing=$((missing + 1))
       continue
     fi
     if systemctl is-active --quiet "$u" 2>/dev/null; then
@@ -105,14 +106,22 @@ start_all() {
       already=$((already + 1))
       continue
     fi
-    err="$(systemctl_do start "$u" 2>&1)" && {
-      write_ergoms_message svc_started_ok green "" "name=$name"
-      started=$((started + 1))
-      continue
-    }
-    write_ergoms_message svc_start_failed red --stderr "name=$name" "error=${err:-systemctl start failed}"
-    failed=$((failed + 1))
+    pending+=("$u")
   done
+  if ((${#pending[@]})); then
+    systemctl_do start "${pending[@]}" >/dev/null 2>&1 || true
+    for u in "${pending[@]}"; do
+      name="$(_unit_short_name "$u")"
+      if systemctl is-active --quiet "$u" 2>/dev/null; then
+        write_ergoms_message svc_started_ok green "" "name=$name"
+        started=$((started + 1))
+      else
+        err="$(systemctl is-failed "$u" 2>/dev/null || true)"
+        write_ergoms_message svc_start_failed red --stderr "name=$name" "error=${err:-systemctl start failed}"
+        failed=$((failed + 1))
+      fi
+    done
+  fi
 
   write_ergoms_message svc_start_summary green "" \
     "started=$started" "already=$already" "missing=$missing" "failed=$failed"
@@ -127,6 +136,15 @@ _kill_ergo_skip_pids_ancestor_chain() {
     [[ -z "$p" || "$p" == 0 ]] && break
     ((n++)) || true
   done
+}
+
+# Долгий одноразовый прогон (не служба ergo_ms_*): маркер в cmdline или у предка.
+# Нужен, чтобы ergoms stop не рвал расчёт аналитики после закрытия IDE.
+_cmdline_is_keep_alive() {
+  local c="$1"
+  [[ -n "$c" ]] || return 1
+  [[ "$c" == *"ergo-keep-alive"* ]] && return 0
+  return 1
 }
 
 # Терминалы «Logs: All Services» / start-db-dev / module:logs-* — не останавливать вместе со службами.
@@ -161,7 +179,7 @@ _read_proc_cmdline() {
   printf '%s' "$cmd"
 }
 
-# true, если процесс или его предок — сессия просмотра логов (не убивать при stop).
+# true, если процесс или его предок — просмотр логов или ergo-keep-alive (не убивать при stop).
 _pid_in_log_watch_session() {
   local pid="$1"
   local -n _skip_ref="$2"
@@ -170,7 +188,7 @@ _pid_in_log_watch_session() {
     # Дошли до цепочки самого ergoms stop — это не log-терминал.
     [[ -v "_skip_ref[$pid]" ]] && return 1
     cmd="$(_read_proc_cmdline "/proc/$pid")" || return 1
-    if _cmdline_is_log_watcher "$cmd"; then
+    if _cmdline_is_log_watcher "$cmd" || _cmdline_is_keep_alive "$cmd"; then
       return 0
     fi
     ppid="$(awk '/^PPid:/{print $2}' "/proc/$pid/status" 2>/dev/null || echo 1)"
@@ -232,10 +250,54 @@ kill_ergo_project_session_processes() {
   return 0
 }
 
+# systemd по умолчанию ждёт TimeoutStopSec=90 с на каждый unit. Celery/Ollama
+# часто не выходят по SIGTERM сразу — последовательный stop тогда тянется минутами.
+_SYSTEMD_STOP_WAIT_SEC=30
+export _SYSTEMD_STOP_WAIT_SEC
+
+_units_still_busy() {
+  local states st
+  [[ $# -eq 0 ]] && return 1
+  states="$(systemctl show -p ActiveState --value -- "$@" 2>/dev/null || true)"
+  while IFS= read -r st; do
+    [[ -z "$st" ]] && continue
+    case "$st" in
+      inactive|failed) ;;
+      *) return 0 ;;
+    esac
+  done <<< "$states"
+  return 1
+}
+
+_stop_units_parallel() {
+  local -a units=("$@") leftover=()
+  local started st idx
+  [[ ${#units[@]} -eq 0 ]] && return 0
+  systemctl_do stop --no-block "${units[@]}" >/dev/null 2>&1 || true
+  started="$SECONDS"
+  while (( SECONDS - started < _SYSTEMD_STOP_WAIT_SEC )); do
+    _units_still_busy "${units[@]}" || return 0
+    sleep 0.25
+  done
+  idx=0
+  while IFS= read -r st; do
+    [[ -z "$st" ]] && continue
+    case "$st" in
+      inactive|failed) ;;
+      *) leftover+=("${units[$idx]}") ;;
+    esac
+    idx=$((idx + 1))
+  done < <(systemctl show -p ActiveState --value -- "${units[@]}" 2>/dev/null || true)
+  if ((${#leftover[@]})); then
+    systemctl_do kill --kill-whom=all -s SIGKILL "${leftover[@]}" >/dev/null 2>&1 || true
+    systemctl_do stop "${leftover[@]}" >/dev/null 2>&1 || true
+  fi
+}
+
 stop_all() {
   local root="${SERVICE_PROJECT_ROOT:-}"
-  local u name err cmd items
-  local -a planned=()
+  local u name items
+  local -a planned=() pending=()
   local stopped=0 skipped=0 missing=0 failed=0
   # Unit'ы с Requires= гаснут каскадом при stop зависимости — снимок, чтобы не писать «уже остановлены».
   declare -A _stop_was_active=()
@@ -249,37 +311,38 @@ stop_all() {
     [[ "$u" == "ergo_ms_redis.service" || "$u" == "ergo_ms_redis" ]] && continue
     [[ "$u" == "ergo_ms_meilisearch.service" || "$u" == "ergo_ms_meilisearch" ]] && continue
     name="$(_unit_short_name "$u")"
-    if _unit_is_present "$u" && systemctl is-active --quiet "$u" 2>/dev/null; then
+    if ! _unit_is_present "$u"; then
+      continue
+    fi
+    if systemctl is-active --quiet "$u" 2>/dev/null; then
       _stop_was_active["$name"]=1
+      pending+=("$u")
     fi
   done
 
-  # Сначала systemctl unit'ы — чтобы не путать OK модульного stop с SKIP по уже неактивному unit.
+  # Один systemctl stop — как start_all, иначе 20+ unit'ов ждут друг друга.
+  if ((${#pending[@]})); then
+    _stop_units_parallel "${pending[@]}"
+  fi
+
   for u in $(units_list "$root"); do
     [[ "$u" == "ergo_ms_redis.service" || "$u" == "ergo_ms_redis" ]] && continue
     [[ "$u" == "ergo_ms_meilisearch.service" || "$u" == "ergo_ms_meilisearch" ]] && continue
     name="$(_unit_short_name "$u")"
     if ! _unit_is_present "$u"; then
-      write_ergoms_message svc_not_installed_dash gray "" "name=$name"
-      missing=$((missing + 1))
       continue
     fi
-    if ! systemctl is-active --quiet "$u" 2>/dev/null; then
-      if [[ -n "${_stop_was_active[$name]:-}" ]]; then
-        write_ergoms_message svc_stopped_cascade green "" "name=$name"
-        stopped=$((stopped + 1))
-      else
-        skipped=$((skipped + 1))
-      fi
+    if [[ -z "${_stop_was_active[$name]:-}" ]]; then
+      skipped=$((skipped + 1))
       continue
     fi
-    err="$(systemctl_do stop "$u" 2>&1)" && {
-      write_ergoms_message svc_stopped_ok green "" "name=$name"
-      stopped=$((stopped + 1))
+    if systemctl is-active --quiet "$u" 2>/dev/null; then
+      write_ergoms_message svc_stop_failed red --stderr "name=$name" "error=systemctl stop failed"
+      failed=$((failed + 1))
       continue
-    }
-    write_ergoms_message svc_stop_failed red --stderr "name=$name" "error=${err:-systemctl stop failed}"
-    failed=$((failed + 1))
+    fi
+    write_ergoms_message svc_stopped_ok green "" "name=$name"
+    stopped=$((stopped + 1))
   done
 
   # Модульные stop_commands — только если нет установленных unit'ов или какой-то ещё active.
@@ -346,7 +409,7 @@ stop_all() {
 restart_all() {
   local root="${SERVICE_PROJECT_ROOT:-}"
   local u name err items
-  local -a planned=()
+  local -a planned=() pending=()
   local restarted=0 missing=0 failed=0
 
   _collect_managed_service_names "$root" planned
@@ -373,20 +436,25 @@ restart_all() {
   for u in $(units_list "$root"); do
     [[ "$u" == "ergo_ms_redis.service" || "$u" == "ergo_ms_redis" ]] && continue
     [[ "$u" == "ergo_ms_meilisearch.service" || "$u" == "ergo_ms_meilisearch" ]] && continue
-    name="$(_unit_short_name "$u")"
     if ! _unit_is_present "$u"; then
-      write_ergoms_message svc_not_installed_dash gray "" "name=$name"
-      missing=$((missing + 1))
       continue
     fi
-    err="$(systemctl_do restart "$u" 2>&1)" && {
-      write_ergoms_message svc_restarted_ok green "" "name=$name"
-      restarted=$((restarted + 1))
-      continue
-    }
-    write_ergoms_message svc_restart_failed red --stderr "name=$name" "error=${err:-systemctl restart failed}"
-    failed=$((failed + 1))
+    pending+=("$u")
   done
+  if ((${#pending[@]})); then
+    systemctl_do restart "${pending[@]}" >/dev/null 2>&1 || true
+    for u in "${pending[@]}"; do
+      name="$(_unit_short_name "$u")"
+      if systemctl is-active --quiet "$u" 2>/dev/null; then
+        write_ergoms_message svc_restarted_ok green "" "name=$name"
+        restarted=$((restarted + 1))
+      else
+        err="$(systemctl is-failed "$u" 2>/dev/null || true)"
+        write_ergoms_message svc_restart_failed red --stderr "name=$name" "error=${err:-systemctl restart failed}"
+        failed=$((failed + 1))
+      fi
+    done
+  fi
 
   write_ergoms_message svc_restart_summary green "" \
     "restarted=$restarted" "missing=$missing" "failed=$failed"
@@ -397,7 +465,9 @@ status_all() {
   local u
   for u in $(units_list "$root"); do
     if _unit_is_present "$u"; then
-      systemctl_do status "$u" | cat
+      # systemctl status: 0 — active, 3 — inactive. Для просмотра это не ошибка;
+      # иначе set -e / pipefail рвёт install-services до шага nginx.
+      systemctl_do --no-pager status "$u" || true
     else
       echo "[SKIP] $u — unit не установлен"
     fi
@@ -432,7 +502,7 @@ show_celery_tasks_logs() {
   write_ergoms_message svc_tail_celery_tasks cyan "" "lines=$lines"
   echo "   $log_file"
   if [[ -n "$module_name" ]]; then
-    local pattern="celery\\.module\\.${module_name}"
+    local pattern="celery\\.module\\.${module_name}|modules\\.${module_name}"
     write_ergoms_message svc_log_filter gray "" "pattern=$pattern"
     echo ""
     grep -E "$pattern" "$log_file" 2>/dev/null | tail -n "$lines" || true
@@ -490,7 +560,22 @@ show_service_logs() {
   # shellcheck source=lib/logs_paths.sh
   source "$(dirname "${BASH_SOURCE[0]}")/logs_paths.sh"
 
+  case "$service_name" in
+    ergo_ms_postgres|ergo_ms_postgres.service|ergo-postgres|ergo-postgres.service|ergo_ms_db|ergo_ms_sqlite|ergo_ms_mysql|ergo_ms_mssql)
+      local db_py="$root/virtual_env/python/bin/python"
+      local db_script="$root/core/deployment/scripts/start_db_logs_dev.py"
+      if [[ -x "$db_py" && -f "$db_script" ]]; then
+        exec "$db_py" -u "$db_script"
+      fi
+      ;;
+  esac
+
   if [[ "$service_name" == "ergo_ms_nginx" || "$service_name" == "ergo_ms_nginx.service" ]]; then
+    local nginx_py="$root/virtual_env/python/bin/python"
+    local nginx_script="$root/core/deployment/scripts/start_nginx_logs_dev.py"
+    if [[ -x "$nginx_py" && -f "$nginx_script" ]]; then
+      exec "$nginx_py" -u "$nginx_script" "$lines"
+    fi
     local files=()
     while IFS= read -r file; do
       [[ -n "$file" && -f "$file" ]] && files+=("$file")
@@ -502,7 +587,7 @@ show_service_logs() {
     fi
     write_ergoms_message svc_tail_nginx_logs cyan "" "lines=$lines"
     echo ""
-    tail -n "$lines" -F "${files[@]}" | cat
+    tail -n "$lines" -q -F "${files[@]}" | cat
     return 0
   fi
 
@@ -547,7 +632,10 @@ uninstall_all() {
   
   stop_all || true
   local u
-  for u in $(units_list "$root"); do systemctl_do disable "$u" || true; done
+  for u in $(units_list "$root"); do
+    _unit_is_present "$u" || continue
+    systemctl_do disable "$u" || true
+  done
   for u in $(units_list "$root"); do
     if [[ -f "/etc/systemd/system/$u" ]]; then
       if [[ $(id -u) -eq 0 ]]; then
@@ -618,6 +706,48 @@ disable_client_service_if_nginx() {
   nginx_skip_client_message "$root"
 }
 
+_remove_unit_if_present() {
+  local unit="$1"
+  _unit_is_present "$unit" || return 0
+  systemctl_do stop "$unit" 2>/dev/null || true
+  systemctl_do disable "$unit" 2>/dev/null || true
+  if [[ -f "/etc/systemd/system/$unit" || -L "/etc/systemd/system/$unit" ]]; then
+    if [[ $(id -u) -eq 0 ]]; then
+      rm -f "/etc/systemd/system/$unit"
+    else
+      sudo rm -f "/etc/systemd/system/$unit"
+    fi
+    write_ergoms_message svc_unit_removed gray "" "path=/etc/systemd/system/$unit"
+  fi
+}
+
+remove_stale_host_profile_units() {
+  local root="$1"
+  local unit workers worker
+
+  if ! host_profile_wants "$root" api; then
+    _remove_unit_if_present ergo_ms_api_dev.service
+  fi
+  if ! host_profile_wants "$root" client; then
+    _remove_unit_if_present ergo_ms_client_dev.service
+  fi
+  if ! host_profile_wants "$root" media; then
+    _remove_unit_if_present ergo_ms_media_api.service
+  fi
+  if ! host_profile_wants "$root" beat; then
+    _remove_unit_if_present ergo_ms_celery_beat.service
+  fi
+  if ! host_profile_wants "$root" yaml_workers; then
+    workers="$(get_celery_workers "$root")"
+    if [[ -n "$workers" ]]; then
+      for worker in $workers; do
+        _remove_unit_if_present "ergo_ms_celery_worker_${worker}.service"
+      done
+    fi
+    _remove_unit_if_present ergo_ms_celery_worker.service
+  fi
+}
+
 install_services() {
   local root="$1"
   local skip_client=0
@@ -636,32 +766,51 @@ install_services() {
   
   # Получаем базовые unit definitions
   get_base_unit_definitions "$root"
+
+  reset_units_cache
+  remove_stale_host_profile_units "$root"
   
-  # Устанавливаем базовые службы
-  install_unit "ergo_ms_api_dev"        "$API_UNIT" "$root"
-  if (( skip_client == 0 )); then
-    install_unit "ergo_ms_client_dev"     "$CLIENT_UNIT" "$root"
+  if host_profile_wants "$root" api; then
+    install_unit "ergo_ms_api_dev"        "$API_UNIT" "$root"
+  fi
+  if host_profile_wants "$root" client; then
+    if (( skip_client == 0 )); then
+      install_unit "ergo_ms_client_dev"     "$CLIENT_UNIT" "$root"
+    else
+      disable_client_service_if_nginx "$root"
+    fi
   else
     disable_client_service_if_nginx "$root"
   fi
-  install_unit "ergo_ms_media_api"      "$MEDIA_API_UNIT" "$root"
-  install_unit "ergo_ms_celery_beat"    "$CELERY_BEAT_UNIT" "$root"
+  if host_profile_wants "$root" media; then
+    install_unit "ergo_ms_media_api"      "$MEDIA_API_UNIT" "$root"
+  fi
+  if host_profile_wants "$root" beat; then
+    install_unit "ergo_ms_celery_beat"    "$CELERY_BEAT_UNIT" "$root"
+  fi
   
-  # Устанавливаем воркеры из конфигурации
-  install_worker_units "$root"
+  if host_profile_wants "$root" yaml_workers; then
+    install_worker_units "$root"
+  fi
 
   daemon_reload
 
-  # Включаем и запускаем базовые службы
-  enable_and_start ergo_ms_api_dev.service
-  if (( skip_client == 0 )); then
+  if host_profile_wants "$root" api; then
+    enable_and_start ergo_ms_api_dev.service
+  fi
+  if host_profile_wants "$root" client && (( skip_client == 0 )); then
     enable_and_start ergo_ms_client_dev.service
   fi
-  enable_and_start ergo_ms_media_api.service
-  enable_and_start ergo_ms_celery_beat.service
+  if host_profile_wants "$root" media; then
+    enable_and_start ergo_ms_media_api.service
+  fi
+  if host_profile_wants "$root" beat; then
+    enable_and_start ergo_ms_celery_beat.service
+  fi
   
-  # Включаем и запускаем воркеры
-  enable_and_start_workers "$root"
+  if host_profile_wants "$root" yaml_workers; then
+    enable_and_start_workers "$root"
+  fi
 
   echo ""
   write_ergoms_message svc_installed_running_heading green
@@ -742,9 +891,12 @@ install_single_service() {
   write_ergoms_message svc_one_started_bang green "" "name=$service_name"
 }
 
+export -f remove_stale_host_profile_units
 export -f disable_client_service_if_nginx
 export -f set_service_project_root
 export -f start_all
+export -f _units_still_busy
+export -f _stop_units_parallel
 export -f stop_all
 export -f restart_all
 export -f status_all

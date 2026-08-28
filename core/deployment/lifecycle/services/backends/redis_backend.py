@@ -8,15 +8,16 @@ from __future__ import annotations
 
 import argparse
 import os
-import runpy
 import subprocess
 import sys
 from pathlib import Path
 
-runpy.run_path(
-    str(Path(__file__).resolve().with_name('_bootstrap.py')),
-    run_name='_ergo_backend_bootstrap',
-)
+_DEPLOYMENT_DIR = Path(__file__).resolve().parents[3]
+_SCRIPTS_DIR = _DEPLOYMENT_DIR / 'scripts'
+for _path in (_DEPLOYMENT_DIR, _SCRIPTS_DIR):
+    _path_str = str(_path)
+    if _path_str not in sys.path:
+        sys.path.insert(0, _path_str)
 
 from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402

@@ -4,11 +4,10 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-# Profile-Shell: source этого файла + exec bash. Функции export -f переживают
-# новый bash, обычные переменные — нет. Без export SCRIPT_DIR становится пустым
-# и вызов превращается в bash /ergo_ms.sh.
-export ERGO_PROJECT_ROOT="$PROJECT_ROOT"
-export ERGO_LINUX_DIR="$SCRIPT_DIR"
+# Project-Shell делает source и exec bash: функция наследуется, обычные
+# переменные — нет. Без экспорта SCRIPT_DIR вызов становится /ergo_ms.sh.
+export ERGOMS_LINUX_SCRIPT="$SCRIPT_DIR/ergo_ms.sh"
+export ERGOMS_PROJECT_ROOT="$PROJECT_ROOT"
 
 # Activate venv if present
 if [[ -f "$PROJECT_ROOT/virtual_env/python/bin/activate" ]]; then
@@ -23,19 +22,27 @@ fi
 
 # Local ergoms; только из каталога проекта и подпапок
 ergoms() {
-  local cwd root script_dir
+  local cwd root script
+  script="${ERGOMS_LINUX_SCRIPT:-}"
+  root="${ERGOMS_PROJECT_ROOT:-$PROJECT_ROOT}"
   cwd="$(pwd -P)"
-  root="${ERGO_PROJECT_ROOT:-}"
-  script_dir="${ERGO_LINUX_DIR:-}"
-  if [[ -z "$root" || -z "$script_dir" ]]; then
-    echo "[ERROR] Обёртка ergoms без пути проекта. Откройте новый терминал Project-Shell." >&2
+  if [[ -z "$root" || ! -d "$root" ]]; then
+    echo "[ERROR] Не найден корень проекта. Откройте терминал Project-Shell или: source core/deployment/linux/init_terminal.sh" >&2
     return 1
   fi
+  root="$(cd "$root" && pwd -P)"
   if [[ "$cwd" != "$root" && "$cwd" != "$root"/* ]]; then
     echo "[ERROR] Запускайте ergoms из каталога проекта или его подпапок: $root" >&2
     return 1
   fi
-  bash "$script_dir/ergo_ms.sh" "$@"
+  if [[ -z "$script" || ! -f "$script" ]]; then
+    script="$root/core/deployment/linux/ergo_ms.sh"
+  fi
+  if [[ ! -f "$script" ]]; then
+    echo "[ERROR] Не найден $root/core/deployment/linux/ergo_ms.sh" >&2
+    return 1
+  fi
+  bash "$script" "$@"
 }
 
 # Wrappers: pass through when ergoms sets ERGOMS_INTERNAL=1; show hint for direct user calls.

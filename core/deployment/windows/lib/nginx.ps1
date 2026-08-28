@@ -305,6 +305,14 @@ function Install-NginxService {
     Write-ErgomsMessage -Key 'ok_windows_service_installed_running' -Color Green -Param @{ name = 'nginx' }
 }
 
+function Test-ProcessIsNginx {
+    param($Process)
+    if (-not $Process) {
+        return $false
+    }
+    return $Process.ProcessName -eq 'nginx'
+}
+
 function Remove-NginxStalePidFile {
     param([string]$Root)
 
@@ -319,7 +327,9 @@ function Remove-NginxStalePidFile {
 
     $pidText = (Get-Content -Path $pidFile -ErrorAction SilentlyContinue | Select-Object -First 1)
     if ($pidText -match '^\d+$') {
-        if (-not (Get-Process -Id ([int]$pidText) -ErrorAction SilentlyContinue)) {
+        $proc = Get-Process -Id ([int]$pidText) -ErrorAction SilentlyContinue
+        # PID из файла мог достаться другому процессу после прошлого nginx
+        if (-not (Test-ProcessIsNginx $proc)) {
             Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
         }
         return
@@ -355,9 +365,23 @@ function Stop-ErgoNginxProcessesForce {
         }
     }
 
-    if (Get-Command taskkill.exe -ErrorAction SilentlyContinue) {
-        Start-Process -FilePath 'taskkill.exe' -ArgumentList '/F', '/IM', 'nginx.exe' `
-            -Wait -NoNewWindow -ErrorAction SilentlyContinue | Out-Null
+    if (-not (Get-Process -Name 'nginx' -ErrorAction SilentlyContinue)) {
+        return
+    }
+
+    $taskkill = Get-Command taskkill.exe -ErrorAction SilentlyContinue
+    if (-not $taskkill) {
+        return
+    }
+
+    $prevEa = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        # 128 — процесса уже нет; не печатаем «nginx.exe not found» в setup-full
+        & $taskkill.Source /F /IM nginx.exe 2>$null | Out-Null
+    }
+    finally {
+        $ErrorActionPreference = $prevEa
     }
 }
 
@@ -378,7 +402,8 @@ function Test-NginxProcessRunning {
         if (Test-Path $pidFile) {
             $pidText = (Get-Content -Path $pidFile -ErrorAction SilentlyContinue | Select-Object -First 1)
             if ($pidText -match '^\d+$') {
-                if (Get-Process -Id ([int]$pidText) -ErrorAction SilentlyContinue) {
+                $proc = Get-Process -Id ([int]$pidText) -ErrorAction SilentlyContinue
+                if (Test-ProcessIsNginx $proc) {
                     return $true
                 }
             }

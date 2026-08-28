@@ -112,6 +112,23 @@ class ConfigScaffoldStep(DeploymentStep):
         return StepResult(exit_code=code)
 
 
+class RestoreArtifactOwnershipStep(DeploymentStep):
+    """Кэш Vite, portable-пакеты и логи не должны оставаться у root после sudo."""
+
+    def should_run(self, ctx: DeploymentContext) -> bool:
+        return ctx.runtime == 'host' and ctx.platform != HostPlatform.WIN32
+
+    @property
+    def name(self) -> str:
+        return 'restore_artifact_ownership'
+
+    def run(self, ctx: DeploymentContext) -> StepResult:
+        from lifecycle.host.privilege import restore_runtime_artifact_ownership
+
+        restore_runtime_artifact_ownership(ctx.project_root)
+        return StepResult()
+
+
 class CreateVenvStep(DeploymentStep):
     @property
     def name(self) -> str:

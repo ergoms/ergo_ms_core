@@ -62,6 +62,27 @@ def list_core_services() -> list[ServiceEntry]:
 
 
 def resolve_service_catalog(project_root: Path, disabled_modules: set[str]) -> list[ServiceEntry]:
-    catalog = list_core_services()
-    catalog.extend(_load_workers(project_root))
+    from lifecycle.host_profile import (  # noqa: WPS433
+        SERVICE_API,
+        SERVICE_BEAT,
+        SERVICE_CLIENT,
+        SERVICE_MEDIA,
+        SERVICE_YAML_WORKERS,
+        resolve_host_profile_from_root,
+    )
+
+    profile = resolve_host_profile_from_root(project_root)
+    id_map = {
+        'api': SERVICE_API,
+        'client': SERVICE_CLIENT,
+        'media': SERVICE_MEDIA,
+        'beat': SERVICE_BEAT,
+    }
+    catalog = [
+        entry
+        for entry in list_core_services()
+        if profile.wants(id_map[entry.service_id])
+    ]
+    if profile.wants(SERVICE_YAML_WORKERS):
+        catalog.extend(_load_workers(project_root))
     return catalog

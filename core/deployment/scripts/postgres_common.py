@@ -116,13 +116,54 @@ def service_restart_delay_ms(root: Path | None = None) -> int:
 
 def load_portable_conf_settings(root: Path | None = None) -> dict[str, str]:
     """Параметры нагрузки для postgresql.conf (env/postgres.env)."""
-    _ = root
     settings = dict(_DEFAULT_CONF_SETTINGS)
     for env_key, conf_key in _CONF_SETTING_ENV_KEYS:
         value = _read_postgres_env(env_key, settings[conf_key])
         if value:
             settings[conf_key] = value
+    if root is not None:
+        settings = _sanitize_wal_compression(root, settings)
     return settings
+
+
+def _pg_config_configure(root: Path) -> str:
+    binary = postgres_bin(root, 'pg_config')
+    if not binary.is_file():
+        return ''
+    try:
+        result = subprocess.run(
+            [str(binary), '--configure'],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=15,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ''
+    return result.stdout or ''
+
+
+def _sanitize_wal_compression(root: Path, settings: dict[str, str]) -> dict[str, str]:
+    value = (settings.get('wal_compression') or '').strip().lower()
+    if value in ('', 'pglz', 'on', 'off'):
+        return settings
+    flags = _pg_config_configure(root)
+    built = {
+        'lz4': '--with-lz4' in flags,
+        'zstd': '--with-zstd' in flags,
+    }
+    if built.get(value):
+        return settings
+    fallback = 'pglz'
+    print(
+        format_console(
+            'warning',
+            t('postgres_wal_compression_fallback', value=value, fallback=fallback),
+        )
+    )
+    adjusted = dict(settings)
+    adjusted['wal_compression'] = fallback
+    return adjusted
 
 
 def postgres_packages_dir(root: Path) -> Path:
@@ -440,7 +481,12 @@ def _patch_conf_file(path: Path, replacements: dict[str, str]) -> None:
         stripped = line.lstrip()
         replaced = False
         for key, value in replacements.items():
-            if stripped.startswith(f'{key}') and (stripped.startswith(f'{key} ') or stripped.startswith(f'{key}=') or stripped.startswith(f'#{key}')):
+            if (
+                stripped.startswith(f'{key} ')
+                or stripped.startswith(f'{key}=')
+                or stripped.startswith(f'{key}\t')
+                or stripped.startswith(f'#{key}')
+            ):
                 out.append(f"{key} = {value}")
                 seen.add(key)
                 replaced = True
@@ -454,13 +500,17 @@ def _patch_conf_file(path: Path, replacements: dict[str, str]) -> None:
 
 
 def _configure_cluster(root: Path, port: int, bind: str) -> None:
+    from log_env import log_basename, resolve_logs_dir
+
     data = postgres_data_dir(root)
+    logs_dir = resolve_logs_dir(root)
+    logs_dir.mkdir(parents=True, exist_ok=True)
     replacements = {
         'listen_addresses': f"'{bind}'",
         'port': str(port),
         'logging_collector': 'on',
-        'log_directory': f"'{(postgres_packages_dir(root) / 'logs').as_posix()}'",
-        'log_filename': "'postgresql.log'",
+        'log_directory': f"'{logs_dir.as_posix()}'",
+        'log_filename': f"'{log_basename('POSTGRES', root)}'",
     }
     for conf_key, value in load_portable_conf_settings(root).items():
         # Строковые размеры (128MB) — без кавычек; числа — как есть.
@@ -624,6 +674,8 @@ def ensure_databases(root: Path, port: int | None = None) -> None:
     else:
         print(format_console('skip', t('postgres_db_exists', dbname=dbname)))
 
+    _ensure_pg_trgm_in_core(_exec_sql, root, dbname)
+
     for extra in load_extra_db_sections(root):
         ename = extra['name']
         euser = extra['user']
@@ -650,6 +702,35 @@ def ensure_databases(root: Path, port: int | None = None) -> None:
             print(format_console('ok', t('postgres_db_created', dbname=ename)))
 
     print_db_access_summary(root, port=port_i)
+
+
+def _pg_trgm_control_file(root: Path) -> Path | None:
+    base = postgres_packages_dir(root)
+    candidates = (
+        base / 'share' / 'extension' / 'pg_trgm.control',
+        base / 'share' / 'postgresql' / 'extension' / 'pg_trgm.control',
+        base / 'pgsql' / 'share' / 'extension' / 'pg_trgm.control',
+    )
+    for path in candidates:
+        if path.is_file():
+            return path
+    return None
+
+
+def _ensure_pg_trgm_in_core(exec_sql, root: Path, dbname: str) -> None:
+    """pg_trgm в схеме core: Django не кладёт public в search_path."""
+    if _pg_trgm_control_file(root) is None:
+        return
+    exec_sql(
+        'CREATE SCHEMA IF NOT EXISTS core; '
+        'DO $$ BEGIN '
+        "IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm') THEN "
+        'ALTER EXTENSION pg_trgm SET SCHEMA core; '
+        'ELSE CREATE EXTENSION pg_trgm SCHEMA core; '
+        'END IF; END $$;',
+        database=dbname,
+    )
+    print(format_console('ok', t('postgres_pg_trgm_in_core')))
 
 
 def print_db_access_summary(root: Path, port: int | None = None) -> None:

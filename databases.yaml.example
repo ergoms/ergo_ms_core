@@ -2,9 +2,13 @@
 # (sqlite | postgres | portable_postgres | mysql | mssql) — loader выставляет engine.
 # Host/user/password/port/name для SQL — здесь. Redis — секция redis (не в .env).
 # setup-full создаёт databases.yaml с default; port: 5433 при ERGO_DB=portable_postgres
-# (5432 при ERGO_DB=postgres). Секцию redis — только при ERGO_BROKER=redis.
+# (5432 при ERGO_DB=postgres). Секцию redis дописывает при ERGO_BROKER=redis,
+# в том числе если файл уже был без неё (default не затирается).
 # Celery SQL / analytics — допишите из example.
-# Пароли в example пустые — задайте свои в databases.yaml (не коммитьте реальные).
+# Пароли в example пустые — при ERGO_DB=portable_postgres setup-full / install-postgres
+# подставляет уникальные user и password, если кластер ещё не создан
+# (шаблонный user postgres тоже заменяется). Существующие значения не трогает.
+# Не коммитьте реальные пароли.
 databases:
   default:
     engine: "postgresql"
@@ -18,12 +22,14 @@ databases:
 
   # При ERGO_BROKER=redis — кэш, channel layer и Celery.
   # В Docker host обычно remapped на имя сервиса (DOCKER_SERVICE_REDIS).
-  # password: пусто — без AUTH (dev); непустой — requirepass / redis://:…@host
+  # user/password пустые — генерируются уникальные, пока в redis.conf нет requirepass;
+  # непустой password — requirepass + ACL-пользователь / redis://user:…@host
   # (не дублируйте пароль в .env как REDIS_PASSWORD).
   redis:
     engine: "redis"
     host: "127.0.0.1"
     port: 6379
+    user: ""
     password: ""
     db_channel: 0
     db_cache: 1
@@ -63,3 +69,15 @@ databases:
     password: ""
     host: "127.0.0.1"
     port: 3306
+
+  # Уровень 3: отдельная БД модуля. Поле module: — имя папки modules/<name>
+  # (app_label). Router направит модели этого приложения на alias.
+  # Раскомментируйте и задайте имя модуля; пароль не коммитьте.
+  # module_pilot:
+  #   engine: "postgresql"
+  #   name: "ergo_ms_module_pilot"
+  #   module: "<name>"
+  #   user: ""
+  #   password: ""
+  #   host: "127.0.0.1"
+  #   port: 5433

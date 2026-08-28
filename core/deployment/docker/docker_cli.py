@@ -73,11 +73,12 @@ def cmd_build(args: argparse.Namespace, *, skip_if_present: bool = False) -> int
         print(format_console('skip', t('docker_images_already_built')))
         return 0
     extra = list(args.extra or [])
+    options = {'build_extra_args': extra, 'compose_extra_args': extra} if extra else None
     return orchestrator.run_recipe(
         'docker-build',
         runtime='docker',
         docker_mode=args.mode,
-        options={'compose_extra_args': extra},
+        options=options,
     )
 
 def cmd_exec_api_shell(_: argparse.Namespace) -> int:

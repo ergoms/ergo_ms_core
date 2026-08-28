@@ -12,7 +12,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin}
       POSTGRES_DB: ${LOADTEST_POSTGRES_DB:-ergo_ms_loadtest}
     ports:
-      - "${LOADTEST_POSTGRES_PORT:-15432}:5432"
+      - "127.0.0.1:${LOADTEST_POSTGRES_PORT:-15432}:5432"
     volumes:
       - postgres_loadtest_data:/var/lib/postgresql/data
     networks:
@@ -35,6 +35,8 @@ services:
       ERGO_PROCESS_ROLE: api
       API_PORT: ${LOADTEST_API_PORT:-18000}
       ERGO_DATABASES_YAML: /app/databases.yaml
+      ERGO_DOCKER_DB_HOST: postgres-loadtest
+      ERGO_DOCKER_DB_PORT: "5432"
     volumes:
       - ${ERGO_PROJECT_ROOT:-../../..}:/app
       - ./.compose.databases.loadtest.yaml:/app/databases.yaml:ro

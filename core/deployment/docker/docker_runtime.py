@@ -4,7 +4,7 @@ Effective env и конфигурация для Docker Compose (read-only, не
 Порты приложений — из существующих ключей .env (API_PORT, CLIENT_PORT, …).
 Параметры БД — из databases.yaml; для контейнеров генерируется .compose.databases.yaml.
 Публикация postgres/meilisearch на хост — docker-compose.publish.generated.yml
-(пропуск, если порт занят; внутри сети compose: 5432/6379/7700).
+(пропуск, если порт занят; bind 127.0.0.1, не 0.0.0.0; внутри сети compose: 5432/6379/7700).
 Redis на хост — только при явном DOCKER_REDIS_PUBLISH_PORT (пусто = не публиковать).
 AUTH Redis — docker-compose.redis-auth.generated.yml при непустом redis.password.
 """
@@ -43,10 +43,22 @@ from project_layout import cache_dir, cache_docker_dir, ensure_dir  # noqa: E402
 
 LOCAL_DB_HOSTS = frozenset({'localhost', '127.0.0.1', '::1', ''})
 CELERY_DB_SECTIONS = ('default', 'celery', 'celery_worker', 'celery_beat')
+CELERY_BALANCE_KEYS = (
+    'CELERY_BALANCE',
+    'CELERY_BALANCE_OS_RESERVE_RAM_MB',
+    'CELERY_BALANCE_RESERVE_CPU',
+    'CELERY_BALANCE_MIN_CONCURRENCY',
+    'CELERY_BALANCE_MAX_CONCURRENCY',
+    'CELERY_BALANCE_GPU',
+    'CELERY_BALANCE_WATCH_INTERVAL',
+    'CELERY_BALANCE_HYSTERESIS',
+)
 DOCKER_DEPS_CACHE_VALUES = frozenset({'internal', 'project', 'off'})
 BUILD_CACHE_OUTPUT = _DOCKER_DIR / 'docker-compose.build.generated.yml'
 PUBLISH_COMPOSE_OUTPUT = _DOCKER_DIR / 'docker-compose.publish.generated.yml'
 REDIS_AUTH_COMPOSE_OUTPUT = _DOCKER_DIR / 'docker-compose.redis-auth.generated.yml'
+# Infra-порты на хост только с loopback — не с LAN.
+INFRA_PUBLISH_BIND = '127.0.0.1'
 _PUBLISH_DISABLED = frozenset({'none', 'off', 'false', '0', '-', 'disabled'})
 _PUBLISH_WARNED: set[str] = set()
 
@@ -60,6 +72,43 @@ def _yaml():
 
 def _env(raw: dict[str, str], name: str, default: str = '') -> str:
     return raw.get(name, default).strip() or default
+
+
+def _docker_image_exists(image_ref: str) -> bool:
+    if not image_ref.strip():
+        return False
+    result = subprocess.run(
+        ['docker', 'image', 'inspect', image_ref],
+        capture_output=True,
+        check=False,
+    )
+    return result.returncode == 0
+
+
+def resolve_docker_python_base(raw: dict[str, str] | None = None) -> str:
+    """База Dockerfile.python: slim, иначе уже собранный python-образ."""
+    explicit = _env(raw or {}, 'DOCKER_PYTHON_BASE', '')
+    if explicit:
+        return explicit
+    preferred = 'python:3.12-slim-bookworm'
+    local_python = _env(raw or {}, 'DOCKER_PYTHON_IMAGE', 'ergo_ms-python:local') or 'ergo_ms-python:local'
+    if _docker_image_exists(local_python):
+        return local_python
+    return preferred
+
+
+def resolve_docker_node_base(raw: dict[str, str] | None = None) -> str:
+    """База Dockerfile.client: официальный node, иначе уже собранный client."""
+    explicit = _env(raw or {}, 'DOCKER_NODE_BASE', '')
+    if explicit:
+        return explicit
+    preferred = 'node:20-bookworm-slim'
+    if _docker_image_exists(preferred):
+        return preferred
+    fallback = _env(raw or {}, 'DOCKER_NODE_IMAGE', 'ergo_ms-client:local') or 'ergo_ms-client:local'
+    if _docker_image_exists(fallback):
+        return fallback
+    return preferred
 
 
 def load_databases_config(project_root: Path | None = None) -> dict[str, Any]:
@@ -81,6 +130,17 @@ def load_redis_password(project_root: Path | None = None) -> str:
     if not isinstance(section, dict):
         return ''
     raw = section.get('password', '')
+    if raw is None:
+        return ''
+    return str(raw).strip()
+
+
+def load_redis_user(project_root: Path | None = None) -> str:
+    """databases.yaml → redis.user; пусто = default / requirepass."""
+    section = load_databases_config(project_root).get('redis') or {}
+    if not isinstance(section, dict):
+        return ''
+    raw = section.get('user', '')
     if raw is None:
         return ''
     return str(raw).strip()
@@ -229,6 +289,9 @@ def build_compose_env_overrides(raw_env: dict[str, str]) -> dict[str, str]:
     overrides['API_HOST'] = '0.0.0.0'
     overrides['MEDIA_API_BIND_HOST'] = '0.0.0.0'
     overrides['CLIENT_HOST'] = '0.0.0.0'
+    if effective_docker_profile_jupyter(raw_env):
+        # Внутри контейнера слушать сеть compose; на хост — только 127.0.0.1.
+        overrides.setdefault('API_JUPYTER_BIND_HOST', '0.0.0.0')
 
     # Публичный хост API для SPA (Vite define CLIENT_API_HOST). Берём из .env
     # до override bind; 0.0.0.0/* заменяем на localhost.
@@ -248,10 +311,15 @@ def build_compose_env_overrides(raw_env: dict[str, str]) -> dict[str, str]:
     else:
         overrides.setdefault('ERGO_ENV', 'development')
 
-    # Для healthcheck / wait — явный хост БД
+    # Для healthcheck / wait — хост БД в сети compose.
+    # В контейнере Postgres слушает 5432; порт из databases.yaml — публикация на хост.
     default_db = load_databases_config().get('default') or {}
     overrides['ERGO_DOCKER_DB_HOST'] = effective_db_host(raw_env, str(default_db.get('host', '')))
-    overrides['ERGO_DOCKER_DB_PORT'] = str(default_db.get('port', 5432))
+    db_mode = _env(raw_env, 'DOCKER_DATABASE', 'container').lower()
+    if db_mode == 'container':
+        overrides['ERGO_DOCKER_DB_PORT'] = '5432'
+    else:
+        overrides['ERGO_DOCKER_DB_PORT'] = str(default_db.get('port', 5432))
     overrides['ERGO_DOCKER_SERVICE_API'] = service_api
     overrides['ERGO_DOCKER_SERVICE_MEDIA'] = service_media
 
@@ -298,6 +366,12 @@ def build_compose_env_overrides(raw_env: dict[str, str]) -> dict[str, str]:
         event_bus = _env(raw_env, 'BRIDGE_EVENT_BUS', 'redis')
         overrides['BRIDGE_EVENT_BUS'] = event_bus if event_bus != 'local' else 'redis'
 
+    # Overlay celery-balance читает те же knobs, что и хост (том virtual_env/cache).
+    for key in CELERY_BALANCE_KEYS:
+        value = _env(raw_env, key, '')
+        if value:
+            overrides[key] = value
+
     return overrides
 
 
@@ -320,6 +394,10 @@ def docker_mode(raw_env: dict[str, str]) -> str:
 
 def compose_profiles(raw_env: dict[str, str]) -> list[str]:
     profiles: list[str] = []
+    from lifecycle.host_profile import resolve_host_profile
+
+    host = resolve_host_profile(raw_env)
+    profiles.extend(host.docker_compose_profiles())
     if env_bool(raw_env.get('DOCKER_PROFILE_NGINX')) or effective_nginx_enabled(raw_env):
         profiles.append('nginx')
     if effective_docker_profile_jupyter(raw_env):
@@ -654,7 +732,7 @@ def resolve_infra_publish_ports(raw_env: dict[str, str], *, warn: bool = False) 
 def build_publish_compose_content(published: dict[str, int]) -> str:
     lines = [
         '# Автогенерация: prepare_compose_artifacts',
-        '# Публикация postgres/redis/meilisearch на хост (redis — только при явном порте).',
+        '# Публикация postgres/redis/meilisearch на 127.0.0.1 (redis — только при явном порте).',
         '# Внутри сети compose: postgres:5432, redis:6379, meilisearch:7700.',
     ]
     if not published:
@@ -670,7 +748,9 @@ def build_publish_compose_content(published: dict[str, int]) -> str:
         container_port = container_ports.get(service, host_port)
         lines.append(f'  {service}:')
         lines.append('    ports:')
-        lines.append(f'      - "{host_port}:{container_port}"')
+        lines.append(
+            f'      - "{INFRA_PUBLISH_BIND}:{host_port}:{container_port}"'
+        )
     lines.append('')
     return '\n'.join(lines)
 
@@ -685,37 +765,44 @@ def _yaml_double_quoted(value: str) -> str:
     return f'"{escaped}"'
 
 
-def build_redis_auth_compose_content(password: str) -> str:
-    """Overlay: requirepass + healthcheck с AUTH (когда password непустой)."""
-    quoted = _yaml_double_quoted(password)
+def build_redis_auth_compose_content(password: str, username: str = '') -> str:
+    """Overlay: requirepass (+ ACL user) и healthcheck с AUTH."""
+    quoted_pass = _yaml_double_quoted(password)
+    command = ['redis-server', '--requirepass', password]
+    if username:
+        command.extend(['--user', username, 'on', f'>{password}', '~*', '&*', '+@all'])
+    command_yaml = ', '.join(_yaml_double_quoted(item) for item in command)
     return (
         '# Автогенерация: prepare_compose_artifacts (databases.yaml redis.password)\n'
         'services:\n'
         '  redis:\n'
-        f'    command: ["redis-server", "--requirepass", {quoted}]\n'
+        f'    command: [{command_yaml}]\n'
         '    healthcheck:\n'
-        f'      test: ["CMD", "redis-cli", "-a", {quoted}, "--no-auth-warning", "ping"]\n'
+        f'      test: ["CMD", "redis-cli", "-a", {quoted_pass}, "--no-auth-warning", "ping"]\n'
         '      interval: 5s\n'
         '      timeout: 3s\n'
         '      retries: 10\n'
     )
 
 
-def write_redis_auth_compose(path: Path, password: str) -> None:
+def write_redis_auth_compose(path: Path, password: str, username: str = '') -> None:
     """Пишет AUTH-overlay или удаляет файл, если пароль пуст."""
     path.parent.mkdir(parents=True, exist_ok=True)
     if not password:
         path.unlink(missing_ok=True)
         return
-    path.write_text(build_redis_auth_compose_content(password), encoding='utf-8')
+    path.write_text(build_redis_auth_compose_content(password, username), encoding='utf-8')
 
 
 def postgres_container_env(raw_env: dict[str, str]) -> dict[str, str]:
     default_db = load_databases_config().get('default') or {}
+    user = str(default_db.get('user') or 'postgres').strip() or 'postgres'
+    password = str(default_db.get('password') or 'admin').strip() or 'admin'
+    name = str(default_db.get('name') or 'ergo_ms').strip() or 'ergo_ms'
     return {
-        'POSTGRES_USER': str(default_db.get('user', 'postgres')),
-        'POSTGRES_PASSWORD': str(default_db.get('password', 'admin')),
-        'POSTGRES_DB': str(default_db.get('name', 'ergo_ms')),
+        'POSTGRES_USER': user,
+        'POSTGRES_PASSWORD': password,
+        'POSTGRES_DB': name,
     }
 
 
@@ -783,7 +870,12 @@ def resolve_volume_binds(project_root: Path, raw_env: dict[str, str]) -> dict[st
     return binds
 
 
-def prepare_compose_artifacts(project_root: Path | None = None) -> dict[str, Path]:
+def prepare_compose_artifacts(
+    project_root: Path | None = None,
+    *,
+    resolve_app_ports: bool = True,
+    warn_image_bases: bool = False,
+) -> dict[str, Path]:
     root = (project_root or PROJECT_ROOT).resolve()
     raw = dict(load_merged_env(root))
     for key, value in os.environ.items():
@@ -798,7 +890,8 @@ def prepare_compose_artifacts(project_root: Path | None = None) -> dict[str, Pat
     write_publish_compose(PUBLISH_COMPOSE_OUTPUT, published)
 
     redis_password = load_redis_password(root)
-    write_redis_auth_compose(REDIS_AUTH_COMPOSE_OUTPUT, redis_password)
+    redis_user = load_redis_user(root)
+    write_redis_auth_compose(REDIS_AUTH_COMPOSE_OUTPUT, redis_password, redis_user)
 
     merged = merge_env_files(root, raw)
     merged.update(postgres_container_env(raw))
@@ -809,12 +902,43 @@ def prepare_compose_artifacts(project_root: Path | None = None) -> dict[str, Pat
         merged.pop('POSTGRES_PUBLISH_PORT', None)
 
     # Cursor/IDE на 127.0.0.1:8000 перехватывает localhost у Docker → «CORS Network Error».
-    api_preferred = int(_env(merged, 'API_PORT', '8000') or '8000')
-    client_preferred = int(_env(merged, 'CLIENT_PORT', '8001') or '8001')
-    merged['API_PORT'] = str(resolve_docker_app_port(api_preferred, env_key='API_PORT', warn=True))
-    merged['CLIENT_PORT'] = str(
-        resolve_docker_app_port(client_preferred, env_key='CLIENT_PORT', warn=True)
-    )
+    # Loadtest публикует LOADTEST_API_PORT, не API_PORT — хостовый API на 8000 не трогаем.
+    # docker-build / ps не публикуют порты — процессы на 8000 не завершаем.
+    if resolve_app_ports and not effective_docker_profile_loadtest(
+        merged
+    ) and not effective_docker_profile_loadtest(raw):
+        api_preferred = int(_env(merged, 'API_PORT', '8000') or '8000')
+        client_preferred = int(_env(merged, 'CLIENT_PORT', '8001') or '8001')
+        merged['API_PORT'] = str(resolve_docker_app_port(api_preferred, env_key='API_PORT', warn=True))
+        merged['CLIENT_PORT'] = str(
+            resolve_docker_app_port(client_preferred, env_key='CLIENT_PORT', warn=True)
+        )
+
+    node_base = resolve_docker_node_base(merged)
+    merged['DOCKER_NODE_BASE'] = node_base
+    if warn_image_bases and node_base != 'node:20-bookworm-slim':
+        warn_key = f'node-base:{node_base}'
+        if warn_key not in _PUBLISH_WARNED:
+            _PUBLISH_WARNED.add(warn_key)
+            print(
+                format_console(
+                    'warning',
+                    t('docker_node_base_fallback', image=node_base),
+                )
+            )
+
+    python_base = resolve_docker_python_base(merged)
+    merged['DOCKER_PYTHON_BASE'] = python_base
+    if warn_image_bases and python_base not in ('python:3.12-slim-bookworm', 'python:3.12-slim'):
+        warn_key = f'python-base:{python_base}'
+        if warn_key not in _PUBLISH_WARNED:
+            _PUBLISH_WARNED.add(warn_key)
+            print(
+                format_console(
+                    'warning',
+                    t('docker_python_base_fallback', image=python_base),
+                )
+            )
 
     binds = resolve_volume_binds(root, raw)
     merged.update(binds)

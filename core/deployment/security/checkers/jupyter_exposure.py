@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from ergo_modes import effective_jupyter_access_mode, effective_jupyter_enabled, ergo_jupyter
+from ergo_modes import (
+    effective_jupyter_access_mode,
+    effective_jupyter_behind_nginx,
+    effective_jupyter_enabled,
+    ergo_jupyter,
+)
 from security.catalog import Control, SecurityCatalog
 from security.compare import env_truthy
 from security.report import Finding
@@ -28,8 +33,7 @@ def _resolve_access_mode(values: Mapping[str, str]) -> str:
         return from_ergo
 
     # auto / none — эвристика как в jupyter_runtime.effective_jupyter_access_mode
-    behind = _truthy(values, 'NGINX_ENABLED') and _truthy(values, 'API_JUPYTER_BEHIND_NGINX')
-    if behind:
+    if effective_jupyter_behind_nginx(values):
         return 'nginx'
     if _truthy(values, 'API_JUPYTER_ALLOW_REMOTE'):
         return 'lan'
@@ -115,14 +119,12 @@ def run(control: Control, catalog: SecurityCatalog, context: dict[str, Any]) -> 
                 severity=_sev(control),
                 message='режим nginx без API_JUPYTER_TOKEN',
             )
-        if access == 'nginx' and not (
-            _truthy(values, 'NGINX_ENABLED') and _truthy(values, 'API_JUPYTER_BEHIND_NGINX')
-        ):
+        if access == 'nginx' and not effective_jupyter_behind_nginx(values):
             return Finding(
                 control_id=control.id,
                 title=control.title,
                 severity=_sev(control),
-                message='режим nginx требует NGINX_ENABLED и API_JUPYTER_BEHIND_NGINX',
+                message='режим nginx требует ERGO_PROXY=nginx (или NGINX_ENABLED=true)',
             )
         return Finding(
             control_id=control.id,

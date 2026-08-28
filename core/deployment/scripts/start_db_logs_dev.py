@@ -84,14 +84,18 @@ def portable_postgres_log_paths(root: Path | None = None) -> list[Path]:
     from postgres_common import postgres_packages_dir  # noqa: WPS433
 
     project_root = root or PROJECT_ROOT
-    logs_dir = postgres_packages_dir(project_root) / 'logs'
-    names = (
+    package_logs = postgres_packages_dir(project_root) / 'logs'
+    paths = [log_file_path('POSTGRES', project_root)]
+    for name in (
         'postgresql.log',
         'pg_ctl.log',
         'service_stdout.log',
         'service_stderr.log',
-    )
-    return [logs_dir / name for name in names]
+    ):
+        path = package_logs / name
+        if path not in paths:
+            paths.append(path)
+    return paths
 
 
 def portable_postgres_installed(root: Path | None = None) -> bool:
@@ -310,6 +314,7 @@ def main() -> int:
             portable_postgres_log_paths(PROJECT_ROOT),
             service=label,
             process_keeps_running=True,
+            initial_lines=500,
         )
 
     if db_mode == 'sqlite':

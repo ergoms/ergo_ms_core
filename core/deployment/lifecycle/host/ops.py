@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import shutil
 import subprocess
@@ -382,35 +383,105 @@ def npm_deps_input_paths(project_root: Path) -> list[Path]:
     return paths
 
 
-def host_npm_deps_up_to_date(project_root: Path) -> bool:
-    """Smart-skip для host npm (аналог DOCKER_NPM_INSTALL=smart)."""
-    marker = host_npm_deps_marker(project_root)
+def npm_deps_fingerprint(project_root: Path) -> str:
+    """Отпечаток манифестов npm: git checkout с тем же содержимым не сбивает skip."""
+    digest = hashlib.sha256()
+    for path in npm_deps_input_paths(project_root):
+        if not path.is_file():
+            continue
+        digest.update(str(path.relative_to(project_root)).encode('utf-8'))
+        digest.update(b'\0')
+        digest.update(path.read_bytes())
+        digest.update(b'\0')
+    return digest.hexdigest()
+
+
+def _package_json_direct_dep_names(pkg_path: Path) -> list[str]:
+    try:
+        data = json.loads(pkg_path.read_text(encoding='utf-8'))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return []
+    names: list[str] = []
+    for key in ('dependencies', 'devDependencies'):
+        section = data.get(key) or {}
+        if isinstance(section, dict):
+            names.extend(str(name) for name in section if name)
+    return names
+
+
+def _disabled_npm_modules() -> frozenset[str]:
+    from lifecycle.modules.catalog import parse_disabled_modules_raw
+
+    return parse_disabled_modules_raw(os.environ.get('DISABLED_MODULES', ''))
+
+
+def _client_package_module_name(pkg_path: Path, project_root: Path) -> str | None:
+    """modules/<name>/client/package.json → имя модуля, иначе None."""
+    try:
+        relative = pkg_path.resolve().relative_to(project_root.resolve())
+    except ValueError:
+        return None
+    parts = relative.parts
+    if (
+        len(parts) >= 4
+        and parts[0] == 'modules'
+        and parts[-2] == 'client'
+        and parts[-1] == 'package.json'
+    ):
+        return parts[1]
+    return None
+
+
+def host_npm_direct_deps_present(project_root: Path) -> bool:
+    """Прямые пакеты из манифестов ядра и включённых модулей лежат в node_modules."""
     node_modules = npm_node_modules_dir(project_root)
-    if not marker.is_file() or not node_modules.is_dir():
+    if not node_modules.is_dir():
+        return False
+    disabled = _disabled_npm_modules()
+    checked = 0
+    for pkg_path in npm_deps_input_paths(project_root):
+        if pkg_path.name != 'package.json' or not pkg_path.is_file():
+            continue
+        module_name = _client_package_module_name(pkg_path, project_root)
+        if module_name and module_name in disabled:
+            continue
+        for name in _package_json_direct_dep_names(pkg_path):
+            target = node_modules.joinpath(*name.split('/'))
+            if not target.exists():
+                return False
+            checked += 1
+    return checked > 0
+
+
+def host_npm_deps_up_to_date(project_root: Path) -> bool:
+    """Пропуск install:all только если манифесты те же и пакеты реально на месте."""
+    node_modules = npm_node_modules_dir(project_root)
+    if not node_modules.is_dir():
         return False
     try:
         next(node_modules.iterdir())
     except StopIteration:
         return False
-    try:
-        marker_mtime = marker.stat().st_mtime
-    except OSError:
+    if not host_npm_direct_deps_present(project_root):
         return False
-    for path in npm_deps_input_paths(project_root):
-        if not path.is_file():
-            continue
+    current = npm_deps_fingerprint(project_root)
+    marker = host_npm_deps_marker(project_root)
+    stamped = ''
+    if marker.is_file():
         try:
-            if path.stat().st_mtime > marker_mtime:
-                return False
+            stamped = marker.read_text(encoding='utf-8').strip()
         except OSError:
-            return False
-    return True
+            stamped = ''
+    if stamped == current:
+        return True
+    # Маркер «ok» / отсутствует: checkout обновляет mtime, но пакеты уже на месте.
+    return stamped in ('', 'ok')
 
 
 def touch_host_npm_deps_marker(project_root: Path) -> None:
     marker = host_npm_deps_marker(project_root)
     marker.parent.mkdir(parents=True, exist_ok=True)
-    marker.write_text('ok\n', encoding='utf-8')
+    marker.write_text(npm_deps_fingerprint(project_root) + '\n', encoding='utf-8')
 
 
 _CLIENT_BUILD_ENV_KEYS = (
@@ -432,6 +503,8 @@ _CLIENT_BUILD_ENV_KEYS = (
     'ERGO_PROXY',
     'NGINX_ENABLED',
     'ERGO_ENV',
+    'ERGO_DEV_TOOLS',
+    'CLIENT_DEV_TOOLS_ENABLED',
     'API_PORT',
     'API_PASSWORD_MIN_LENGTH',
     'API_PASSWORD_MAX_LENGTH',

@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -30,7 +31,7 @@ from project_layout import (  # noqa: E402
     package_dir,
 )
 
-MEILISEARCH_VERSION = '1.12.8'
+MEILISEARCH_VERSION = '1.43.1'
 DEFAULT_PORT = 8004
 DEFAULT_BIND = '127.0.0.1'
 DOWNLOAD_USER_AGENT = 'ergoms/1.0 (Meilisearch installer)'
@@ -178,8 +179,20 @@ def _resolve_env(root: Path, name: str, default: str, *, allow_os: bool = False)
     return default
 
 
+_TEMPLATE_MASTER_KEY = 'ergo_ms_dev_meili_key'
+
+
 def _resolve_master_key(root: Path) -> str:
-    return _resolve_env(root, 'MEILI_MASTER_KEY', 'ergo_ms_dev_meili_key', allow_os=True)
+    return _resolve_env(root, 'MEILI_MASTER_KEY', '', allow_os=True)
+
+
+def _is_insecure_master_key(key: str) -> bool:
+    stripped = (key or '').strip()
+    return (not stripped) or stripped.lower() == _TEMPLATE_MASTER_KEY
+
+
+def _ergo_env(root: Path) -> str:
+    return _resolve_env(root, 'ERGO_ENV', 'development', allow_os=True).strip().lower()
 
 
 def _host_to_http_addr(host: str) -> str:
@@ -249,10 +262,36 @@ def ping_meilisearch(root: Path) -> bool:
         return False
 
 
+def _installed_version(root: Path) -> str | None:
+    binary = meilisearch_binary_path(root)
+    if not binary.is_file():
+        return None
+    try:
+        result = subprocess.run(
+            [str(binary), '--version'],
+            capture_output=True,
+            text=True,
+            timeout=8,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    text = f'{result.stdout or ""} {result.stderr or ""}'
+    match = re.search(r'(\d+\.\d+\.\d+)', text)
+    return match.group(1) if match else None
+
+
 def cmd_install(root: Path) -> int:
-    if is_installed(root):
+    current = _installed_version(root)
+    if current == MEILISEARCH_VERSION:
         print(f'[OK] Meilisearch уже установлен: {meilisearch_binary_path(root)}')
         return 0
+    if current:
+        print(
+            f'[INFO] Обновление Meilisearch {current} → {MEILISEARCH_VERSION}. '
+            'После замены бинарника выполните ergoms search-reindex; '
+            'переход 1.12→1.43 может потребовать переиндексации с нуля.'
+        )
 
     url, filename = _download_url()
     target_dir = meilisearch_packages_dir(root)
@@ -260,7 +299,15 @@ def cmd_install(root: Path) -> int:
     target = target_dir / filename
     print(f'[INFO] Загрузка Meilisearch {MEILISEARCH_VERSION}...')
     try:
-        _download(url, target)
+        from download_cache import download_with_cache
+
+        download_with_cache(
+            root,
+            'meilisearch',
+            target,
+            lambda dest: _download(url, dest),
+            filename=f'{MEILISEARCH_VERSION}-{filename}',
+        )
     except Exception as exc:
         print(f'[ERROR] {exc}', file=sys.stderr)
         return 1
@@ -319,6 +366,19 @@ def cmd_start(root: Path) -> int:
     meilisearch_data_dir(root).mkdir(parents=True, exist_ok=True)
     log_path = meilisearch_log_file(root)
     log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    from security.ensure_secret import ensure_mode_secrets_for_process
+
+    ensure_mode_secrets_for_process(root)
+
+    master_key = _resolve_master_key(root)
+    if _is_insecure_master_key(master_key) and _ergo_env(root) == 'production':
+        print(
+            '[ERROR] MEILI_MASTER_KEY пуст или из шаблона. '
+            'Задайте ключ через ergoms generate-secret или env/search.env.',
+            file=sys.stderr,
+        )
+        return 1
 
     env = _build_env(root)
     log_handle = open(log_path, 'a', encoding='utf-8')  # noqa: SIM115

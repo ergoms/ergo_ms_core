@@ -10,13 +10,18 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 from typing import Literal, Mapping
+from urllib.parse import urlparse
 
 _DEPLOYMENT_DIR = Path(__file__).resolve().parent.parent
 if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 
 from ergo_modes import env_bool
-from security.csp_policy import build_security_headers_nginx, resolve_csp_mode
+from security.csp_policy import (
+    build_security_headers_nginx,
+    read_federation_importmap_hashes,
+    resolve_csp_mode,
+)
 from upload_limits import compute_client_max_body_bytes, format_nginx_body_size
 from upload_rate import build_rate_limit_conf, resolve_upload_rates, upload_location_limit_lines
 
@@ -35,6 +40,35 @@ def _env(values: Mapping[str, str], key: str, default: str = '') -> str:
 def resolve_client_max_body_size(values: Mapping[str, str]) -> str:
     """nginx client_max_body_size из MEDIA_UPLOAD_MAX_SIZE + direct-upload env."""
     return format_nginx_body_size(compute_client_max_body_bytes(values))
+
+
+def resolve_host_api_upstream(values: Mapping[str, str]) -> str:
+    """host:port для ``upstream ergo_api``.
+
+    Пусто — локальный Django ``127.0.0.1:API_PORT``.
+    ``NGINX_API_UPSTREAM`` — ядро на другом хосте; location ``/api/<module>/``
+    этот ключ не меняет.
+    """
+    default_port = _env(values, 'API_PORT', '8000')
+    raw = _env(values, 'NGINX_API_UPSTREAM')
+    if not raw:
+        return f'127.0.0.1:{default_port}'
+    return _parse_upstream_host_port(raw, default_port)
+
+
+def _parse_upstream_host_port(raw: str, default_port: str) -> str:
+    text = raw.strip()
+    if '://' in text:
+        parsed = urlparse(text)
+        host = (parsed.hostname or '').strip() or '127.0.0.1'
+        port = parsed.port or int(default_port)
+        return f'{host}:{port}'
+    if text.count(':') == 1:
+        host, _, port = text.partition(':')
+        host = host.strip() or '127.0.0.1'
+        port = port.strip() or default_port
+        return f'{host}:{port}'
+    return f'{text}:{default_port}'
 
 
 def render_upstream_block(
@@ -57,15 +91,204 @@ def render_upstream_block(
     return '\n'.join(lines)
 
 
-def build_host_upstream_blocks(values: Mapping[str, str]) -> tuple[str, str]:
-    api_port = _env(values, 'API_PORT', '8000')
+def resolve_host_media_upstream(values: Mapping[str, str]) -> str:
+    """Местный media_api для ``/upload/`` и ``/serve/`` ядра (аватары, вложения)."""
     media_port = _env(values, 'MEDIA_API_BIND_PORT', '8003')
+    return f'127.0.0.1:{media_port}'
+
+
+def resolve_host_media_modules_upstream(values: Mapping[str, str]) -> str | None:
+    """nginx пира для ``/upload/<module>/`` и ``/serve/<module>/``.
+
+    ``NGINX_MEDIA_UPSTREAM`` не подменяет местный ``ergo_media``: файлы ядра
+    остаются здесь. Без порта — 80 (nginx пира), не bind-порт media_api.
+    """
+    raw = _env(values, 'NGINX_MEDIA_UPSTREAM')
+    if not raw:
+        return None
+    return _parse_upstream_host_port(raw, '80')
+
+
+def resolve_host_client_upstream(values: Mapping[str, str]) -> str | None:
+    """host:port SPA на другом хосте. Пусто — локальный ``core/client/dist``."""
+    raw = _env(values, 'NGINX_CLIENT_UPSTREAM')
+    if not raw:
+        return None
+    return _parse_upstream_host_port(raw, '80')
+
+
+def resolve_host_client_remotes_upstream(values: Mapping[str, str]) -> str | None:
+    """host:port federated remotes. Пусто — местный ``virtual_env/client-remotes``."""
+    raw = _env(values, 'NGINX_CLIENT_REMOTES_UPSTREAM')
+    if not raw:
+        return None
+    return _parse_upstream_host_port(raw, '80')
+
+
+def render_client_upstream_block(values: Mapping[str, str]) -> str:
+    parts: list[str] = []
+    peer = resolve_host_client_upstream(values)
+    if peer:
+        parts.append(render_upstream_block('ergo_client', peer, no_keepalive_comment=True))
+    remotes_peer = resolve_host_client_remotes_upstream(values)
+    if remotes_peer:
+        parts.append(
+            render_upstream_block('ergo_client_remotes', remotes_peer, no_keepalive_comment=True),
+        )
+    if not parts:
+        return ''
+    return '\n'.join(parts) + '\n'
+
+
+def _remotes_proxy_headers(host: str) -> str:
+    return (
+        '        proxy_pass http://ergo_client_remotes;\n'
+        f'        proxy_set_header Host {host};\n'
+        '        proxy_set_header X-Forwarded-Host $host;\n'
+        '        proxy_set_header X-Forwarded-Proto $scheme;\n'
+        '        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n'
+    )
+
+
+def render_remotes_location_host(values: Mapping[str, str]) -> str:
+    """``/remotes/<name>/``: hashed chunks кэшируются, remoteEntry.js — нет."""
+    remotes_peer = resolve_host_client_remotes_upstream(values)
+    if remotes_peer:
+        host = remotes_peer.rsplit(':', 1)[0]
+        proxy = _remotes_proxy_headers(host)
+        return (
+            '    location ^~ /remotes/ {\n'
+            f'{proxy}'
+            '        location ~* /(?:chunks|assets)/ {\n'
+            '            expires 1y;\n'
+            '            proxy_hide_header Cache-Control;\n'
+            '            add_header Cache-Control "public, immutable" always;\n'
+            f'{proxy}'
+            '        }\n'
+            '        location ~* "\\.[a-fA-F0-9]{8,}\\.(?:js|css)$" {\n'
+            '            expires 1y;\n'
+            '            proxy_hide_header Cache-Control;\n'
+            '            add_header Cache-Control "public, immutable" always;\n'
+            f'{proxy}'
+            '        }\n'
+            '        add_header Cache-Control "no-store" always;\n'
+            '    }\n'
+            '\n'
+        )
+    return (
+        '    location ^~ /remotes/ {\n'
+        '        alias ${ERGO_ROOT}/virtual_env/client-remotes/;\n'
+        '        location ~* /(?:chunks|assets)/ {\n'
+        '            expires 1y;\n'
+        '            add_header Cache-Control "public, immutable" always;\n'
+        '            include ${ERGO_NGINX_SNIPPETS}/security_headers.conf;\n'
+        '        }\n'
+        '        location ~* "\\.[a-fA-F0-9]{8,}\\.(?:js|css)$" {\n'
+        '            expires 1y;\n'
+        '            add_header Cache-Control "public, immutable" always;\n'
+        '            include ${ERGO_NGINX_SNIPPETS}/security_headers.conf;\n'
+        '        }\n'
+        '        add_header Cache-Control "no-store" always;\n'
+        '        include ${ERGO_NGINX_SNIPPETS}/security_headers.conf;\n'
+        '    }\n'
+        '\n'
+    )
+
+
+def render_spa_locations_host(values: Mapping[str, str]) -> str:
+    """``/`` ``/assets/`` ``/index.html``: локальный dist или proxy на NGINX_CLIENT_UPSTREAM."""
+    remotes = render_remotes_location_host(values)
+    peer = resolve_host_client_upstream(values)
+    if not peer:
+        return (
+            remotes
+            + '    location /assets/ {\n'
+            '        expires 1y;\n'
+            '        add_header Cache-Control "public, immutable" always;\n'
+            '        try_files $uri =404;\n'
+            '    }\n'
+            '\n'
+            '    location = /client-build.json {\n'
+            '        add_header Cache-Control "no-store" always;\n'
+            '        include ${ERGO_NGINX_SNIPPETS}/security_headers.conf;\n'
+            '        try_files $uri =404;\n'
+            '    }\n'
+            '\n'
+            '    location = /index.html {\n'
+            '        if ($maintenance = 1) { return 503; }\n'
+            '        add_header Cache-Control "no-store" always;\n'
+            '        include ${ERGO_NGINX_SNIPPETS}/security_headers.conf;\n'
+            '    }\n'
+            '\n'
+            '    location = / {\n'
+            '        if ($maintenance = 1) { return 503; }\n'
+            '        add_header Cache-Control "no-store" always;\n'
+            '        include ${ERGO_NGINX_SNIPPETS}/security_headers.conf;\n'
+            '        try_files /index.html =404;\n'
+            '    }\n'
+            '\n'
+            '    location / {\n'
+            '        if ($maintenance = 1) { return 503; }\n'
+            '        limit_conn ergo_conn 50;\n'
+            '        try_files $uri $uri/ /index.html;\n'
+            '    }\n'
+        )
+    host = peer.rsplit(':', 1)[0]
+    proxy = (
+        f'        proxy_pass http://ergo_client;\n'
+        f'        proxy_set_header Host {host};\n'
+        '        proxy_set_header X-Forwarded-Host $host;\n'
+        '        proxy_set_header X-Forwarded-Proto $scheme;\n'
+        '        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n'
+    )
+    return (
+        remotes
+        + '    location /assets/ {\n'
+        '        expires 1y;\n'
+        '        add_header Cache-Control "public, immutable" always;\n'
+        f'{proxy}'
+        '    }\n'
+        '\n'
+        '    location = /client-build.json {\n'
+        '        add_header Cache-Control "no-store" always;\n'
+        '        include ${ERGO_NGINX_SNIPPETS}/security_headers.conf;\n'
+        f'{proxy}'
+        '    }\n'
+        '\n'
+        '    location = /index.html {\n'
+        '        if ($maintenance = 1) { return 503; }\n'
+        '        add_header Cache-Control "no-store" always;\n'
+        '        include ${ERGO_NGINX_SNIPPETS}/security_headers.conf;\n'
+        f'{proxy}'
+        '    }\n'
+        '\n'
+        '    location = / {\n'
+        '        if ($maintenance = 1) { return 503; }\n'
+        '        add_header Cache-Control "no-store" always;\n'
+        '        include ${ERGO_NGINX_SNIPPETS}/security_headers.conf;\n'
+        f'{proxy}'
+        '    }\n'
+        '\n'
+        '    location / {\n'
+        '        if ($maintenance = 1) { return 503; }\n'
+        '        limit_conn ergo_conn 50;\n'
+        f'{proxy}'
+        '    }\n'
+    )
+
+
+def build_host_upstream_blocks(values: Mapping[str, str]) -> tuple[str, str]:
+    from module_nginx import media_route_modules
+
     api = render_upstream_block(
         'ergo_api',
-        f'127.0.0.1:{api_port}',
+        resolve_host_api_upstream(values),
         no_keepalive_comment=True,
     )
-    media = render_upstream_block('ergo_media', f'127.0.0.1:{media_port}')
+    media = render_upstream_block('ergo_media', resolve_host_media_upstream(values))
+    peer = resolve_host_media_modules_upstream(values)
+    if peer and media_route_modules(values):
+        media = media + '\n\n' + render_upstream_block('ergo_media_modules', peer)
     return api, media
 
 
@@ -80,7 +303,9 @@ def build_docker_upstream_blocks(values: Mapping[str, str]) -> tuple[str, str]:
 
 
 def build_realtime_stream_location(*, variant: Literal['host', 'docker'] = 'host') -> str:
-    # SSE: realtime + модульные */stream/ (chat и т.п.). Без имён модулей в ядре.
+    # SSE: realtime + */stream/ процессов на ergo_api (монолит / ядро).
+    # В microservice location ^~ /api/<module>/ забирает stream у модуля:
+    # regex иначе бьёт в Django ядра (404). Без имён модулей в этом блоке.
     # Docker без maintenance-map; host — с проверкой $maintenance.
     if variant == 'docker':
         return """    location ^~ /api/realtime/stream/ {
@@ -135,15 +360,50 @@ def build_realtime_stream_location(*, variant: Literal['host', 'docker'] = 'host
 """
 
 
+def build_logout_location(*, include_maintenance: bool) -> str:
+    """Идемпотентный logout: в API только burst, остальное — 204 без прокси.
+
+    limit_req_status 429, не default 503: иначе server-level error_page
+    maintenance превращает POST в GET (405). Сами 429 с этой location
+    отвечаем 204: повторный выход не ошибка и не повод ретраить.
+    """
+    maintenance = (
+        '        if ($maintenance = 1) { return 503; }\n'
+        if include_maintenance
+        else ''
+    )
+    return (
+        '    # Точный logout раньше общего /api/: шторм не бьёт в Daphne.\n'
+        '    location = /api/cms/adp/logout/ {\n'
+        f'{maintenance}'
+        '        limit_req zone=ergo_logout burst=5 nodelay;\n'
+        '        limit_req_status 429;\n'
+        '        limit_req_log_level notice;\n'
+        '        limit_conn ergo_conn 10;\n'
+        '        limit_conn_status 429;\n'
+        '        error_page 429 =204 @logout_limited;\n'
+        '        proxy_pass http://ergo_api;\n'
+        '    }\n'
+        '\n'
+        '    location @logout_limited {\n'
+        '        internal;\n'
+        '        access_log off;\n'
+        '        return 204;\n'
+        '    }\n'
+    )
+
+
 def build_host_api_ws_locations() -> str:
-    return """    # Точный logout раньше общего /api/: жёсткий лимит против клиентского шторма.
-    location = /api/cms/adp/logout/ {
-        if ($maintenance = 1) { return 503; }
-        # 429, не default 503: иначе error_page maintenance ломает POST → 405.
-        limit_req zone=ergo_logout burst=5 nodelay;
-        limit_req_status 429;
-        limit_conn ergo_conn 10;
-        limit_conn_status 429;
+    return """    # Служебный ModuleBridge не через публичный reverse proxy (С12).
+    location /internal/ {
+        deny all;
+        access_log off;
+    }
+
+""" + build_logout_location(include_maintenance=True) + """
+    # Только auth_request из location Jupyter; прямой браузерный GET — 404.
+    location = /api/internal/jupyter-access/ {
+        internal;
         proxy_pass http://ergo_api;
     }
 
@@ -204,12 +464,16 @@ def build_docker_core_proxy_locations() -> str:
     (клиент с хоста виден как docker-gateway). Healthcheck compose бьёт в media-api.
     """
     stream = build_realtime_stream_location(variant='docker')
+    logout = build_logout_location(include_maintenance=False)
     return f"""{stream}
-    location = /api/cms/adp/logout/ {{
-        limit_req zone=ergo_logout burst=5 nodelay;
-        limit_req_status 429;
-        limit_conn ergo_conn 10;
-        limit_conn_status 429;
+    location /internal/ {{
+        deny all;
+        access_log off;
+    }}
+
+{logout}
+    location = /api/internal/jupyter-access/ {{
+        internal;
         proxy_pass http://ergo_api;
     }}
 
@@ -278,15 +542,21 @@ def apply_template_replacements(content: str, replacements: Mapping[str, str]) -
 
 
 def build_host_nginx_shared_replacements(values: Mapping[str, str]) -> dict[str, str]:
+    from module_nginx import render_module_media_locations_host
+
     api_upstream, media_upstream = build_host_upstream_blocks(values)
     body_size = resolve_client_max_body_size(values)
     rates = resolve_upload_rates(values)
     return {
         '${ERGO_API_UPSTREAM_BLOCK}': api_upstream,
         '${ERGO_MEDIA_UPSTREAM_BLOCK}': media_upstream,
+        '${ERGO_CLIENT_UPSTREAM_BLOCK}': render_client_upstream_block(values),
+        '${ERGO_SPA_LOCATIONS}': render_spa_locations_host(values),
         '${ERGO_REALTIME_STREAM_LOCATION}': build_realtime_stream_location(variant='host'),
         '${ERGO_HOST_API_WS_PROXY}': build_host_api_ws_locations(),
-        '${ERGO_HOST_MEDIA_PROXY}': build_host_media_locations(),
+        '${ERGO_HOST_MEDIA_PROXY}': (
+            render_module_media_locations_host(values) + build_host_media_locations()
+        ),
         '${ERGO_CLIENT_MAX_BODY_SIZE}': body_size,
         '${ERGO_RATE_LIMIT_CONF}': build_rate_limit_conf(values).rstrip('\n'),
         '${ERGO_UPLOAD_LIMIT_LINES}': upload_location_limit_lines(burst=int(rates['burst'])),
@@ -308,14 +578,28 @@ def build_docker_http_preamble(values: Mapping[str, str] | None = None) -> str:
     )
 
 
-def build_docker_nginx_shared_replacements(values: Mapping[str, str]) -> dict[str, str]:
+def _project_root_from_nginx_path(path: Path) -> Path | None:
+    for parent in Path(path).resolve().parents:
+        if (parent / 'core' / 'client').is_dir():
+            return parent
+    return None
+
+
+def build_docker_nginx_shared_replacements(
+    values: Mapping[str, str],
+    *,
+    project_root: Path | None = None,
+) -> dict[str, str]:
     api_upstream, media_upstream = build_docker_upstream_blocks(values)
     body_size = resolve_client_max_body_size(values)
     csp_mode = resolve_csp_mode(values)
     rates = resolve_upload_rates(values)
     return {
         '${ERGO_DOCKER_HTTP_PREAMBLE}': build_docker_http_preamble(values),
-        '${ERGO_DOCKER_SECURITY_HEADERS}': build_security_headers_nginx(csp_mode),
+        '${ERGO_DOCKER_SECURITY_HEADERS}': build_security_headers_nginx(
+            csp_mode,
+            extra_script_hashes=read_federation_importmap_hashes(project_root),
+        ),
         '${ERGO_DOCKER_PROXY_PARAMS}': _snippet_text('proxy_params.conf'),
         '${ERGO_API_UPSTREAM_BLOCK}': api_upstream,
         '${ERGO_MEDIA_UPSTREAM_BLOCK}': media_upstream,
@@ -334,15 +618,22 @@ def render_docker_nginx_config(
     template_path: Path,
     output_path: Path,
 ) -> Path:
-    from module_nginx import render_module_locations_docker, render_module_upstreams_docker
+    from module_nginx import (
+        render_module_locations_docker,
+        render_module_media_locations_docker,
+        render_module_upstreams_docker,
+    )
 
     content = template_path.read_text(encoding='utf-8')
-    replacements = build_docker_nginx_shared_replacements(raw_env)
-    replacements['${ERGO_MODULE_UPSTREAMS}'] = render_module_upstreams_docker(raw_env)
-    replacements['${ERGO_MODULE_LOCATIONS}'] = render_module_locations_docker(raw_env)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(
-        apply_template_replacements(content, replacements),
-        encoding='utf-8',
+    replacements = build_docker_nginx_shared_replacements(
+        raw_env,
+        project_root=_project_root_from_nginx_path(template_path),
     )
+    replacements['${ERGO_MODULE_UPSTREAMS}'] = render_module_upstreams_docker(raw_env)
+    replacements['${ERGO_MODULE_LOCATIONS}'] = (
+        render_module_media_locations_docker(raw_env) + render_module_locations_docker(raw_env)
+    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    rendered = apply_template_replacements(content, replacements).replace('\r\n', '\n')
+    output_path.write_bytes(rendered.encode('utf-8'))
     return output_path

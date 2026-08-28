@@ -114,14 +114,30 @@ class EnsureRedisStep(DeploymentStep):
         from install_redis import is_installed as redis_is_installed  # noqa: WPS433
 
         if redis_is_installed(ctx.project_root) and not ctx.option_bool('force'):
-            print(format_console('skip', t('redis_already_installed_skip')))
-            return StepResult()
+            from install_redis import ping_redis, render_redis_conf  # noqa: WPS433
+            from security.ensure_infra_credentials import ensure_infra_credentials  # noqa: WPS433
+
+            ensure_infra_credentials(ctx.project_root)
+            render_redis_conf(ctx.project_root)
+            if ping_redis(ctx.project_root):
+                print(format_console('skip', t('redis_already_installed_skip')))
+                return StepResult()
+            print(format_console('info', t('redis_starting_for_setup')))
+            return self._start_redis(ctx)
 
         print(format_console('info', t('installing_redis')))
         ctx.options.setdefault('needs_sudo', True)
         code = invoke_dispatch(ctx, 'redis', 'install')
         if code != 0:
             return StepResult(exit_code=code, message=t('redis_install_failed'))
+        print(format_console('ok', t('redis_ready')))
+        return StepResult()
+
+    def _start_redis(self, ctx: DeploymentContext) -> StepResult:
+        ctx.options.setdefault('needs_sudo', True)
+        code = invoke_dispatch(ctx, 'redis', 'start')
+        if code != 0:
+            return StepResult(exit_code=code, message=t('redis_start_failed'))
         print(format_console('ok', t('redis_ready')))
         return StepResult()
 
@@ -209,6 +225,32 @@ class EnsureMeilisearchOsServiceStep(DeploymentStep):
         if code != 0:
             return StepResult(exit_code=code, message=t('meilisearch_service_install_failed'))
         print(format_console('ok', t('meilisearch_service_ready')))
+        return StepResult()
+
+
+class EnsurePostgresOsServiceStep(DeploymentStep):
+    """При ERGO_DB=portable_postgres — зарегистрировать portable PostgreSQL как службу ОС."""
+
+    @property
+    def name(self) -> str:
+        return 'ensure_postgres_os_service'
+
+    def should_run(self, ctx: DeploymentContext) -> bool:
+        return ctx.runtime == 'host'
+
+    def run(self, ctx: DeploymentContext) -> StepResult:
+        from deployment_env import should_setup_portable_postgres  # noqa: WPS433
+
+        if not should_setup_portable_postgres():
+            print(format_console('skip', t('postgres_service_skip')))
+            return StepResult()
+
+        print(format_console('info', t('installing_postgres_service')))
+        ctx.options.setdefault('needs_sudo', True)
+        code = invoke_dispatch(ctx, 'postgres', 'install-service')
+        if code != 0:
+            return StepResult(exit_code=code, message=t('postgres_service_install_failed'))
+        print(format_console('ok', t('postgres_service_ready')))
         return StepResult()
 
 
@@ -364,6 +406,10 @@ class StopSetupStartedInfraStep(DeploymentStep):
     def _load_stop_commands(self, ctx: DeploymentContext) -> list[str] | None:
         if not host_ops.venv_exists(ctx.project_root, ctx.platform):
             return []
+        # Loader нужен PyYAML; до успешного python-install в venv его нет.
+        stamp = ctx.project_root / host_ops.PYTHON_DEPS_STAMP_REL
+        if not stamp.is_file():
+            return []
         venv_py = host_ops.venv_python_exe(ctx.project_root, ctx.platform)
         result = subprocess.run(
             [
@@ -386,8 +432,11 @@ class StopSetupStartedInfraStep(DeploymentStep):
             },
         )
         if result.returncode != 0:
-            if result.stderr:
-                print(result.stderr, file=sys.stderr, end='')
+            stderr = result.stderr or ''
+            if "No module named 'yaml'" in stderr or 'No module named "yaml"' in stderr:
+                return []
+            if stderr:
+                print(stderr, file=sys.stderr, end='')
             return None
         commands: list[str] = []
         for line in result.stdout.splitlines():

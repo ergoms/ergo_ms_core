@@ -2,7 +2,7 @@
 Ожидание postgres и redis перед стартом сервиса в Docker.
 
 Переменные: ERGO_DOCKER_DB_HOST, ERGO_DOCKER_DB_PORT, REDIS_HOST, REDIS_PORT,
-DOCKER_DATABASE, DOCKER_ENABLED.
+DOCKER_DATABASE, DOCKER_ENABLED, ERGO_DOCKER_SKIP_INFRA_WAIT.
 """
 
 from __future__ import annotations
@@ -57,6 +57,9 @@ def wait_tcp(host: str, port: int, timeout: float, label: str) -> bool:
 
 def main() -> int:
     if not _truthy('DOCKER_ENABLED'):
+        return 0
+    # compose run --no-deps (python-install) не поднимает postgres/redis.
+    if _truthy('ERGO_DOCKER_SKIP_INFRA_WAIT'):
         return 0
 
     timeout = float(_env('ERGO_DOCKER_WAIT_TIMEOUT', '120'))

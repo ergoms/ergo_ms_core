@@ -237,6 +237,26 @@ def effective_jupyter_access_mode(values: Mapping[str, str]) -> str | None:
     return None
 
 
+def effective_jupyter_behind_nginx(values: Mapping[str, str]) -> bool:
+    """
+    Jupyter слушает за nginx.
+
+    True, если прокси включён и режим доступа nginx:
+    ERGO_JUPYTER=nginx, явный API_JUPYTER_ACCESS_MODE=nginx,
+    либо при auto — legacy API_JUPYTER_BEHIND_NGINX=true.
+    """
+    if not effective_nginx_enabled(values):
+        return False
+    explicit = _get(values, 'API_JUPYTER_ACCESS_MODE').lower()
+    if explicit == 'nginx':
+        return True
+    if explicit in ('local', 'lan'):
+        return False
+    if ergo_jupyter(values) == 'nginx':
+        return True
+    return env_bool(_get(values, 'API_JUPYTER_BEHIND_NGINX'))
+
+
 def effective_email_enabled(values: Mapping[str, str]) -> bool:
     if _has_explicit(values, 'EMAIL_ENABLED'):
         return env_bool(_get(values, 'EMAIL_ENABLED'))

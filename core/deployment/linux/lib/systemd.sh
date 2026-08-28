@@ -2,22 +2,41 @@
 # Systemd management for Linux services
 # Управление systemd для служб Linux
 
+_systemd_no_proxy_csv() {
+  local root="$1"
+  local py="$root/virtual_env/python/bin/python"
+  local script="$root/core/deployment/no_proxy_hosts.py"
+  if [[ -x "$py" && -f "$script" ]]; then
+    "$py" "$script" "$root" 2>/dev/null && return 0
+  fi
+  echo 'localhost,127.0.0.1,::1'
+}
+
 write_env_file() {
   local root="$1"
   local env_file="$root/core/deployment/wrappers/ergo_ms.env"
   local legacy="/etc/default/ergo_ms"
+  local py="$root/virtual_env/python/bin/python"
+  local script="$root/core/deployment/no_proxy_hosts.py"
 
   mkdir -p "$(dirname "$env_file")" "$root/logs"
   # systemd EnvironmentFile не снимает кавычки — значения без quotes.
-  cat >"$env_file" <<EOF
+  # NO_PROXY и исходящий HTTP_PROXY берём из .env / env/*.env.
+  if [[ -x "$py" && -f "$script" ]] && "$py" "$script" --write-systemd-env "$root" "$env_file"; then
+    :
+  else
+    local no_proxy
+    no_proxy="$(_systemd_no_proxy_csv "$root")"
+    cat >"$env_file" <<EOF
 # Environment for ergo_ms services (внутри корня проекта)
 ERGO_ROOT=$root
 PYTHONUNBUFFERED=1
 NODE_ENV=development
 ERGO_LOG_CONSOLE=false
-NO_PROXY=127.0.0.1,localhost,::1
-no_proxy=127.0.0.1,localhost,::1
+NO_PROXY=$no_proxy
+no_proxy=$no_proxy
 EOF
+  fi
   chmod 0644 "$env_file" 2>/dev/null || true
   ERGO_ROOT="$root" write_ergoms_message systemd_env_written white "" "path=$env_file" "root=$root"
 
@@ -116,6 +135,7 @@ EnvironmentFile=__ERGO_MS_ENV__
 ExecStart=/bin/bash -lc 'cd "\$ERGO_ROOT" && . "\$ERGO_ROOT/virtual_env/python/bin/activate" && python core/api/scripts/start_api.py'
 Restart=always
 RestartSec=5
+TimeoutStopSec=30
 Environment=PYTHONUNBUFFERED=1
 Environment=ERGO_LOG_CONSOLE=false
 StandardOutput=null
@@ -137,6 +157,7 @@ EnvironmentFile=__ERGO_MS_ENV__
 ExecStart=/bin/bash -lc 'cd "\$ERGO_ROOT" && . "\$ERGO_ROOT/virtual_env/python/bin/activate" && python core/deployment/scripts/start_client_if_dev.py'
 Restart=always
 RestartSec=5
+TimeoutStopSec=30
 Environment=NODE_ENV=development
 StandardOutput=${client_stdout}
 StandardError=${client_stderr}
@@ -158,6 +179,7 @@ EnvironmentFile=__ERGO_MS_ENV__
 ExecStart=/bin/bash -lc 'cd "\$ERGO_ROOT/core" && . "\$ERGO_ROOT/virtual_env/python/bin/activate" && python api/scripts/start_celery_beat.py'
 Restart=always
 RestartSec=5
+TimeoutStopSec=30
 Environment=PYTHONUNBUFFERED=1
 Environment=ERGO_LOG_CONSOLE=false
 StandardOutput=null
@@ -181,6 +203,7 @@ Environment=ERGO_LOG_CONSOLE=false
 ExecStart=/bin/bash -lc 'cd "\$ERGO_ROOT" && . "\$ERGO_ROOT/virtual_env/python/bin/activate" && python core/api/scripts/start_media_api.py'
 Restart=always
 RestartSec=5
+TimeoutStopSec=30
 StandardOutput=null
 StandardError=append:${media_stderr}
 
@@ -213,6 +236,7 @@ EnvironmentFile=__ERGO_MS_ENV__
 ExecStart=/bin/bash -lc 'cd "\$ERGO_ROOT/core" && . "\$ERGO_ROOT/virtual_env/python/bin/activate" && python api/scripts/start_celery_worker.py --worker=$worker_name'
 Restart=always
 RestartSec=5
+TimeoutStopSec=30
 Environment=PYTHONUNBUFFERED=1
 Environment=ERGO_LOG_CONSOLE=false
 StandardOutput=null
@@ -240,6 +264,7 @@ EnvironmentFile=__ERGO_MS_ENV__
 ExecStart=/bin/bash -lc 'cd "\$ERGO_ROOT/core" && . "\$ERGO_ROOT/virtual_env/python/bin/activate" && python api/scripts/start_celery_worker.py'
 Restart=always
 RestartSec=5
+TimeoutStopSec=30
 Environment=PYTHONUNBUFFERED=1
 Environment=ERGO_LOG_CONSOLE=false
 StandardOutput=null

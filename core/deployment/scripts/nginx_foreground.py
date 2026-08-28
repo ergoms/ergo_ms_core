@@ -85,7 +85,8 @@ def is_nginx_running(nginx_dir: Path, exe: Path) -> bool:
                     errors='replace',
                     check=False,
                 )
-                if str(pid) in (result.stdout or ''):
+                stdout = result.stdout or ''
+                if str(pid) in stdout and 'nginx' in stdout.lower():
                     return True
             else:
                 os.kill(pid, 0)
@@ -150,6 +151,7 @@ def tail_log_files(
     wait_sec: float = 10.0,
     service: str = 'nginx',
     process_keeps_running: bool = True,
+    initial_lines: int = 0,
 ) -> int:
     deadline = time.monotonic() + wait_sec
     handles: dict[Path, object] = {}
@@ -161,6 +163,11 @@ def tail_log_files(
                 continue
             # Binary: системный PostgreSQL на RU Windows пишет CP1251, часть строк — UTF-8.
             handle = path.open('rb')
+            if initial_lines > 0:
+                raw = handle.read()
+                chunk = raw.splitlines(keepends=True)[-initial_lines:]
+                for line in chunk:
+                    print(f'[{path.name}] {decode_log_bytes(line)}', end='')
             handle.seek(0, os.SEEK_END)
             handles[path] = handle
 

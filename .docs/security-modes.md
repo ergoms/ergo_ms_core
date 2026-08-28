@@ -101,7 +101,7 @@ controls:
 | Контроль | `open` | `standard` | `hardened` | `maximum` |
 |---|---|---|---|---|
 | `auth.login_throttle` | 100/мин | 5/мин | 5/мин | 5/мин |
-| `auth.lockout` | нет | нет | 10 неудач | 5 неудач |
+| `auth.lockout` | нет | 10 неудач | 10 неудач | 5 неудач |
 | `auth.reset_code_policy` | без ограничений | срок 15 мин, 5 попыток | срок 10 мин, 3 попытки | восстановление только администратором |
 | `auth.mfa_required` | нет | нет | по выбору пользователя | обязателен |
 | `session.device_binding` | можно отключить | обязательна на всех эндпоинтах | обязательна | обязательна |
@@ -113,7 +113,7 @@ controls:
 | `token.rotate_refresh` | нет | да | да | да |
 | `token.revoke_on_logout` | нет | да | да | да |
 
-Контроль `auth.lockout`: env `API_AUTH_LOCKOUT_MAX_ATTEMPTS` (0 = выкл.); при unset профиль подставляет 0 / 0 / 10 / 5. Счётчик в cache по нормализованному login; окно/длительность — `API_AUTH_LOCKOUT_WINDOW_SECONDS` / `API_AUTH_LOCKOUT_DURATION_SECONDS` (дефолт 900).
+Контроль `auth.lockout`: env `API_AUTH_LOCKOUT_MAX_ATTEMPTS` (0 = выкл.); при unset профиль подставляет 0 / 10 / 10 / 5. Счётчик в cache по нормализованному login; окно/длительность — `API_AUTH_LOCKOUT_WINDOW_SECONDS` / `API_AUTH_LOCKOUT_DURATION_SECONDS` (дефолт 900).
 
 Контроль `session.device_retention`: env `API_SESSION_DEVICE_RETENTION_DAYS` (0 = off); при unset — 0 / 0 / 90 / 30. Purge с `revoke_user_device_session` (beat + `ergoms api session_device_purge`).
 
@@ -136,7 +136,7 @@ controls:
 
 Контроль `api.object_permissions` (**phase 1, status `partial`**): в ядре есть `ObjectPermissionMixin` / `filter_queryset_for_user`; ViewSet ещё не мигрированы массово. На `hardened`/`maximum` `security-check` даёт warning, не ложный OK.
 
-Контроль `adp.default_role_view_grants`: env `API_ADP_DEFAULT_VIEW_GRANTS` (`granted`/`denied`); при unset runtime подставляет значение профиля. На `hardened`/`maximum` явный `granted` — нарушение.
+Контроль `adp.default_role_view_grants`: env `API_ADP_DEFAULT_VIEW_GRANTS` (`granted`/`denied`); при unset runtime подставляет значение профиля. На `granted` роль «Пользователь» без групп получает все `_view`. На `denied` — `_view` только у модулей без API-deny. На `hardened`/`maximum` явный `granted` — нарушение.
 
 ### Транспорт и заголовки
 
@@ -150,9 +150,9 @@ controls:
 Контроль `csp.strict` (**phase 1, status `partial`**): env `API_CSP_MODE` читают API middleware и nginx render из [`csp_policy.py`](../core/deployment/security/csp_policy.py). При unset runtime/профиль подставляет значение уровня. На `hardened` карты (Yandex/OSM) могут перестать работать — это ожидаемо. На `maximum` внешние домены урезаны частично (stub); `security-check` даёт warning, не ложный OK.
 | `headers.baseline` | включены | включены | включены | включены |
 
-Контроль `cors.explicit_origins` на уровне `standard` уже отражён в коде: [`cors.py`](../core/api/src/config/settings/cors.py) подставляет localhost только при `ERGO_ENV=development` и прерывает запуск в production без `CORS_ALLOWED_ORIGINS` / `CORS_ALLOWED_ORIGIN_REGEXES` (пока без отдельной переменной `ERGO_SECURITY`).
+Контроль `cors.explicit_origins` на уровне `standard` уже отражён в коде: [`cors.py`](../core/api/src/config/settings/cors.py) подставляет localhost только при `ERGO_ENV=development`. В production без `CORS_ALLOWED_ORIGINS` / `CORS_ALLOWED_ORIGIN_REGEXES` берётся публичный origin nginx или `FRONTEND_BASE_URL`; если и он пуст, запуск прерывается (`ImproperlyConfigured`). Отдельной переменной `ERGO_SECURITY` для этого контроля нет.
 
-Контроль `csrf.trusted_origins` — аналогично: [`csrf.py`](../core/api/src/config/settings/csrf.py) допускает пустой список только в development; вне development без `CSRF_TRUSTED_ORIGINS` — `ImproperlyConfigured`.
+Контроль `csrf.trusted_origins` — аналогично: [`csrf.py`](../core/api/src/config/settings/csrf.py) допускает пустой список в development; вне development пустой env заполняется тем же runtime-origin, иначе `ImproperlyConfigured`.
 
 ### Realtime
 
@@ -169,7 +169,7 @@ controls:
 | Контроль | `open` | `standard` | `hardened` | `maximum` |
 |---|---|---|---|---|
 | `media.signed_urls_ttl` | 3600 с | 3600 с | 900 с | 300 с |
-| `media.content_validation` | расширение | расширение | расширение и сигнатура содержимого | плюс антивирусная проверка |
+| `media.content_validation` | расширение | расширение и сигнатура содержимого | расширение и сигнатура содержимого | плюс антивирусная проверка |
 | `media.upload_rate` | 100/мин (в DEBUG media_api не режет) | 30/мин | 15/мин | 10/мин |
 | `media.upload_rate_admin` | 300/мин; nginx `/upload/` не ниже | 120/мин | 60/мин | 30/мин |
 | `internal.write_size_limit` | нет | обязателен | обязателен | обязателен |
@@ -324,9 +324,9 @@ provides:
 | Этап | Содержание | Результат |
 |---|---|---|
 | 0 | **Сделано.** Каталог контролей, вычисление уровня, команды `security-modes` и `security-check`. Профиль **ничего не меняет** в работе системы. | Любая установка может узнать, какому уровню она соответствует. |
-| 1 | **Сделано.** Честный отчёт для `standard`: truth-up каталога, checkers политики паролей / Jupyter / анонимных эндпоинтов / browser-log, env для login throttle и лимита размера realtime. **К3** закрыт (phase 1). **В5** закрыт контролем `broker.redis_password`. | `ergoms security-check` не помечает закрытые контроли как SKIP; ядро соответствует `standard` по реализованным контролям. |
+| 1 | **Сделано.** Честный отчёт для `standard`: truth-up каталога, checkers политики паролей / Jupyter / анонимных эндпоинтов / browser-log, env для login throttle и лимита размера realtime. **К3** закрыт (phase 1). **В5** закрыт контролем `broker.redis_password`. Контроли `db.postgres_password`, `search.master_key`, `llm.listen_loopback` предупреждают о шаблонных секретах инфры и о bind LLM API не на loopback. | `ergoms security-check` не помечает закрытые контроли как SKIP; ядро соответствует `standard` по реализованным контролям. |
 | 2 | **Сделано.** Профиль подставляет эффективные значения там, где ключ не задан (`profile_defaults` + runtime API/media). Новые установки получают `ERGO_SECURITY=standard` в шаблоне. Профиль не пишет `.env`. Пароль Redis не инжектится. | Уровень влияет на работу системы. |
-| 3 | Контроли уровней `hardened` и `maximum`: второй фактор, проверка содержимого файлов (С5 phase 1), CSP (С11 phase 1), **auth.lockout**, **session.device_retention**, аудит операций чтения. Ротация refresh и отзыв при logout закрыты на этапе 1 (В6) и входят в `standard`. | Доступны все четыре уровня. |
+| 3 | Контроли уровней `hardened` и `maximum`: второй фактор, CSP (С11 phase 1), **session.device_retention**, аудит операций чтения. **auth.lockout** и проверка сигнатуры файлов (С5) входят в `standard`. Ротация refresh и отзыв при logout закрыты на этапе 1 (В6) и входят в `standard`. | Доступны все четыре уровня. |
 | 4 | Файлы `security.yaml` у модулей, проверка совместимости, правило `.cursor/rules/security-modes.mdc`, раздел в [Настройке конфигурации](configuration.md). | Уровень выбирается с учётом подключённых модулей. |
 
 Совместимость с уже работающими установками обеспечивается порядком этапов: до этапа 2 профиль ничего не меняет, а после — уровень по умолчанию остаётся `standard`, и любое расхождение сначала выводится предупреждением, а не прерывает запуск.

@@ -1,5 +1,6 @@
-# Легитимные анонимные точки ядра (AllowAny / без Auth mixin).
+# Легитимные анонимные точки ядра (BaseAPIViewPublicMixin / AllowAny / TokenRefreshView).
 # Только core — без имён модулей. Сканер: checkers/anonymous_endpoints.py
+# Новый публичный view: BaseAPIViewPublicMixin + строка здесь.
 version: 1
 
 view_classes:
@@ -79,7 +80,27 @@ view_classes:
   - name: JupyterAccessView
     path_prefixes:
       - internal/jupyter-access/
-    note: пустые permission_classes намеренно — nginx auth_request; auth в resolve_jupyter_gate_user
+    note: BaseAPIViewPublicMixin — nginx auth_request; вход в resolve_jupyter_gate_user
+    maximum_ok: false
+
+  - name: SpectacularJSONView
+    path_prefixes:
+      - swagger.json
+    maximum_ok: false
+
+  - name: SpectacularYAMLView
+    path_prefixes:
+      - swagger.yaml
+    maximum_ok: false
+
+  - name: SpectacularSwaggerUiView
+    path_prefixes:
+      - swagger/
+    maximum_ok: false
+
+  - name: SpectacularRedocUiView
+    path_prefixes:
+      - redoc/
     maximum_ok: false
 
   - name: DeviceBoundTokenRefreshView

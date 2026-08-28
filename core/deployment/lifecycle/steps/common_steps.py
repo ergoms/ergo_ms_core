@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -12,8 +13,14 @@ if str(_DEPLOYMENT_DIR) not in sys.path:
 
 from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402
+from security.ensure_secret import (  # noqa: E402
+    ACTION_ENV_MISSING,
+    ACTION_GENERATED,
+    ACTION_WRITE_FAILED,
+    ensure_mode_secrets,
+)
 
-from lifecycle.context import DeploymentContext  # noqa: E402
+from lifecycle.context import DeploymentContext, HostPlatform  # noqa: E402
 from lifecycle.docker import ops as docker_ops  # noqa: E402
 from lifecycle.host import ops as host_ops  # noqa: E402
 from lifecycle.steps.base import DeploymentStep, StepResult  # noqa: E402
@@ -58,7 +65,11 @@ class PythonInstallStep(DeploymentStep):
                 t('python_install_progress', path=docker_ops.DOCKER_PYTHON_INSTALL_LOG),
             )
         )
-        code = docker_ops.run_api_oneoff(docker_ops.api_install_shell(), mode=ctx.docker_mode)
+        code = docker_ops.run_api_oneoff(
+            docker_ops.api_install_shell(),
+            mode=ctx.docker_mode,
+            skip_infra_wait=True,
+        )
         if code != 0:
             print(
                 format_console(
@@ -82,6 +93,7 @@ class NpmInstallStep(DeploymentStep):
 
     def _run_host(self, ctx: DeploymentContext) -> StepResult:
         if not ctx.option_bool('force') and host_ops.host_npm_deps_up_to_date(ctx.project_root):
+            host_ops.touch_host_npm_deps_marker(ctx.project_root)
             print(format_console('skip', t('npm_deps_already_installed_skip')))
             return StepResult()
         print(format_console('info', t('installing_npm_deps')))
@@ -181,6 +193,13 @@ class ClientBuildStep(DeploymentStep):
             print(format_console('skip', t('client_build_already_fresh_skip')))
             return StepResult()
         print(format_console('info', t('building_client')))
+        if ctx.platform != HostPlatform.WIN32:
+            from lifecycle.host.privilege import restore_project_ownership
+
+            restore_project_ownership(
+                ctx.project_root,
+                ctx.project_root / 'core' / 'client' / 'node_modules',
+            )
         code = host_ops.run_npm(ctx, 'build')
         if code == 0:
             host_ops.write_client_build_stamp(ctx.project_root, ctx.raw_env)
@@ -209,17 +228,38 @@ class CollectStaticStep(DeploymentStep):
         return StepResult(exit_code=code)
 
 
-class RemindApiSecretStep(DeploymentStep):
-    """В конце setup: напомнить сгенерировать API_SECRET_KEY и применить миграции."""
+class EnsureApiSecretStep(DeploymentStep):
+    """После scaffold: записать пустые секреты, нужные текущим режимам."""
 
     @property
     def name(self) -> str:
-        return 'remind_api_secret'
+        return 'ensure_api_secret'
 
     def run(self, ctx: DeploymentContext) -> StepResult:
-        if (ctx.raw_env.get('API_SECRET_KEY') or '').strip():
-            return StepResult()
-        print(format_console('warning', t('setup_remind_api_secret')))
-        print(format_console('info', t('setup_remind_api_secret_generate')))
-        print(format_console('info', t('setup_remind_api_secret_migrate')))
+        results = ensure_mode_secrets(ctx.project_root)
+        generated = 0
+        write_failed = False
+        for key, (action, target) in results.items():
+            if action == ACTION_GENERATED:
+                generated += 1
+                value = (os.environ.get(key) or '').strip()
+                if value:
+                    ctx.raw_env[key] = value
+                print(format_console('ok', t('secret_generated', key=key, target=target)))
+            elif action == ACTION_ENV_MISSING:
+                print(format_console('warning', t('secret_env_missing', key=key, target=target)))
+            elif action == ACTION_WRITE_FAILED:
+                write_failed = True
+                print(
+                    format_console('error', t('secret_write_failed', key=key, target=target)),
+                    file=sys.stderr,
+                )
+            else:
+                value = (os.environ.get(key) or ctx.raw_env.get(key) or '').strip()
+                if value:
+                    ctx.raw_env[key] = value
+        if write_failed:
+            return StepResult(exit_code=1, message=t('secret_write_failed_generic'))
+        if generated == 0:
+            print(format_console('skip', t('secrets_already_set')))
         return StepResult()

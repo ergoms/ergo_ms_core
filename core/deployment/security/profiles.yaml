@@ -22,6 +22,13 @@ refs:
     - django-insecure
     - secret-key
     - media-api-insecure-key
+  insecure_db_passwords:
+    - admin
+    - postgres
+    - changeme
+    - password
+  insecure_search_keys:
+    - ergo_ms_dev_meili_key
 
 controls:
   # --- Auth / session / token ---
@@ -49,7 +56,7 @@ controls:
     env_key: API_AUTH_LOCKOUT_MAX_ATTEMPTS
     profiles:
       open: none
-      standard: none
+      standard: 10
       hardened: 10
       maximum: 5
     violation: error
@@ -544,7 +551,7 @@ controls:
     env_key: MEDIA_API_CONTENT_VALIDATION
     profiles:
       open: extension
-      standard: extension
+      standard: extension_and_magic
       hardened: extension_and_magic
       maximum: extension_magic_av
     violation: error
@@ -647,6 +654,50 @@ controls:
     check: broker_redis_password
     audit: [B5]
 
+  - id: db.postgres_password
+    layer: deployment
+    title: Пароль PostgreSQL не из шаблона
+    kind: switch
+    profiles:
+      open: optional
+      standard: recommended
+      hardened: required
+      maximum: required
+    violation: error
+    waivable: false
+    status: implemented
+    check: db_postgres_password
+
+  - id: search.master_key
+    layer: deployment
+    title: Ключ поиска не из шаблона
+    kind: switch
+    env_key: MEILI_MASTER_KEY
+    profiles:
+      open: allow_template
+      standard: recommended
+      hardened: required
+      maximum: required
+    violation: error
+    waivable: false
+    status: implemented
+    check: search_master_key
+
+  - id: llm.listen_loopback
+    layer: deployment
+    title: Локальный LLM API только на loopback
+    kind: policy
+    env_key: OLLAMA_HOST
+    profiles:
+      open: any
+      standard: recommended
+      hardened: required
+      maximum: required
+    violation: error
+    waivable: false
+    status: implemented
+    check: llm_listen_loopback
+
   - id: deploy.docker_nginx_parity
     layer: deployment
     title: Паритет Docker nginx с host
@@ -691,6 +742,21 @@ controls:
     waivable: false
     status: implemented
     check: client_browser_log
+
+  - id: client.dev_tools
+    layer: api
+    title: Режим разработчика (просмотр как пользователь)
+    kind: value
+    env_key: ERGO_DEV_TOOLS
+    profiles:
+      open: false
+      standard: false
+      hardened: false
+      maximum: false
+    violation: error
+    waivable: false
+    status: implemented
+    check: dev_tools
 
   - id: audit.retention_min
     layer: api

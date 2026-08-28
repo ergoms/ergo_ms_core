@@ -31,6 +31,7 @@ from render_common import (  # noqa: E402
 )
 from security.csp_policy import (  # noqa: E402
     build_security_headers_nginx,
+    read_federation_importmap_hashes,
     resolve_csp_mode,
     substitute_security_headers_includes,
 )
@@ -67,10 +68,6 @@ def render_template(
 
     content = template_path.read_text(encoding='utf-8')
     csp_mode = resolve_csp_mode(values)
-    content = substitute_security_headers_includes(
-        content,
-        build_security_headers_nginx(csp_mode),
-    )
     maintenance_snippet_path = DEPLOYMENT_NGINX / 'snippets' / 'maintenance.conf'
     maintenance_snippet = ''
     if maintenance_snippet_path.is_file():
@@ -108,7 +105,14 @@ def render_template(
         content,
         flags=re.MULTILINE,
     )
-    return apply_template_replacements(content, replacements)
+    rendered = apply_template_replacements(content, replacements)
+    return substitute_security_headers_includes(
+        rendered,
+        build_security_headers_nginx(
+            csp_mode,
+            extra_script_hashes=read_federation_importmap_hashes(root),
+        ),
+    )
 
 
 def main() -> int:

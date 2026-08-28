@@ -11,6 +11,7 @@ from typing import Any
 from deployment_env import (
     PROJECT_ROOT,
     get_ergo_db,
+    is_jupyter_enabled,
     is_nginx_enabled,
     is_redis_enabled,
     is_search_enabled,
@@ -37,6 +38,7 @@ TARGET_LOGS_ALL = 'logs-all'
 TARGET_OPTIONAL = 'optional-services'
 TARGET_REDIS_DEV = 'redis-dev'
 TARGET_MEILISEARCH_DEV = 'meilisearch-dev'
+TARGET_JUPYTER_DEV = 'jupyter-dev'
 TARGET_DB_DEV = 'db-dev'
 TARGET_CLIENT_DEV = 'client-dev'
 TARGET_MODULE_START = 'module-start'
@@ -48,6 +50,7 @@ ALL_TARGETS = (
     TARGET_OPTIONAL,
     TARGET_REDIS_DEV,
     TARGET_MEILISEARCH_DEV,
+    TARGET_JUPYTER_DEV,
     TARGET_DB_DEV,
     TARGET_CLIENT_DEV,
     TARGET_MODULE_START,
@@ -215,6 +218,15 @@ def build_optional_services() -> list[dict[str, str]]:
                 stop_command='ergoms stop-meilisearch-dev',
             )
         )
+    if is_jupyter_enabled():
+        items.append(
+            _svc(
+                'Jupyter',
+                'Jupyter',
+                command='ergoms start-jupyter-dev',
+                stop_command='ergoms stop-jupyter-dev',
+            )
+        )
     if is_nginx_enabled():
         items.append(
             _svc(
@@ -257,6 +269,19 @@ def build_meilisearch_dev_services() -> list[dict[str, str]]:
                 'Meilisearch',
                 command='ergoms start-meilisearch-dev',
                 stop_command='ergoms stop-meilisearch-dev',
+            )
+        ]
+    return []
+
+
+def build_jupyter_dev_services() -> list[dict[str, str]]:
+    if is_jupyter_enabled():
+        return [
+            _svc(
+                'Jupyter',
+                'Jupyter',
+                command='ergoms start-jupyter-dev',
+                stop_command='ergoms stop-jupyter-dev',
             )
         ]
     return []
@@ -310,6 +335,7 @@ _BUILDERS = {
     TARGET_OPTIONAL: build_optional_services,
     TARGET_REDIS_DEV: build_redis_dev_services,
     TARGET_MEILISEARCH_DEV: build_meilisearch_dev_services,
+    TARGET_JUPYTER_DEV: build_jupyter_dev_services,
     TARGET_DB_DEV: build_db_dev_services,
     TARGET_CLIENT_DEV: build_client_dev_services,
     TARGET_MODULE_START: build_module_start_services,

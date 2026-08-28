@@ -13,7 +13,7 @@
 
 Отключённый модуль (`DISABLED_MODULES` в `.env`) не участвует в discovery, зависимостях, меню и Docker build context — см. [configuration.md](configuration.md#настройки-модулей).
 
-Проверка изоляции и контрактов: `ergoms core-rules-check`. Правила для агента Cursor: [`.cursor/rules/modules.mdc`](../.cursor/rules/modules.mdc), [`.cursor/rules/core-module-isolation.mdc`](../.cursor/rules/core-module-isolation.mdc), [`.cursor/rules/module-contracts.mdc`](../.cursor/rules/module-contracts.mdc). Документация самого модуля (`AGENTS.md`, `.cursor/rules/`, `README.md`) — [`.cursor/rules/module-docs.mdc`](../.cursor/rules/module-docs.mdc): обновляйте её вместе с контрактами и безопасностью.
+Проверка изоляции и контрактов: `ergoms core-rules-check` (в том числе наличие `README.md` и `AGENTS.md` у установленного модуля). Вынос в отдельный процесс и схему — [modularization.md](modularization.md). Правила для агента Cursor: [`.cursor/rules/modules.mdc`](../.cursor/rules/modules.mdc), [`.cursor/rules/core-module-isolation.mdc`](../.cursor/rules/core-module-isolation.mdc), [`.cursor/rules/module-contracts.mdc`](../.cursor/rules/module-contracts.mdc), [`.cursor/rules/modularization.mdc`](../.cursor/rules/modularization.mdc). Документация самого модуля (`AGENTS.md`, `.cursor/rules/`, `README.md`) — [`.cursor/rules/module-docs.mdc`](../.cursor/rules/module-docs.mdc): обновляйте её вместе с контрактами и безопасностью.
 
 ## Карта каталога модуля
 
@@ -30,6 +30,8 @@ modules/<имя>/
 │   ├── celery_beat_config.py   # периодические задачи
 │   ├── notification_catalog.py # события уведомлений (через мост)
 │   ├── bridge_manifest.yaml    # ops/groups при MODULE_RUNTIME=microservice
+│   ├── schema.yaml             # схема PostgreSQL m_<name>, isolated
+│   ├── search_indexes.py       # индексы поиска (uid с префиксом модуля)
 │   └── migrations/             # схема БД + пункты бокового меню
 ├── client/
 │   ├── js/
@@ -46,11 +48,13 @@ modules/<имя>/
 │   └── LayoutPlugin.vue        # layout / offcanvas (альтернатива группе моста)
 ├── mcp/                        # MCP-сервер для Cursor
 ├── .cursor/rules/              # правила Cursor модуля
-├── AGENTS.md
+├── AGENTS.md                   # обязательный указатель для агента
+├── README.md                   # обязательный обзор для человека
 ├── ergoms.conf                 # команды ergoms <имя>:<команда>
 ├── ergoms.help.yaml            # справка help module
 ├── locales/<lang>/ergoms.help.yaml
 ├── packages.yaml               # portable-бинарники
+├── huggingface_models.yaml     # снимки Hugging Face
 ├── host_lifecycle.yaml         # install/uninstall/stop OS-службы
 ├── process_roles.yaml          # роли в ergoms resource-usage
 ├── vscode.tasks.yaml           # Run Task + setup-full / start-all
@@ -68,11 +72,13 @@ modules/<имя>/
 | Права модуля в ADP | `api/permission_catalog.py` |
 | Фоновые задачи | `api/tasks.py` + `celery_config.py` |
 | Вызов из другого модуля / ядра | ModuleBridge в `integrations.py` |
+| Своя схема PostgreSQL / запрет FK наружу | `api/schema.yaml` + [modularization.md](modularization.md) |
 | Обязательная / расширяющая зависимость модуля | `integrations.yaml` (`requires` / `extends`) |
 | Свои команды CLI | `ergoms.conf` + `ergoms.help.yaml` |
 | Участие в Setup Full / Start All | `vscode.tasks.yaml` → `include_in` |
 | OS-служба вместе с install-services | `host_lifecycle.yaml` (install **и** uninstall) |
 | Portable-бинарник (ollama, ffmpeg…) | `packages.yaml` |
+| Снимок Hugging Face (`org/name`) | `huggingface_models.yaml` |
 | Учёт процесса в resource-usage | `process_roles.yaml` |
 | Отдельная тема оформления | `theme-defaults.js` + `theme-bootstrap.scss` |
 | Инструменты агента Cursor | `mcp/` + `.cursor/rules/` |
@@ -83,7 +89,7 @@ modules/<имя>/
 
 ### Регистрация приложения
 
-Файл `api/apps.py` обязателен для модулей с серверной частью. `ModuleDiscoverer` находит его сам; вручную в `INSTALLED_APPS` модуль не добавляют. Зависимости от других модулей — корневой `integrations.yaml`: `requires` (обязательные, порядок загрузки) и `extends` (опциональные расширяющие; отсутствие не мешает старту).
+Файл `api/apps.py` обязателен для модулей с серверной частью. `ModuleDiscoverer` находит его сам; вручную в `INSTALLED_APPS` модуль не добавляют. Зависимости от других модулей — корневой `integrations.yaml`: `requires` (обязательные, порядок загрузки; нет зависимости — потребитель пропускается, остальные модули стартуют) и `extends` (опциональные расширяющие; отсутствие не мешает старту). Имя из `BRIDGE_SERVICE_URLS` или `MICROSERVICE_MODULES` закрывает `requires`, даже если папки модуля нет на этом хосте: сосед доступен через HTTP-мост. Не заносите только удалённый модуль в `MICROSERVICE_MODULES` — это список локальных процессов. Разнесение по серверам — [modularization.md](modularization.md#несколько-серверов-без-выноса-всего-хоста).
 
 При командах схемы БД (`migrate` / `makemigrations`) у модулей пропускается `ready()` и не подключаются URL — схема строится без runtime-моста.
 
@@ -158,8 +164,8 @@ modules/<имя>/
 |--------------|----------|
 | `layout.plugin_registry` | LayoutPlugin / offcanvas |
 | `header.userMenu.items` | Пункты меню пользователя в шапке |
-| `apps.menu.items` | Пункты AppsMenu в toolbar |
-| `shell.floating_widgets` | Плавающие виджеты (мини-чат и т.п.) |
+| `apps.menu.items` | Пункты AppsMenu в toolbar (видны всем вошедшим, без фильтра по праву модуля) |
+| `shell.floating_widgets` | Плавающие виджеты (`id`, `component`, `order`, `isVisible`) |
 | `session_scope.module_context` | Контекст session-scoped модуля |
 | `session.scope_entry_routes` | Welcome / home / onboarding |
 | `session.scope_gating_claim` | JWT claim активного scope |
@@ -265,16 +271,20 @@ host:
 
 | Поле | Когда вызывается |
 |------|------------------|
-| `install_service_commands` | `ergoms install-services` |
+| `install_service_commands` | `ergoms install-services`. Команды `install-module-service` (API/worker/beat модуля) — только при `MODULE_RUNTIME=microservice` и имени в `MICROSERVICE_MODULES`; демоны без split процесса ставятся всегда |
 | `uninstall_service_commands` | `ergoms uninstall-services` |
 | `stop_commands` | остановка демонов в тестах deployment |
-| `service_units` | имена служб (документация / каталог) |
+| `service_units` | имена OS-служб для `ergoms start` / `stop` / `restart` / `status`; start/stop/restart и uninstall молча пропускают не установленные. API/worker/beat модуля в start/stop только в microservice-режиме |
 
 Снимается **служба**, не portable-пакет. Подробности: [deployment.md](deployment.md), [lifecycle-pipeline.md](lifecycle-pipeline.md), [`.cursor/rules/host-lifecycle.mdc`](../.cursor/rules/host-lifecycle.mdc).
 
 ### Portable-пакеты (`packages.yaml`)
 
 Бинарники в `virtual_env/packages/` объявляют в `packages.yaml`; установка — `ergoms package-install <пакет>` (часто алиас в `ergoms.conf`). Download в Django management и хардкод имён модулей в ядре запрещены. Правило: [`.cursor/rules/packages.mdc`](../.cursor/rules/packages.mdc).
+
+### Снимки Hugging Face (`huggingface_models.yaml`)
+
+Веса `org/name` объявляют в `huggingface_models.yaml`; установка — `core/deployment/huggingface` и `ergoms pull-huggingface-models` (шаг setup-full). Рабочая копия — `virtual_env/trained_models/huggingface/<org>/<name>`. Кэш Hub в `virtual_env/cache/huggingface/` — только черновик качалки. Runtime — `resolve_huggingface_source` / `ensure_local_source`. Это не `ollama pull` и не `packages.yaml`. Правило: [`.cursor/rules/huggingface-models.mdc`](../.cursor/rules/huggingface-models.mdc).
 
 ### Роли процессов (`process_roles.yaml`)
 
@@ -285,7 +295,7 @@ host:
 | Слой | Где | Команды |
 |------|-----|---------|
 | Python модуля | `modules/<имя>/pyproject.toml` | `ergoms api module-add` / `module-remove`, `ergoms python-install` |
-| npm клиента модуля | `modules/<имя>/client/package.json` (workspace) | `ergoms npm run install:all` |
+| npm клиента модуля | `modules/<имя>/client/package.json` | `ergoms npm run install:all` |
 
 Lock ядра не должен впитывать модульные пакеты — см. [cli.md](cli.md#lock-файлы-ядро-и-модули).
 

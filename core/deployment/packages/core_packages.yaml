@@ -62,7 +62,7 @@ packages:
   meilisearch:
     kind: custom
     dest: meilisearch
-    version: "1.12.8"
+    version: "1.43.1"
     installer: scripts/install_meilisearch.py
     installer_args: [install]
     pass_root: true

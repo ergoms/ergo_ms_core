@@ -104,6 +104,8 @@ $LibPath = Join-Path $PSScriptRoot "lib"
 
 . (Join-Path $LibPath "lifecycle.ps1")
 
+. (Join-Path $LibPath "cli_log.ps1")
+
 
 
 Initialize-ErgomsConsoleEncoding
@@ -216,6 +218,17 @@ function Main {
 
         }
 
+    }
+
+    if (-not $projectRoot) {
+        try {
+            $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+        }
+        catch {
+        }
+    }
+    if ($projectRoot) {
+        Attach-CliSessionLog -Root $projectRoot -Command $Command
     }
 
     
@@ -621,6 +634,11 @@ function Main {
             
 
             $projectRoot = Get-ProjectRoot -ProvidedRoot $Root
+
+            if ($serviceName -in @('setup-full', 'setup', 'ergoms')) {
+                Show-ServiceLogs -ServiceName $serviceName -Lines $lines -ProjectRoot $projectRoot
+                return
+            }
 
             $serviceNames = Get-ServiceNames -ProjectRoot $projectRoot
 

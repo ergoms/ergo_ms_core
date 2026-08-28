@@ -61,7 +61,7 @@ function Get-MeilisearchMasterKey {
     if ($env:MEILI_MASTER_KEY) {
         return $env:MEILI_MASTER_KEY
     }
-    return 'ergo_ms_dev_meili_key'
+    return ''
 }
 
 function Invoke-MeilisearchPythonScript {

@@ -23,6 +23,51 @@ def cache_dir(root: Path) -> Path:
     return virtual_env_dir(root) / 'cache'
 
 
+def huggingface_hub_cache_dir(root: Path) -> Path:
+    """Кэш huggingface_hub (HF_HOME), не ~/.cache и не системный temp."""
+    return cache_dir(root) / 'huggingface'
+
+
+def huggingface_trained_models_dir(root: Path) -> Path:
+    """Снимки весов Hugging Face: virtual_env/trained_models/huggingface/."""
+    return virtual_env_dir(root) / 'trained_models' / 'huggingface'
+
+
+def huggingface_snapshot_dir(root: Path, repo_id: str) -> Path:
+    """Каталог весов org/name внутри huggingface_trained_models_dir."""
+    parts = [
+        part
+        for part in (repo_id or '').strip().strip('/').split('/')
+        if part and part not in ('.', '..')
+    ]
+    dest = huggingface_trained_models_dir(root)
+    for part in parts:
+        dest = dest / part
+    return dest
+
+
+def huggingface_snapshot_ready(path: Path) -> bool:
+    """True, если в каталоге есть config и веса (safetensors или bin)."""
+    if not path.is_dir() or not (path / 'config.json').is_file():
+        return False
+    if (path / 'model.safetensors').is_file() or (path / 'pytorch_model.bin').is_file():
+        return True
+    if (path / 'model.safetensors.index.json').is_file():
+        return True
+    return any(path.glob('*.safetensors'))
+
+
+def resolve_huggingface_source(root: Path, repo_id: str) -> str:
+    """Локальный снимок, если готов; иначе исходный org/name для Hub."""
+    name = (repo_id or '').strip()
+    if not name:
+        return repo_id or ''
+    dest = huggingface_snapshot_dir(root, name)
+    if huggingface_snapshot_ready(dest):
+        return str(dest)
+    return name
+
+
 def cache_pip_dir(root: Path) -> Path:
     return cache_dir(root) / 'pip'
 
@@ -61,6 +106,16 @@ def cache_loadtest_dir(root: Path) -> Path:
 def cache_docker_dir(root: Path) -> Path:
     """BuildKit local cache (DOCKER_DEPS_CACHE=project)."""
     return cache_dir(root) / 'docker-cache'
+
+
+def cache_celery_balance_dir(root: Path) -> Path:
+    """Overlay и история балансировщика Celery (не в git)."""
+    return cache_dir(root) / 'celery_balance'
+
+
+def env_secrets_lock_path(root: Path) -> Path:
+    """Межпроцессный lock записи секретов в .env / databases.yaml."""
+    return cache_dir(root) / 'env_secrets.lock'
 
 
 def nssm_dir(root: Path) -> Path:
@@ -105,6 +160,11 @@ def nodejs_bin_dir(root: Path) -> Path:
     if sys.platform == 'win32':
         return base
     return base / 'bin'
+
+
+def client_remotes_dir(root: Path) -> Path:
+    """Собранные federated remotes: virtual_env/client-remotes/<name>/remoteEntry.js."""
+    return virtual_env_dir(root) / 'client-remotes'
 
 
 def jupyter_dir(root: Path) -> Path:

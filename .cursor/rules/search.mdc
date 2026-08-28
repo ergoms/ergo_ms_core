@@ -12,6 +12,7 @@ alwaysApply: false
 - Пагинация: `page`, `page_size`; ответ `{ items, total, page, page_size }` (или доменные ключи + `total`).
 - Нормализация: `core.search.query` + раскладка EN↔RU (`keyboard_layout.py`).
 - Переиндексация: `ergoms search-reindex` / `ergoms api search_reindex [--index=uid]`.
+- Режим: `ERGO_SEARCH_ENABLED` в корневом `.env`; хост/ключ — `env/search.env` (`MEILI_*`).
 - `ERGO_SEARCH_ENABLED=false` или недоступный Meili → fallback (icontains/trigram), `[WARNING]` в логах API.
 
 ### List-view в ядре

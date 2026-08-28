@@ -39,7 +39,7 @@ alwaysApply: false
 
 ## Обязательно
 
-1. Импорт только из `@/js/utils/toast.js` — не копируй toast-кнопки и не трогай `vue-toastification` напрямую.
+1. Импорт только из `@/js/utils/toast.js` — не копируй toast-кнопки и не импортируй `vue-sonner` напрямую.
 2. `onUndo` — реальный откат; при ошибке покажи toast и **пробрось** исключение (кнопку снова разрешит ядро).
 3. Тексты UI — i18n (`common.undo`, `common.undoAll`, сообщения сценария).
 4. Для админ-значимых откатов передай `undoAudit` (`kind`, `label`, …) — см. [`reportUndo.js`](../../core/client/src/core/audit/js/reportUndo.js).

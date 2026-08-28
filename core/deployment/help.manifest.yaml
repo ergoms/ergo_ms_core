@@ -17,7 +17,7 @@ sections:
   - name: install
     summary: 'Алиас install-services: установить и запустить все службы'
   - name: install-services
-    summary: Установить и запустить все службы ОС (модули из host_lifecycle.yaml; nginx/redis — при ERGO_PROXY/ERGO_BROKER в .env)
+    summary: Установить и запустить службы ОС по HOST_PROFILE (модули из host_lifecycle.yaml; nginx/redis — при ERGO_PROXY/ERGO_BROKER)
   - name: install-api-service
     summary: Установить и запустить только службу API
   - name: install-client-service
@@ -28,6 +28,12 @@ sections:
     summary: Установить и запустить Celery beat
   - name: install-media-service
     summary: Установить и запустить Media API
+  - name: install-module-service
+    invoke: ergoms install-module-service --module=<name> --kind=api|worker|beat
+    summary: Установить OS-службу API, worker или Beat модуля
+  - name: uninstall-module-service
+    invoke: ergoms uninstall-module-service --module=<name> --kind=api|worker|beat
+    summary: Удалить OS-службу API, worker или Beat модуля
   - name: start
     summary: Запустить все службы
   - name: stop
@@ -40,37 +46,42 @@ sections:
     invoke: ergoms uninstall-services [-Purge|--purge]
     summary: Удалить службы ОС (модули из host_lifecycle.yaml; с --purge — удалить данные)
   - name: logs
-    invoke: ergoms logs <имя_службы> [строки]
-    summary: Журнал службы
+    invoke: ergoms logs <имя_службы|setup-full|ergoms> [строки]
+    summary: Журнал службы или сессии CLI (setup-full.log / ergoms.log)
   - name: setup-full
     summary: Полная первичная настройка; Redis/nginx — при ERGO_BROKER=redis / ERGO_PROXY=nginx
   - name: install-cli
-    summary: Проверить локальный ergoms в PATH
+    summary: Проверить локальный ergoms и на Linux поставить /usr/local/bin/ergoms
   - name: uninstall-cli
-    summary: 'Сообщение: локальный CLI в core/deployment/bin не удаляется'
+    summary: Снять системную ссылку /usr/local/bin/ergoms; файлы в bin не удаляются
 - id: development
   title: Локальная разработка
   commands:
   - name: dev
     summary: Запуск API с прогревом кэшей (режим из ERGO_ENV)
   - name: start-all
-    summary: Логи БД, Redis (если включён), API, клиент, Media API, worker и beat (без служб ОС)
+    summary: Логи БД, Redis, Meilisearch и Jupyter (если включены), API, клиент, Media API, worker и beat (без служб ОС)
   - name: start-api
     summary: Только API
   - name: start-module
     invoke: ergoms start-module --module=<name>
-    summary: HTTP API одного модуля (MODULE_RUNTIME=microservice)
+    summary: HTTP API одного модуля (MODULE_RUNTIME=microservice; HOST_PROFILE и MODULE_PROCESS_PROFILE — в env)
   - name: start-client
     summary: Клиент (Vite или nginx при NGINX_ENABLED=true)
   - name: start-media
     summary: Media API
   - name: start-worker
-    invoke: ergoms start-worker [--worker=<имя>]
-    summary: Celery worker
+    invoke: ergoms start-worker [--worker=<имя>] [--module=<name>]
+    summary: Celery worker (с --module — все очереди этого модуля)
   - name: start-beat
-    summary: Celery beat
+    invoke: ergoms start-beat [--module=<name>]
+    summary: Celery beat (без --module — ядро; с --module — только этот модуль)
   - name: start-jupyter
     summary: JupyterLab с Django-ядром (режимы local/lan/nginx — API_JUPYTER_* в .env)
+  - name: start-jupyter-dev
+    summary: JupyterLab в режиме разработки, если ERGO_JUPYTER не none
+  - name: stop-jupyter-dev
+    summary: Заглушка остановки JupyterLab (процесс завершается с терминалом)
   - name: stop-worker
     summary: Остановить все Celery worker
   - name: stop-beat
@@ -85,6 +96,9 @@ sections:
   - name: resource-usage
     invoke: ergoms resource-usage [--json] [-w] [--interval N]
     summary: Потребление RAM/CPU процессов ERGO MS на хосте
+  - name: celery-balance
+    invoke: ergoms celery-balance [--dry-run] [--watch] [--json]
+    summary: Бюджет и concurrency Celery (observe / recommend / auto)
   - name: loadtest
     invoke: ergoms loadtest [--profile …] [--isolated-db|--docker-isolated] | --find-limit … | --cleanup-users
     summary: Нагрузочный прогон API/pages (Locust), find-limit, изоляция БД или удаление lt_*
@@ -145,6 +159,18 @@ sections:
     summary: Обновить Python-зависимости ядра и модулей (poetry update)
   - name: db-migrate
     summary: Применить миграции
+  - name: db-migrate-module
+    invoke: ergoms db-migrate-module --module=<name> [--database=alias] [--grant-role=role] [--all]
+    summary: Создать схему m_<name> и применить миграции приложений модуля
+  - name: db-move-module-schema
+    invoke: ergoms db-move-module-schema --module=<name> [--dry-run] [--all]
+    summary: Перенести таблицы модуля из public или core в m_<name>; --all затем ядро в core и удаляет public
+  - name: db-move-core-schema
+    invoke: ergoms db-move-core-schema [--dry-run] [--keep-public]
+    summary: Перенести оставшееся из public в core и удалить схему public
+  - name: data-inventory
+    invoke: ergoms data-inventory [--json]
+    summary: Карта FK/SQL модулей и блокеров выноса
   - name: db-makemigrations
     summary: Создать файлы миграций
   - name: migrate-all
@@ -210,8 +236,8 @@ sections:
   - name: generate-secret
     summary: Сгенерировать секрет для .env (API_SECRET_KEY / API_JWT_SIGNING_KEY)
   - name: env
-    invoke: ergoms env [--show-example-values] [--strict] [--root PATH]
-    summary: Сверка .env с .env.example (корень, env/*.env, модули) — число директив и ключи
+    invoke: ergoms env [--show-example-values] [--strict] [--reset-from-example] [--yes] [--root PATH]
+    summary: Сверка .env с .env.example; --reset-from-example подставляет шаблоны, уже заданные секреты сохраняет
   - name: geoip-download
     summary: Скачать базу GeoIP (DB-IP City Lite)
 
@@ -243,8 +269,11 @@ sections:
   - name: safe-drop-app
     summary: Безопасно удалить Django-приложение
   - name: core-rules-check
-    summary: 'Проверка ядра: изоляция модулей, схемы контрактов моста, console.error, native select, импорты modules.*, mid-indent/ast.parse,
+    summary: 'Проверка ядра: изоляция модулей, схемы контрактов моста, манифесты microservice, межсхемные FK, console.error, native select, импорты modules.*, mid-indent/ast.parse,
       BOM/LF в deployment-скриптах'
+  - name: deps-audit
+    invoke: ergoms deps-audit
+    summary: Проверка Python- и npm-зависимостей на известные уязвимости (OSV, npm audit); High/Critical — ошибка
   - name: security-modes
     summary: "Справка по уровням ERGO_SECURITY (этап 2: профиль подставляет незаданные ключи, .env не пишет)"
   - name: security-check
@@ -252,6 +281,10 @@ sections:
   - name: deployment-test
     invoke: ergoms deployment-test
     summary: Unit-тесты deployment (docker_runtime, ergo_modes, env_resolvers, recipes, nginx render) без Docker daemon
+  - name: deployment-scenario-test
+    invoke: ergoms deployment-scenario-test
+    summary: Изолированный прогон сценариев на хосте и в Docker (отдельные порты и каталоги; рабочий .env не меняет)
+
   - name: ps1-encoding-check
     invoke: ergoms ps1-encoding-check [--fix]
     summary: Проверка UTF-8 BOM в .ps1 deployment с кириллицей (Windows PowerShell 5.1)
@@ -409,12 +442,23 @@ sections:
   - name: package-uninstall
     invoke: ergoms package-uninstall <name> [--purge-extra]
     summary: Удалить каталог пакета (--purge-extra — также extra_dirs)
+- id: huggingface
+  title: Снимки Hugging Face
+  note: 'Реестр virtual_env/trained_models/huggingface: modules/*/huggingface_models.yaml. Не путать с ollama pull и packages.yaml.'
+  commands:
+  - name: huggingface-models
+    summary: Список снимков из huggingface_models.yaml и статус на диске
+  - name: pull-huggingface-models
+    invoke: ergoms pull-huggingface-models [--force] [--repo org/name]
+    summary: Скачать объявленные снимки (авто в setup-full)
 - id: postgres
   title: PostgreSQL (portable)
-  note: Авто в setup-full при отсутствии системной службы. Каталог virtual_env/packages/postgres.
+  note: Авто в setup-full при ERGO_DB=portable_postgres. Каталог virtual_env/packages/postgres. Службу также ставит install-services.
   commands:
   - name: install-postgres
     summary: Установить portable PostgreSQL, службу и БД ergo_ms
+  - name: install-postgres-service
+    summary: Зарегистрировать OS-службу portable PostgreSQL (setup-full и install-services)
   - name: uninstall-postgres
     summary: Остановить PostgreSQL (--purge / -Purge удаляет packages/postgres)
   - name: start-postgres
