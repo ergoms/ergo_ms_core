@@ -449,8 +449,8 @@ sections:
   - name: huggingface-models
     summary: List snapshots from huggingface_models.yaml and on-disk status
   - name: pull-huggingface-models
-    invoke: ergoms pull-huggingface-models [--force] [--repo org/name]
-    summary: Download declared snapshots (automatic in setup-full)
+    invoke: ergoms pull-huggingface-models [--force] [--repo org/name] [--include-optional]
+    summary: Download required snapshots (automatic in setup-full). Skips snapshots already in trained_models
 - id: postgres
   title: PostgreSQL (portable)
   note: Automatic in setup-full when ERGO_DB=portable_postgres. Directory virtual_env/packages/postgres. install-services also registers the OS service.

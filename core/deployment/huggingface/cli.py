@@ -3,7 +3,7 @@ CLI снимков Hugging Face из modules/*/huggingface_models.yaml.
 
 Вызов:
   python core/deployment/huggingface/cli.py list
-  python core/deployment/huggingface/cli.py install [--force] [--repo org/name]
+  python core/deployment/huggingface/cli.py install [--force] [--repo org/name] [--include-optional]
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ if str(_DEPLOYMENT_DIR) not in sys.path:
 
 from console_tags import configure_stdio_utf8, format_console  # noqa: E402
 from huggingface.registry import load_resolved_models  # noqa: E402
+from huggingface.snapshot import adopt_legacy_snapshot  # noqa: E402
 from huggingface.snapshot import install as install_snapshot  # noqa: E402
 from huggingface.snapshot import is_installed  # noqa: E402
 
@@ -44,7 +45,13 @@ def cmd_list(root: Path) -> int:
     return 0
 
 
-def cmd_install(root: Path, *, repo: str, force: bool) -> int:
+def cmd_install(
+    root: Path,
+    *,
+    repo: str,
+    force: bool,
+    include_optional: bool,
+) -> int:
     requested = (repo or '').strip()
     if requested:
         return install_snapshot(root, requested, force=force)
@@ -56,6 +63,19 @@ def cmd_install(root: Path, *, repo: str, force: bool) -> int:
 
     failed_required: list[str] = []
     for model in models:
+        if not model.required and not include_optional:
+            adopt_legacy_snapshot(root, model.repo_id)
+            if is_installed(root, model.repo_id):
+                install_snapshot(root, model.repo_id, force=False)
+            else:
+                print(
+                    format_console(
+                        'skip',
+                        f'{model.repo_id} необязателен — setup-full не качает, '
+                        'поставит первый вызов ensure_local_source',
+                    )
+                )
+            continue
         code = install_snapshot(root, model.repo_id, force=force)
         if code == 0:
             continue
@@ -96,12 +116,22 @@ def main(argv: list[str] | None = None) -> int:
         parents=[common],
     )
     install_parser.add_argument('--force', action='store_true')
+    install_parser.add_argument(
+        '--include-optional',
+        action='store_true',
+        help='Также поставить необязательные снимки (NMT и аналоги)',
+    )
     install_parser.add_argument('--repo', default='', help='Только этот org/name')
     args = parser.parse_args(argv)
     root = _resolve_root(getattr(args, 'root', None))
     if args.command == 'list':
         return cmd_list(root)
-    return cmd_install(root, repo=args.repo, force=args.force)
+    return cmd_install(
+        root,
+        repo=args.repo,
+        force=args.force,
+        include_optional=args.include_optional,
+    )
 
 
 if __name__ == '__main__':

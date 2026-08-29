@@ -449,8 +449,8 @@ sections:
   - name: huggingface-models
     summary: Список снимков из huggingface_models.yaml и статус на диске
   - name: pull-huggingface-models
-    invoke: ergoms pull-huggingface-models [--force] [--repo org/name]
-    summary: Скачать объявленные снимки (авто в setup-full)
+    invoke: ergoms pull-huggingface-models [--force] [--repo org/name] [--include-optional]
+    summary: Скачать обязательные снимки (авто в setup-full). Уже лежащие в trained_models не качает повторно
 - id: postgres
   title: PostgreSQL (portable)
   note: Авто в setup-full при ERGO_DB=portable_postgres. Каталог virtual_env/packages/postgres. Службу также ставит install-services.

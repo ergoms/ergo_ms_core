@@ -18,7 +18,8 @@ alwaysApply: false
 - Установка: [`core/deployment/huggingface/`](../../core/deployment/huggingface/)
 - Кэш Hub (`HF_HOME`): `virtual_env/cache/huggingface/` — только черновик качалки, не место модели
 - CLI: `ergoms huggingface-models`, `ergoms pull-huggingface-models`
-- Setup-full: шаг `PullHuggingfaceModelsStep` после `python-install`
+- Setup-full: шаг `PullHuggingfaceModelsStep` после `python-install` — только `required: true`. Уже лежащий снимок не качается повторно
+- Качалка берёт safetensors/pytorch, не flax/tf/onnx. Старый путь `trained_models/<name>` переносится в `huggingface/<org>/<name>`
 - Runtime: [`huggingface_snapshot.py`](../../core/api/src/core/utils/huggingface_snapshot.py) — `resolve_huggingface_source` / `ensure_local_source`
 
 ## Обязательно
@@ -27,6 +28,7 @@ alwaysApply: false
 2. Имя — `repo:` / `name:` или `env:` + `default:` (как в `ollama_models.yaml`).
 3. Загрузка модели в коде — `resolve_huggingface_source(repo_id)` (снимок после setup) или `ensure_local_source(repo_id)` (поставить в `trained_models`, если ещё нет). Не `from_pretrained(hub_id)` и не свой `HF_HOME` в кэше модуля.
 4. Пути только через `project_layout` (`huggingface_snapshot_dir`, `resolve_huggingface_source`).
+5. `required: false` setup-full не качает. Необязательный снимок ставит `ensure_local_source` при первом использовании, либо `ergoms pull-huggingface-models --include-optional`.
 
 ## Запрещено
 

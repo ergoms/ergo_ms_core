@@ -46,15 +46,53 @@ def huggingface_snapshot_dir(root: Path, repo_id: str) -> Path:
     return dest
 
 
-def huggingface_snapshot_ready(path: Path) -> bool:
-    """True, если в каталоге есть config и веса (safetensors или bin)."""
-    if not path.is_dir() or not (path / 'config.json').is_file():
+_HF_LFS_PREFIX = b'version https://git-lfs'
+_HF_WEIGHT_FILES = (
+    'model.safetensors',
+    'pytorch_model.bin',
+)
+_HF_WEIGHT_GLOBS = (
+    '*.safetensors',
+    'pytorch_model-*.bin',
+)
+
+
+def is_real_model_blob(path: Path, *, min_bytes: int = 1024) -> bool:
+    """True, если файл — настоящие веса, а не указатель Git LFS."""
+    if not path.is_file():
         return False
-    if (path / 'model.safetensors').is_file() or (path / 'pytorch_model.bin').is_file():
-        return True
-    if (path / 'model.safetensors.index.json').is_file():
-        return True
-    return any(path.glob('*.safetensors'))
+    try:
+        if path.stat().st_size < min_bytes:
+            return False
+        with path.open('rb') as handle:
+            head = handle.read(64)
+    except OSError:
+        return False
+    return not head.startswith(_HF_LFS_PREFIX)
+
+
+def huggingface_weight_files(path: Path) -> list[Path]:
+    """Реальные файлы весов в каталоге снимка (safetensors или pytorch)."""
+    if not path.is_dir():
+        return []
+    found: list[Path] = []
+    seen: set[Path] = set()
+    for name in _HF_WEIGHT_FILES:
+        candidate = path / name
+        if is_real_model_blob(candidate) and candidate not in seen:
+            found.append(candidate)
+            seen.add(candidate)
+    for pattern in _HF_WEIGHT_GLOBS:
+        for candidate in path.glob(pattern):
+            if is_real_model_blob(candidate) and candidate not in seen:
+                found.append(candidate)
+                seen.add(candidate)
+    return found
+
+
+def huggingface_snapshot_ready(path: Path) -> bool:
+    """True, если в каталоге есть настоящие веса, а не только токенизатор."""
+    return bool(huggingface_weight_files(path))
 
 
 def resolve_huggingface_source(root: Path, repo_id: str) -> str:

@@ -450,8 +450,8 @@ sections:
   - name: huggingface-models
     summary: Liste des instantanés huggingface_models.yaml et état sur disque
   - name: pull-huggingface-models
-    invoke: ergoms pull-huggingface-models [--force] [--repo org/name]
-    summary: Télécharger les instantanés déclarés (automatique dans setup-full)
+    invoke: ergoms pull-huggingface-models [--force] [--repo org/name] [--include-optional]
+    summary: Télécharger les instantanés obligatoires (automatique dans setup-full). Ignore ceux déjà présents dans trained_models
 - id: postgres
   title: PostgreSQL (portable)
   note: Automatique dans setup-full si ERGO_DB=portable_postgres. Répertoire virtual_env/packages/postgres. install-services enregistre aussi le service.
