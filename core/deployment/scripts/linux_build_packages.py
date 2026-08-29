@@ -153,7 +153,12 @@ def _already_ready(profile: str) -> bool:
     if _missing_compiler_tools():
         return False
     if profile == 'postgres':
-        return _READLINE_HEADER.is_file()
+        # gcc/make/readline уже могут быть от другой сборки — bison/flex нужны именно Postgres.
+        return (
+            _READLINE_HEADER.is_file()
+            and shutil.which('bison') is not None
+            and shutil.which('flex') is not None
+        )
     return True
 
 

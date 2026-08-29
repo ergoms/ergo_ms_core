@@ -101,6 +101,7 @@ def restore_project_ownership(root: Path, path: Path) -> bool:
 _RUNTIME_ARTIFACT_RELATIVE = (
     'virtual_env/packages/redis',
     'virtual_env/packages/nginx',
+    'virtual_env/packages/postgres',
     'core/client/node_modules',
     'logs',
     'core/deployment/wrappers',

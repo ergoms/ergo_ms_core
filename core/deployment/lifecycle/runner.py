@@ -52,6 +52,46 @@ def runner_python_argv(project_root: Path, recipe: str) -> list[str]:
     return [*host_ops.base_python_argv(project_root, HostPlatform.current()), str(_LIFECYCLE_DIR / 'runner.py')]
 
 
+def sudo_reexec_argv(
+    py_argv: list[str],
+    args: argparse.Namespace,
+    extra: list[str],
+    *,
+    docker_mode: str | None,
+) -> list[str]:
+    """Повторить разобранные флаги runner при sudo — иначе --with-postgres и порт теряются."""
+    sudo_argv = [*py_argv, args.recipe]
+    flag_presence = (
+        ('recreate_venv', '--recreate-venv'),
+        ('purge', '--purge'),
+        ('dry_run', '--dry-run'),
+        ('force', '--force'),
+        ('with_postgres', '--with-postgres'),
+    )
+    for attr, flag in flag_presence:
+        if getattr(args, attr):
+            sudo_argv.append(flag)
+    if docker_mode:
+        sudo_argv.extend(['--docker-mode', docker_mode])
+    value_flags = (
+        ('worker', '--worker'),
+        ('server_name', '--server-name'),
+        ('listen_port', '--listen-port'),
+        ('domain', '--domain'),
+        ('email', '--email'),
+        ('source_port', '--source-port'),
+        ('source_host', '--source-host'),
+        ('source_user', '--source-user'),
+        ('source_password', '--source-password'),
+    )
+    for attr, flag in value_flags:
+        value = getattr(args, attr)
+        if value:
+            sudo_argv.extend([flag, str(value)])
+    sudo_argv.extend(extra)
+    return sudo_argv
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description='ErgoMS lifecycle runner')
     parser.add_argument('recipe', nargs='?', help=t('runner_help_recipe'))
@@ -142,15 +182,10 @@ def main(argv: list[str] | None = None) -> int:
 
     if needs_sudo_reexec(spec.needs_sudo):
         py_argv = runner_python_argv(project_root, args.recipe)
-        sudo_argv = [*py_argv, args.recipe]
-        if args.recreate_venv:
-            sudo_argv.append('--recreate-venv')
-        if args.purge:
-            sudo_argv.append('--purge')
-        if docker_mode:
-            sudo_argv.extend(['--docker-mode', docker_mode])
-        sudo_argv.extend(extra)
-        return reexec_with_sudo(sudo_argv, cwd=project_root)
+        return reexec_with_sudo(
+            sudo_reexec_argv(py_argv, args, extra, docker_mode=docker_mode),
+            cwd=project_root,
+        )
 
     orchestrator = DeploymentOrchestrator(project_root)
     return orchestrator.run_recipe(

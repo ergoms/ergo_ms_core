@@ -535,6 +535,36 @@ def effective_portable_port(root: Path, port: int | None = None) -> int:
     return resolve_portable_listen_port(root)
 
 
+def _cluster_owner_ids(root: Path) -> tuple[int, int] | None:
+    """Владелец проекта: initdb/pg_ctl нельзя запускать от root."""
+    if os.name == 'nt' or not hasattr(os, 'geteuid') or os.geteuid() != 0:
+        return None
+    uid, gid = Path(root).stat().st_uid, Path(root).stat().st_gid
+    if uid == 0:
+        return None
+    return uid, gid
+
+
+def _chown_postgres_packages(root: Path) -> None:
+    owner = _cluster_owner_ids(root)
+    if owner is None:
+        return
+    uid, gid = owner
+    pkg = postgres_packages_dir(root)
+    if not pkg.is_dir():
+        return
+    try:
+        from lifecycle.host.privilege import restore_project_ownership  # noqa: WPS433
+        restore_project_ownership(root, pkg)
+        return
+    except ImportError:
+        pass
+    for dirpath, dirnames, filenames in os.walk(pkg):
+        os.chown(dirpath, uid, gid, follow_symlinks=False)
+        for name in (*dirnames, *filenames):
+            os.chown(Path(dirpath) / name, uid, gid, follow_symlinks=False)
+
+
 def _run_pg(
     root: Path,
     tool: str,
@@ -547,14 +577,41 @@ def _run_pg(
     if not binary.is_file():
         raise RuntimeError(t('postgres_tool_not_found', tool=tool, binary=binary))
     full_env = {**os.environ, **(env or {})}
-    return subprocess.run(
+    run_kwargs: dict[str, object] = {}
+    owner = _cluster_owner_ids(root)
+    if owner is not None:
+        _chown_postgres_packages(root)
+        run_kwargs['user'] = owner[0]
+        run_kwargs['group'] = owner[1]
+        try:
+            import pwd
+
+            pw = pwd.getpwuid(owner[0])
+            full_env['HOME'] = pw.pw_dir
+            full_env['USER'] = pw.pw_name
+            full_env['LOGNAME'] = pw.pw_name
+        except KeyError:
+            pass
+    result = subprocess.run(
         [str(binary), *args],
         capture_output=True,
         text=True,
-        check=check,
+        check=False,
         env=full_env,
         timeout=120,
+        **run_kwargs,
     )
+    if check and result.returncode != 0:
+        detail = (result.stderr or result.stdout or '').strip()
+        if detail:
+            print(detail, file=sys.stderr)
+        raise subprocess.CalledProcessError(
+            result.returncode,
+            result.args,
+            output=result.stdout,
+            stderr=result.stderr,
+        )
+    return result
 
 
 def _initdb_if_needed(root: Path, user: str, password: str, port: int, bind: str) -> None:
