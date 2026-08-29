@@ -164,7 +164,11 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
         ),
         RecipeSpec(
             'python-install',
-            (PythonInstallStep(),),
+            (
+                CreateVenvStep(),
+                PoetryInstallStep(),
+                PythonInstallStep(),
+            ),
             description=t('recipe_python_install'),
         ),
         RecipeSpec(

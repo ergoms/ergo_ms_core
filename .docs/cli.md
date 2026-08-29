@@ -112,7 +112,7 @@ ergoms npm run install:all
 ergoms warmup-caches
 ```
 
-Команда `install-deps` обновляет зависимости Python и npm, применяет миграции и прогревает кэши — когда окружение уже есть, но его нужно освежить после pull или смены ветки.
+Команда `install-deps` обновляет зависимости Python и npm, применяет миграции и прогревает кэши — когда окружение уже есть, но его нужно освежить после pull или смены ветки. Чтобы пересобрать `virtual_env/python/` из portable Python, выполните `ergoms python-install --recreate-venv`.
 
 Расширения Cursor / VS Code ставит `ergoms install-extensions`. Вместе с ERGO MS User Config это же выключает автооткрытие встроенного браузера Cursor. После установки перезагрузите окно (Developer: Reload Window).
 

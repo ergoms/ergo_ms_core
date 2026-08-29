@@ -154,7 +154,7 @@ sections:
   - name: install-deps
     summary: Python + npm, миграции и прогрев кэшей
   - name: python-install
-    summary: Установить Python-зависимости, удалить лишние пакеты и их кэш в virtual_env/cache
+    summary: Установить Python-зависимости; --recreate-venv пересобирает venv из portable Python
   - name: python-update
     summary: Обновить Python-зависимости ядра и модулей (poetry update)
   - name: db-migrate

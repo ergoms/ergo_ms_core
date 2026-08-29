@@ -153,7 +153,7 @@ sections:
   - name: install-deps
     summary: Python + npm, migrations et préchauffage des caches
   - name: python-install
-    summary: Installer les dépendances Python, supprimer les paquets inutiles et leur cache sous virtual_env/cache
+    summary: Installer les dépendances Python ; --recreate-venv recrée le venv depuis le Python portable
   - name: python-update
     summary: Mettre à jour les dépendances Python du noyau et des modules (poetry update)
   - name: db-migrate
