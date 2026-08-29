@@ -265,6 +265,7 @@ function Install-Nginx {
 
 function Install-NginxService {
     param([string]$Root)
+    Sync-NginxServiceName -Root $Root
 
     if (-not (Test-NginxInstalled -Root $Root)) {
         Write-ErgomsMessage -Key 'error_not_installed_run' -Color Red -Stderr -Param @{ name = 'Nginx'; cmd = 'ergoms install-nginx' }
@@ -629,6 +630,7 @@ function Uninstall-Nginx {
         [string]$Root,
         [switch]$PurgeData
     )
+    Sync-NginxServiceName -Root $Root
 
     Write-ColorOutput "" White
     Write-ErgomsMessage -Key 'heading_remove' -Color Cyan -Param @{ name = 'Nginx' }

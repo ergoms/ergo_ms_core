@@ -105,6 +105,14 @@ class HostProfileTests(unittest.TestCase):
             (DOCKER_PROFILE_API, DOCKER_PROFILE_MEDIA, DOCKER_PROFILE_BEAT),
         )
 
+    def test_core_units_follow_service_prefix(self) -> None:
+        profile = resolve_host_profile({
+            'HOST_PROFILE': PROFILE_FULL,
+            'ERGO_SERVICE_PREFIX': 'ergo_st_hp',
+        })
+        self.assertIn('ergo_st_hp_api_dev', profile.core_unit_names())
+        self.assertNotIn('ergo_ms_api_dev', profile.core_unit_names())
+
 
 if __name__ == '__main__':
     unittest.main()

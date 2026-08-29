@@ -88,13 +88,21 @@ def _read_postgres_env(name: str, default: str = '') -> str:
 
 
 def our_service_windows(root: Path | None = None) -> str:
-    _ = root
-    return _read_postgres_env('POSTGRES_SERVICE_WINDOWS', OUR_SERVICE_WINDOWS)
+    explicit = _read_postgres_env('POSTGRES_SERVICE_WINDOWS', '')
+    if explicit:
+        return explicit
+    from service_names import names_from_root
+
+    return names_from_root(root).postgres
 
 
 def our_service_linux(root: Path | None = None) -> str:
-    _ = root
-    return _read_postgres_env('POSTGRES_SERVICE_LINUX', OUR_SERVICE_LINUX)
+    explicit = _read_postgres_env('POSTGRES_SERVICE_LINUX', '')
+    if explicit:
+        return explicit
+    from service_names import names_from_root
+
+    return names_from_root(root).postgres
 
 
 def service_display_name(root: Path | None = None) -> str:

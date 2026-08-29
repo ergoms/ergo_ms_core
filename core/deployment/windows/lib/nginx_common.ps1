@@ -3,7 +3,12 @@
 
 $script:NginxVersion = '1.27.4'
 $script:NginxZipUrl = "https://nginx.org/download/nginx-$script:NginxVersion.zip"
-$script:NginxServiceName = 'ergo_ms_nginx'
+$script:NginxServiceName = Get-ErgoServiceName -Role 'nginx'
+
+function Sync-NginxServiceName {
+    param([string]$Root)
+    $script:NginxServiceName = Get-ErgoServiceName -Role 'nginx' -ProjectRoot $Root
+}
 $script:NginxConfName = 'ergo_ms'
 
 function Invoke-NginxCli {

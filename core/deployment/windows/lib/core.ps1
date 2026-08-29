@@ -7,18 +7,41 @@
 . (Join-Path $PSScriptRoot 'redis_env.ps1')
 . (Join-Path $PSScriptRoot 'search_env.ps1')
 
-# Константы (базовые службы)
+function Get-ErgoServicePrefix {
+    param([string]$ProjectRoot)
+    if ($env:ERGO_SERVICE_PREFIX -and $env:ERGO_SERVICE_PREFIX.Trim()) {
+        return $env:ERGO_SERVICE_PREFIX.Trim()
+    }
+    if ($ProjectRoot) {
+        $fromFile = Get-ErgoEnvValue -Root $ProjectRoot -Name 'ERGO_SERVICE_PREFIX'
+        if ($fromFile) { return $fromFile }
+    }
+    return 'ergo_ms'
+}
+
+function Get-ErgoServiceName {
+    param(
+        [Parameter(Mandatory = $true)][string]$Role,
+        [string]$ProjectRoot
+    )
+    $prefix = Get-ErgoServicePrefix -ProjectRoot $ProjectRoot
+    return "${prefix}_${Role}"
+}
+
+function Test-ErgoServiceRole {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][string]$Role
+    )
+    $base = $Name -replace '\.service$', ''
+    return $base.EndsWith("_$Role")
+}
 
 $script:BaseServices = @(
-
-    'ergo_ms_api_dev',
-
-    'ergo_ms_client_dev',
-
-    'ergo_ms_media_api',
-
-    'ergo_ms_celery_beat'
-
+    (Get-ErgoServiceName -Role 'api_dev'),
+    (Get-ErgoServiceName -Role 'client_dev'),
+    (Get-ErgoServiceName -Role 'media_api'),
+    (Get-ErgoServiceName -Role 'celery_beat')
 )
 
 
@@ -561,14 +584,24 @@ function Get-HostProfileCoreUnits {
     $python = Join-Path $ProjectRoot 'virtual_env\python\Scripts\python.exe'
     $script = Join-Path $ProjectRoot 'core\deployment\lifecycle\host_profile.py'
     if (-not (Test-Path -LiteralPath $python) -or -not (Test-Path -LiteralPath $script)) {
-        return @('ergo_ms_api_dev', 'ergo_ms_client_dev', 'ergo_ms_media_api', 'ergo_ms_celery_beat')
+        return @(
+            (Get-ErgoServiceName -Role 'api_dev' -ProjectRoot $ProjectRoot),
+            (Get-ErgoServiceName -Role 'client_dev' -ProjectRoot $ProjectRoot),
+            (Get-ErgoServiceName -Role 'media_api' -ProjectRoot $ProjectRoot),
+            (Get-ErgoServiceName -Role 'celery_beat' -ProjectRoot $ProjectRoot)
+        )
     }
     try {
         $out = & $python $script --root $ProjectRoot --core-units 2>$null
         if (-not $out) { return @() }
         return @($out | ForEach-Object { "$_".Trim() } | Where-Object { $_ })
     } catch {
-        return @('ergo_ms_api_dev', 'ergo_ms_client_dev', 'ergo_ms_media_api', 'ergo_ms_celery_beat')
+        return @(
+            (Get-ErgoServiceName -Role 'api_dev' -ProjectRoot $ProjectRoot),
+            (Get-ErgoServiceName -Role 'client_dev' -ProjectRoot $ProjectRoot),
+            (Get-ErgoServiceName -Role 'media_api' -ProjectRoot $ProjectRoot),
+            (Get-ErgoServiceName -Role 'celery_beat' -ProjectRoot $ProjectRoot)
+        )
     }
 }
 
@@ -638,10 +671,14 @@ function Test-DedicatedInfraServiceName {
         [Parameter(Mandatory = $true)][string]$Name,
         [string]$ProjectRoot
     )
-    if ($Name -in @('ergo_ms_redis', 'ergo_ms_meilisearch', 'ergo_ms_nginx')) {
+    if (
+        (Test-ErgoServiceRole -Name $Name -Role 'redis') -or
+        (Test-ErgoServiceRole -Name $Name -Role 'meilisearch') -or
+        (Test-ErgoServiceRole -Name $Name -Role 'nginx')
+    ) {
         return $true
     }
-    $postgresName = 'ergo_ms_postgres'
+    $postgresName = Get-ErgoServiceName -Role 'postgres' -ProjectRoot $ProjectRoot
     if ($ProjectRoot) {
         $fromEnv = Get-ErgoEnvValue -Root $ProjectRoot -Name 'POSTGRES_SERVICE_WINDOWS'
         if ($fromEnv) { $postgresName = $fromEnv }
@@ -659,10 +696,12 @@ function Get-ServiceNames {
     $coreUnits = @(Get-HostProfileCoreUnits -ProjectRoot $ProjectRoot)
     $coreKey = ($coreUnits -join ',')
     $yamlWorkers = [bool](Test-HostProfileWants -ProjectRoot $ProjectRoot -ServiceId 'yaml_workers')
+    $prefix = Get-ErgoServicePrefix -ProjectRoot $ProjectRoot
 
     if (
         $script:CachedServiceNames -and
         $script:CachedProjectRoot -eq $ProjectRoot -and
+        $script:CachedServicePrefix -eq $prefix -and
         $script:CachedNginxEnabled -eq $nginxEnabled -and
         $script:CachedRedisEnabled -eq $redisEnabled -and
         $script:CachedSearchEnabled -eq $searchEnabled -and
@@ -674,38 +713,41 @@ function Get-ServiceNames {
     }
 
     $services = @() + $coreUnits
+    $clientDev = Get-ErgoServiceName -Role 'client_dev' -ProjectRoot $ProjectRoot
+    $nginxName = Get-ErgoServiceName -Role 'nginx' -ProjectRoot $ProjectRoot
 
     if ($postgresEnabled) {
-        $postgresServiceName = 'ergo_ms_postgres'
+        $postgresServiceName = Get-ErgoServiceName -Role 'postgres' -ProjectRoot $ProjectRoot
         $fromEnv = Get-ErgoEnvValue -Root $ProjectRoot -Name 'POSTGRES_SERVICE_WINDOWS'
         if ($fromEnv) { $postgresServiceName = $fromEnv }
         $services = @($postgresServiceName) + $services
     }
 
     if ($redisEnabled) {
-        $services = @('ergo_ms_redis') + $services
+        $services = @((Get-ErgoServiceName -Role 'redis' -ProjectRoot $ProjectRoot)) + $services
     }
 
     if ($searchEnabled) {
-        $services = @('ergo_ms_meilisearch') + $services
+        $services = @((Get-ErgoServiceName -Role 'meilisearch' -ProjectRoot $ProjectRoot)) + $services
     }
 
     if ($nginxEnabled) {
-        $services = $services | Where-Object { $_ -ne 'ergo_ms_client_dev' }
-        if ($services -notcontains 'ergo_ms_nginx') {
-            $services += 'ergo_ms_nginx'
+        $services = $services | Where-Object { $_ -ne $clientDev }
+        if ($services -notcontains $nginxName) {
+            $services += $nginxName
         }
     }
 
     if (Test-HostProfileWants -ProjectRoot $ProjectRoot -ServiceId 'yaml_workers') {
         $workers = Get-CeleryWorkers -ProjectRoot $ProjectRoot
+        $workerBase = Get-ErgoServiceName -Role 'celery_worker' -ProjectRoot $ProjectRoot
         if ($workers.Count -gt 0) {
             foreach ($worker in $workers) {
-                $services += "ergo_ms_celery_worker_$worker"
+                $services += "${workerBase}_$worker"
             }
         }
         else {
-            $services += "ergo_ms_celery_worker"
+            $services += $workerBase
         }
     }
 
@@ -717,6 +759,7 @@ function Get-ServiceNames {
 
     $script:CachedServiceNames = @($services)
     $script:CachedProjectRoot = $ProjectRoot
+    $script:CachedServicePrefix = $prefix
     $script:CachedNginxEnabled = $nginxEnabled
     $script:CachedRedisEnabled = $redisEnabled
     $script:CachedSearchEnabled = $searchEnabled
@@ -747,9 +790,10 @@ function Get-WorkerServiceNames {
 
     if ($workers.Count -gt 0) {
 
+        $workerBase = Get-ErgoServiceName -Role 'celery_worker' -ProjectRoot $ProjectRoot
         foreach ($worker in $workers) {
 
-            $services += "ergo_ms_celery_worker_$worker"
+            $services += "${workerBase}_$worker"
 
         }
 
@@ -757,7 +801,7 @@ function Get-WorkerServiceNames {
 
     else {
 
-        $services += "ergo_ms_celery_worker"
+        $services += (Get-ErgoServiceName -Role 'celery_worker' -ProjectRoot $ProjectRoot)
 
     }
 
@@ -774,6 +818,7 @@ function Get-WorkerServiceNames {
 function Reset-ServiceNamesCache {
     $script:CachedServiceNames = $null
     $script:CachedProjectRoot = $null
+    $script:CachedServicePrefix = $null
     $script:CachedNginxEnabled = $null
     $script:CachedRedisEnabled = $null
     $script:CachedSearchEnabled = $null

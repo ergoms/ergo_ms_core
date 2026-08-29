@@ -39,8 +39,8 @@ _collect_managed_service_names() {
     _names_ref+=("Meilisearch")
   fi
   for u in $(units_list "$root"); do
-    [[ "$u" == "ergo_ms_redis.service" || "$u" == "ergo_ms_redis" ]] && continue
-    [[ "$u" == "ergo_ms_meilisearch.service" || "$u" == "ergo_ms_meilisearch" ]] && continue
+    [[ "$u" == *_redis.service || "$u" == *_redis ]] && continue
+    [[ "$u" == *_meilisearch.service || "$u" == *_meilisearch ]] && continue
     # Манифест модуля может объявлять unit, которого ещё нет в systemd.
     _unit_is_present "$u" || continue
     _names_ref+=("$(_unit_short_name "$u")")
@@ -70,7 +70,7 @@ start_all() {
 
   # Redis при ERGO_BROKER=redis — через redis_start (служба или процесс)
   if is_redis_enabled "$root" && declare -F redis_start >/dev/null 2>&1; then
-    if systemctl is-active --quiet "ergo_ms_redis.service" 2>/dev/null; then
+    if systemctl is-active --quiet "$(ergo_service_name redis).service" 2>/dev/null; then
       redis_start "$root" || true
       already=$((already + 1))
     elif redis_start "$root"; then
@@ -82,7 +82,7 @@ start_all() {
 
   # Meilisearch при ERGO_SEARCH_ENABLED — через meilisearch_start
   if is_search_enabled "$root" && declare -F meilisearch_start >/dev/null 2>&1; then
-    if systemctl is-active --quiet "ergo_ms_meilisearch.service" 2>/dev/null; then
+    if systemctl is-active --quiet "$(ergo_service_name meilisearch).service" 2>/dev/null; then
       meilisearch_start "$root" || true
       already=$((already + 1))
     elif meilisearch_start "$root"; then
@@ -95,8 +95,8 @@ start_all() {
   local -a pending=()
   for u in $(units_list "$root"); do
     # Redis / Meilisearch уже обработаны отдельно
-    [[ "$u" == "ergo_ms_redis.service" || "$u" == "ergo_ms_redis" ]] && continue
-    [[ "$u" == "ergo_ms_meilisearch.service" || "$u" == "ergo_ms_meilisearch" ]] && continue
+    [[ "$u" == *_redis.service || "$u" == *_redis ]] && continue
+    [[ "$u" == *_meilisearch.service || "$u" == *_meilisearch ]] && continue
     name="$(_unit_short_name "$u")"
     if ! _unit_is_present "$u"; then
       continue
@@ -308,8 +308,8 @@ stop_all() {
     "count=${#planned[@]}" "items=$items"
 
   for u in $(units_list "$root"); do
-    [[ "$u" == "ergo_ms_redis.service" || "$u" == "ergo_ms_redis" ]] && continue
-    [[ "$u" == "ergo_ms_meilisearch.service" || "$u" == "ergo_ms_meilisearch" ]] && continue
+    [[ "$u" == *_redis.service || "$u" == *_redis ]] && continue
+    [[ "$u" == *_meilisearch.service || "$u" == *_meilisearch ]] && continue
     name="$(_unit_short_name "$u")"
     if ! _unit_is_present "$u"; then
       continue
@@ -326,8 +326,8 @@ stop_all() {
   fi
 
   for u in $(units_list "$root"); do
-    [[ "$u" == "ergo_ms_redis.service" || "$u" == "ergo_ms_redis" ]] && continue
-    [[ "$u" == "ergo_ms_meilisearch.service" || "$u" == "ergo_ms_meilisearch" ]] && continue
+    [[ "$u" == *_redis.service || "$u" == *_redis ]] && continue
+    [[ "$u" == *_meilisearch.service || "$u" == *_meilisearch ]] && continue
     name="$(_unit_short_name "$u")"
     if ! _unit_is_present "$u"; then
       continue
@@ -434,8 +434,8 @@ restart_all() {
   fi
 
   for u in $(units_list "$root"); do
-    [[ "$u" == "ergo_ms_redis.service" || "$u" == "ergo_ms_redis" ]] && continue
-    [[ "$u" == "ergo_ms_meilisearch.service" || "$u" == "ergo_ms_meilisearch" ]] && continue
+    [[ "$u" == *_redis.service || "$u" == *_redis ]] && continue
+    [[ "$u" == *_meilisearch.service || "$u" == *_meilisearch ]] && continue
     if ! _unit_is_present "$u"; then
       continue
     fi
@@ -474,7 +474,7 @@ status_all() {
   done
   if is_redis_enabled "$root" && declare -F redis_status >/dev/null 2>&1; then
     # Если unit уже выведен выше — redis_status дублирует; ок для процесса без unit
-    if ! _unit_is_present "ergo_ms_redis"; then
+    if ! _unit_is_present "$(ergo_service_name redis)"; then
       redis_status "$root" || true
     fi
   fi
@@ -561,7 +561,7 @@ show_service_logs() {
   source "$(dirname "${BASH_SOURCE[0]}")/logs_paths.sh"
 
   case "$service_name" in
-    ergo_ms_postgres|ergo_ms_postgres.service|ergo-postgres|ergo-postgres.service|ergo_ms_db|ergo_ms_sqlite|ergo_ms_mysql|ergo_ms_mssql)
+    *_postgres|*_postgres.service|ergo-postgres|ergo-postgres.service|*_db|*_sqlite|*_mysql|*_mssql)
       local db_py="$root/virtual_env/python/bin/python"
       local db_script="$root/core/deployment/scripts/start_db_logs_dev.py"
       if [[ -x "$db_py" && -f "$db_script" ]]; then
@@ -570,7 +570,7 @@ show_service_logs() {
       ;;
   esac
 
-  if [[ "$service_name" == "ergo_ms_nginx" || "$service_name" == "ergo_ms_nginx.service" ]]; then
+  if [[ "$service_name" == *_nginx || "$service_name" == *_nginx.service ]]; then
     local nginx_py="$root/virtual_env/python/bin/python"
     local nginx_script="$root/core/deployment/scripts/start_nginx_logs_dev.py"
     if [[ -x "$nginx_py" && -f "$nginx_script" ]]; then
@@ -579,7 +579,7 @@ show_service_logs() {
     local files=()
     while IFS= read -r file; do
       [[ -n "$file" && -f "$file" ]] && files+=("$file")
-    done < <(resolve_service_log_files "ergo_ms_nginx" "$root" 2>/dev/null || true)
+    done < <(resolve_service_log_files "$(ergo_service_name nginx "$root")" "$root" 2>/dev/null || true)
     if [[ ${#files[@]} -eq 0 ]]; then
       write_ergoms_message svc_nginx_logs_missing red --stderr "path=$(resolve_ergo_logs_dir "$root")"
       write_ergoms_message svc_nginx_logs_hint yellow --stderr
@@ -591,12 +591,12 @@ show_service_logs() {
     return 0
   fi
 
-  if [[ "$service_name" == "ergo_ms_redis" || "$service_name" == "ergo_ms_redis.service" || "$service_name" == "ergo-redis" || "$service_name" == "ergo-redis.service" ]]; then
-    service_name="ergo_ms_redis"
+  if [[ "$service_name" == *_redis || "$service_name" == *_redis.service || "$service_name" == "ergo-redis" || "$service_name" == "ergo-redis.service" ]]; then
+    service_name="$(ergo_service_name redis "$root")"
   fi
 
-  if [[ "$service_name" == "ergo_ms_meilisearch" || "$service_name" == "ergo_ms_meilisearch.service" ]]; then
-    service_name="ergo_ms_meilisearch"
+  if [[ "$service_name" == *_meilisearch || "$service_name" == *_meilisearch.service ]]; then
+    service_name="$(ergo_service_name meilisearch "$root")"
   fi
 
   local -a log_files=()
@@ -614,11 +614,11 @@ show_service_logs() {
   for file in "${log_files[@]}"; do
     echo "   $file"
   done
-  if [[ "$service_name" == ergo_ms_celery_worker* ]]; then
+  if [[ "$service_name" == *_celery_worker* ]]; then
     write_ergoms_message svc_module_tasks_log_hint gray "" "path=$(resolve_ergo_logs_dir "$root")/celery_tasks.log"
     write_ergoms_message svc_filter_celery_tasks_cmd gray
   fi
-  if [[ "$service_name" == "ergo_ms_celery_beat" || "$service_name" == "ergo_ms_celery_beat.service" ]]; then
+  if [[ "$service_name" == *_celery_beat || "$service_name" == *_celery_beat.service ]]; then
     write_ergoms_message svc_module_beat_log_hint gray "" "path=$(resolve_ergo_logs_dir "$root")/celery_beat.log"
     write_ergoms_message svc_filter_celery_beat_cmd gray
   fi
@@ -647,41 +647,45 @@ uninstall_all() {
     fi
   done
 
-  # Legacy unit-имена (до префикса ergo_ms_)
-  local legacy
-  for legacy in \
-    ergo-api-dev.service \
-    ergo-client-dev.service \
-    ergo-media-api.service \
-    ergo-celery-beat.service \
-    ergo-celery-worker.service \
-    ergo-redis.service \
-    ergo-postgres.service
-  do
-    systemctl_do disable "$legacy" 2>/dev/null || true
-    systemctl_do stop "$legacy" 2>/dev/null || true
-    if [[ -f "/etc/systemd/system/$legacy" ]] || [[ -L "/etc/systemd/system/$legacy" ]]; then
-      if [[ $(id -u) -eq 0 ]]; then
-        rm -f "/etc/systemd/system/$legacy"
-      else
-        sudo rm -f "/etc/systemd/system/$legacy"
+  # Старые имена ergo-* — только у рабочего префикса
+  local prefix
+  prefix="$(ergo_service_prefix "$root")"
+  if [[ "$prefix" == "ergo_ms" ]]; then
+    local legacy
+    for legacy in \
+      ergo-api-dev.service \
+      ergo-client-dev.service \
+      ergo-media-api.service \
+      ergo-celery-beat.service \
+      ergo-celery-worker.service \
+      ergo-redis.service \
+      ergo-postgres.service
+    do
+      systemctl_do disable "$legacy" 2>/dev/null || true
+      systemctl_do stop "$legacy" 2>/dev/null || true
+      if [[ -f "/etc/systemd/system/$legacy" ]] || [[ -L "/etc/systemd/system/$legacy" ]]; then
+        if [[ $(id -u) -eq 0 ]]; then
+          rm -f "/etc/systemd/system/$legacy"
+        else
+          sudo rm -f "/etc/systemd/system/$legacy"
+        fi
+        write_ergoms_message svc_legacy_unit_removed gray "" "path=/etc/systemd/system/$legacy"
       fi
-      write_ergoms_message svc_legacy_unit_removed gray "" "path=/etc/systemd/system/$legacy"
-    fi
-  done
-  while IFS= read -r legacy; do
-    [[ -z "$legacy" ]] && continue
-    systemctl_do disable "$legacy" 2>/dev/null || true
-    systemctl_do stop "$legacy" 2>/dev/null || true
-    if [[ -f "/etc/systemd/system/$legacy" ]] || [[ -L "/etc/systemd/system/$legacy" ]]; then
-      if [[ $(id -u) -eq 0 ]]; then
-        rm -f "/etc/systemd/system/$legacy"
-      else
-        sudo rm -f "/etc/systemd/system/$legacy"
+    done
+    while IFS= read -r legacy; do
+      [[ -z "$legacy" ]] && continue
+      systemctl_do disable "$legacy" 2>/dev/null || true
+      systemctl_do stop "$legacy" 2>/dev/null || true
+      if [[ -f "/etc/systemd/system/$legacy" ]] || [[ -L "/etc/systemd/system/$legacy" ]]; then
+        if [[ $(id -u) -eq 0 ]]; then
+          rm -f "/etc/systemd/system/$legacy"
+        else
+          sudo rm -f "/etc/systemd/system/$legacy"
+        fi
+        write_ergoms_message svc_legacy_unit_removed gray "" "path=/etc/systemd/system/$legacy"
       fi
-      write_ergoms_message svc_legacy_unit_removed gray "" "path=/etc/systemd/system/$legacy"
-    fi
-  done < <(systemctl list-unit-files --type=service --no-legend 2>/dev/null | awk '/^ergo-celery-worker-/ {print $1}')
+    done < <(systemctl list-unit-files --type=service --no-legend 2>/dev/null | awk '/^ergo-celery-worker-/ {print $1}')
+  fi
   
   daemon_reload
   if [[ "$purge" == "true" ]]; then
@@ -701,8 +705,10 @@ disable_client_service_if_nginx() {
   if ! is_nginx_enabled "$root"; then
     return 0
   fi
-  systemctl_do disable ergo_ms_client_dev.service 2>/dev/null || true
-  systemctl_do stop ergo_ms_client_dev.service 2>/dev/null || true
+  local client_unit
+  client_unit="$(ergo_service_name client_dev "$root").service"
+  systemctl_do disable "$client_unit" 2>/dev/null || true
+  systemctl_do stop "$client_unit" 2>/dev/null || true
   nginx_skip_client_message "$root"
 }
 
@@ -725,26 +731,28 @@ remove_stale_host_profile_units() {
   local root="$1"
   local unit workers worker
 
+  local worker_base
+  worker_base="$(ergo_service_name celery_worker "$root")"
   if ! host_profile_wants "$root" api; then
-    _remove_unit_if_present ergo_ms_api_dev.service
+    _remove_unit_if_present "$(ergo_service_name api_dev "$root").service"
   fi
   if ! host_profile_wants "$root" client; then
-    _remove_unit_if_present ergo_ms_client_dev.service
+    _remove_unit_if_present "$(ergo_service_name client_dev "$root").service"
   fi
   if ! host_profile_wants "$root" media; then
-    _remove_unit_if_present ergo_ms_media_api.service
+    _remove_unit_if_present "$(ergo_service_name media_api "$root").service"
   fi
   if ! host_profile_wants "$root" beat; then
-    _remove_unit_if_present ergo_ms_celery_beat.service
+    _remove_unit_if_present "$(ergo_service_name celery_beat "$root").service"
   fi
   if ! host_profile_wants "$root" yaml_workers; then
     workers="$(get_celery_workers "$root")"
     if [[ -n "$workers" ]]; then
       for worker in $workers; do
-        _remove_unit_if_present "ergo_ms_celery_worker_${worker}.service"
+        _remove_unit_if_present "${worker_base}_${worker}.service"
       done
     fi
-    _remove_unit_if_present ergo_ms_celery_worker.service
+    _remove_unit_if_present "${worker_base}.service"
   fi
 }
 
@@ -771,11 +779,11 @@ install_services() {
   remove_stale_host_profile_units "$root"
   
   if host_profile_wants "$root" api; then
-    install_unit "ergo_ms_api_dev"        "$API_UNIT" "$root"
+    install_unit "$(ergo_service_name api_dev "$root")"        "$API_UNIT" "$root"
   fi
   if host_profile_wants "$root" client; then
     if (( skip_client == 0 )); then
-      install_unit "ergo_ms_client_dev"     "$CLIENT_UNIT" "$root"
+      install_unit "$(ergo_service_name client_dev "$root")"     "$CLIENT_UNIT" "$root"
     else
       disable_client_service_if_nginx "$root"
     fi
@@ -783,10 +791,10 @@ install_services() {
     disable_client_service_if_nginx "$root"
   fi
   if host_profile_wants "$root" media; then
-    install_unit "ergo_ms_media_api"      "$MEDIA_API_UNIT" "$root"
+    install_unit "$(ergo_service_name media_api "$root")"      "$MEDIA_API_UNIT" "$root"
   fi
   if host_profile_wants "$root" beat; then
-    install_unit "ergo_ms_celery_beat"    "$CELERY_BEAT_UNIT" "$root"
+    install_unit "$(ergo_service_name celery_beat "$root")"    "$CELERY_BEAT_UNIT" "$root"
   fi
   
   if host_profile_wants "$root" yaml_workers; then
@@ -796,16 +804,16 @@ install_services() {
   daemon_reload
 
   if host_profile_wants "$root" api; then
-    enable_and_start ergo_ms_api_dev.service
+    enable_and_start "$(ergo_service_name api_dev "$root").service"
   fi
   if host_profile_wants "$root" client && (( skip_client == 0 )); then
-    enable_and_start ergo_ms_client_dev.service
+    enable_and_start "$(ergo_service_name client_dev "$root").service"
   fi
   if host_profile_wants "$root" media; then
-    enable_and_start ergo_ms_media_api.service
+    enable_and_start "$(ergo_service_name media_api "$root").service"
   fi
   if host_profile_wants "$root" beat; then
-    enable_and_start ergo_ms_celery_beat.service
+    enable_and_start "$(ergo_service_name celery_beat "$root").service"
   fi
   
   if host_profile_wants "$root" yaml_workers; then
@@ -842,7 +850,7 @@ install_single_service() {
   
   case "$service_name" in
     "api")
-      unit_name="ergo_ms_api_dev"
+      unit_name="$(ergo_service_name api_dev "$root")"
       install_unit "$unit_name" "$API_UNIT" "$root"
       ;;
     "client")
@@ -850,7 +858,7 @@ install_single_service() {
         disable_client_service_if_nginx "$root"
         return 0
       fi
-      unit_name="ergo_ms_client_dev"
+      unit_name="$(ergo_service_name client_dev "$root")"
       install_unit "$unit_name" "$CLIENT_UNIT" "$root"
       ;;
     "worker")
@@ -867,11 +875,11 @@ install_single_service() {
       return
       ;;
     "beat")
-      unit_name="ergo_ms_celery_beat"
+      unit_name="$(ergo_service_name celery_beat "$root")"
       install_unit "$unit_name" "$CELERY_BEAT_UNIT" "$root"
       ;;
     "media")
-      unit_name="ergo_ms_media_api"
+      unit_name="$(ergo_service_name media_api "$root")"
       install_unit "$unit_name" "$MEDIA_API_UNIT" "$root"
       ;;
     *)

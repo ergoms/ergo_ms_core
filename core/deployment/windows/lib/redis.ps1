@@ -1,7 +1,12 @@
 ﻿# Redis management for Windows
 # Установка и управление portable Redis в virtual_env/packages/redis
 
-$script:RedisServiceName = 'ergo_ms_redis'
+$script:RedisServiceName = Get-ErgoServiceName -Role 'redis'
+
+function Sync-RedisServiceName {
+    param([string]$Root)
+    $script:RedisServiceName = Get-ErgoServiceName -Role 'redis' -ProjectRoot $Root
+}
 
 
 
@@ -194,6 +199,7 @@ function Install-Redis {
 
 function Install-RedisService {
     param([string]$Root)
+    Sync-RedisServiceName -Root $Root
 
     if (-not (Test-RedisInstalled -Root $Root)) {
         Write-ErgomsMessage -Key 'error_not_installed_run' -Color Red -Stderr -Param @{ name = 'Redis'; cmd = 'ergoms install-redis' }
@@ -427,6 +433,7 @@ function Uninstall-Redis {
         [string]$Root,
         [switch]$PurgeData
     )
+    Sync-RedisServiceName -Root $Root
 
     Write-ErgomsMessage -Key 'heading_remove' -Color Cyan -Param @{ name = 'Redis' }
     Stop-RedisProcess -Root $Root -Quiet

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -137,7 +138,9 @@ class DockerRuntimeTests(unittest.TestCase):
             docker_dir = root / 'core' / 'deployment' / 'docker'
             docker_dir.mkdir(parents=True)
 
-            with patch('docker_runtime._DOCKER_DIR', docker_dir), patch(
+            with patch.dict(os.environ, {'DOCKER_PROFILE_LOADTEST': 'true'}), patch(
+                'docker_runtime._DOCKER_DIR', docker_dir
+            ), patch(
                 'docker_runtime.BUILD_CACHE_OUTPUT',
                 docker_dir / 'docker-compose.build.generated.yml',
             ), patch('docker_runtime.load_merged_env') as load_env, patch(

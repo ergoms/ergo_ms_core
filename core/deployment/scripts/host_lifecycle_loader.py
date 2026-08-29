@@ -117,8 +117,10 @@ def parse_module_process_service_command(cmd: str) -> tuple[str, str, str] | Non
     return action, module, kind
 
 
-def process_service_unit_name(module: str, kind: str) -> str:
-    return f'ergo_ms_module_{_safe_module_token(module)}_{kind}'
+def process_service_unit_name(module: str, kind: str, prefix: str | None = None) -> str:
+    from service_names import ServiceNames
+
+    return ServiceNames(prefix).module(module, kind)
 
 
 def is_module_process_service_unit(unit: str, module: str) -> bool:

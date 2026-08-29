@@ -1,7 +1,12 @@
 ﻿# Meilisearch management for Windows
 # Portable Meilisearch в virtual_env/packages/meilisearch; OS-служба NSSM ergo_ms_meilisearch
 
-$script:MeilisearchServiceName = 'ergo_ms_meilisearch'
+$script:MeilisearchServiceName = Get-ErgoServiceName -Role 'meilisearch'
+
+function Sync-MeilisearchServiceName {
+    param([string]$Root)
+    $script:MeilisearchServiceName = Get-ErgoServiceName -Role 'meilisearch' -ProjectRoot $Root
+}
 
 function Get-MeilisearchPackagesDir {
     param([string]$Root)
@@ -119,6 +124,7 @@ function Install-Meilisearch {
 
 function Install-MeilisearchService {
     param([string]$Root)
+    Sync-MeilisearchServiceName -Root $Root
 
     if (-not (Test-MeilisearchInstalled -Root $Root)) {
         Write-ErgomsMessage -Key 'error_not_installed_run' -Color Red -Stderr -Param @{
@@ -290,6 +296,7 @@ function Uninstall-Meilisearch {
         [string]$Root,
         [switch]$PurgeData
     )
+    Sync-MeilisearchServiceName -Root $Root
 
     Write-ErgomsMessage -Key 'heading_remove' -Color Cyan -Param @{ name = 'Meilisearch' }
     Stop-MeilisearchProcess -Root $Root -Quiet

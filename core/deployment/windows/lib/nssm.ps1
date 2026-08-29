@@ -80,8 +80,8 @@ function New-BaseServiceWrapper {
 
     New-Item -ItemType Directory -Path $wrapperDir -Force | Out-Null
 
-    switch ($ServiceName) {
-        'ergo_ms_api_dev' {
+    switch -Regex ($ServiceName) {
+        '_api_dev$' {
             $wrapperPath = Join-Path $wrapperDir "start_api.bat"
             $pythonExe = Join-Path $Root "virtual_env\python\Scripts\python.exe"
             $scriptPath = Join-Path $Root "core\api\scripts\start_api.py"
@@ -94,7 +94,7 @@ function New-BaseServiceWrapper {
                 "call `"$pythonExe`" `"$scriptPath`""
             ) -join "`r`n"
         }
-        'ergo_ms_client_dev' {
+        '_client_dev$' {
             $wrapperPath = Join-Path $wrapperDir "start_client.bat"
             $pythonExe = Join-Path $Root "virtual_env\python\Scripts\python.exe"
             $scriptPath = Join-Path $Root "core\deployment\scripts\start_client_if_dev.py"
@@ -108,7 +108,7 @@ function New-BaseServiceWrapper {
                 "call `"$pythonExe`" `"$scriptPath`""
             ) -join "`r`n"
         }
-        'ergo_ms_celery_beat' {
+        '_celery_beat$' {
             $wrapperPath = Join-Path $wrapperDir "start_celery_beat.bat"
             $scriptPath = Join-Path $corePath "api\scripts\start_celery_beat.py"
             $content = @(
@@ -121,7 +121,7 @@ function New-BaseServiceWrapper {
                 "python `"$scriptPath`""
             ) -join "`r`n"
         }
-        'ergo_ms_media_api' {
+        '_media_api$' {
             $wrapperPath = Join-Path $wrapperDir "start_media_api.bat"
             $scriptPath = Join-Path $corePath "api\scripts\start_media_api.py"
             $content = @(
@@ -204,12 +204,12 @@ function New-ServiceWrapper {
         [string]$Root
     )
 
-    if ($ServiceName -match '^ergo_ms_celery_worker_(.+)$') {
+    if ($ServiceName -match '_celery_worker_(.+)$') {
         $workerName = $Matches[1]
         return New-WorkerServiceWrapper -WorkerName $workerName -Root $Root
     }
 
-    if ($ServiceName -eq 'ergo_ms_celery_worker') {
+    if ($ServiceName -match '_celery_worker$') {
         return New-DefaultWorkerServiceWrapper -Root $Root
     }
 

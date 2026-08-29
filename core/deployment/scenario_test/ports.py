@@ -6,6 +6,7 @@ from docker_runtime import host_tcp_port_available
 
 # Не пересекаемся с хостовыми 80, 8000, 8001, 8002, 5433, 6379.
 API_CANDIDATES = tuple(range(18000, 18011))
+CLIENT_CANDIDATES = tuple(range(18020, 18030))
 NGINX_CANDIDATES = tuple(range(18080, 18090))
 JUPYTER_CANDIDATES = tuple(range(18002, 18010))
 POSTGRES_CANDIDATES = tuple(range(15432, 15441))
@@ -36,6 +37,7 @@ def pick_scenario_ports() -> dict[str, int] | None:
         return port
 
     api = take(API_CANDIDATES)
+    client = take(CLIENT_CANDIDATES)
     nginx = take(NGINX_CANDIDATES)
     jupyter = take(JUPYTER_CANDIDATES)
     postgres = take(POSTGRES_CANDIDATES)
@@ -44,10 +46,11 @@ def pick_scenario_ports() -> dict[str, int] | None:
     module = take(MODULE_CANDIDATES)
     mysql = take(MYSQL_CANDIDATES)
     mssql = take(MSSQL_CANDIDATES)
-    if None in (api, nginx, jupyter, postgres, redis, media, module, mysql, mssql):
+    if None in (api, client, nginx, jupyter, postgres, redis, media, module, mysql, mssql):
         return None
     return {
         'api': int(api),
+        'client': int(client),
         'nginx': int(nginx),
         'jupyter': int(jupyter),
         'postgres': int(postgres),

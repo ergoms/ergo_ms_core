@@ -2,8 +2,14 @@
 # Meilisearch management for Linux
 # Portable Meilisearch в virtual_env/packages/meilisearch
 
-MEILISEARCH_SERVICE_NAME='ergo_ms_meilisearch'
+MEILISEARCH_SERVICE_NAME="$(ergo_service_name meilisearch)"
 MEILISEARCH_UNIT_PATH="/etc/systemd/system/${MEILISEARCH_SERVICE_NAME}.service"
+
+_sync_meilisearch_service_name() {
+  local root="${1:-}"
+  MEILISEARCH_SERVICE_NAME="$(ergo_service_name meilisearch "$root")"
+  MEILISEARCH_UNIT_PATH="/etc/systemd/system/${MEILISEARCH_SERVICE_NAME}.service"
+}
 
 _meilisearch_dir() {
   local root="$1"
@@ -155,6 +161,7 @@ meilisearch_install() {
 
 meilisearch_install_service() {
   local root="$1"
+  _sync_meilisearch_service_name "$root"
   if ! _meilisearch_is_installed "$root"; then
     write_ergoms_message error_not_installed_run red --stderr "name=Meilisearch" "cmd=ergoms install-meilisearch"
     return 1

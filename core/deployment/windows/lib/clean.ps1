@@ -39,11 +39,16 @@ function Stop-BlockingProcessesForClean {
 
     Write-ErgomsMessage -Key 'clean_stopping_blockers' -Color Gray
 
-    # Все OS-службы проекта — ergo_ms_*; ergo-* оставляем для legacy до переустановки
+    # Службы текущего корня — {prefix}_*; ergo-* только у префикса по умолчанию
+    $prefix = Get-ErgoServicePrefix -ProjectRoot $Root
+    $wildcard = "${prefix}_*"
     $services = @(
-        Get-Service -Name 'ergo_ms_*' -ErrorAction SilentlyContinue
-        Get-Service -Name 'ergo-*' -ErrorAction SilentlyContinue
-    ) | Where-Object { $_ -and $_.Status -ne 'Stopped' } | Sort-Object -Property Name -Unique
+        Get-Service -Name $wildcard -ErrorAction SilentlyContinue
+    )
+    if ($prefix -eq 'ergo_ms') {
+        $services += @(Get-Service -Name 'ergo-*' -ErrorAction SilentlyContinue)
+    }
+    $services = $services | Where-Object { $_ -and $_.Status -ne 'Stopped' } | Sort-Object -Property Name -Unique
 
     foreach ($svc in $services) {
         try {

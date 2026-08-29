@@ -25,8 +25,32 @@ source "$SCRIPT_DIR_CORE/search_env.sh"
 source "$SCRIPT_DIR_CORE/portable_env.sh"
 
 # Константы (базовые службы без воркеров)
-BASE_SERVICES="ergo_ms_api_dev ergo_ms_client_dev ergo_ms_celery_beat"
 CLI_NAME="ergoms"
+
+ergo_service_prefix() {
+  local root="${1:-}"
+  if [[ -n "${ERGO_SERVICE_PREFIX:-}" ]]; then
+    printf '%s' "$ERGO_SERVICE_PREFIX"
+    return 0
+  fi
+  if [[ -n "$root" ]]; then
+    local from_env
+    from_env="$(_ergo_env_value "$root" 'ERGO_SERVICE_PREFIX' 2>/dev/null || true)"
+    if [[ -n "${from_env:-}" ]]; then
+      printf '%s' "$from_env"
+      return 0
+    fi
+  fi
+  printf '%s' 'ergo_ms'
+}
+
+ergo_service_name() {
+  local role="$1"
+  local root="${2:-}"
+  printf '%s_%s' "$(ergo_service_prefix "$root")" "$role"
+}
+
+BASE_SERVICES="$(ergo_service_name api_dev) $(ergo_service_name client_dev) $(ergo_service_name celery_beat)"
 
 # Глобальная переменная для кэширования списка служб
 CACHED_UNITS_LIST=""
@@ -273,11 +297,12 @@ host_profile_core_units() {
 generate_units_list() {
   local project_root="${1:-}"
   local units=""
-  local postgres_svc='ergo_ms_postgres'
+  local postgres_svc
   local from_env
   local unit
   local module_unit
   local core_unit
+  postgres_svc="$(ergo_service_name postgres "$project_root")"
 
   while IFS= read -r core_unit; do
     [[ -z "$core_unit" ]] && continue
@@ -285,15 +310,15 @@ generate_units_list() {
   done < <(host_profile_core_units "$project_root")
 
   if is_nginx_enabled "$project_root"; then
-    units="$units ergo_ms_nginx.service"
+    units="$units $(ergo_service_name nginx "$project_root").service"
   fi
 
   if is_redis_enabled "$project_root"; then
-    units="ergo_ms_redis.service $units"
+    units="$(ergo_service_name redis "$project_root").service $units"
   fi
 
   if is_search_enabled "$project_root"; then
-    units="ergo_ms_meilisearch.service $units"
+    units="$(ergo_service_name meilisearch "$project_root").service $units"
   fi
 
   if _postgres_portable_enabled "$project_root"; then
@@ -304,14 +329,16 @@ generate_units_list() {
   
   if host_profile_wants "$project_root" yaml_workers; then
     local workers
+    local worker_base
     workers="$(get_celery_workers "$project_root")"
+    worker_base="$(ergo_service_name celery_worker "$project_root")"
 
     if [[ -n "$workers" ]]; then
       for worker in $workers; do
-        units="$units ergo_ms_celery_worker_${worker}.service"
+        units="$units ${worker_base}_${worker}.service"
       done
     else
-      units="$units ergo_ms_celery_worker.service"
+      units="$units ${worker_base}.service"
     fi
   fi
 
@@ -342,12 +369,14 @@ get_worker_service_names() {
   local workers
   workers="$(get_celery_workers "$project_root")"
 
+  local worker_base
+  worker_base="$(ergo_service_name celery_worker "$project_root")"
   if [[ -n "$workers" ]]; then
     for worker in $workers; do
-      services="$services ergo_ms_celery_worker_${worker}"
+      services="$services ${worker_base}_${worker}"
     done
   else
-    services="ergo_ms_celery_worker"
+    services="$worker_base"
   fi
 
   echo "$services"
@@ -392,6 +421,8 @@ daemon_reload() {
   fi
 }
 
+export -f ergo_service_prefix
+export -f ergo_service_name
 export -f require_root_or_sudo
 export -f restore_project_ownership
 export -f write_ergoms_message

@@ -21,7 +21,8 @@
     "check-i18n": "npm run check-i18n -w @ergo-ms/core-client",
     "format": "npm run format -w @ergo-ms/core-client",
     "postinstall": "node ../../core/deployment/scripts/sync-module-npm-deps.js --install-missing",
-    "install:all": "node ../../core/deployment/scripts/sync-module-npm-deps.js --install-all"
+    "install:all": "node ../../core/deployment/scripts/sync-module-npm-deps.js --install-all",
+    "e2e": "playwright test -c ../../core/client/e2e/playwright.config.js"
   },
   "script_comments": {
     "dev": "Запуск сервера разработки",
@@ -33,7 +34,8 @@
     "lint:a11y": "Проверка доступности Vue (eslint-plugin-vuejs-accessibility)",
     "format": "Форматирование кода с помощью Prettier",
     "postinstall": "Доустановка npm-зависимостей модулей и удаление пакетов вне дерева ядра и модулей без записи в package-lock.json",
-    "install:all": "Установка ядра (если сменился lock или не хватает пакетов) вместе с пакетами модулей; очистка node_modules только если сменился набор прямых пакетов (без обновления package-lock.json)"
+    "install:all": "Установка ядра (если сменился lock или не хватает пакетов) вместе с пакетами модулей; очистка node_modules только если сменился набор прямых пакетов (без обновления package-lock.json)",
+    "e2e": "Браузерные системные тесты ядра (Playwright); URL и учётка — ERGO_E2E_*"
   },
   "dependencies": {
     "@formkit/auto-animate": "^0.10.0",
@@ -68,7 +70,8 @@
     "sass": "1.102.0",
     "unplugin-auto-import": "^21.0.0",
     "vite": "^8.2.1",
-    "vite-plugin-vue-devtools": "^8.2.1"
+    "vite-plugin-vue-devtools": "^8.2.1",
+    "@playwright/test": "^1.55.0"
   },
   "browserslist": [
     "last 2 Chrome versions",

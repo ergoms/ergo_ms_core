@@ -32,7 +32,9 @@ def _safe(name: str) -> str:
 
 
 def _service_name(module: str, kind: str) -> str:
-    return f'ergo_ms_module_{_safe(module)}_{kind}'
+    from service_names import names_from_root
+
+    return names_from_root(PROJECT_ROOT).module(module, kind)
 
 
 def _write_wrappers(module: str, kind: str) -> tuple[Path, Path]:

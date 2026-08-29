@@ -14,6 +14,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import FrozenSet
 
+_DEPLOYMENT_DIR = Path(__file__).resolve().parent.parent
+_SCRIPTS_DIR = _DEPLOYMENT_DIR / 'scripts'
+for _entry in (str(_DEPLOYMENT_DIR), str(_SCRIPTS_DIR)):
+    if _entry not in sys.path:
+        sys.path.insert(0, _entry)
+
 SERVICE_API = 'api'
 SERVICE_CLIENT = 'client'
 SERVICE_MEDIA = 'media'
@@ -71,12 +77,20 @@ _PROFILE_SERVICES: dict[str, FrozenSet[str]] = {
     }),
 }
 
-CORE_UNIT_BY_SERVICE: dict[str, str] = {
-    SERVICE_API: 'ergo_ms_api_dev',
-    SERVICE_CLIENT: 'ergo_ms_client_dev',
-    SERVICE_MEDIA: 'ergo_ms_media_api',
-    SERVICE_BEAT: 'ergo_ms_celery_beat',
-}
+def _core_unit_by_service(prefix: str | None = None) -> dict[str, str]:
+    from service_names import ServiceNames
+
+    names = ServiceNames(prefix)
+    return {
+        SERVICE_API: names.api_dev,
+        SERVICE_CLIENT: names.client_dev,
+        SERVICE_MEDIA: names.media_api,
+        SERVICE_BEAT: names.celery_beat,
+    }
+
+
+# Совместимость: имена префикса по умолчанию
+CORE_UNIT_BY_SERVICE: dict[str, str] = _core_unit_by_service()
 
 DOCKER_PROFILE_API = 'host-api'
 DOCKER_PROFILE_MEDIA = 'host-media'
@@ -149,13 +163,15 @@ def _apply_celery_workers(services: set[str], environ: Mapping[str, str]) -> Non
 class HostProfile:
     name: str
     services: FrozenSet[str]
+    prefix: str = 'ergo_ms'
 
     def wants(self, service_id: str) -> bool:
         return service_id in self.services
 
     def core_unit_names(self) -> tuple[str, ...]:
+        mapping = _core_unit_by_service(self.prefix)
         names = [
-            CORE_UNIT_BY_SERVICE[key]
+            mapping[key]
             for key in (SERVICE_API, SERVICE_CLIENT, SERVICE_MEDIA, SERVICE_BEAT)
             if self.wants(key)
         ]
@@ -193,7 +209,13 @@ def resolve_host_profile(environ: Mapping[str, str]) -> HostProfile:
         services = set(_PROFILE_SERVICES[name])
     _apply_media(services, environ)
     _apply_celery_workers(services, environ)
-    return HostProfile(name=name, services=frozenset(services))
+    from service_names import resolve_service_prefix
+
+    return HostProfile(
+        name=name,
+        services=frozenset(services),
+        prefix=resolve_service_prefix(environ),
+    )
 
 
 def resolve_host_profile_from_root(

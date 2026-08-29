@@ -92,12 +92,20 @@ def pick_python_for_ctx(ctx: DeploymentContext, *, prefer_venv: bool = True) -> 
     return base_python_argv(ctx.project_root, ctx.platform)
 
 
+def path_separator(platform: HostPlatform | None = None) -> str:
+    """Разделитель PATH: ``;`` на Windows, ``:`` на Unix."""
+    current = platform if platform is not None else HostPlatform.current()
+    if current == HostPlatform.WIN32:
+        return ';'
+    return ':'
+
+
 def _prepend_path(env: dict[str, str], *dirs: Path) -> None:
     existing = env.get('PATH', '')
     parts = [str(d) for d in dirs if d.is_dir()]
     if not parts:
         return
-    sep = ';' if sys.platform == 'win32' else ':'
+    sep = path_separator()
     env['PATH'] = sep.join([*parts, existing]) if existing else sep.join(parts)
 
 

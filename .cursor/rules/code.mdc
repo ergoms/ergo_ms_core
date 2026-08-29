@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Общие правила кода
 
-- Тесты — только по просьбе пользователя
+- Тесты модулей и точечные правки — только по просьбе пользователя. Правки развёртывания, `commands.conf`, служб ОС, docker/nginx, security стека и клиентского e2e — пиши и гоняй `ergoms system-test` по [`system-test.mdc`](system-test.mdc)
 - Файл — не больше **700** строк; длиннее — режь **по домену** (`def` / `class` / ответственность), не по номеру строки
 - SOLID, меньше дублирования; импорты вверху; внутри модуля — относительные, из ядра — `src.core...`
 - Тяжёлые задачи — **Celery**; в модуле — `config.py` CPU/GPU (по умолчанию GPU)
@@ -31,3 +31,4 @@ alwaysApply: true
 | Безопасность | [`security.mdc`](security.mdc) |
 | Celery | [`celery.mdc`](celery.mdc) |
 | Тесты | [`testing.mdc`](testing.mdc) |
+| Системные тесты | [`system-test.mdc`](system-test.mdc) |

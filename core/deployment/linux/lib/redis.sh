@@ -2,8 +2,14 @@
 # Redis management for Linux
 # Portable Redis в virtual_env/packages/redis (сборка из исходников)
 
-REDIS_SERVICE_NAME='ergo_ms_redis'
+REDIS_SERVICE_NAME="$(ergo_service_name redis)"
 REDIS_UNIT_PATH="/etc/systemd/system/${REDIS_SERVICE_NAME}.service"
+
+_sync_redis_service_name() {
+  local root="${1:-}"
+  REDIS_SERVICE_NAME="$(ergo_service_name redis "$root")"
+  REDIS_UNIT_PATH="/etc/systemd/system/${REDIS_SERVICE_NAME}.service"
+}
 
 _redis_dir() {
   local root="$1"
@@ -251,6 +257,7 @@ redis_install() {
 
 redis_install_service() {
   local root="$1"
+  _sync_redis_service_name "$root"
   if ! _redis_is_installed "$root"; then
     write_ergoms_message error_not_installed_run red --stderr "name=Redis" "cmd=ergoms install-redis"
     return 1

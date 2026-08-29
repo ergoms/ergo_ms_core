@@ -104,9 +104,14 @@ get_base_unit_definitions() {
   local client_log client_stdout client_stderr
   local logs_dir="${root}/logs"
   # systemd требует абсолютный путь в StandardError/StandardOutput — ${ERGO_ROOT} не раскрывается.
-  local api_stderr="${logs_dir}/ergo_ms_api_dev.stderr.log"
-  local beat_stderr="${logs_dir}/ergo_ms_celery_beat.stderr.log"
-  local media_stderr="${logs_dir}/ergo_ms_media_api.stderr.log"
+  local api_name beat_name media_name redis_name
+  api_name="$(ergo_service_name api_dev "$root")"
+  beat_name="$(ergo_service_name celery_beat "$root")"
+  media_name="$(ergo_service_name media_api "$root")"
+  redis_name="$(ergo_service_name redis "$root")"
+  local api_stderr="${logs_dir}/${api_name}.stderr.log"
+  local beat_stderr="${logs_dir}/${beat_name}.stderr.log"
+  local media_stderr="${logs_dir}/${media_name}.stderr.log"
   local _log_env_py="$root/virtual_env/python/bin/python"
   local _log_env_script="$root/core/deployment/scripts/log_env.py"
 
@@ -126,8 +131,8 @@ get_base_unit_definitions() {
   API_UNIT=$(cat <<UNIT
 [Unit]
 Description=Ergo API (mode from API_DEPLOY_TYPE)
-After=network.target ergo_ms_redis.service
-Wants=ergo_ms_redis.service
+After=network.target ${redis_name}.service
+Wants=${redis_name}.service
 
 [Service]
 Type=simple
@@ -171,7 +176,7 @@ UNIT
 [Unit]
 Description=Ergo Celery Beat
 After=network.target
-Requires=ergo_ms_api_dev.service
+Requires=${api_name}.service
 
 [Service]
 Type=simple
@@ -222,13 +227,16 @@ UNIT
 generate_worker_unit() {
   local worker_name="$1"
   local root="${2:-}"
-  local worker_stderr="${root}/logs/ergo_ms_celery_worker_${worker_name}.stderr.log"
+  local worker_base api_name
+  worker_base="$(ergo_service_name celery_worker "$root")"
+  api_name="$(ergo_service_name api_dev "$root")"
+  local worker_stderr="${root}/logs/${worker_base}_${worker_name}.stderr.log"
 
   cat <<UNIT
 [Unit]
 Description=Ergo Celery Worker ($worker_name)
 After=network.target
-Requires=ergo_ms_api_dev.service
+Requires=${api_name}.service
 
 [Service]
 Type=simple
@@ -250,13 +258,16 @@ UNIT
 # Генерация unit для единственного worker'а (без конфига)
 generate_default_worker_unit() {
   local root="${1:-}"
-  local worker_stderr="${root}/logs/ergo_ms_celery_worker.stderr.log"
+  local worker_base api_name
+  worker_base="$(ergo_service_name celery_worker "$root")"
+  api_name="$(ergo_service_name api_dev "$root")"
+  local worker_stderr="${root}/logs/${worker_base}.stderr.log"
 
   cat <<UNIT
 [Unit]
 Description=Ergo Celery Worker
 After=network.target
-Requires=ergo_ms_api_dev.service
+Requires=${api_name}.service
 
 [Service]
 Type=simple
@@ -281,18 +292,20 @@ install_worker_units() {
   local workers
   workers="$(get_celery_workers "$root")"
   
+  local worker_base
+  worker_base="$(ergo_service_name celery_worker "$root")"
   if [[ -n "$workers" ]]; then
     ERGO_ROOT="$root" write_ergoms_message systemd_workers_found white "" "workers=$workers"
     for worker in $workers; do
       local unit_content
       unit_content="$(generate_worker_unit "$worker" "$root")"
-      install_unit "ergo_ms_celery_worker_${worker}" "$unit_content" "$root"
+      install_unit "${worker_base}_${worker}" "$unit_content" "$root"
     done
   else
     ERGO_ROOT="$root" write_ergoms_message systemd_workers_config_missing white
     local unit_content
     unit_content="$(generate_default_worker_unit "$root")"
-    install_unit "ergo_ms_celery_worker" "$unit_content" "$root"
+    install_unit "$worker_base" "$unit_content" "$root"
   fi
 }
 
@@ -302,12 +315,14 @@ enable_and_start_workers() {
   local workers
   workers="$(get_celery_workers "$root")"
   
+  local worker_base
+  worker_base="$(ergo_service_name celery_worker "$root")"
   if [[ -n "$workers" ]]; then
     for worker in $workers; do
-      enable_and_start "ergo_ms_celery_worker_${worker}.service"
+      enable_and_start "${worker_base}_${worker}.service"
     done
   else
-    enable_and_start "ergo_ms_celery_worker.service"
+    enable_and_start "${worker_base}.service"
   fi
 }
 

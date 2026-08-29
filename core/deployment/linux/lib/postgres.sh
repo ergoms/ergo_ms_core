@@ -18,7 +18,7 @@ _postgres_init_service_config() {
   if [[ -n "${name:-}" ]]; then
     POSTGRES_SERVICE_NAME="$name"
   else
-    POSTGRES_SERVICE_NAME="$POSTGRES_SERVICE_NAME_DEFAULT"
+    POSTGRES_SERVICE_NAME="$(ergo_service_name postgres "$root")"
   fi
   display="$(_ergo_env_value "$root" 'POSTGRES_SERVICE_DISPLAY_NAME' 2>/dev/null || true)"
   if [[ -n "${display:-}" ]]; then

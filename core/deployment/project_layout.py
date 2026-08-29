@@ -136,6 +136,16 @@ def cache_tmp_dir(root: Path) -> Path:
     return cache_dir(root) / 'tmp'
 
 
+def cache_system_test_dir(root: Path) -> Path:
+    """Изолированные прогоны ergoms system-test."""
+    return cache_tmp_dir(root) / 'system-test'
+
+
+def cache_playwright_dir(root: Path) -> Path:
+    """Кэш браузеров Playwright для системных e2e."""
+    return cache_dir(root) / 'playwright'
+
+
 def cache_loadtest_dir(root: Path) -> Path:
     """Артефакты loadtest (temp databases.yaml, ephemeral)."""
     return cache_dir(root) / 'loadtest'

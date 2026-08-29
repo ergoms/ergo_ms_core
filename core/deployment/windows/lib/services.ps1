@@ -79,7 +79,7 @@ function Install-Service {
 
 
 
-    if ($ServiceName -eq 'ergo_ms_celery_beat') {
+    if (Test-ErgoServiceRole -Name $ServiceName -Role 'celery_beat') {
 
         # Используем общий скрипт запуска Beat, чтобы логика кэшей и логирование
 
@@ -93,7 +93,7 @@ function Install-Service {
 
     }
 
-    elseif ($ServiceName -eq 'ergo_ms_client_dev') {
+    elseif (Test-ErgoServiceRole -Name $ServiceName -Role 'client_dev') {
 
         $useDirectPython = $true
 
@@ -103,7 +103,7 @@ function Install-Service {
 
     }
 
-    elseif ($ServiceName -match '^ergo_ms_celery_worker_(.+)$') {
+    elseif ($ServiceName -match '_celery_worker_(.+)$') {
 
         $useDirectPython = $true
 
@@ -137,7 +137,7 @@ function Install-Service {
 
     & $NssmExe set $ServiceName Description "Ergo Management System - $ServiceName"
 
-    if ($ServiceName -eq 'ergo_ms_client_dev') {
+    if (Test-ErgoServiceRole -Name $ServiceName -Role 'client_dev') {
 
         & $NssmExe set $ServiceName AppDirectory $Root
 
@@ -199,11 +199,13 @@ function Disable-ClientServiceIfNginx {
 
 
 
-    $service = Get-Service -Name 'ergo_ms_client_dev' -ErrorAction SilentlyContinue
+    $clientName = Get-ErgoServiceName -Role 'client_dev' -ProjectRoot $ProjectRoot
+
+    $service = Get-Service -Name $clientName -ErrorAction SilentlyContinue
 
     if ($service -and $service.Status -ne 'Stopped') {
 
-        Stop-Service -Name 'ergo_ms_client_dev' -Force -ErrorAction SilentlyContinue
+        Stop-Service -Name $clientName -Force -ErrorAction SilentlyContinue
 
     }
 
@@ -226,15 +228,16 @@ function Remove-StaleHostProfileServices {
         if ($name) { $keep[$name] = $true }
     }
     $candidates = @(
-        'ergo_ms_api_dev',
-        'ergo_ms_client_dev',
-        'ergo_ms_media_api',
-        'ergo_ms_celery_beat'
+        (Get-ErgoServiceName -Role 'api_dev' -ProjectRoot $Root),
+        (Get-ErgoServiceName -Role 'client_dev' -ProjectRoot $Root),
+        (Get-ErgoServiceName -Role 'media_api' -ProjectRoot $Root),
+        (Get-ErgoServiceName -Role 'celery_beat' -ProjectRoot $Root)
     )
+    $workerBase = Get-ErgoServiceName -Role 'celery_worker' -ProjectRoot $Root
     foreach ($worker in @(Get-CeleryWorkers -ProjectRoot $Root)) {
-        $candidates += "ergo_ms_celery_worker_$worker"
+        $candidates += "${workerBase}_$worker"
     }
-    $candidates += 'ergo_ms_celery_worker'
+    $candidates += $workerBase
     foreach ($serviceName in $candidates) {
         if ($keep.ContainsKey($serviceName)) { continue }
         $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
@@ -330,7 +333,7 @@ function Install-SingleService {
 
 
 
-    if ($ServiceName -eq 'ergo_ms_client_dev' -and (Test-NginxEnabled -ProjectRoot $Root)) {
+    if ((Test-ErgoServiceRole -Name $ServiceName -Role 'client_dev') -and (Test-NginxEnabled -ProjectRoot $Root)) {
 
         Disable-ClientServiceIfNginx -ProjectRoot $Root
 
@@ -880,7 +883,14 @@ function Show-ServiceLogs {
 
     # Portable / default DB logs live outside logs/; follow via start-db-dev.
 
-    if ($ServiceName -eq 'ergo_ms_postgres' -or $ServiceName -eq 'ergo_ms_db' -or $ServiceName -eq 'ergo-postgres' -or $ServiceName -eq 'ergo_ms_sqlite' -or $ServiceName -eq 'ergo_ms_mysql' -or $ServiceName -eq 'ergo_ms_mssql') {
+    if (
+        (Test-ErgoServiceRole -Name $ServiceName -Role 'postgres') -or
+        (Test-ErgoServiceRole -Name $ServiceName -Role 'db') -or
+        $ServiceName -eq 'ergo-postgres' -or
+        (Test-ErgoServiceRole -Name $ServiceName -Role 'sqlite') -or
+        (Test-ErgoServiceRole -Name $ServiceName -Role 'mysql') -or
+        (Test-ErgoServiceRole -Name $ServiceName -Role 'mssql')
+    ) {
 
         $py = Join-Path $ProjectRoot 'virtual_env\python\Scripts\python.exe'
 
@@ -900,7 +910,7 @@ function Show-ServiceLogs {
 
     }
 
-    if ($ServiceName -eq 'ergo_ms_nginx' -or $ServiceName -eq 'ergo_ms_nginx.service') {
+    if (Test-ErgoServiceRole -Name $ServiceName -Role 'nginx') {
 
         $py = Join-Path $ProjectRoot 'virtual_env\python\Scripts\python.exe'
 
@@ -1167,9 +1177,13 @@ function Uninstall-AllServices {
 
     }
 
-    # Удалить legacy-имена (до префикса ergo_ms_)
-    $legacy = Get-Service -Name 'ergo-*' -ErrorAction SilentlyContinue |
-        Where-Object { $_.Name -notlike 'ergo_ms_*' }
+    # Старые имена ergo-* — только у рабочего префикса, иначе снимем чужие тесты
+    $prefix = Get-ErgoServicePrefix -ProjectRoot $ProjectRoot
+    $legacy = @()
+    if ($prefix -eq 'ergo_ms') {
+        $legacy = Get-Service -Name 'ergo-*' -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -notlike 'ergo_ms_*' }
+    }
     foreach ($svc in $legacy) {
         try {
             if ($svc.Status -ne 'Stopped') {

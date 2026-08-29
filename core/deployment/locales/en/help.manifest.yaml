@@ -283,6 +283,12 @@ sections:
   - name: deployment-scenario-test
     invoke: ergoms deployment-scenario-test
     summary: Isolated host and Docker scenario runs (separate ports and directories; does not change the workspace .env)
+  - name: test_system
+    invoke: ergoms test_system [--with-scenario] [--spec host_sqlite_direct]
+    summary: Deployment unit tests on Windows and Linux; --with-scenario runs an isolated spec without installing NSSM/systemd
+  - name: system-test
+    invoke: ergoms system-test [--suite unit|install|commands|scenarios|security|performance|browser|os-services|all] [--launch docker|host|os-services] [--spec host_sqlite_direct]
+    summary: Isolated from-scratch system tests (unit, install, commands, scenarios, security, speed, browser, OS services)
 
   - name: ps1-encoding-check
     invoke: ergoms ps1-encoding-check [--fix]
