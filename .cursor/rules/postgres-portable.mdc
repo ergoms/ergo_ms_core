@@ -29,6 +29,7 @@ alwaysApply: false
 - Есть системная служба → `[SKIP]` portable (если не force)
 - Режим: `ERGO_DB=portable_postgres` в `.env`; force — legacy `POSTGRES_FORCE_INSTALL=true` или `ergoms setup-full --with-postgres` — portable на **5433**
 - Host/port/credentials — только `databases.yaml`; служба и нагрузка (`postgresql.conf`) — только [`env/postgres.env.example`](../../env/postgres.env.example)
+- Windows: служба идёт от `NetworkService` (postgres не стартует как LocalSystem). `icacls` выдаёт Modify и на `packages/postgres`, и на `packages/nssm` — SCM запускает `nssm.exe`, не `postgres.exe`
 - Маркер `virtual_env/packages/postgres/PORT` после install
 - Скрипты **не** пишут host/port / `POSTGRES_*` в `.env` / yaml ([`no-auto-env-write.mdc`](no-auto-env-write.mdc))
 - Установленный portable входит в `ergoms start` / `start-all-services` (`Get-ServiceNames` / `generate_units_list`)
