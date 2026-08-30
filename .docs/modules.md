@@ -132,9 +132,9 @@ modules/<имя>/
 
 Ядро при логине запрашивает opaque dict claims: `bridge.call(SESSION_RESTORE_CLAIMS, user=user)`. Ключи claims ядру неизвестны — их объявляет модуль-владелец scope через platform-контракты (`session_context.claims`, `session.restore_claims`). Подробности — [`.cursor/rules/module-contracts.mdc`](../.cursor/rules/module-contracts.mdc).
 
-### Письмо-приглашение на регистрацию
+### Служебные письма учётки
 
-Тема и тело письма собирает ядро. Модуль может подменить их операцией `core.compose_registration_invitation` (`{subject, body, html_body?}`). Если никто её не регистрирует, провайдер вернул пустой ответ или упал, уходит текст ядра. Получателя и адрес отправителя модуль не задаёт. Подробности — [`.cursor/rules/module-contracts.mdc`](../.cursor/rules/module-contracts.mdc).
+Тема и тело писем собирает ядро. Модуль может подменить их операциями `core.compose_registration_invitation`, `core.compose_import_welcome_defaults`, `core.compose_password_reset_code`, `core.compose_admin_password_reset` (`{subject, body, html_body?}`). Если никто их не регистрирует, провайдер вернул пустой ответ или упал, уходит текст ядра. Получателя и адрес отправителя модуль не задаёт. Подробности — [`.cursor/rules/module-contracts.mdc`](../.cursor/rules/module-contracts.mdc).
 
 ### Microservice runtime
 
