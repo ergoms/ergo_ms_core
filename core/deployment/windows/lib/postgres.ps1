@@ -105,13 +105,16 @@ function Stop-PostgresClusterIfRunning {
 function Grant-PostgresServiceDirectoryAccess {
     param(
         [string]$PgDir,
-        [string]$NssmDir = ''
+        [string]$NssmDir = '',
+        [string]$LogsDir = ''
     )
 
     # Служба идёт от NetworkService: SCM стартует nssm.exe, тот уже запускает postgres.
     # Права только на packages/postgres недостаточны — образ службы лежит в packages/nssm.
+    # log_directory в postgresql.conf указывает на корневой logs/ — туда тоже нужна запись.
     $targets = @($PgDir)
     if ($NssmDir) { $targets += $NssmDir }
+    if ($LogsDir) { $targets += $LogsDir }
 
     # SID NETWORK SERVICE — стабильнее локализованного имени для icacls.
     $grant = "*$($script:PostgresServiceAccountSid):(OI)(CI)M"
@@ -424,7 +427,7 @@ function Install-PostgresService {
         $existingService -and
         (Test-PostgresNssmServiceMatches -NssmExe $nssmExe -PostgresExe $postgresExe -PgDir $pgDir -DataDir $dataDir -StdoutLog $stdoutLog -StderrLog $stderrLog)
     ) {
-        Grant-PostgresServiceDirectoryAccess -PgDir $pgDir -NssmDir (Split-Path -Parent $nssmExe)
+        Grant-PostgresServiceDirectoryAccess -PgDir $pgDir -NssmDir (Split-Path -Parent $nssmExe) -LogsDir (Get-ProjectLogsDir -ProjectRoot $Root)
         if ($existingService.Status -eq 'Running') {
             Write-ErgomsMessage -Key 'pg_service_already_configured_running' -Color Gray -Param @{ name = $script:PostgresServiceName }
             return
@@ -481,7 +484,7 @@ function Install-PostgresService {
     & $nssmExe set $script:PostgresServiceName AppExit Default Restart
     & $nssmExe set $script:PostgresServiceName AppRestartDelay $script:PostgresServiceRestartDelayMs
 
-    Grant-PostgresServiceDirectoryAccess -PgDir $pgDir -NssmDir (Split-Path -Parent $nssmExe)
+    Grant-PostgresServiceDirectoryAccess -PgDir $pgDir -NssmDir (Split-Path -Parent $nssmExe) -LogsDir (Get-ProjectLogsDir -ProjectRoot $Root)
     Start-PostgresServiceAndVerify -StderrLog $stderrLog -OkKey 'pg_ok_service_installed_running'
 }
 
