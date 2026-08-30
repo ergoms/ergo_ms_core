@@ -132,6 +132,10 @@ modules/<имя>/
 
 Ядро при логине запрашивает opaque dict claims: `bridge.call(SESSION_RESTORE_CLAIMS, user=user)`. Ключи claims ядру неизвестны — их объявляет модуль-владелец scope через platform-контракты (`session_context.claims`, `session.restore_claims`). Подробности — [`.cursor/rules/module-contracts.mdc`](../.cursor/rules/module-contracts.mdc).
 
+### Письмо-приглашение на регистрацию
+
+Тема и тело письма собирает ядро. Модуль может подменить их операцией `core.compose_registration_invitation` (`{subject, body, html_body?}`). Если никто её не регистрирует, провайдер вернул пустой ответ или упал, уходит текст ядра. Получателя и адрес отправителя модуль не задаёт. Подробности — [`.cursor/rules/module-contracts.mdc`](../.cursor/rules/module-contracts.mdc).
+
 ### Microservice runtime
 
 При `MODULE_RUNTIME=microservice` модуль может описать владельца ops/groups моста в `api/bridge_manifest.yaml` (для HTTP-маршрутизации между сервисами). Обычный монолитный host-режим этот файл не требует.
