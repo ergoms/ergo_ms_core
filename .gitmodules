@@ -210,3 +210,9 @@
 	branch = dev
 	update = merge
 	ignore = all
+[submodule "modules/rag_techprocess"]
+	path = modules/rag_techprocess
+	url = https://github.com/ergoms/ergo_ms_rag_techprocess.git
+	branch = dev
+	update = merge
+	ignore = all
