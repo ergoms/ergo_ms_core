@@ -168,7 +168,7 @@ modules/<имя>/
 |--------------|----------|
 | `layout.plugin_registry` | LayoutPlugin / offcanvas |
 | `header.userMenu.items` | Пункты меню пользователя в шапке |
-| `apps.menu.items` | Пункты AppsMenu в toolbar (кнопка у всех вошедших; пункты без фильтра по праву модуля) |
+| `apps.menu.items` | Пункты AppsMenu в toolbar (кнопка скрыта без пунктов; пункты без фильтра по праву модуля) |
 | `shell.floating_widgets` | Плавающие виджеты (`id`, `component`, `order`, `isVisible`) |
 | `session_scope.module_context` | Контекст session-scoped модуля |
 | `session.scope_entry_routes` | Welcome / home / onboarding |

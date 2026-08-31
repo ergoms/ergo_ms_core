@@ -100,7 +100,7 @@ class Migration(migrations.Migration):
 
 ## Меню приложений (AppsMenu)
 
-Не путать с боковым меню. Сетка приложений в toolbar — ModuleBridge-группа `apps.menu.items` ([`appsMenu.js`](../../core/client/src/integrations/appsMenu.js)). Кнопка видна всем вошедшим, даже если пункты ещё не зарегистрировались (remote 502). Пункты не прячутся по праву модуля и без `isVisible`: иначе при выключенном в ADP модуле панель пустеет у всех, включая администратора. Доступ по-прежнему проверяет сервер при открытии. Плавающие виджеты (мини-чат) — отдельно: `shell.floating_widgets` + [`FloatingWidgetsHost`](../../core/client/src/components/FloatingWidgetsHost.vue), не через LayoutPlugin/offcanvas. В toolbar всегда рядом: AppsMenu и уведомления.
+Не путать с боковым меню. Сетка приложений в toolbar — ModuleBridge-группа `apps.menu.items` ([`appsMenu.js`](../../core/client/src/integrations/appsMenu.js)). Кнопка скрыта, пока пунктов нет; повторная загрузка remote (502) не отменяется — кнопка появится, когда пункты зарегистрируются. Пункты не прячутся по праву модуля и без `isVisible`: иначе при выключенном в ADP модуле панель пустеет у всех, включая администратора. Доступ по-прежнему проверяет сервер при открытии. Плавающие виджеты (мини-чат) — отдельно: `shell.floating_widgets` + [`FloatingWidgetsHost`](../../core/client/src/components/FloatingWidgetsHost.vue), не через LayoutPlugin/offcanvas.
 
 ## Админка меню
 
