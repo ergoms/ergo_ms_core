@@ -114,7 +114,7 @@ ergoms db-move-module-schema --all
 ergoms db-move-core-schema
 ```
 
-`db-migrate-module` создаёт схему и применяет миграции приложений модуля. `db-move-module-schema` переносит уже существующие таблицы из `public` или `core` в `m_<name>`. `db-move-core-schema` переносит остаток ядра из `public` в `core`, перенаправляет внешние ключи модулей со старых таблиц `public` на `core` и удаляет `public`. `--all` делает оба шага. Права: `ergoms db-migrate-module --module=<name> --grant-role=<pg_role>` — `USAGE` на `core`, `ALL` на `m_<name>`.
+`db-migrate-module` создаёт схему и применяет миграции приложений модуля. `db-move-module-schema` переносит уже существующие таблицы из `public` или `core` в `m_<name>`. `db-move-core-schema` переносит остаток ядра из `public` в `core` и удаляет `public`. `--all` делает оба шага. Права: `ergoms db-migrate-module --module=<name> --grant-role=<pg_role>` — `USAGE` на `core`, `ALL` на `m_<name>`.
 
 На SQLite схемы — no-op: таблицы остаются в одной файловой БД.
 
