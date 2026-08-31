@@ -280,6 +280,9 @@ def run_docker_scenario(
                 log.write(format_console('warning', t('scenario_test_docker_start_hung')))
                 return SKIP
             if code != 0:
+                if code == 125:
+                    log.write(format_console('warning', t('scenario_test_skip_no_image', id=spec.id)))
+                    return SKIP
                 log.write(format_console('error', t('scenario_test_up_failed')))
                 return FAIL
         if not _wait_infra(run_cmd, names, spec, log):

@@ -64,10 +64,13 @@ def main() -> int:
 
     timeout = float(_env('ERGO_DOCKER_WAIT_TIMEOUT', '120'))
 
-    redis_host = _env('REDIS_HOST', 'redis')
-    redis_port = int(_env('REDIS_PORT', '6379') or '6379')
-    if not wait_tcp(redis_host, redis_port, timeout, 'Redis'):
-        return 1
+    broker = _env('ERGO_BROKER', 'redis').lower()
+    redis_on = _truthy('REDIS_ENABLED', default=(broker != 'local'))
+    if redis_on:
+        redis_host = _env('REDIS_HOST', 'redis')
+        redis_port = int(_env('REDIS_PORT', '6379') or '6379')
+        if not wait_tcp(redis_host, redis_port, timeout, 'Redis'):
+            return 1
 
     db_mode = _env('DOCKER_DATABASE', 'container').lower()
     if db_mode == 'container' and _truthy('DOCKER_PROFILE_POSTGRES', default=True):

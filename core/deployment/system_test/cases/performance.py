@@ -23,6 +23,7 @@ class ReadyLatencyCase(SystemCase):
     domain = 'performance'
 
     def run(self, env: IsolatedEnvironment) -> CaseResult:
+        env.ensure_api()
         url = env.http_base().rstrip('/') + '/api/system/ready/'
         started = time.perf_counter()
         status = http_status(url)

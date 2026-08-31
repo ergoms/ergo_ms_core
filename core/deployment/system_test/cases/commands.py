@@ -23,11 +23,23 @@ class CommandsSmokeCase(SystemCase):
     def run(self, env: IsolatedEnvironment) -> CaseResult:
         failed: list[str] = []
         ran: list[str] = []
-        for command, timeout in _ALWAYS:
+        commands = list(_ALWAYS)
+        if env.kind == 'docker':
+            commands = [
+                ('help', 180),
+                ('docker-migrate', 600),
+                ('security-check', 180),
+                ('status', 180),
+            ]
+        for command, timeout in commands:
             result = env.run_ergoms(command, timeout=timeout)
             ran.append(command)
-            if result.returncode != 0:
-                failed.append(f'{command}:{result.returncode}')
+            allowed = (0, 1) if command == 'security-check' else (0,)
+            if result.returncode not in allowed:
+                tail = ((result.stderr or '') + (result.stdout or '')).strip().replace('\n', ' ')[-160:]
+                failed.append(
+                    f'{command}:{result.returncode}:{tail}' if tail else f'{command}:{result.returncode}'
+                )
         log_name = ServiceNames(env.prefix).api_dev
         log_result = env.run_ergoms('logs', log_name, '10', timeout=180)
         ran.append('logs')

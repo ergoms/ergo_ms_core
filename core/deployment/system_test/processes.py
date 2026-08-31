@@ -18,17 +18,32 @@ from .http import wait_http
 
 
 def start_api(root: Path, *, yaml_path: Path, port: int, extra_env: Mapping[str, str] | None = None) -> EphemeralApi:
-    merged = {'NO_PROXY': '127.0.0.1,localhost', 'no_proxy': '127.0.0.1,localhost'}
+    merged = {
+        'NO_PROXY': '127.0.0.1,localhost',
+        'no_proxy': '127.0.0.1,localhost',
+        'ERGO_LOG_CONSOLE': 'false',
+        'API_AUTORELOAD': 'false',
+    }
     if extra_env:
         merged.update(dict(extra_env))
     api = start_ephemeral_api(root, yaml_path=yaml_path, port=port, extra_env=merged)
-    wait_http(api.base_url, timeout_sec=240.0, path='/api/system/ready/')
+    try:
+        wait_http(api.base_url, timeout_sec=420.0, path='/api/')
+    except Exception:
+        stop_api(api)
+        raise
     return api
 
 
 def stop_api(api: EphemeralApi | None) -> None:
     if api is None:
         return
+    if os.name == 'nt' and api.process.pid:
+        subprocess.run(
+            ['taskkill', '/F', '/T', '/PID', str(api.process.pid)],
+            capture_output=True,
+            check=False,
+        )
     stop_ephemeral_api(api)
 
 

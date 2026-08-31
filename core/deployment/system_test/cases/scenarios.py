@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import subprocess
 
 from scenario_test.matrix import all_specs, filter_specs
@@ -41,10 +42,13 @@ class ScenarioSpecCase(SystemCase):
             check=False,
             timeout=7200,
         )
-        if result.returncode == 2:
-            return CaseResult(self.name, self.domain, 'skip', 'нет Docker / portable / портов')
-        if result.returncode != 0:
-            tail = ((result.stderr or '') + '\n' + (result.stdout or ''))[-1200:]
+        text = (result.stderr or '') + '\n' + (result.stdout or '')
+        match = re.search(r'result=(\d+)', text)
+        code = int(match.group(1)) if match else result.returncode
+        if code == 2:
+            return CaseResult(self.name, self.domain, 'skip', 'нет Docker / portable / портов / образа')
+        if code != 0 or result.returncode != 0:
+            tail = text[-1200:]
             return CaseResult(self.name, self.domain, 'fail', tail)
         return CaseResult(self.name, self.domain, 'ok', self.spec_id)
 

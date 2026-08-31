@@ -58,6 +58,10 @@ class PythonInstallStep(DeploymentStep):
     def _run_docker(self, ctx: DeploymentContext) -> StepResult:
         if not docker_ops.find_docker_compose():
             return StepResult(exit_code=1, message=t('docker_not_found_short'))
+        skip = (ctx.raw_env.get('ERGO_SKIP_PYTHON_INSTALL') or '').strip().lower()
+        if skip in ('1', 'true', 'yes', 'on'):
+            print(format_console('skip', t('python_install_skipped_env')))
+            return StepResult()
         print(format_console('info', t('installing_python_deps')))
         print(
             format_console(
@@ -69,6 +73,7 @@ class PythonInstallStep(DeploymentStep):
             docker_ops.api_install_shell(),
             mode=ctx.docker_mode,
             skip_infra_wait=True,
+            project_root=ctx.project_root,
         )
         if code != 0:
             print(
@@ -105,6 +110,10 @@ class NpmInstallStep(DeploymentStep):
     def _run_docker(self, ctx: DeploymentContext) -> StepResult:
         if not docker_ops.find_docker_compose():
             return StepResult(exit_code=1, message=t('docker_not_found_short'))
+        skip = (ctx.raw_env.get('ERGO_SKIP_NPM_INSTALL') or '').strip().lower()
+        if skip in ('1', 'true', 'yes', 'on'):
+            print(format_console('skip', t('npm_install_skipped_env')))
+            return StepResult()
         resolved_mode = ctx.resolved_docker_mode()
         service = docker_ops.npm_client_service(resolved_mode)
         shell = (
@@ -147,7 +156,11 @@ class MigrateStep(DeploymentStep):
         if not docker_ops.find_docker_compose():
             return StepResult(exit_code=1, message=t('docker_not_found_short'))
         print(format_console('info', t('migrations_ellipsis')))
-        code = docker_ops.run_api_oneoff(docker_ops.api_migrate_shell(), mode=ctx.docker_mode)
+        code = docker_ops.run_api_oneoff(
+            docker_ops.api_migrate_shell(),
+            mode=ctx.docker_mode,
+            project_root=ctx.project_root,
+        )
         return StepResult(exit_code=code)
 
 
@@ -166,7 +179,11 @@ class WarmupCachesStep(DeploymentStep):
         if ctx.runtime == 'docker':
             if not docker_ops.find_docker_compose():
                 return StepResult(exit_code=1, message=t('docker_not_found_short'))
-            code = docker_ops.run_api_oneoff(docker_ops.api_warmup_shell(), mode=ctx.docker_mode)
+            code = docker_ops.run_api_oneoff(
+                docker_ops.api_warmup_shell(),
+                mode=ctx.docker_mode,
+                project_root=ctx.project_root,
+            )
             return StepResult(exit_code=code)
         if self._if_needed:
             code = host_ops.run_python_script(

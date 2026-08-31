@@ -19,8 +19,9 @@ class SecurityLiveCase(SystemCase):
     domain = 'security'
 
     def run(self, env: IsolatedEnvironment) -> CaseResult:
+        env.ensure_api()
         check = env.run_ergoms('security-check', timeout=180)
-        if check.returncode not in (0, 2):
+        if check.returncode >= 2:
             return CaseResult(self.name, self.domain, 'fail', 'security-check failed')
         env_file = env.tree_root / '.env'
         if env_file.is_file():

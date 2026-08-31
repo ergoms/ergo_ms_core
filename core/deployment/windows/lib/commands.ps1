@@ -274,6 +274,9 @@ function Execute-CommandString {
                         $fullCommand += " " + ($UserArgs -join ' ')
                     }
                     & cmd /c $fullCommand
+                    if ($LASTEXITCODE -ne 0) {
+                        exit $LASTEXITCODE
+                    }
                 }
                 finally {
                     Pop-Location
@@ -288,6 +291,9 @@ function Execute-CommandString {
                         $fullCommand += " " + ($UserArgs -join ' ')
                     }
                     & cmd /c $fullCommand
+                    if ($LASTEXITCODE -ne 0) {
+                        exit $LASTEXITCODE
+                    }
                 }
                 finally {
                     Pop-Location

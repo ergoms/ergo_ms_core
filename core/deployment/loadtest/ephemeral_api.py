@@ -70,10 +70,7 @@ def start_ephemeral_api(
         cwd=str(root / 'core' / 'api'),
         env=env,
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
-        text=True,
-        encoding='utf-8',
-        errors='replace',
+        stderr=subprocess.DEVNULL,
     )
     return EphemeralApi(process=proc, host=bind_host, port=port, yaml_path=yaml_path)
 
@@ -90,17 +87,12 @@ def wait_api_ready(
     last_err = ''
     while time.monotonic() < deadline:
         if process is not None and process.poll() is not None:
-            err = ''
-            if process.stderr is not None:
-                try:
-                    err = process.stderr.read() or ''
-                except OSError:
-                    err = ''
             raise RuntimeError(
-                f'ephemeral API exited early (code={process.returncode}): {err[-2000:]}'
+                f'ephemeral API exited early (code={process.returncode})'
             )
         try:
-            with urllib.request.urlopen(url, timeout=2.0) as resp:
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            with opener.open(url, timeout=2.0) as resp:
                 _ = resp.status
             return
         except urllib.error.HTTPError:

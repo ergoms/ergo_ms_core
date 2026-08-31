@@ -12,7 +12,7 @@ from console_tags import format_console
 from project_layout import cache_system_test_dir, ensure_dir
 from scenario_test.isolation import workspace_config_fingerprint
 
-from .catalog import SUITE_OS_SERVICES, SUITE_SCENARIOS, cases_for_suite
+from .catalog import SUITE_ALL, SUITE_OS_SERVICES, SUITE_SCENARIOS, cases_for_suite
 from .cases.base import SystemCase
 from .docker_env import DockerEnvironment, SkipEnvironment
 from .environment import IsolatedEnvironment
@@ -38,6 +38,11 @@ class SystemSuite:
             for case in cases:
                 report.add(self._run_scenario_case(case))
             return report
+        env_cases = [case for case in cases if case.domain != 'scenarios']
+        scenario_items = [case for case in cases if case.domain == 'scenarios']
+        if suite == SUITE_ALL and not env_cases:
+            env_cases = cases
+            scenario_items = []
         env = self._build_env(launch, suite)
         fingerprint = workspace_config_fingerprint(self.workspace)
         try:
@@ -46,18 +51,16 @@ class SystemSuite:
                 env.start()
             except SkipEnvironment as exc:
                 report.add(CaseResult('environment', suite, 'skip', str(exc)))
-                return report
             except SkipOsServices as exc:
                 report.add(CaseResult('environment', suite, 'skip', str(exc)))
-                return report
             except Exception as exc:
                 report.add(CaseResult('environment', suite, 'fail', str(exc)))
-                return report
-            for case in cases:
-                if not case.applies_to(env.kind):
-                    report.add(CaseResult(case.name, case.domain, 'skip', f'не для {env.kind}'))
-                    continue
-                report.add(self._run_case(case, env))
+            else:
+                for case in env_cases:
+                    if not case.applies_to(env.kind):
+                        report.add(CaseResult(case.name, case.domain, 'skip', f'не для {env.kind}'))
+                        continue
+                    report.add(self._run_case(case, env))
         finally:
             try:
                 env.teardown()
@@ -70,6 +73,8 @@ class SystemSuite:
                     'fail',
                     t('scenario_test_host_config_changed', id=suite),
                 ))
+        for case in scenario_items:
+            report.add(self._run_scenario_case(case))
         return report
 
     def _run_scenario_case(self, case: SystemCase) -> CaseResult:

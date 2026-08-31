@@ -95,7 +95,7 @@ class GenerateWorkersComposeStep(DeploymentStep):
         return 'generate_workers_compose'
 
     def run(self, ctx: DeploymentContext) -> StepResult:
-        code = docker_ops.run_generate_workers()
+        code = docker_ops.run_generate_workers(project_root=ctx.project_root)
         return StepResult(exit_code=code)
 
 
@@ -160,7 +160,11 @@ class DockerBootstrapInfraStep(DeploymentStep):
         if code != 0:
             return StepResult(exit_code=code)
         print(format_console('info', t('waiting_redis_postgres')))
-        if not docker_ops.wait_bootstrap_infra(ctx.docker_mode, ctx.raw_env):
+        if not docker_ops.wait_bootstrap_infra(
+            ctx.docker_mode,
+            ctx.raw_env,
+            project_root=ctx.project_root,
+        ):
             return StepResult(exit_code=1, message=t('redis_postgres_not_ready'))
         return StepResult()
 
@@ -182,10 +186,31 @@ class DockerUpAppServicesStep(DeploymentStep):
 
     def run(self, ctx: DeploymentContext) -> StepResult:
         print(format_console('info', t('starting_app_services')))
+        from lifecycle.host_profile import (
+            SERVICE_API,
+            SERVICE_BEAT,
+            SERVICE_CLIENT,
+            SERVICE_MEDIA,
+            resolve_host_profile,
+        )
+
+        host = resolve_host_profile(ctx.raw_env)
+        services: list[str] = []
+        if host.wants(SERVICE_API):
+            services.append('api')
+        if host.wants(SERVICE_CLIENT) or ctx.resolved_docker_mode() == 'dev':
+            services.append('client')
+        if host.wants(SERVICE_MEDIA):
+            services.append('media-api')
+        if host.wants(SERVICE_BEAT):
+            services.append('celery-beat')
+        for name in ctx.extra_services:
+            if name not in services:
+                services.append(name)
         cmd, cwd = docker_ops.build_compose_cmd(
             'up',
             mode=ctx.docker_mode,
-            extra_args=['-d', *ctx.extra_services],
+            extra_args=['-d', *services],
             project_root=ctx.project_root,
         )
         code = subprocess.call(cmd, cwd=str(cwd))

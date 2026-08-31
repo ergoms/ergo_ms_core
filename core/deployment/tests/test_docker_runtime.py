@@ -14,6 +14,7 @@ from docker_runtime import (  # noqa: E402
     compose_profiles,
     build_publish_compose_content,
     build_redis_auth_compose_content,
+    docker_home,
     effective_db_host,
     effective_redis_compose_host,
     prepare_compose_artifacts,
@@ -25,6 +26,13 @@ from docker_runtime import (  # noqa: E402
 
 
 class DockerRuntimeTests(unittest.TestCase):
+    def test_docker_home_uses_project_root(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            docker_dir = root / 'core' / 'deployment' / 'docker'
+            docker_dir.mkdir(parents=True)
+            self.assertEqual(docker_home(root), docker_dir.resolve())
+
     def test_effective_db_host_container_mode_localhost(self) -> None:
         raw = {'DOCKER_DATABASE': 'container', 'DOCKER_SERVICE_POSTGRES': 'postgres'}
         self.assertEqual(effective_db_host(raw, 'localhost'), 'postgres')

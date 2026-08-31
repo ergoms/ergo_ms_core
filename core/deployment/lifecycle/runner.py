@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -29,6 +30,11 @@ from lifecycle.recipes import RECIPE_REGISTRY  # noqa: E402
 
 
 def detect_project_root() -> Path:
+    env_root = os.environ.get('ERGOMS_PROJECT_ROOT', '').strip()
+    if env_root:
+        candidate = Path(env_root).resolve()
+        if (candidate / 'core' / 'deployment').is_dir():
+            return candidate
     cwd = Path.cwd().resolve()
     for candidate in (cwd, *cwd.parents):
         if (candidate / 'core' / 'deployment').is_dir():
@@ -38,7 +44,14 @@ def detect_project_root() -> Path:
 
 def _init_cli_locale(project_root: Path | None = None) -> Path:
     """Подтянуть ERGO_CLI_LANGUAGE из .env до любых t() в шагах setup."""
-    root = project_root or detect_project_root()
+    if project_root is not None:
+        hinted = project_root.resolve()
+        if (hinted / 'core' / 'deployment').is_dir():
+            root = hinted
+        else:
+            root = detect_project_root()
+    else:
+        root = detect_project_root()
     ensure_project_env_loaded(root)
     clear_locale_caches()
     resolve_cli_language(project_root=root)
@@ -118,7 +131,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--with-postgres', action='store_true',
                         help=t('runner_help_with_postgres'))
     parser.add_argument('--mode', choices=('dev', 'prod'), default=None, help=t('runner_help_mode_alias'))
+    parser.add_argument('--project-root', default='', help=t('runner_help_project_root'))
     return parser
+
+
+def _peel_project_root(argv: list[str]) -> tuple[Path | None, list[str]]:
+    leftover = list(argv)
+    if '--project-root' not in leftover:
+        return None, leftover
+    index = leftover.index('--project-root')
+    if index + 1 >= len(leftover):
+        return None, leftover
+    raw = leftover[index + 1]
+    del leftover[index:index + 2]
+    return Path(raw), leftover
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -127,10 +153,11 @@ def main(argv: list[str] | None = None) -> int:
     if hasattr(sys.stderr, 'reconfigure'):
         sys.stderr.reconfigure(encoding='utf-8')
 
-    project_root = _init_cli_locale()
+    root_hint, rest = _peel_project_root(list(argv) if argv is not None else sys.argv[1:])
+    project_root = _init_cli_locale(root_hint)
 
     parser = build_parser()
-    args, extra = parser.parse_known_args(argv)
+    args, extra = parser.parse_known_args(rest)
 
     if args.list:
         for name in sorted(RECIPE_REGISTRY):

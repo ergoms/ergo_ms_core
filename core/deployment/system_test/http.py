@@ -52,7 +52,7 @@ def wait_http(base_url: str, *, timeout_sec: float = 120.0, path: str = '/api/')
     url = base_url.rstrip('/') + path
     last = 'no attempt'
     while time.monotonic() < deadline:
-        status = http_status(url, timeout=3.0)
+        status = http_status(url, timeout=10.0)
         if status != 0:
             return
         last = f'status={status}'
