@@ -158,6 +158,8 @@ ergoms ps1-encoding-check --fix
 
 В Cursor это не настройка `workbench.browser.openLocalhostLinks`. Переключатель «Open Local Links in Cursor Browser» лежит во внутреннем хранилище. Его выключают `ergoms install-extensions` и расширение ERGO MS User Config при открытии проекта. Затем перезагрузите окно (**Developer: Reload Window**).
 
+Не задавайте `workbench.externalBrowser` значение `"default"`: Cursor тогда не открывает внешние `https://` ссылки. Системный браузер — это отсутствие ключа, а не строка `"default"`.
+
 ## См. также
 
 | Вопрос | Документ |
