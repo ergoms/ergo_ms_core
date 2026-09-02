@@ -34,7 +34,7 @@ ViewSet + `MediaApiFileMixin`. Сериализатор принимает по�
 
 ```javascript
 import { mediaApiClient } from '@/js/api/media-api-client'
-const { path } = await mediaApiClient.upload(file, { targetDir: 'tasks/attachments' })
+const { path } = await mediaApiClient.upload(file, { targetDir: '<name>/attachments' })
 ```
 
 Класс квоты ставит ядро по `target_dir` (группа `media.upload_quota_policies`). Клиент **не** передаёт `quota`. Частота модуля — в `modules/<name>/.env`, не в `MEDIA_API_UPLOAD_RATE` / `_ADMIN`. Потолок токена и nginx `/upload/` — `MEDIA_API_UPLOAD_RATE_CEILING` (после смены: `ergoms reload-nginx`).

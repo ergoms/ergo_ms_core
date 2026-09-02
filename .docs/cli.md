@@ -128,21 +128,21 @@ ergoms api <имя_команды> [аргументы]
 
 `createsuperuser` принимает только пароль, который проходит политику `API_PASSWORD_*` из `.env` (и интерактивно, и с `--noinput`).
 
-Так же вызываются модульные команды, например `ergoms api init_technologies` или `ergoms api seed_lms_demo`.
+Так же вызываются модульные команды, например `ergoms api <команда_модуля>`.
 
 ## Команды модулей
 
 Модуль может добавить собственные имена команд в `modules/<имя>/ergoms.conf`. Тогда они вызываются с префиксом модуля:
 
 ```cmd
-ergoms video_analysis:install
+ergoms <имя>:install
 ```
 
 Справка по модулям (описания хранятся в `modules/<имя>/ergoms.help.yaml`):
 
 ```cmd
 ergoms help modules
-ergoms help module video_analysis
+ergoms help module <имя>
 ```
 
 Общая справка по ядру: `ergoms help`.
