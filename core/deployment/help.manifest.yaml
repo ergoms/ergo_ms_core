@@ -185,7 +185,7 @@ sections:
   title: Сборка
   commands:
   - name: client-build
-    summary: Собрать клиент (npm run build)
+    summary: Собрать клиент по роли хоста (оболочка и/или federated remotes)
   - name: client-build-analyze
     summary: Собрать клиент с отчётом rollup-plugin-visualizer (dist/stats.html)
   - name: client-build-remote

@@ -184,7 +184,7 @@ sections:
   title: Build
   commands:
   - name: client-build
-    summary: Build the client (npm run build)
+    summary: Build the client for this host (shell and/or federated remotes)
   - name: client-build-analyze
     summary: Build the client with rollup-plugin-visualizer report (dist/stats.html)
   - name: client-build-remote

@@ -157,7 +157,7 @@ ergoms db-move-core-schema
 
 ## Этап 6 — клиент и сопровождение
 
-- Federated remote: `ergoms client-build-remote --module=<name>` на хосте, где лежит `modules/<name>/client`. Свой `federation-entry.js` не обязателен: сборка соберёт его из hook-файлов. Если remote недоступен, оболочка продолжает работу (предупреждение в логе, не белый экран).
+- Federated remote: на хосте, где лежит `modules/<name>/client`, достаточно `ergoms client-build` — команда соберёт remotes из `MICROSERVICE_MODULES` / `CLIENT_MODULE_REMOTES` и пропустит оболочку ядра, если этот хост её не отдаёт. Явно один модуль: `ergoms client-build --module=<name>` или `ergoms client-build-remote --module=<name>`. Свой `federation-entry.js` не обязателен: сборка соберёт его из hook-файлов. Если remote недоступен, оболочка продолжает работу (предупреждение в логе, не белый экран).
 - Standalone SPA: `ergoms client-build-standalone --module=<name>`.
 - В логах смотрите поля `service` / `module` и `request_id`.
 - Следующий модуль выносят по чеклисту ниже; живой эталон файлов — `modules/module_template/`.
