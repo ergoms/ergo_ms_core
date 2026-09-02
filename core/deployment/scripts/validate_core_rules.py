@@ -139,7 +139,13 @@ HARDCODED_MODULE_LINE_ALLOWLIST = (
     re.compile(r'modules/\$\{'),
     re.compile(r'@/modules/'),
     re.compile(r'\.\./.*modules/\*'),
-    re.compile(r'modules\.'),
+    # Плейсхолдеры и префиксы пакета, не конкретный slug.
+    re.compile(r'modules\.<'),
+    re.compile(r"modules\.\*"),
+    re.compile(r"['\"]modules\.\*"),
+    re.compile(r'startswith\([\'\"]modules\.'),
+    re.compile(r"replace\(['\"]modules\."),
+    re.compile(r'f[\'\"]modules\.\{'),
     re.compile(r'module_source\s*='),
     re.compile(r'MODULE_SOURCE\s*='),
     # Служебные ключи YAML/JSON/рецептов, совпадающие с именами модулей workers/tasks

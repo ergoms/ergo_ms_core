@@ -86,9 +86,9 @@
 5. Docker: `ergoms docker-gen-modules` + `ergoms docker-up`. Compose добавляет API и worker модуля; Beat модуля — если в дереве модуля есть `celery_beat_config.py`. Профили `host-api` / `host-media` / `host-beat` (Beat **ядра**) включаются по `HOST_PROFILE`.
 6. Откат: `MODULE_RUNTIME=monolith`, `BRIDGE_TRANSPORT=local`. Режим разработки не ломается.
 
-Набор служб на машине задаёт `HOST_PROFILE` в корневом `.env` (`full` | `core` | `modules` | `auto`). `full` — как раньше. На хосте только модулей (nginx смотрит на чужое ядро через `NGINX_API_UPSTREAM`) поставьте `modules` или `auto` и выполните `ergoms install-services`. Детали — `HOST_SERVICES`, `HOST_MEDIA`, `HOST_CELERY_WORKERS` в `env/modules.env`.
+Набор служб на машине задаёт `HOST_PROFILE` в корневом `.env` (`full` | `core` | `modules` | `auto`). `full` — как раньше. На хосте только модулей (nginx смотрит на чужое ядро через `NGINX_API_UPSTREAM`) поставьте `modules` или `auto` и выполните `ergoms install-services`. Критерий отказа — не строка профиля, а `HostProfile.wants`: если хост не хочет службу `api`, `ergoms start-api` / `dev` и Jupyter ядра завершаются с ошибкой; то же для оболочки Vite без `client` и для общего Beat без `--module`, если нет `beat`. `HOST_SERVICES` с явным `api` остаётся запасным выходом. Не трогайте `start-module`, `start-worker --module`, `start-beat --module` и media_api при `HOST_MEDIA=on`. Детали — `HOST_SERVICES`, `HOST_MEDIA`, `HOST_CELERY_WORKERS` в `env/modules.env`.
 
-Процесс модуля по умолчанию грузит весь стек ядра. `MODULE_PROCESS_PROFILE=slim` оставляет JWT, мост, CMS ADP и аудит; лишние URL и WS-стек не монтируются. Дополнительные apps ядра — `MODULE_PROCESS_CORE_EXTRA` или hook `api/process_profile.yaml` (`core_apps`).
+На хосте, который не обслуживает службу `api` (типичный `HOST_PROFILE=modules`), процесс `module:<name>` сам берёт `MODULE_PROCESS_PROFILE=slim`, если флаг не задан. Явный `full` побеждает. `slim` оставляет JWT, мост, CMS ADP и аудит; лишние URL и WS-стек не монтируются. Дополнительные apps ядра — `MODULE_PROCESS_CORE_EXTRA` или hook `api/process_profile.yaml` (`core_apps`). На хосте ядра (`core` / `full`) процесс модуля по-прежнему грузит весь стек, пока slim не указан явно.
 
 Health процесса модуля — тот же `GET /api/system/ready/` на порту модуля.
 

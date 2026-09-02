@@ -78,10 +78,13 @@ bridge.provideMany(HOST_SETTINGS_ADDITIONAL_PANELS_GROUP, '<provider>_panel', { 
 | `audit.record` | event | Запись события | ядро |
 | `notifications.event_definitions` | group | Каталог уведомлений | модули |
 | `notifications.email_context` | group | Контекст письма | модули |
+| `notifications.email_templates` | group | Спека писем модуля: `get_spec(event_key)` / `MODULE_DEFAULT` | модули |
 | `adp.permission_check` | event | Контекстная проверка прав | модуль |
 | `adp.is_admin` | op | Глобальный админ по `user_id` / `user_public_id` (для процесса модуля в `jwt_claims`) | ядро |
 | `adp.check_api_access` | op | Политика API-пути на ядре (`api_path`) | ядро |
 | `adp.check_module_permission` | op | Право модуля на ядре (`module_name`, `permission_key`, `extra`) | ядро |
+| `adp.filter_granted_role_group_ids` | event | Id RoleGroup, которые нельзя учитывать в глобальной агрегации ModulePermission | модуль |
+| `adp.session_scoped_module_permissions` | event | Доп. ModulePermission для текущего session-scope | модуль |
 | `adp.session_scoped_denied_permissions` | event | Вычитание пар `(module_name, permission_key)` из снимка прав текущего session-scope | модуль |
 | `menu.prepare_visibility` | event | Фильтр меню | модуль |
 | `menu.can_see_item` | event | Видимость пункта | модуль |
@@ -119,7 +122,7 @@ JWT session claims **не зашиты в ядре** — их деклариру
 
 `BRIDGE_CONTRACTS`: `off` \| `warn` (по умолчанию) \| `raise`. Реализация — [`contract_validation.py`](../../core/api/src/core/integrations/contract_validation.py).
 
-`CORE_BRIDGE_PREFIXES` (`audit.`, `notifications.`, `core.`, `media.`, `knowledge.`) — это **фильтр статической проверки**, а не полный перечень контрактов ядра. Команда `ergoms core-rules-check` разбирает исходники и ругается на вызовы `bridge.call('…')` и `bridge.has('…')`, где имя операции записано **строкой прямо в вызове** и не начинается с этих префиксов. Обращения через константы каталога (`session.restore_claims`, `menu.*`, `adp.permission_check`) проверка не видит — они разрешены и используются в ядре. Вывод для агента: в ядре вызывай контракт через импортированную константу, а не строковым литералом.
+`CORE_BRIDGE_PREFIXES` (`audit.`, `notifications.`, `core.`, `session.`, `menu.`, `adp.`, `media.`, `knowledge.`) — это **фильтр статической проверки**, а не полный перечень контрактов ядра. Команда `ergoms core-rules-check` разбирает исходники и ругается на вызовы `bridge.call('…')` и `bridge.has('…')`, где имя операции записано **строкой прямо в вызове** и не начинается с этих префиксов. Обращения через константы каталога проверка не видит — они разрешены и используются в ядре. В ядре вызывай контракт через импортированную константу, а не строковым литералом.
 
 ## Каталог контрактов (клиент)
 
