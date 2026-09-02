@@ -184,7 +184,7 @@ sections:
   title: Compilation
   commands:
   - name: client-build
-    summary: Compiler le client selon le rôle de l'hôte (enveloppe et/ou remotes federated)
+    summary: Compiler le client selon le rôle de l'hôte ; avec nginx, régénère la config et reload
   - name: client-build-analyze
     summary: Compiler le client avec le rapport rollup-plugin-visualizer (dist/stats.html)
   - name: client-build-remote

@@ -98,7 +98,7 @@ ergoms client-check
 ergoms build-all
 ```
 
-Первые три команды создают и применяют миграции; `client-build` собирает то, что отдаёт этот хост (оболочку `core/client/dist` и/или federated remotes), `client-check` — полный прогон lint/i18n/build/a11y с логами в `logs/client-check/`; `build-all` собирает клиент и статику Django.
+Первые три команды создают и применяют миграции; `client-build` собирает то, что отдаёт этот хост (оболочку `core/client/dist` и/или federated remotes) и при `ERGO_PROXY=nginx` пересобирает сайт-конфиг nginx и делает reload; `client-check` — полный прогон lint/i18n/build/a11y с логами в `logs/client-check/`; `build-all` собирает клиент и статику Django.
 
 ## Зависимости и первичная настройка {#зависимости-и-первичная-настройка}
 
@@ -251,7 +251,7 @@ ergoms stop-nginx
 
 Служба с автозапуском: `ergoms install-nginx-service` (Windows). Эталон — [`env/nginx.env.example`](../env/nginx.env.example) при `ERGO_PROXY=nginx`.
 
-Nginx раздаёт собранный клиент из `core/client/dist`. После правок Vue выполните `ergoms client-build` и обновите страницу с очисткой кэша. Команда смотрит `HOST_PROFILE` и ключи nginx: на хосте ядра собирает оболочку (и remotes, только если они местные); на хосте модулей пропускает оболочку и собирает `virtual_env/client-remotes` из `MICROSERVICE_MODULES`. `reload-nginx` нужен, если менялся шаблон конфига, а не только файлы в `dist`. Если за прокси вечная маска загрузки, а консоль браузера пустая — смотрите `logs/nginx-access.log`, не `logs/client-browser.log` (запись туда только с JWT). Разбор типичных ошибок — в [troubleshooting.md](troubleshooting.md#пустой-экран-за-nginx).
+Nginx раздаёт собранный клиент из `core/client/dist`. После правок Vue выполните `ergoms client-build` и обновите страницу с очисткой кэша. Команда смотрит `HOST_PROFILE` и ключи nginx: на хосте ядра собирает оболочку (и remotes, только если они местные); на хосте модулей пропускает оболочку и собирает `virtual_env/client-remotes` из `MICROSERVICE_MODULES`. При `ERGO_PROXY=nginx` после сборки она же пересобирает сайт-конфиг и делает reload (отдельно `reload-nginx` после правки Vue не нужен). Отдельный `reload-nginx` остаётся, если меняли только шаблон или `env/nginx.env` без сборки клиента. Если за прокси вечная маска загрузки, а консоль браузера пустая — смотрите `logs/nginx-access.log`, не `logs/client-browser.log` (запись туда только с JWT). Разбор типичных ошибок — в [troubleshooting.md](troubleshooting.md#пустой-экран-за-nginx).
 
 ## Redis (опционально) {#redis-опционально}
 

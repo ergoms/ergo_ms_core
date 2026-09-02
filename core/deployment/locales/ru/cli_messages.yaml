@@ -154,6 +154,8 @@ client_build_plan_shell: "Сборка оболочки сайта (core/client/
 client_build_plan_remote: "Сборка federated remote модуля {name}"
 client_build_skip_shell: "Оболочка ядра пропущена: этот хост её не отдаёт (HOST_PROFILE / NGINX_CLIENT_UPSTREAM)"
 client_build_skip_empty: "Сборка клиента пропущена: на этом хосте нет ни оболочки, ни federated remotes"
+client_build_nginx_reload: "Пересборка конфига nginx и reload после сборки клиента"
+client_build_skip_nginx_not_installed: "Reload nginx пропущен: portable nginx не установлен"
 collectstatic_already_fresh_skip: "Статика уже собрана — collectstatic пропущен"
 git_submodules_local_ok: "Git submodules уже инициализированы (без --remote)"
 git_submodules_already_init_skip: "Git submodules уже инициализированы — update пропущен"
@@ -365,7 +367,7 @@ wait_docker_setup_done: "[OK] Установка Docker завершена, за
 # --- scripts: nginx / redis foreground ---
 nginx_client_via_nginx: "NGINX_ENABLED=true — клиент отдаётся через nginx."
 open_url: "Откройте {url}"
-after_client_edits_hint: "После правок клиента: ergoms client-build && ergoms reload-nginx"
+after_client_edits_hint: "После правок клиента: ergoms client-build"
 log_files_not_found_waiting: "Файлы логов {service} не найдены. {service} работает; ожидание (Ctrl+C — выход)..."
 log_stream_stopped: "Потоковый вывод логов остановлен."
 log_stream_keeps_running: "Потоковый вывод логов {service_lower} (Ctrl+C — выход, {service} продолжит работу)..."

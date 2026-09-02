@@ -10,6 +10,7 @@ from lifecycle.client_build_plan import (  # noqa: E402
     is_local_remote_entry,
     parse_client_module_remotes,
     resolve_client_build_plan,
+    should_reload_nginx_after_client_build,
 )
 from lifecycle.host.ops import client_build_up_to_date, write_client_build_stamp  # noqa: E402
 
@@ -169,6 +170,22 @@ class ClientBuildPlanTests(unittest.TestCase):
             entry.write_text('// remote\n', encoding='utf-8')
             write_client_build_stamp(root, env)
             self.assertTrue(client_build_up_to_date(root, env))
+
+
+class NginxReloadAfterClientBuildTests(unittest.TestCase):
+    def test_reload_when_proxy_is_nginx(self) -> None:
+        self.assertTrue(should_reload_nginx_after_client_build({'ERGO_PROXY': 'nginx'}))
+
+    def test_no_reload_when_proxy_is_none(self) -> None:
+        self.assertFalse(should_reload_nginx_after_client_build({'ERGO_PROXY': 'none'}))
+
+    def test_reload_when_legacy_nginx_enabled(self) -> None:
+        self.assertTrue(
+            should_reload_nginx_after_client_build({
+                'NGINX_ENABLED': 'true',
+                'ERGO_PROXY': 'none',
+            }),
+        )
 
 
 if __name__ == '__main__':

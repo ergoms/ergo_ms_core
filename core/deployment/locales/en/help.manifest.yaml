@@ -184,7 +184,7 @@ sections:
   title: Build
   commands:
   - name: client-build
-    summary: Build the client for this host (shell and/or federated remotes)
+    summary: Build the client for this host; with nginx, rewrite site conf and reload
   - name: client-build-analyze
     summary: Build the client with rollup-plugin-visualizer report (dist/stats.html)
   - name: client-build-remote

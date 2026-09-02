@@ -10,6 +10,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from ergo_modes import effective_nginx_enabled
 from lifecycle.host_profile import SERVICE_CLIENT, resolve_host_profile
 from lifecycle.modules.catalog import parse_csv_modules, parse_disabled_modules_raw
 
@@ -104,3 +105,8 @@ def resolve_client_build_plan(
         if module_has_client(project_root, name):
             names.add(name)
     return ClientBuildPlan(shell=shell, remotes=tuple(sorted(names)))
+
+
+def should_reload_nginx_after_client_build(environ: Mapping[str, str]) -> bool:
+    """После сборки пересобрать сайт-конфиг и reload, если этот хост отдаёт клиент через nginx."""
+    return effective_nginx_enabled(environ)
