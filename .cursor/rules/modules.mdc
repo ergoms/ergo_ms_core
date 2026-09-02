@@ -42,7 +42,7 @@ modules/<имя>/
 │   ├── bridge_manifest.yaml # ops/groups при MODULE_RUNTIME=microservice
 │   ├── schema.yaml          # схема PostgreSQL m_<name>, isolated
 │   ├── search_indexes.py    # индексы поиска (uid с префиксом модуля)
-│   └── user_guides/         # шпаргалки для корпуса справки (необязательно)
+│   └── user_guides/         # шпаргалки пакета knowledge/ (необязательно)
 ├── client/
 │   ├── js/
 │   │   ├── routes.js        # страницы (если есть UI)
