@@ -73,7 +73,7 @@ modules/<имя>/
 | Права модуля в ADP | `api/permission_catalog.py` |
 | Фоновые задачи | `api/tasks.py` + `celery_config.py` |
 | Вызов из другого модуля / ядра | ModuleBridge в `integrations.py` |
-| Справка для ассистента | `api/user_guides/*.md` и `user_description` в каталоге прав; процесс пишет пакет в `knowledge/<имя>/` |
+| Корпус справки платформы | `api/user_guides/*.md` и `user_description` в каталоге прав; процесс пишет пакет в `knowledge/<имя>/` |
 | Своя схема PostgreSQL / запрет FK наружу | `api/schema.yaml` + [modularization.md](modularization.md) |
 | Обязательная / расширяющая зависимость модуля | `integrations.yaml` (`requires` / `extends`) |
 | Свои команды CLI | `ergoms.conf` + `ergoms.help.yaml` |
