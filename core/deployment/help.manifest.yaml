@@ -159,6 +159,12 @@ sections:
     summary: Обновить Python-зависимости ядра и модулей (poetry update)
   - name: db-migrate
     summary: Применить миграции
+  - name: db-backup
+    invoke: ergoms db-backup [--database=alias]
+    summary: Снимок SQL-баз из databases.yaml в backups/
+  - name: db-restore
+    invoke: ergoms db-restore --latest [--yes] | ergoms db-restore --from=backups/<метка> [--yes]
+    summary: Восстановить SQL-базы из снимка в backups/
   - name: db-migrate-module
     invoke: ergoms db-migrate-module --module=<name> [--database=alias] [--grant-role=role] [--all]
     summary: Создать схему m_<name> и применить миграции приложений модуля

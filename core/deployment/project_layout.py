@@ -245,6 +245,11 @@ def meilisearch_data_dir(root: Path) -> Path:
     return meilisearch_runtime_dir(root) / 'data.ms'
 
 
+def backups_dir(root: Path) -> Path:
+    """Снимки SQL-баз: backups/<метка>/ в корне проекта."""
+    return root / 'backups'
+
+
 def wrappers_dir(root: Path) -> Path:
     return root / 'core' / 'deployment' / 'wrappers'
 

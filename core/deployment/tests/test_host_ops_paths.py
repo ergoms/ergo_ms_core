@@ -14,6 +14,7 @@ from lifecycle.host.ops import (  # noqa: E402
     venv_python_exe,
 )
 from project_layout import (  # noqa: E402
+    backups_dir,
     cache_tmp_dir,
     huggingface_snapshot_dir,
     npm_exe,
@@ -59,6 +60,7 @@ class HostOpsPathTests(unittest.TestCase):
                 npm_root_dir(root),
                 cache_tmp_dir(root),
                 wrappers_dir(root),
+                backups_dir(root),
                 portable_python_exe(root),
                 huggingface_snapshot_dir(root, '../escape/name'),
             )

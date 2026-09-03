@@ -92,13 +92,15 @@ ergoms docker-gen-modules
 ergoms db-makemigrations
 ergoms db-migrate
 ergoms migrate-all
+ergoms db-backup
+ergoms db-restore --latest
 ergoms collectstatic
 ergoms client-build
 ergoms client-check
 ergoms build-all
 ```
 
-Первые три команды создают и применяют миграции; `client-build` собирает то, что отдаёт этот хост (оболочку `core/client/dist` и/или federated remotes) и при `ERGO_PROXY=nginx` пересобирает сайт-конфиг nginx и делает reload; `client-check` — полный прогон lint/i18n/build/a11y с логами в `logs/client-check/`; `build-all` собирает клиент и статику Django.
+Первые три команды создают и применяют миграции. `db-backup` пишет снимок всех SQL-секций из `databases.yaml` в `backups/<метка>/` (portable Postgres, системный Postgres, SQLite, Docker; MySQL и MSSQL — если утилиты есть в PATH). Одна секция: `ergoms db-backup --database=default`. Восстановление: `ergoms db-restore --latest` или `ergoms db-restore --from=backups/<метка>`; без `--yes` команда спрашивает подтверждение. `client-build` собирает то, что отдаёт этот хост (оболочку `core/client/dist` и/или federated remotes) и при `ERGO_PROXY=nginx` пересобирает сайт-конфиг nginx и делает reload; `client-check` — полный прогон lint/i18n/build/a11y с логами в `logs/client-check/`; `build-all` собирает клиент и статику Django.
 
 ## Зависимости и первичная настройка {#зависимости-и-первичная-настройка}
 
