@@ -1,7 +1,7 @@
 """
 Снимок и восстановление SQL-баз из databases.yaml.
 
-Вызов: ergoms db-backup | ergoms db-restore --latest | ergoms db-restore --from=backups/<метка>
+Вызов: ergoms db-backup | ergoms db-restore --latest | ergoms db-restore --from=virtual_env/backups/<метка>
 """
 
 from __future__ import annotations

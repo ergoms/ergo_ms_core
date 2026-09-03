@@ -82,7 +82,7 @@ class DbBackupTests(unittest.TestCase):
             src = root / 'virtual_env' / 'resources' / 'db.sqlite3'
             src.parent.mkdir(parents=True)
             src.write_text('sqlite-bytes', encoding='utf-8')
-            dest = root / 'backups' / 'copy.sqlite3'
+            dest = root / 'virtual_env' / 'backups' / 'copy.sqlite3'
             copy_sqlite(src, dest)
             self.assertTrue(dest.is_file())
             self.assertGreater(dest.stat().st_size, 0)
@@ -131,10 +131,11 @@ class DbBackupTests(unittest.TestCase):
                 '2026-09-03_123045',
             ])
             self.assertEqual(latest_snapshot_dir(root), newer)
-            resolved = resolve_snapshot_dir(root, 'backups/2026-09-03_123045')
+            resolved = resolve_snapshot_dir(root, 'virtual_env/backups/2026-09-03_123045')
             self.assertEqual(resolved, newer)
+            self.assertEqual(resolve_snapshot_dir(root, '2026-09-03_123045'), newer)
             with self.assertRaises(BackupError):
-                resolve_snapshot_dir(root, 'backups/missing')
+                resolve_snapshot_dir(root, 'virtual_env/backups/missing')
 
     def test_resolve_pg_tool_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -98,16 +98,26 @@ def resolve_snapshot_dir(root: Path, raw: str) -> Path:
     value = (raw or '').strip()
     if not value:
         raise BackupError(t('db_backup_snapshot_missing'))
-    candidate = Path(value)
-    if not candidate.is_absolute():
-        candidate = (root / candidate).resolve()
+    candidates: list[Path] = []
+    given = Path(value)
+    if given.is_absolute():
+        candidates.append(given)
     else:
-        candidate = candidate.resolve()
-    if candidate.is_file() and candidate.name == MANIFEST_NAME:
-        candidate = candidate.parent
-    if not candidate.is_dir() or not (candidate / MANIFEST_NAME).is_file():
-        raise BackupError(t('db_backup_snapshot_invalid', path=str(candidate)))
-    return candidate
+        candidates.append((root / given).resolve())
+        candidates.append((backups_dir(root) / given.name).resolve())
+    seen: set[Path] = set()
+    last = candidates[0]
+    for candidate in candidates:
+        resolved = candidate.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        last = resolved
+        if resolved.is_file() and resolved.name == MANIFEST_NAME:
+            resolved = resolved.parent
+        if resolved.is_dir() and (resolved / MANIFEST_NAME).is_file():
+            return resolved
+    raise BackupError(t('db_backup_snapshot_invalid', path=str(last)))
 
 
 def normalize_host(host: str) -> str:

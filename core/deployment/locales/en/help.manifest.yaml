@@ -160,10 +160,10 @@ sections:
     summary: Apply migrations
   - name: db-backup
     invoke: ergoms db-backup [--database=alias]
-    summary: Snapshot SQL databases from databases.yaml into backups/
+    summary: Snapshot SQL databases from databases.yaml into virtual_env/backups/
   - name: db-restore
-    invoke: ergoms db-restore --latest [--yes] | ergoms db-restore --from=backups/<stamp> [--yes]
-    summary: Restore SQL databases from a snapshot in backups/
+    invoke: ergoms db-restore --latest [--yes] | ergoms db-restore --from=virtual_env/backups/<stamp> [--yes]
+    summary: Restore SQL databases from a snapshot in virtual_env/backups/
   - name: db-migrate-module
     invoke: ergoms db-migrate-module --module=<name> [--database=alias] [--grant-role=role] [--all]
     summary: Create schema m_<name> and migrate the module apps

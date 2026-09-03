@@ -246,8 +246,8 @@ def meilisearch_data_dir(root: Path) -> Path:
 
 
 def backups_dir(root: Path) -> Path:
-    """Снимки SQL-баз: backups/<метка>/ в корне проекта."""
-    return root / 'backups'
+    """Снимки SQL-баз: virtual_env/backups/<метка>/."""
+    return virtual_env_dir(root) / 'backups'
 
 
 def wrappers_dir(root: Path) -> Path:
