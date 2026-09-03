@@ -167,7 +167,7 @@ sections:
     summary: Восстановить SQL-базы из снимка в virtual_env/backups/
   - name: install-postgres-backup-schedule
     invoke: ergoms install-postgres-backup-schedule [--uninstall]
-    summary: Поставить или снять ежедневный автоснимок по POSTGRES_BACKUP_SCHEDULE
+    summary: Поставить или снять автоснимок по POSTGRES_BACKUP_SCHEDULE
   - name: db-migrate-module
     invoke: ergoms db-migrate-module --module=<name> [--database=alias] [--grant-role=role] [--all]
     summary: Создать схему m_<name> и применить миграции приложений модуля

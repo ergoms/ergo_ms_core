@@ -21,6 +21,7 @@ if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 
 from cli_locale import t  # noqa: E402
+from db_backup_schedule import parse_backup_schedule  # noqa: E402, F401
 from postgres_common import (  # noqa: E402
     _parse_simple_yaml_section,
     iter_database_section_names,
@@ -94,9 +95,6 @@ def latest_snapshot_dir(root: Path) -> Path | None:
     return dirs[-1] if dirs else None
 
 
-_SCHEDULE_OFF = frozenset({'', 'off', 'none', 'false', '0', 'disabled'})
-
-
 def parse_backup_keep(raw: str, default: int = 7) -> int:
     text = (raw or '').strip()
     if not text:
@@ -108,35 +106,10 @@ def parse_backup_keep(raw: str, default: int = 7) -> int:
     return max(0, value)
 
 
-def parse_backup_schedule(raw: str) -> tuple[int, int] | None:
-    text = (raw or '').strip().lower()
-    if text in _SCHEDULE_OFF:
-        return None
-    if re.fullmatch(r'\d{1,2}', text):
-        hour = int(text)
-        if 0 <= hour <= 23:
-            return hour, 0
-        return None
-    match = re.fullmatch(r'(\d{1,2}):(\d{2})', text)
-    if not match:
-        return None
-    hour = int(match.group(1))
-    minute = int(match.group(2))
-    if 0 <= hour <= 23 and 0 <= minute <= 59:
-        return hour, minute
-    return None
-
-
 def backup_keep_limit() -> int:
     from deployment_env import read_env  # noqa: WPS433
 
     return parse_backup_keep(read_env('POSTGRES_BACKUP_KEEP', '7'))
-
-
-def backup_schedule_time() -> tuple[int, int] | None:
-    from deployment_env import read_env  # noqa: WPS433
-
-    return parse_backup_schedule(read_env('POSTGRES_BACKUP_SCHEDULE', 'off'))
 
 
 def prune_old_snapshots(root: Path, keep: int) -> list[Path]:

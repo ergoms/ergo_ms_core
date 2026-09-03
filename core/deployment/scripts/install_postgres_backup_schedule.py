@@ -1,5 +1,5 @@
 """
-Ставит или снимает ежедневный автоснимок SQL (POSTGRES_BACKUP_SCHEDULE).
+Ставит или снимает автоснимок SQL по POSTGRES_BACKUP_SCHEDULE.
 
 Linux: crontab пользователя (при sudo — SUDO_USER).
 Windows: задача планировщика «ERGO MS Postgres Backup».
@@ -23,7 +23,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 from cli_locale import t  # noqa: E402
 from console_tags import configure_stdio_utf8, format_console  # noqa: E402
-from db_backup_common import backup_schedule_time  # noqa: E402
+from db_backup_schedule import BackupSchedule, backup_schedule_time  # noqa: E402
 from deployment_env import PROJECT_ROOT  # noqa: E402
 
 CRON_MARKER = '# ergo_ms postgres backup'
@@ -70,10 +70,10 @@ def _read_crontab() -> str:
     return result.stdout or ''
 
 
-def install_linux(root: Path, hour: int, minute: int, *, uninstall: bool) -> int:
+def install_linux(root: Path, schedule: BackupSchedule, *, uninstall: bool) -> int:
     log_path = root / 'logs' / 'postgres-backup.log'
     cron_line = (
-        f'{minute} {hour} * * * {_backup_command(root)} >> {log_path} 2>&1 {CRON_MARKER}'
+        f'{schedule.cron_expr()} {_backup_command(root)} >> {log_path} 2>&1 {CRON_MARKER}'
     )
     try:
         existing = _read_crontab()
@@ -97,12 +97,12 @@ def install_linux(root: Path, hour: int, minute: int, *, uninstall: bool) -> int
     if proc.returncode != 0:
         _log('error', t('db_backup_crontab_failed'))
         return proc.returncode
-    _log('ok', t('db_backup_cron_scheduled', time=f'{hour:02d}:{minute:02d}'))
+    _log('ok', t('db_backup_cron_scheduled', time=schedule.label()))
     _log('info', t('db_backup_schedule_log', path=str(log_path)))
     return 0
 
 
-def install_windows(root: Path, hour: int, minute: int, *, uninstall: bool) -> int:
+def install_windows(root: Path, schedule: BackupSchedule, *, uninstall: bool) -> int:
     if uninstall:
         proc = subprocess.run(['schtasks', '/Delete', '/TN', TASK_NAME, '/F'], check=False)
         if proc.returncode == 0:
@@ -111,16 +111,12 @@ def install_windows(root: Path, hour: int, minute: int, *, uninstall: bool) -> i
             _log('info', t('db_backup_task_not_found', name=TASK_NAME))
         return 0
 
-    time_str = f'{hour:02d}:{minute:02d}'
     proc = subprocess.run(
         [
             'schtasks',
             '/Create',
             '/F',
-            '/SC',
-            'DAILY',
-            '/ST',
-            time_str,
+            *schedule.schtasks_args(),
             '/TN',
             TASK_NAME,
             '/TR',
@@ -135,7 +131,7 @@ def install_windows(root: Path, hour: int, minute: int, *, uninstall: bool) -> i
     if proc.returncode != 0:
         _log('error', t('db_backup_task_failed', detail=(proc.stderr or proc.stdout or '').strip()))
         return proc.returncode
-    _log('ok', t('db_backup_task_scheduled', name=TASK_NAME, time=time_str))
+    _log('ok', t('db_backup_task_scheduled', name=TASK_NAME, time=schedule.label()))
     return 0
 
 
@@ -145,12 +141,11 @@ def apply_schedule(root: Path, *, uninstall: bool = False) -> int:
     schedule = backup_schedule_time()
     disable = uninstall or schedule is None
     system = platform.system().lower()
+    fallback = BackupSchedule(kind='daily', hour=3, minute=0)
     if system == 'windows':
-        hour, minute = schedule or (3, 0)
-        code = install_windows(root, hour, minute, uninstall=disable)
+        code = install_windows(root, schedule or fallback, uninstall=disable)
     elif system == 'linux':
-        hour, minute = schedule or (3, 0)
-        code = install_linux(root, hour, minute, uninstall=disable)
+        code = install_linux(root, schedule or fallback, uninstall=disable)
     else:
         _log('error', t('db_backup_schedule_os_unsupported', system=system))
         return 1
