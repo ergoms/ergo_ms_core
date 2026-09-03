@@ -86,6 +86,7 @@ ergoms uninstall-postgres
 - `uninstall-postgres --purge` / `-Purge` — удалить и каталог packages
 - `migrate-postgres-to-portable` — перенос из системного Postgres в portable; в `databases.yaml` — учётные данные **portable**; системный — `--source-password` (обязательно), опционально `--source-user` / `--source-host` / `--source-port`; после успеха выставляет `port` portable в yaml
 - `db-backup` / `db-restore` — снимок SQL-секций в `virtual_env/backups/` и откат (`--latest` или `--from=virtual_env/backups/<метка>`). Portable берёт `pg_dump`/`pg_restore` из `virtual_env/packages/postgres`
+- `POSTGRES_BACKUP_KEEP` — сколько снимков оставлять; `POSTGRES_BACKUP_SCHEDULE` — ежедневное время (`HH:MM`) или `off`. Расписание: `ergoms install-postgres-backup-schedule`
 - `setup-full --with-postgres` — то же, что force для одного прогона
 - Алиасы рецептов: `postgres-install`, … → builtin / `internal_dispatch` category `postgres`
 

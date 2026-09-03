@@ -94,6 +94,64 @@ def latest_snapshot_dir(root: Path) -> Path | None:
     return dirs[-1] if dirs else None
 
 
+_SCHEDULE_OFF = frozenset({'', 'off', 'none', 'false', '0', 'disabled'})
+
+
+def parse_backup_keep(raw: str, default: int = 7) -> int:
+    text = (raw or '').strip()
+    if not text:
+        return default
+    try:
+        value = int(text)
+    except ValueError:
+        return default
+    return max(0, value)
+
+
+def parse_backup_schedule(raw: str) -> tuple[int, int] | None:
+    text = (raw or '').strip().lower()
+    if text in _SCHEDULE_OFF:
+        return None
+    if re.fullmatch(r'\d{1,2}', text):
+        hour = int(text)
+        if 0 <= hour <= 23:
+            return hour, 0
+        return None
+    match = re.fullmatch(r'(\d{1,2}):(\d{2})', text)
+    if not match:
+        return None
+    hour = int(match.group(1))
+    minute = int(match.group(2))
+    if 0 <= hour <= 23 and 0 <= minute <= 59:
+        return hour, minute
+    return None
+
+
+def backup_keep_limit() -> int:
+    from deployment_env import read_env  # noqa: WPS433
+
+    return parse_backup_keep(read_env('POSTGRES_BACKUP_KEEP', '7'))
+
+
+def backup_schedule_time() -> tuple[int, int] | None:
+    from deployment_env import read_env  # noqa: WPS433
+
+    return parse_backup_schedule(read_env('POSTGRES_BACKUP_SCHEDULE', 'off'))
+
+
+def prune_old_snapshots(root: Path, keep: int) -> list[Path]:
+    """Оставляет не больше keep свежих снимков. keep=0 — ничего не удаляет."""
+    if keep < 1:
+        return []
+    dirs = list_snapshot_dirs(root)
+    extra = dirs[:-keep] if len(dirs) > keep else []
+    removed: list[Path] = []
+    for path in extra:
+        shutil.rmtree(path)
+        removed.append(path)
+    return removed
+
+
 def resolve_snapshot_dir(root: Path, raw: str) -> Path:
     value = (raw or '').strip()
     if not value:

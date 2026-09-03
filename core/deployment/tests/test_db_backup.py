@@ -18,6 +18,9 @@ from db_backup_common import (  # noqa: E402
     list_snapshot_dirs,
     load_sql_sections,
     new_snapshot_dir,
+    parse_backup_keep,
+    parse_backup_schedule,
+    prune_old_snapshots,
     resolve_pg_tool,
     resolve_snapshot_dir,
     should_use_docker_exec,
@@ -149,6 +152,43 @@ class DbBackupTests(unittest.TestCase):
         self.assertFalse(should_use_docker_exec('localhost', 'host', 'postgres'))
         self.assertTrue(should_use_docker_exec('postgres', 'docker', 'postgres'))
         self.assertFalse(should_use_docker_exec('postgres', 'host', 'postgres'))
+
+    def test_parse_backup_keep_and_schedule(self) -> None:
+        self.assertEqual(parse_backup_keep('7'), 7)
+        self.assertEqual(parse_backup_keep('0'), 0)
+        self.assertEqual(parse_backup_keep('-2'), 0)
+        self.assertEqual(parse_backup_keep('nope', default=7), 7)
+        self.assertEqual(parse_backup_keep(''), 7)
+        self.assertEqual(parse_backup_schedule('off'), None)
+        self.assertEqual(parse_backup_schedule(''), None)
+        self.assertEqual(parse_backup_schedule('03:00'), (3, 0))
+        self.assertEqual(parse_backup_schedule('3:15'), (3, 15))
+        self.assertEqual(parse_backup_schedule('22'), (22, 0))
+        self.assertIsNone(parse_backup_schedule('25:00'))
+        self.assertIsNone(parse_backup_schedule('12:99'))
+
+    def test_prune_old_snapshots_keeps_newest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for stamp in ('2026-09-01_100000', '2026-09-02_100000', '2026-09-03_100000'):
+                dest = new_snapshot_dir(root, stamp)
+                write_manifest(
+                    dest,
+                    build_manifest(
+                        created_at=stamp,
+                        ergo_db='sqlite',
+                        ergo_runtime='host',
+                        sections=[{'alias': 'default', 'engine': 'sqlite', 'name': 'db'}],
+                    ),
+                )
+            removed = prune_old_snapshots(root, 2)
+            self.assertEqual([path.name for path in removed], ['2026-09-01_100000'])
+            self.assertEqual(
+                [path.name for path in list_snapshot_dirs(root)],
+                ['2026-09-02_100000', '2026-09-03_100000'],
+            )
+            self.assertEqual(prune_old_snapshots(root, 0), [])
+            self.assertEqual(len(list_snapshot_dirs(root)), 2)
 
 
 if __name__ == '__main__':

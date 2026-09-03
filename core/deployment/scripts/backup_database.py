@@ -23,12 +23,14 @@ from cli_locale import t  # noqa: E402
 from console_tags import configure_stdio_utf8, format_console  # noqa: E402
 from db_backup_common import (  # noqa: E402
     BackupError,
+    backup_keep_limit,
     build_manifest,
     dump_filename,
     dump_section,
     latest_snapshot_dir,
     load_sql_sections,
     new_snapshot_dir,
+    prune_old_snapshots,
     read_manifest,
     resolve_snapshot_dir,
     restore_section,
@@ -97,6 +99,12 @@ def run_backup(root: Path, *, only_alias: str | None) -> int:
         ),
     )
     _log('ok', t('db_backup_done', path=str(snapshot)))
+    keep = backup_keep_limit()
+    removed = prune_old_snapshots(root, keep)
+    if keep > 0 and removed:
+        _log('info', t('db_backup_pruned', count=len(removed), keep=keep))
+    elif keep > 0:
+        _log('info', t('db_backup_keep_info', keep=keep))
     return 0
 
 
