@@ -90,9 +90,13 @@ sections:
     invoke: ergoms sync-logs-services [--json TARGET | --json-all]
     summary: Показать списки сервисов multi-terminal (--json TARGET для JSON)
   - name: rotate-logs
-    summary: Ротировать nginx/redis/client-dev по размеру (ERGO_LOG_INFRA_* в .env)
+    invoke: ergoms rotate-logs [--dry-run] [-v]
+    summary: Ротировать infra-логи по размеру, сжать копии gzip (ERGO_LOG_INFRA_* в .env)
+  - name: logs-status
+    invoke: ergoms logs-status [--json]
+    summary: Показать, сколько места занимает каталог logs/
   - name: install-infra-log-rotate
-    summary: Планировщик ежедневной ротации infra-логов (cron / Task Scheduler)
+    summary: Планировщик ротации infra-логов (по умолчанию каждый час, cron / Task Scheduler)
   - name: resource-usage
     invoke: ergoms resource-usage [--json] [-w] [--interval N]
     summary: Потребление RAM/CPU процессов ERGO MS на хосте
@@ -159,6 +163,15 @@ sections:
     summary: Обновить Python-зависимости ядра и модулей (poetry update)
   - name: db-migrate
     summary: Применить миграции
+  - name: db-backup
+    invoke: ergoms db-backup [--database=alias]
+    summary: Снимок SQL-баз из databases.yaml в virtual_env/backups/
+  - name: db-restore
+    invoke: ergoms db-restore --latest [--yes] | ergoms db-restore --from=virtual_env/backups/<метка> [--yes]
+    summary: Восстановить SQL-базы из снимка в virtual_env/backups/
+  - name: install-postgres-backup-schedule
+    invoke: ergoms install-postgres-backup-schedule [--uninstall]
+    summary: Поставить или снять автоснимок по POSTGRES_BACKUP_SCHEDULE
   - name: db-migrate-module
     invoke: ergoms db-migrate-module --module=<name> [--database=alias] [--grant-role=role] [--all]
     summary: Создать схему m_<name> и применить миграции приложений модуля
@@ -185,7 +198,7 @@ sections:
   title: Сборка
   commands:
   - name: client-build
-    summary: Собрать клиент (npm run build)
+    summary: Собрать клиент по роли хоста; при nginx пересобирает сайт-конфиг и делает reload
   - name: client-build-analyze
     summary: Собрать клиент с отчётом rollup-plugin-visualizer (dist/stats.html)
   - name: client-build-remote
@@ -432,6 +445,9 @@ sections:
   - name: search-reindex
     invoke: ergoms search-reindex [--index=core_users]
     summary: Переиндексация Meilisearch (все индексы или один)
+  - name: publish-knowledge-packs
+    invoke: ergoms publish-knowledge-packs
+    summary: Опубликовать пакеты справки этого процесса в media_api (knowledge/)
 - id: packages
   title: Portable-пакеты
   note: 'Реестр virtual_env/packages: ядро (core_packages.yaml) и модули (packages.yaml). Службы redis/nginx — отдельные команды

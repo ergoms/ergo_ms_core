@@ -36,6 +36,7 @@ class IsolatedEnvironment(ABC):
         root = self.tree_root if self.tree_root.is_dir() else self.workspace
         run_env = os.environ.copy()
         run_env['ERGO_SERVICE_PREFIX'] = self.prefix
+        run_env['ERGOMS_PROJECT_ROOT'] = str(root)
         run_env['NO_PROXY'] = '127.0.0.1,localhost'
         run_env['no_proxy'] = '127.0.0.1,localhost'
         if env:
@@ -49,6 +50,8 @@ class IsolatedEnvironment(ABC):
                 'Bypass',
                 '-File',
                 str(script),
+                '-Root',
+                str(root),
                 *args,
             ]
         else:
@@ -74,6 +77,10 @@ class IsolatedEnvironment(ABC):
 
     def start_client(self) -> None:
         """Поднять клиент, если кейсу браузера нужен SPA. По умолчанию нет."""
+        return
+
+    def ensure_api(self) -> None:
+        """Поднять API, если кейсу нужен HTTP. По умолчанию нет."""
         return
 
     @abstractmethod

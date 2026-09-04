@@ -89,9 +89,13 @@ sections:
   - name: sync-logs-services
     summary: Show multi-terminal service lists (--json TARGET for JSON)
   - name: rotate-logs
-    summary: Rotate nginx/redis/client-dev logs by size (ERGO_LOG_INFRA_* in .env)
+    invoke: ergoms rotate-logs [--dry-run] [-v]
+    summary: Rotate infra logs by size and gzip backups (ERGO_LOG_INFRA_* in .env)
+  - name: logs-status
+    invoke: ergoms logs-status [--json]
+    summary: Show how much disk the logs/ directory uses
   - name: install-infra-log-rotate
-    summary: Scheduler for daily infra log rotation (cron / Task Scheduler)
+    summary: Scheduler for infra log rotation (hourly by default, cron / Task Scheduler)
   - name: resource-usage
     invoke: ergoms resource-usage [--json] [-w] [--interval N]
     summary: RAM/CPU usage of ERGO MS processes on the host
@@ -158,6 +162,15 @@ sections:
     summary: Update Python dependencies of core and modules (poetry update)
   - name: db-migrate
     summary: Apply migrations
+  - name: db-backup
+    invoke: ergoms db-backup [--database=alias]
+    summary: Snapshot SQL databases from databases.yaml into virtual_env/backups/
+  - name: db-restore
+    invoke: ergoms db-restore --latest [--yes] | ergoms db-restore --from=virtual_env/backups/<stamp> [--yes]
+    summary: Restore SQL databases from a snapshot in virtual_env/backups/
+  - name: install-postgres-backup-schedule
+    invoke: ergoms install-postgres-backup-schedule [--uninstall]
+    summary: Install or remove the snapshot from POSTGRES_BACKUP_SCHEDULE
   - name: db-migrate-module
     invoke: ergoms db-migrate-module --module=<name> [--database=alias] [--grant-role=role] [--all]
     summary: Create schema m_<name> and migrate the module apps
@@ -184,7 +197,7 @@ sections:
   title: Build
   commands:
   - name: client-build
-    summary: Build the client (npm run build)
+    summary: Build the client for this host; with nginx, rewrite site conf and reload
   - name: client-build-analyze
     summary: Build the client with rollup-plugin-visualizer report (dist/stats.html)
   - name: client-build-remote
@@ -432,6 +445,9 @@ sections:
   - name: search-reindex
     invoke: ergoms search-reindex [--index=core_users]
     summary: Reindex Meilisearch (all indexes or one)
+  - name: publish-knowledge-packs
+    invoke: ergoms publish-knowledge-packs
+    summary: Publish this process knowledge packs to media_api (knowledge/)
 - id: packages
   title: Portable packages
   note: 'Registry under virtual_env/packages: core (core_packages.yaml) and modules (packages.yaml). redis/nginx services

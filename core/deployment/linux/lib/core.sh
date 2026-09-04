@@ -132,6 +132,14 @@ write_ergoms_text() {
 }
 
 detect_project_root() {
+  if [[ -n "${ERGOMS_PROJECT_ROOT:-}" && -d "${ERGOMS_PROJECT_ROOT}/core/deployment" ]]; then
+    if command -v readlink >/dev/null 2>&1; then
+      readlink -f "$ERGOMS_PROJECT_ROOT"
+    else
+      (cd "$ERGOMS_PROJECT_ROOT" && pwd)
+    fi
+    return 0
+  fi
   # Службы systemd передают корень через EnvironmentFile
   if [[ -n "${ERGO_ROOT:-}" && -d "${ERGO_ROOT}/modules" && -d "${ERGO_ROOT}/core/deployment" ]]; then
     if command -v readlink >/dev/null 2>&1; then

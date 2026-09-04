@@ -39,19 +39,19 @@
 
 Монолит на одной машине может звать модуль, который живёт на другой: `MODULE_RUNTIME` на этом хосте остаётся `monolith`, а мост переключается на HTTP только для отсутствующих ops.
 
-1. На хосте-потребителе: `BRIDGE_TRANSPORT=http`, общий `BRIDGE_INTERNAL_TOKEN`, в `BRIDGE_SERVICE_URLS` имя соседа и адрес его Django (внутренняя сеть, не публичный сайт за nginx: снаружи `location /internal/` закрыт).
+1. На хосте-потребителе: `BRIDGE_TRANSPORT=http`, общий `BRIDGE_INTERNAL_TOKEN`, в `BRIDGE_SERVICE_URLS` имя соседа и адрес его Django (внутренняя сеть, не публичный сайт за nginx: снаружи `location /internal/` закрыт). Соседи с loopback или тем же хостом, что у процесса, при `BRIDGE_COLOCATE=auto` вызываются в этом процессе, без HTTP. Другой сервер остаётся HTTP. Выключить: `BRIDGE_COLOCATE=off`.
 2. Ключи `BRIDGE_SERVICE_URLS` закрывают `integrations.yaml requires`. Папка `modules/<name>/` на этом хосте не нужна. Не заносите чужой модуль в `MICROSERVICE_MODULES`: это список локальных процессов и location nginx, а не удалённых соседей.
 3. На хосте-владельце тот же токен и `BRIDGE_TRANSPORT=http` (или microservice). Служебный мост принимает только loopback и адреса private/link-local, не публичный интернет. Между серверами нужна внутренняя сеть или VPN.
 4. Пользователи принадлежат ядру. Оба конца оперируют одним `user.public_id` (общее ядро или синхронизация учёток). В HTTP-мост уходит JSON: `user_public_id` и при наличии `user_id`. Объект ORM `user=` по сети не сериализуется. Провайдер на соседе должен принимать `user_public_id` (старый `user=` / `user_id` остаётся для монолита на одной машине).
-5. Числовые `organization_id` / `study_group_id` в потребителе — непрозрачные идентификаторы владельца, не внешние ключи на чужую базу.
+5. Числовые `*_id` в потребителе — непрозрачные идентификаторы владельца, не внешние ключи на чужую базу.
 
-Пример: образовательные траектории на этом сервере, контингент на другом — `BRIDGE_SERVICE_URLS=students=http://peer.example:8000` (при необходимости добавьте `organizations` и `lms`). Локальный `MODULE_RUNTIME` не меняйте, пока не выносите процесс с этой машины.
+Пример: один модуль на этом сервере, другой на соседе — `BRIDGE_SERVICE_URLS=<name>=http://peer.example:8000`. Локальный `MODULE_RUNTIME` не меняйте, пока не выносите процесс с этой машины.
 
 ## Пилот
 
 Инфраструктуру сначала проверяют на учебном `module_template` (манифест моста, очередь Celery, federation-entry). Боевой пилот — модуль **без межмодульных FK** и без `integrations.yaml requires`.
 
-Подтверждённый пилот по карте данных: **video_analysis** (`ergoms data-inventory` → `score=ready`: нет межмодульных FK и нет `requires`). Кластер `organizations` / `projects` / `project_ed` / `students` — `late` (выносят последними). Учебный каркас — `module_template` (`ready`).
+Подтверждённый пилот по карте данных: модуль без межмодульных FK и без `integrations.yaml requires` (`ergoms data-inventory` → `score=ready`). Кластер с общими FK выносят последним. Учебный каркас — `module_template` (`ready`).
 
 Карту обновляют командой `ergoms data-inventory` (сканирует `modules/*/api`, имена модулей в ядро не зашиты).
 
@@ -86,15 +86,15 @@
 5. Docker: `ergoms docker-gen-modules` + `ergoms docker-up`. Compose добавляет API и worker модуля; Beat модуля — если в дереве модуля есть `celery_beat_config.py`. Профили `host-api` / `host-media` / `host-beat` (Beat **ядра**) включаются по `HOST_PROFILE`.
 6. Откат: `MODULE_RUNTIME=monolith`, `BRIDGE_TRANSPORT=local`. Режим разработки не ломается.
 
-Набор служб на машине задаёт `HOST_PROFILE` в корневом `.env` (`full` | `core` | `modules` | `auto`). `full` — как раньше. На хосте только модулей (nginx смотрит на чужое ядро через `NGINX_API_UPSTREAM`) поставьте `modules` или `auto` и выполните `ergoms install-services`. Детали — `HOST_SERVICES`, `HOST_MEDIA`, `HOST_CELERY_WORKERS` в `env/modules.env`.
+Набор служб на машине задаёт `HOST_PROFILE` в корневом `.env` (`full` | `core` | `modules` | `auto`). `full` — как раньше. На хосте только модулей (nginx смотрит на чужое ядро через `NGINX_API_UPSTREAM`) поставьте `modules` или `auto` и выполните `ergoms install-services`. Критерий отказа — не строка профиля, а `HostProfile.wants`: если хост не хочет службу `api`, `ergoms start-api` / `dev` и Jupyter ядра завершаются с ошибкой; то же для оболочки Vite без `client` и для общего Beat без `--module`, если нет `beat`. `HOST_SERVICES` с явным `api` остаётся запасным выходом. Не трогайте `start-module`, `start-worker --module`, `start-beat --module` и media_api при `HOST_MEDIA=on`. Детали — `HOST_SERVICES`, `HOST_MEDIA`, `HOST_CELERY_WORKERS` в `env/modules.env`.
 
-Процесс модуля по умолчанию грузит весь стек ядра. `MODULE_PROCESS_PROFILE=slim` оставляет JWT, мост, CMS ADP и аудит; лишние URL и WS-стек не монтируются. Дополнительные apps ядра — `MODULE_PROCESS_CORE_EXTRA` или hook `api/process_profile.yaml` (`core_apps`).
+На хосте, который не обслуживает службу `api` (типичный `HOST_PROFILE=modules`), процесс `module:<name>` сам берёт `MODULE_PROCESS_PROFILE=slim`, если флаг не задан. Явный `full` побеждает. `slim` оставляет JWT, мост, CMS ADP и аудит; лишние URL и WS-стек не монтируются. Дополнительные apps ядра — `MODULE_PROCESS_CORE_EXTRA` или hook `api/process_profile.yaml` (`core_apps`). На хосте ядра (`core` / `full`) процесс модуля по-прежнему грузит весь стек, пока slim не указан явно.
 
 Health процесса модуля — тот же `GET /api/system/ready/` на порту модуля.
 
 ## Этап 2 — схема PostgreSQL
 
-Имена: `core` (ядро) и `m_<name>` (модуль). Схемы `public` в приложении нет: ни в `search_path`, ни как место таблиц (каталог PostgreSQL `public` удаляется после переноса). `search_path` процесса модуля: `m_<name>,core`. У монолита чтение идёт через `core` и все `m_*` (JOIN без префикса схемы). Новые таблицы при `ergoms db-migrate` создаются в схеме приложения: перед каждой миграцией `search_path` ставит её схему первой, в том числе в монолите.
+Имена: `core` (ядро) и `m_<name>` (модуль). Схемы `public` в приложении нет: ни в `search_path`, ни как место таблиц (каталог PostgreSQL `public` удаляется после переноса). `search_path` процесса модуля: своя схема, затем схемы соседей на этой машине (`BRIDGE_COLOCATE`), затем `core`. Без схем соседей локальный handler моста не видит их таблицы. У монолита чтение идёт через `core` и все `m_*` (JOIN без префикса схемы). Новые таблицы при `ergoms db-migrate` создаются в схеме приложения: перед каждой миграцией `search_path` ставит её схему первой, в том числе в монолите.
 
 Hook: `modules/<name>/api/schema.yaml`:
 
@@ -157,7 +157,7 @@ ergoms db-move-core-schema
 
 ## Этап 6 — клиент и сопровождение
 
-- Federated remote: `ergoms client-build-remote --module=<name>` на хосте, где лежит `modules/<name>/client`. Свой `federation-entry.js` не обязателен: сборка соберёт его из hook-файлов. Если remote недоступен, оболочка продолжает работу (предупреждение в логе, не белый экран).
+- Federated remote: на хосте, где лежит `modules/<name>/client`, достаточно `ergoms client-build` — команда соберёт remotes из `MICROSERVICE_MODULES` / `CLIENT_MODULE_REMOTES` и пропустит оболочку ядра, если этот хост её не отдаёт. Явно один модуль: `ergoms client-build --module=<name>` или `ergoms client-build-remote --module=<name>`. Свой `federation-entry.js` не обязателен: сборка соберёт его из hook-файлов. Если remote недоступен, оболочка продолжает работу (предупреждение в логе, не белый экран).
 - Standalone SPA: `ergoms client-build-standalone --module=<name>`.
 - В логах смотрите поля `service` / `module` и `request_id`.
 - Следующий модуль выносят по чеклисту ниже; живой эталон файлов — `modules/module_template/`.

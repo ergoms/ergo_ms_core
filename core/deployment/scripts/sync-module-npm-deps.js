@@ -565,7 +565,8 @@ function ensureModulePackagesInstalled(moduleDeps) {
     console.log(`  - ${entry.depName}`)
   }
 
-  installMissingPackages(needed)
+  // Иначе npm install subset --no-save снимет остальные модульные пакеты как extraneous.
+  installMissingPackages(uniqueAll)
 
   const stillMissing = needed.filter((entry) => !isDependencyInstalled(entry.depName))
   if (stillMissing.length > 0) {

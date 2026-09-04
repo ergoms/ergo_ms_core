@@ -89,9 +89,13 @@ sections:
   - name: sync-logs-services
     summary: Afficher les listes multi-terminal (--json TARGET pour JSON)
   - name: rotate-logs
-    summary: Rotation des journaux nginx/redis/client-dev par taille (ERGO_LOG_INFRA_* dans .env)
+    invoke: ergoms rotate-logs [--dry-run] [-v]
+    summary: Rotation des journaux infra par taille et compression gzip (ERGO_LOG_INFRA_* dans .env)
+  - name: logs-status
+    invoke: ergoms logs-status [--json]
+    summary: Afficher l'espace disque utilisé par le répertoire logs/
   - name: install-infra-log-rotate
-    summary: Planificateur de rotation quotidienne des journaux infra (cron / Task Scheduler)
+    summary: Planificateur de rotation des journaux infra (toutes les heures par défaut, cron / Task Scheduler)
   - name: resource-usage
     invoke: ergoms resource-usage [--json] [-w] [--interval N]
     summary: Consommation RAM/CPU des processus ERGO MS sur l'hôte
@@ -158,6 +162,15 @@ sections:
     summary: Mettre à jour les dépendances Python du noyau et des modules (poetry update)
   - name: db-migrate
     summary: Appliquer les migrations
+  - name: db-backup
+    invoke: ergoms db-backup [--database=alias]
+    summary: Instantané des bases SQL de databases.yaml dans virtual_env/backups/
+  - name: db-restore
+    invoke: ergoms db-restore --latest [--yes] | ergoms db-restore --from=virtual_env/backups/<stamp> [--yes]
+    summary: Restaurer les bases SQL depuis un instantané dans virtual_env/backups/
+  - name: install-postgres-backup-schedule
+    invoke: ergoms install-postgres-backup-schedule [--uninstall]
+    summary: Installer ou retirer l'instantané selon POSTGRES_BACKUP_SCHEDULE
   - name: db-migrate-module
     invoke: ergoms db-migrate-module --module=<name> [--database=alias] [--grant-role=role] [--all]
     summary: Créer le schéma m_<name> et migrer les applications du module
@@ -184,7 +197,7 @@ sections:
   title: Compilation
   commands:
   - name: client-build
-    summary: Compiler le client (npm run build)
+    summary: Compiler le client selon le rôle de l'hôte ; avec nginx, régénère la config et reload
   - name: client-build-analyze
     summary: Compiler le client avec le rapport rollup-plugin-visualizer (dist/stats.html)
   - name: client-build-remote
@@ -433,6 +446,9 @@ sections:
   - name: search-reindex
     invoke: ergoms search-reindex [--index=core_users]
     summary: Réindexation Meilisearch (tous les index ou un seul)
+  - name: publish-knowledge-packs
+    invoke: ergoms publish-knowledge-packs
+    summary: Publier les paquets d'aide de ce processus dans media_api (knowledge/)
 - id: packages
   title: Paquets portables
   note: 'Registre sous virtual_env/packages : noyau (core_packages.yaml) et modules (packages.yaml). Services redis/nginx

@@ -67,7 +67,7 @@ BRIDGE_SERVICE_URLS=<peer>=http://peer.example:8000
 
 Не добавляйте `<peer>` в `MICROSERVICE_MODULES` на этом хосте. Токен `BRIDGE_INTERNAL_TOKEN` одинаковый на обоих концах. Пользователей связывают по `public_id`.
 
-**Microservice (приближение к боевому).** Отдельный API модуля за nginx, HTTP-мост, worker только своей очереди:
+**Microservice (приближение к боевому).** Отдельный API модуля за nginx, HTTP-мост, worker только своей очереди. Соседи на этой машине (`127.0.0.1` / тот же хост) при `BRIDGE_COLOCATE=auto` вызываются в процессе; на другой сервер уходит HTTP.
 
 ```cmd
 MODULE_RUNTIME=microservice
@@ -92,13 +92,15 @@ ergoms docker-gen-modules
 ergoms db-makemigrations
 ergoms db-migrate
 ergoms migrate-all
+ergoms db-backup
+ergoms db-restore --latest
 ergoms collectstatic
 ergoms client-build
 ergoms client-check
 ergoms build-all
 ```
 
-Первые три команды создают и применяют миграции; `client-build` собирает клиент, `client-check` — полный прогон lint/i18n/build/a11y с логами в `logs/client-check/`; `build-all` собирает клиент и статику Django.
+Первые три команды создают и применяют миграции. `db-backup` пишет снимок всех SQL-секций из `databases.yaml` в `virtual_env/backups/<метка>/` (portable Postgres, системный Postgres, SQLite, Docker; MySQL и MSSQL — если утилиты есть в PATH). Сколько снимков хранить и как часто делать автоснимок задаётся в `env/postgres.env`: `POSTGRES_BACKUP_KEEP` и `POSTGRES_BACKUP_SCHEDULE` (`off`, `true` = каждый день в 03:00, `HH:MM`, `every 6h`, `weekly sun 03:00`). После смены расписания выполните `ergoms install-postgres-backup-schedule` (то же делают `install-postgres` и `install-services`). Одна секция: `ergoms db-backup --database=default`. Восстановление: `ergoms db-restore --latest` или `ergoms db-restore --from=virtual_env/backups/<метка>`; без `--yes` команда спрашивает подтверждение. `client-build` собирает то, что отдаёт этот хост (оболочку `core/client/dist` и/или federated remotes) и при `ERGO_PROXY=nginx` пересобирает сайт-конфиг nginx и делает reload; `client-check` — полный прогон lint/i18n/build/a11y с логами в `logs/client-check/`; `build-all` собирает клиент и статику Django.
 
 ## Зависимости и первичная настройка {#зависимости-и-первичная-настройка}
 
@@ -128,21 +130,21 @@ ergoms api <имя_команды> [аргументы]
 
 `createsuperuser` принимает только пароль, который проходит политику `API_PASSWORD_*` из `.env` (и интерактивно, и с `--noinput`).
 
-Так же вызываются модульные команды, например `ergoms api init_technologies` или `ergoms api seed_lms_demo`.
+Так же вызываются модульные команды, например `ergoms api <команда_модуля>`.
 
 ## Команды модулей
 
 Модуль может добавить собственные имена команд в `modules/<имя>/ergoms.conf`. Тогда они вызываются с префиксом модуля:
 
 ```cmd
-ergoms video_analysis:install
+ergoms <имя>:install
 ```
 
 Справка по модулям (описания хранятся в `modules/<имя>/ergoms.help.yaml`):
 
 ```cmd
 ergoms help modules
-ergoms help module video_analysis
+ergoms help module <имя>
 ```
 
 Общая справка по ядру: `ergoms help`.
@@ -251,7 +253,7 @@ ergoms stop-nginx
 
 Служба с автозапуском: `ergoms install-nginx-service` (Windows). Эталон — [`env/nginx.env.example`](../env/nginx.env.example) при `ERGO_PROXY=nginx`.
 
-Nginx раздаёт собранный клиент из `core/client/dist`. После правок Vue выполните `ergoms client-build` и обновите страницу с очисткой кэша. `reload-nginx` нужен, если менялся шаблон конфига, а не только файлы в `dist`. Если за прокси вечная маска загрузки, а консоль браузера пустая — смотрите `logs/nginx-access.log`, не `logs/client-browser.log` (запись туда только с JWT). Разбор типичных ошибок — в [troubleshooting.md](troubleshooting.md#пустой-экран-за-nginx).
+Nginx раздаёт собранный клиент из `core/client/dist`. После правок Vue выполните `ergoms client-build` и обновите страницу с очисткой кэша. Команда смотрит `HOST_PROFILE` и ключи nginx: на хосте ядра собирает оболочку (и remotes, только если они местные); на хосте модулей пропускает оболочку и собирает `virtual_env/client-remotes` из `MICROSERVICE_MODULES`. При `ERGO_PROXY=nginx` после сборки она же пересобирает сайт-конфиг и делает reload (отдельно `reload-nginx` после правки Vue не нужен). Отдельный `reload-nginx` остаётся, если меняли только шаблон или `env/nginx.env` без сборки клиента. Если за прокси вечная маска загрузки, а консоль браузера пустая — смотрите `logs/nginx-access.log`, не `logs/client-browser.log` (запись туда только с JWT). Разбор типичных ошибок — в [troubleshooting.md](troubleshooting.md#пустой-экран-за-nginx).
 
 ## Redis (опционально) {#redis-опционально}
 
@@ -267,7 +269,7 @@ ergoms stop-redis
 
 В `.env`: `ERGO_BROKER=redis`, перезапустите API. Служба: `ergoms install-redis-service`.
 
-При `ERGO_DB=portable_postgres` `setup-full` ставит кластер и OS-службу `ergo_ms_postgres`. Ту же службу регистрирует `ergoms install-services`. Отдельно: `ergoms install-postgres-service`.
+При `ERGO_DB=portable_postgres` `setup-full` ставит кластер и OS-службу `ergo_ms_postgres`. Ту же службу регистрирует `ergoms install-services`. Отдельно: `ergoms install-postgres-service`. Лимит и период автоснимка — `POSTGRES_BACKUP_KEEP` и `POSTGRES_BACKUP_SCHEDULE` в [`env/postgres.env.example`](../env/postgres.env.example).
 
 ## Meilisearch (поиск BM25) {#meilisearch}
 
@@ -336,6 +338,7 @@ ergoms restore-menu
 ergoms maintenance-on
 ergoms maintenance-off
 ergoms maintenance-status
+ergoms logs-status
 ergoms rotate-logs
 ergoms install-infra-log-rotate
 ergoms invalidate-caches-warmup
@@ -344,7 +347,7 @@ ergoms deploy-client
 ergoms deploy-all
 ```
 
-`restore-menu` — восстановление пунктов бокового меню из миграций. `maintenance-on/off` — режим технических работ без перезапуска служб; `maintenance-status` — текущее состояние. `rotate-logs` — ротация журналов nginx, Redis и client-dev; `install-infra-log-rotate` — ежедневный планировщик ротации. `invalidate-caches-warmup` — сброс кэшей ядра и прогрев.
+`restore-menu` — восстановление пунктов бокового меню из миграций. `maintenance-on/off` — режим технических работ без перезапуска служб; `maintenance-status` — текущее состояние. `logs-status` — сколько места занимает каталог `logs/`. `rotate-logs` — ротация infra-журналов по размеру и сжатие копий; `install-infra-log-rotate` — планировщик ротации (по умолчанию каждый час). `invalidate-caches-warmup` — сброс кэшей ядра и прогрев.
 
 ## Системные службы (Linux / Windows)
 

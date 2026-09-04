@@ -32,6 +32,7 @@ modules/<имя>/
 │   ├── bridge_manifest.yaml    # ops/groups при MODULE_RUNTIME=microservice
 │   ├── schema.yaml             # схема PostgreSQL m_<name>, isolated
 │   ├── search_indexes.py       # индексы поиска (uid с префиксом модуля)
+│   ├── user_guides/            # шпаргалки пакета knowledge/ (необязательно)
 │   └── migrations/             # схема БД + пункты бокового меню
 ├── client/
 │   ├── js/
@@ -72,6 +73,7 @@ modules/<имя>/
 | Права модуля в ADP | `api/permission_catalog.py` |
 | Фоновые задачи | `api/tasks.py` + `celery_config.py` |
 | Вызов из другого модуля / ядра | ModuleBridge в `integrations.py` |
+| Пакет справки | `api/user_guides/*.md`, `user_description` и автокаталог экранов (маршруты, поля, кнопки); процесс пишет `knowledge/<имя>/`, чтение — `load_published_pack_documents` |
 | Своя схема PostgreSQL / запрет FK наружу | `api/schema.yaml` + [modularization.md](modularization.md) |
 | Обязательная / расширяющая зависимость модуля | `integrations.yaml` (`requires` / `extends`) |
 | Свои команды CLI | `ergoms.conf` + `ergoms.help.yaml` |
@@ -132,6 +134,10 @@ modules/<имя>/
 
 Ядро при логине запрашивает opaque dict claims: `bridge.call(SESSION_RESTORE_CLAIMS, user=user)`. Ключи claims ядру неизвестны — их объявляет модуль-владелец scope через platform-контракты (`session_context.claims`, `session.restore_claims`). Подробности — [`.cursor/rules/module-contracts.mdc`](../.cursor/rules/module-contracts.mdc).
 
+### Служебные письма учётки
+
+Тема и тело писем собирает ядро. Модуль может подменить их операциями `core.compose_registration_invitation`, `core.compose_import_welcome_defaults`, `core.compose_password_reset_code`, `core.compose_admin_password_reset` (`{subject, body, html_body?}`). Если никто их не регистрирует, провайдер вернул пустой ответ или упал, уходит текст ядра. Получателя и адрес отправителя модуль не задаёт. Подробности — [`.cursor/rules/module-contracts.mdc`](../.cursor/rules/module-contracts.mdc).
+
 ### Microservice runtime
 
 При `MODULE_RUNTIME=microservice` модуль может описать владельца ops/groups моста в `api/bridge_manifest.yaml` (для HTTP-маршрутизации между сервисами). Обычный монолитный host-режим этот файл не требует.
@@ -164,7 +170,7 @@ modules/<имя>/
 |--------------|----------|
 | `layout.plugin_registry` | LayoutPlugin / offcanvas |
 | `header.userMenu.items` | Пункты меню пользователя в шапке |
-| `apps.menu.items` | Пункты AppsMenu в toolbar (кнопка у всех вошедших; пункты без фильтра по праву модуля) |
+| `apps.menu.items` | Пункты AppsMenu в toolbar (кнопка скрыта без пунктов; пункты без фильтра по праву модуля) |
 | `shell.floating_widgets` | Плавающие виджеты (`id`, `component`, `order`, `isVisible`) |
 | `session_scope.module_context` | Контекст session-scoped модуля |
 | `session.scope_entry_routes` | Welcome / home / onboarding |

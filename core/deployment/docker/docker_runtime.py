@@ -57,6 +57,15 @@ DOCKER_DEPS_CACHE_VALUES = frozenset({'internal', 'project', 'off'})
 BUILD_CACHE_OUTPUT = _DOCKER_DIR / 'docker-compose.build.generated.yml'
 PUBLISH_COMPOSE_OUTPUT = _DOCKER_DIR / 'docker-compose.publish.generated.yml'
 REDIS_AUTH_COMPOSE_OUTPUT = _DOCKER_DIR / 'docker-compose.redis-auth.generated.yml'
+
+
+def docker_home(project_root: Path | None = None) -> Path:
+    """Каталог compose выбранного корня, а не каталог этого файла."""
+    if project_root is not None:
+        candidate = Path(project_root).resolve() / 'core' / 'deployment' / 'docker'
+        if candidate.is_dir():
+            return candidate
+    return _DOCKER_DIR.resolve()
 # Infra-порты на хост только с loopback — не с LAN.
 INFRA_PUBLISH_BIND = '127.0.0.1'
 _PUBLISH_DISABLED = frozenset({'none', 'off', 'false', '0', '-', 'disabled'})
@@ -883,15 +892,19 @@ def prepare_compose_artifacts(
             continue
         if key.startswith('DOCKER_PROFILE_') or key.startswith('LOADTEST_'):
             raw[key] = value
-    compose_env_path = _DOCKER_DIR / '.compose.env'
-    compose_db_path = _DOCKER_DIR / '.compose.databases.yaml'
+    home = docker_home(root)
+    compose_env_path = home / '.compose.env'
+    compose_db_path = home / '.compose.databases.yaml'
+    publish_path = home / 'docker-compose.publish.generated.yml'
+    redis_auth_path = home / 'docker-compose.redis-auth.generated.yml'
+    build_cache_path = home / 'docker-compose.build.generated.yml'
 
     published = resolve_infra_publish_ports(raw, warn=True)
-    write_publish_compose(PUBLISH_COMPOSE_OUTPUT, published)
+    write_publish_compose(publish_path, published)
 
     redis_password = load_redis_password(root)
     redis_user = load_redis_user(root)
-    write_redis_auth_compose(REDIS_AUTH_COMPOSE_OUTPUT, redis_password, redis_user)
+    write_redis_auth_compose(redis_auth_path, redis_password, redis_user)
 
     merged = merge_env_files(root, raw)
     merged.update(postgres_container_env(raw))
@@ -947,7 +960,7 @@ def prepare_compose_artifacts(
     if databases:
         write_compose_databases(compose_db_path, databases)
 
-    compose_db_loadtest_path = _DOCKER_DIR / '.compose.databases.loadtest.yaml'
+    compose_db_loadtest_path = home / '.compose.databases.loadtest.yaml'
     loadtest_dbs = build_compose_databases_loadtest(root, raw)
     if loadtest_dbs:
         write_compose_databases(compose_db_loadtest_path, loadtest_dbs)
@@ -962,17 +975,17 @@ def prepare_compose_artifacts(
         )
     write_compose_env(compose_env_path, merged)
 
-    celery_sql = _DOCKER_DIR / 'init' / 'postgres' / '02-celery-databases.sql'
+    celery_sql = home / 'init' / 'postgres' / '02-celery-databases.sql'
     write_celery_init_sql(celery_sql, root)
 
     if effective_docker_deps_cache(raw) == 'project':
         cache_dir = resolve_docker_cache_dir(root)
         write_compose_build_cache(
-            BUILD_CACHE_OUTPUT,
+            build_cache_path,
             build_compose_build_cache_content(cache_dir),
         )
     else:
-        remove_compose_build_cache(BUILD_CACHE_OUTPUT)
+        remove_compose_build_cache(build_cache_path)
 
     if str(_DEPLOYMENT_DIR) not in sys.path:
         sys.path.insert(0, str(_DEPLOYMENT_DIR))
@@ -985,7 +998,7 @@ def prepare_compose_artifacts(
         'compose_env': compose_env_path,
         'compose_databases': compose_db_path,
         'celery_init_sql': celery_sql,
-        'compose_build_cache': BUILD_CACHE_OUTPUT if BUILD_CACHE_OUTPUT.is_file() else None,
-        'compose_publish': PUBLISH_COMPOSE_OUTPUT,
-        'compose_redis_auth': REDIS_AUTH_COMPOSE_OUTPUT if REDIS_AUTH_COMPOSE_OUTPUT.is_file() else None,
+        'compose_build_cache': build_cache_path if build_cache_path.is_file() else None,
+        'compose_publish': publish_path,
+        'compose_redis_auth': redis_auth_path if redis_auth_path.is_file() else None,
     }

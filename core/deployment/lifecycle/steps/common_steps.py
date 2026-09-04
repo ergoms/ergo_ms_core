@@ -58,6 +58,10 @@ class PythonInstallStep(DeploymentStep):
     def _run_docker(self, ctx: DeploymentContext) -> StepResult:
         if not docker_ops.find_docker_compose():
             return StepResult(exit_code=1, message=t('docker_not_found_short'))
+        skip = (ctx.raw_env.get('ERGO_SKIP_PYTHON_INSTALL') or '').strip().lower()
+        if skip in ('1', 'true', 'yes', 'on'):
+            print(format_console('skip', t('python_install_skipped_env')))
+            return StepResult()
         print(format_console('info', t('installing_python_deps')))
         print(
             format_console(
@@ -69,6 +73,7 @@ class PythonInstallStep(DeploymentStep):
             docker_ops.api_install_shell(),
             mode=ctx.docker_mode,
             skip_infra_wait=True,
+            project_root=ctx.project_root,
         )
         if code != 0:
             print(
@@ -105,6 +110,10 @@ class NpmInstallStep(DeploymentStep):
     def _run_docker(self, ctx: DeploymentContext) -> StepResult:
         if not docker_ops.find_docker_compose():
             return StepResult(exit_code=1, message=t('docker_not_found_short'))
+        skip = (ctx.raw_env.get('ERGO_SKIP_NPM_INSTALL') or '').strip().lower()
+        if skip in ('1', 'true', 'yes', 'on'):
+            print(format_console('skip', t('npm_install_skipped_env')))
+            return StepResult()
         resolved_mode = ctx.resolved_docker_mode()
         service = docker_ops.npm_client_service(resolved_mode)
         shell = (
@@ -147,7 +156,11 @@ class MigrateStep(DeploymentStep):
         if not docker_ops.find_docker_compose():
             return StepResult(exit_code=1, message=t('docker_not_found_short'))
         print(format_console('info', t('migrations_ellipsis')))
-        code = docker_ops.run_api_oneoff(docker_ops.api_migrate_shell(), mode=ctx.docker_mode)
+        code = docker_ops.run_api_oneoff(
+            docker_ops.api_migrate_shell(),
+            mode=ctx.docker_mode,
+            project_root=ctx.project_root,
+        )
         return StepResult(exit_code=code)
 
 
@@ -166,7 +179,11 @@ class WarmupCachesStep(DeploymentStep):
         if ctx.runtime == 'docker':
             if not docker_ops.find_docker_compose():
                 return StepResult(exit_code=1, message=t('docker_not_found_short'))
-            code = docker_ops.run_api_oneoff(docker_ops.api_warmup_shell(), mode=ctx.docker_mode)
+            code = docker_ops.run_api_oneoff(
+                docker_ops.api_warmup_shell(),
+                mode=ctx.docker_mode,
+                project_root=ctx.project_root,
+            )
             return StepResult(exit_code=code)
         if self._if_needed:
             code = host_ops.run_python_script(
@@ -187,20 +204,29 @@ class ClientBuildStep(DeploymentStep):
         return 'client_build'
 
     def run(self, ctx: DeploymentContext) -> StepResult:
+        from lifecycle.client_build_plan import resolve_client_build_plan
+
+        plan = resolve_client_build_plan(ctx.project_root, ctx.raw_env)
+        if plan.is_empty():
+            print(format_console('skip', t('client_build_skip_empty')))
+            return StepResult()
         if not ctx.option_bool('force') and host_ops.client_build_up_to_date(
             ctx.project_root, ctx.raw_env
         ):
             print(format_console('skip', t('client_build_already_fresh_skip')))
             return StepResult()
         print(format_console('info', t('building_client')))
-        if ctx.platform != HostPlatform.WIN32:
+        if plan.shell and ctx.platform != HostPlatform.WIN32:
             from lifecycle.host.privilege import restore_project_ownership
 
             restore_project_ownership(
                 ctx.project_root,
                 ctx.project_root / 'core' / 'client' / 'node_modules',
             )
-        code = host_ops.run_npm(ctx, 'build')
+        code = host_ops.run_python_script(
+            ctx,
+            'core/deployment/scripts/client_build.py',
+        )
         if code == 0:
             host_ops.write_client_build_stamp(ctx.project_root, ctx.raw_env)
         return StepResult(exit_code=code)

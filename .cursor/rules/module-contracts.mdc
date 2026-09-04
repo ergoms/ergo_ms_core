@@ -78,22 +78,38 @@ bridge.provideMany(HOST_SETTINGS_ADDITIONAL_PANELS_GROUP, '<provider>_panel', { 
 | `audit.record` | event | Запись события | ядро |
 | `notifications.event_definitions` | group | Каталог уведомлений | модули |
 | `notifications.email_context` | group | Контекст письма | модули |
+| `notifications.email_templates` | group | Спека писем модуля: `get_spec(event_key)` / `MODULE_DEFAULT` | модули |
 | `adp.permission_check` | event | Контекстная проверка прав | модуль |
 | `adp.is_admin` | op | Глобальный админ по `user_id` / `user_public_id` (для процесса модуля в `jwt_claims`) | ядро |
 | `adp.check_api_access` | op | Политика API-пути на ядре (`api_path`) | ядро |
 | `adp.check_module_permission` | op | Право модуля на ядре (`module_name`, `permission_key`, `extra`) | ядро |
+| `adp.filter_granted_role_group_ids` | event | Id RoleGroup, которые нельзя учитывать в глобальной агрегации ModulePermission | модуль |
+| `adp.session_scoped_module_permissions` | event | Доп. ModulePermission для текущего session-scope | модуль |
 | `adp.session_scoped_denied_permissions` | event | Вычитание пар `(module_name, permission_key)` из снимка прав текущего session-scope | модуль |
 | `menu.prepare_visibility` | event | Фильтр меню | модуль |
 | `menu.can_see_item` | event | Видимость пункта | модуль |
 | `core.user_delete` | event | Очистка при удалении user | подписчик в модуле |
 | `core.bulk_user_create` | event | Массовое создание users | подписчик в модуле |
+| `core.compose_registration_invitation` | op | Необязательная подмена письма-приглашения на регистрацию: `{subject, body, html_body?}`. Нет провайдера, `None` или неполный dict — текст ядра. Получателя и `from` модуль не задаёт | не более одного модуля |
+| `core.compose_import_welcome_defaults` | op | Необязательная подмена шаблона приветствия при импорте пользователей (`get_welcome_email_defaults`) | не более одного модуля |
+| `core.compose_password_reset_code` | op | Необязательная подмена письма с кодом восстановления пароля | не более одного модуля |
+| `core.compose_admin_password_reset` | op | Необязательная подмена письма о сбросе пароля администратором | не более одного модуля |
 | `session.restore_claims` | op | Dict произвольных JWT session-claims при логине (или None/пусто). Ядро **не** знает ключи claims — только вкладывает dict в токен | модуль-владелец scope |
 | `session.device_active` | op | Устройство активно и пользователь `is_active`. Ответ: `False` или `{active, user_public_id, username, is_superuser, is_staff, is_admin}` | ядро |
 | `media.upload_quota_policies` | group | Класс квоты media_api по `target_dir`: `{target_dir_prefix, quota, rate, allows(user), path_must_contain?}`. Ядро выбирает longest prefix; клиент `quota` не передаёт | модуль с клиентской загрузкой |
+| `knowledge.packs` | group | Дескриптор пакета справки в media_api: `{owner, revision, media_path, signer}` | процесс, который записал `knowledge/<owner>/` |
+| `core.knowledge.pack` | op | Актуальный дескриптор пакета ядра | ядро |
+| `core.knowledge.sign_read` | op | Подпись чтения пути внутри `knowledge/` на media_api этого хоста | ядро |
+| `core.knowledge.user_capabilities` | op | Меню и каталог модулей с ядра (`user_public_id` или `full=True` для индекса). Процесс модуля не отдаёт свой диск | ядро |
+| `knowledge.sign_read.<name>` | op | То же для вынесенного модуля, только `knowledge/<name>/`. Регистрирует ядро по роли процесса | процесс модуля |
+
+Пакеты справки — механизм платформы, не сборка индекса. Ядро публикует `knowledge/<owner>/`, отдаёт дескрипторы и подписывает чтение ([`knowledge_pack.py`](../../core/api/src/core/utils/knowledge_pack.py)). Кто собирает корпус и как его индексирует — модуль: он вызывает `load_published_pack_documents` / `visible_knowledge_owners` и `core.knowledge.user_capabilities` для меню и каталога, а не сканирует чужой `modules/` на своём диске.
 
 JWT session claims **не зашиты в ядре** — их декларируют модули через `session_context.claims`. Ядро выводит из дескрипторов список claims, resolver'ы и request-атрибуты ([`session_context.py`](../../core/api/src/core/integrations/session_context.py)).
 
 Квота загрузок: хелпер [`media_upload_quota.py`](../../core/api/src/core/utils/media_upload_quota.py). Глобальные `MEDIA_API_UPLOAD_RATE` / `_ADMIN` не трогать — частота модуля в `modules/<name>/.env`. Эталон — `modules/module_template/api/integrations.py`.
+
+Служебные письма учётки: ядро вызывает `core.compose_registration_invitation`, `core.compose_import_welcome_defaults`, `core.compose_password_reset_code`, `core.compose_admin_password_reset`. Общая сборка — [`auth_mail_compose.py`](../../core/api/src/core/cms/adp/services/auth_mail_compose.py). Контекст — JSON-примитивы (`email`, `token`, `code`, `ttl_minutes`, `default_subject` / `default_body` и др.). Второй провайдер того же op при старте даст `DuplicateProvider`. При `MODULE_RUNTIME=microservice` объявите op в `api/bridge_manifest.yaml`.
 
 ### Валидация схем дескрипторов
 
@@ -107,7 +123,7 @@ JWT session claims **не зашиты в ядре** — их деклариру
 
 `BRIDGE_CONTRACTS`: `off` \| `warn` (по умолчанию) \| `raise`. Реализация — [`contract_validation.py`](../../core/api/src/core/integrations/contract_validation.py).
 
-`CORE_BRIDGE_PREFIXES` (`audit.`, `notifications.`, `core.`, `media.`) — это **фильтр статической проверки**, а не полный перечень контрактов ядра. Команда `ergoms core-rules-check` разбирает исходники и ругается на вызовы `bridge.call('…')` и `bridge.has('…')`, где имя операции записано **строкой прямо в вызове** и не начинается с этих префиксов. Обращения через константы каталога (`session.restore_claims`, `menu.*`, `adp.permission_check`) проверка не видит — они разрешены и используются в ядре. Вывод для агента: в ядре вызывай контракт через импортированную константу, а не строковым литералом.
+`CORE_BRIDGE_PREFIXES` (`audit.`, `notifications.`, `core.`, `session.`, `menu.`, `adp.`, `media.`, `knowledge.`) — это **фильтр статической проверки**, а не полный перечень контрактов ядра. Команда `ergoms core-rules-check` разбирает исходники и ругается на вызовы `bridge.call('…')` и `bridge.has('…')`, где имя операции записано **строкой прямо в вызове** и не начинается с этих префиксов. Обращения через константы каталога проверка не видит — они разрешены и используются в ядре. В ядре вызывай контракт через импортированную константу, а не строковым литералом.
 
 ## Каталог контрактов (клиент)
 
@@ -204,6 +220,20 @@ bridge.provide_many(MEDIA_UPLOAD_QUOTA_POLICIES_GROUP, '<name>', {
     'rate': lambda: env_upload_rate('<NAME>_UPLOAD_RATE', '30/minute'),
     'allows': allows_module_permission('<name>', '<name>_view'),
 })
+```
+
+```python
+# modules/<name>/api/integrations.py — письмо-приглашение на регистрацию
+# Не регистрируйте op, если модулю достаточно текста ядра.
+from src.core.integrations import bridge
+from src.core.integrations.module_contracts import CORE_COMPOSE_REGISTRATION_INVITATION
+
+@bridge.provide_op(CORE_COMPOSE_REGISTRATION_INVITATION)
+def compose_registration_invitation(*, token, register_url, ttl_label, **kwargs):
+    return {
+        'subject': 'Приглашение',
+        'body': f'Код: {token}\nСтраница: {register_url}\nСрок: {ttl_label}',
+    }
 ```
 
 ## Связанные правила

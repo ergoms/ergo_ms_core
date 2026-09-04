@@ -18,7 +18,9 @@ if str(_DEPLOYMENT_DIR) not in sys.path:
 from cli_locale import t  # noqa: E402
 from console_tags import format_console  # noqa: E402
 from project_layout import (  # noqa: E402
+    client_remotes_dir,
     nodejs_bin_dir,
+    npm_bin_dir,
     npm_exe,
     npm_node_modules_dir,
     npm_root_dir,
@@ -178,7 +180,7 @@ def run_npm(ctx: DeploymentContext, script: str, extra_args: Sequence[str] = ())
     cmd = [npm, 'run', script, *extra_args]
     env = os.environ.copy()
     env.update(tool_cache_environ(ctx.project_root))
-    _prepend_path(env, nodejs_bin_dir(ctx.project_root))
+    _prepend_path(env, nodejs_bin_dir(ctx.project_root), npm_bin_dir(ctx.project_root))
     return subprocess.call(cmd, cwd=str(npm_root), env=env)
 
 
@@ -508,6 +510,12 @@ _CLIENT_BUILD_ENV_KEYS = (
     'CLIENT_DEPLOY_TYPE',
     'CLIENT_STANDALONE_MODULE_CHUNKS',
     'DISABLED_MODULES',
+    'HOST_PROFILE',
+    'HOST_SERVICES',
+    'MICROSERVICE_MODULES',
+    'MODULE_RUNTIME',
+    'NGINX_CLIENT_UPSTREAM',
+    'NGINX_CLIENT_REMOTES_UPSTREAM',
     'ERGO_PROXY',
     'NGINX_ENABLED',
     'ERGO_ENV',
@@ -532,6 +540,10 @@ _CLIENT_BUILD_ENV_KEYS = (
 
 def client_dist_index(project_root: Path) -> Path:
     return project_root / 'core' / 'client' / 'dist' / 'index.html'
+
+
+def client_remote_entry(project_root: Path, module_name: str) -> Path:
+    return client_remotes_dir(project_root) / module_name / 'remoteEntry.js'
 
 
 def client_build_stamp_path(project_root: Path) -> Path:
@@ -579,9 +591,28 @@ def client_build_fingerprint(project_root: Path, raw_env: dict[str, str]) -> str
     return digest.hexdigest()
 
 
-def client_build_up_to_date(project_root: Path, raw_env: dict[str, str]) -> bool:
-    if not client_dist_index(project_root).is_file():
+def client_build_artifacts_ready(project_root: Path, raw_env: dict[str, str]) -> bool:
+    from lifecycle.client_build_plan import resolve_client_build_plan
+
+    plan = resolve_client_build_plan(project_root, raw_env)
+    if plan.is_empty():
+        return True
+    if plan.shell and not client_dist_index(project_root).is_file():
         return False
+    for name in plan.remotes:
+        if not client_remote_entry(project_root, name).is_file():
+            return False
+    return True
+
+
+def client_build_up_to_date(project_root: Path, raw_env: dict[str, str]) -> bool:
+    if not client_build_artifacts_ready(project_root, raw_env):
+        return False
+    from lifecycle.client_build_plan import resolve_client_build_plan
+
+    plan = resolve_client_build_plan(project_root, raw_env)
+    if plan.is_empty():
+        return True
     stamp = client_build_stamp_path(project_root)
     if not stamp.is_file():
         return False

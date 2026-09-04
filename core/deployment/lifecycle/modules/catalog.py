@@ -64,6 +64,8 @@ class ModuleCatalog:
         microservice_modules: FrozenSet[str] | None = None,
         process_modules: FrozenSet[str] | None = None,
         process_modules_explicit: bool = False,
+        colocated_modules: FrozenSet[str] | None = None,
+        colocate_enabled: bool = False,
     ) -> None:
         self._project_root = project_root.resolve()
         self._modules_dir = self._project_root / modules_dir_name
@@ -75,6 +77,10 @@ class ModuleCatalog:
         )
         self._process_modules = process_modules if process_modules is not None else frozenset()
         self._process_modules_explicit = process_modules_explicit
+        self._colocated_modules = (
+            colocated_modules if colocated_modules is not None else frozenset()
+        )
+        self._colocate_enabled = bool(colocate_enabled)
 
     @classmethod
     def from_env(
@@ -84,6 +90,18 @@ class ModuleCatalog:
     ) -> ModuleCatalog:
         env = environ if environ is not None else os.environ
         process_modules_raw = env.get('PROCESS_MODULES', '')
+        from lifecycle.modules.colocate import (  # noqa: WPS433
+            colocated_module_names_from_env,
+            parse_bridge_colocate,
+        )
+
+        colocate_on = (
+            parse_bridge_colocate(
+                env.get('BRIDGE_COLOCATE', ''),
+                transport=env.get('BRIDGE_TRANSPORT', 'local'),
+            )
+            == 'on'
+        )
         return cls(
             project_root,
             disabled=parse_disabled_modules_raw(env.get('DISABLED_MODULES', '')),
@@ -92,6 +110,8 @@ class ModuleCatalog:
             microservice_modules=parse_microservice_modules(env),
             process_modules=parse_csv_modules(process_modules_raw),
             process_modules_explicit=bool(process_modules_raw.strip()),
+            colocated_modules=colocated_module_names_from_env(env),
+            colocate_enabled=colocate_on,
         )
 
     @classmethod
@@ -174,22 +194,30 @@ class ModuleCatalog:
         return None
 
     def is_core_api_process(self) -> bool:
-        """
-        HTTP-процесс ядра (start_api): в microservice исключает MICROSERVICE_MODULES.
-
-        Worker без ``--module`` по-прежнему грузит все non-disabled.
-        ``start_api`` обязан выставлять ``ERGO_PROCESS_ROLE=api``.
-        """
+        """HTTP-процесс ядра (start_api). ``start_api`` ставит ``ERGO_PROCESS_ROLE=api``."""
         return self._process_role in _CORE_API_PROCESS_ROLES
 
     def is_core_schedule_process(self) -> bool:
-        """HTTP ядра или общий Beat: в microservice не грузит MICROSERVICE_MODULES."""
+        """HTTP ядра или общий Beat."""
         return self._process_role in _CORE_SCHEDULE_PROCESS_ROLES
+
+    def is_core_side_process(self) -> bool:
+        """Не процесс модуля: API, beat, worker и команды Django без роли.
+
+        Пустой ``ERGO_PROCESS_ROLE`` на ядре — тоже сторона ядра, а не «грузи все».
+        """
+        return self.module_process_name() is None
 
     def is_loadable_in_process(self, module_name: str) -> bool:
         """Модуль должен попасть в INSTALLED_APPS / URL discovery этого процесса."""
         if not module_name or module_name in self._disabled:
             return False
+
+        if (
+            self._colocate_enabled
+            and module_name in self._colocated_modules
+        ):
+            return True
 
         if self._process_modules_explicit:
             return module_name in self._process_modules
@@ -198,9 +226,8 @@ class ModuleCatalog:
         if module_only is not None:
             return module_name == module_only
 
-        if self.is_microservice_mode() and self.is_core_schedule_process():
-            if module_name in self._microservice_modules:
-                return False
+        if self.is_microservice_mode() and module_name in self._microservice_modules:
+            return False
 
         return True
 
@@ -208,12 +235,15 @@ class ModuleCatalog:
         """Строка для инвалидации кэша discovered_apps при смене роли/режима."""
         allow = ','.join(sorted(self._process_modules)) if self._process_modules_explicit else ''
         ms = ','.join(sorted(self._microservice_modules))
+        colocated = ','.join(sorted(self._colocated_modules))
         return (
             f'runtime={self._module_runtime};'
             f'role={self._process_role};'
             f'microservice={ms};'
             f'process={allow};'
-            f'explicit={int(self._process_modules_explicit)}'
+            f'explicit={int(self._process_modules_explicit)};'
+            f'colocate={int(self._colocate_enabled)};'
+            f'colocated={colocated}'
         )
 
     def cache_key_suffix(self) -> str:

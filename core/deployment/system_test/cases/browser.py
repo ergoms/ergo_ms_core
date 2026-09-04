@@ -6,7 +6,12 @@ import json
 import os
 import subprocess
 
-from project_layout import cache_playwright_dir, ensure_dir, npm_root_dir
+from project_layout import (
+    cache_playwright_dir,
+    ensure_dir,
+    nodejs_bin_dir,
+    npm_root_dir,
+)
 
 from ..environment import IsolatedEnvironment, venv_python
 from ..report import CaseResult
@@ -29,33 +34,41 @@ class BrowserCoreCase(SystemCase):
         if callable(start_client):
             start_client()
         browsers = ensure_dir(cache_playwright_dir(env.workspace))
-        run_env = os.environ.copy()
-        run_env['ERGO_E2E_BASE_URL'] = env.client_base()
-        run_env['ERGO_E2E_USER'] = creds['username']
-        run_env['ERGO_E2E_PASSWORD'] = creds['password']
-        run_env['PLAYWRIGHT_BROWSERS_PATH'] = str(browsers)
-        subprocess.run(
-            ['npx', 'playwright', 'install', 'chromium'],
-            cwd=str(npm_root),
-            capture_output=True,
-            text=True,
-            encoding='utf-8',
-            errors='replace',
-            check=False,
-            timeout=600,
-            env=run_env,
+        run_env = _playwright_env(
+            env.workspace,
+            {
+                'ERGO_E2E_BASE_URL': env.client_base(),
+                'ERGO_E2E_USER': creds['username'],
+                'ERGO_E2E_PASSWORD': creds['password'],
+                'PLAYWRIGHT_BROWSERS_PATH': str(browsers),
+            },
         )
-        result = subprocess.run(
-            ['npx', 'playwright', 'test', '-c', str(config)],
-            cwd=str(npm_root),
-            capture_output=True,
-            text=True,
-            encoding='utf-8',
-            errors='replace',
-            check=False,
-            timeout=1800,
-            env=run_env,
-        )
+        npx = _npx_cmd(env.workspace)
+        try:
+            subprocess.run(
+                [npx, 'playwright', 'install', 'chromium'],
+                cwd=str(npm_root),
+                capture_output=True,
+                text=True,
+                encoding='utf-8',
+                errors='replace',
+                check=False,
+                timeout=600,
+                env=run_env,
+            )
+            result = subprocess.run(
+                [npx, 'playwright', 'test', '-c', str(config)],
+                cwd=str(npm_root),
+                capture_output=True,
+                text=True,
+                encoding='utf-8',
+                errors='replace',
+                check=False,
+                timeout=1800,
+                env=run_env,
+            )
+        except FileNotFoundError:
+            return CaseResult(self.name, self.domain, 'skip', 'npx не найден')
         if result.returncode != 0:
             tail = ((result.stderr or '') + '\n' + (result.stdout or ''))[-1500:]
             lowered = tail.lower()
@@ -63,6 +76,32 @@ class BrowserCoreCase(SystemCase):
                 return CaseResult(self.name, self.domain, 'skip', 'Playwright не установлен')
             return CaseResult(self.name, self.domain, 'fail', tail)
         return CaseResult(self.name, self.domain, 'ok', 'login/home/user')
+
+
+def _playwright_env(workspace, extra: dict[str, str]) -> dict[str, str]:
+    run_env = os.environ.copy()
+    run_env.update(extra)
+    node_bin = nodejs_bin_dir(workspace)
+    npm_bin = npm_root_dir(workspace) / 'node_modules' / '.bin'
+    sep = ';' if os.name == 'nt' else ':'
+    parts: list[str] = []
+    if node_bin.is_dir():
+        parts.append(str(node_bin))
+    if npm_bin.is_dir():
+        parts.append(str(npm_bin))
+    if parts:
+        run_env['PATH'] = sep.join([*parts, run_env.get('PATH', '')])
+    return run_env
+
+
+def _npx_cmd(workspace) -> str:
+    node_bin = nodejs_bin_dir(workspace)
+    names = ('npx.cmd', 'npx.exe', 'npx') if os.name == 'nt' else ('npx',)
+    for name in names:
+        candidate = node_bin / name
+        if candidate.is_file():
+            return str(candidate)
+    return 'npx.cmd' if os.name == 'nt' else 'npx'
 
 
 def _provision_password(env: IsolatedEnvironment) -> dict[str, str] | None:
