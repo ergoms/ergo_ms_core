@@ -338,6 +338,7 @@ ergoms restore-menu
 ergoms maintenance-on
 ergoms maintenance-off
 ergoms maintenance-status
+ergoms logs-status
 ergoms rotate-logs
 ergoms install-infra-log-rotate
 ergoms invalidate-caches-warmup
@@ -346,7 +347,7 @@ ergoms deploy-client
 ergoms deploy-all
 ```
 
-`restore-menu` — восстановление пунктов бокового меню из миграций. `maintenance-on/off` — режим технических работ без перезапуска служб; `maintenance-status` — текущее состояние. `rotate-logs` — ротация журналов nginx, Redis и client-dev; `install-infra-log-rotate` — ежедневный планировщик ротации. `invalidate-caches-warmup` — сброс кэшей ядра и прогрев.
+`restore-menu` — восстановление пунктов бокового меню из миграций. `maintenance-on/off` — режим технических работ без перезапуска служб; `maintenance-status` — текущее состояние. `logs-status` — сколько места занимает каталог `logs/`. `rotate-logs` — ротация infra-журналов по размеру и сжатие копий; `install-infra-log-rotate` — планировщик ротации (по умолчанию каждый час). `invalidate-caches-warmup` — сброс кэшей ядра и прогрев.
 
 ## Системные службы (Linux / Windows)
 
