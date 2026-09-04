@@ -67,7 +67,7 @@ BRIDGE_SERVICE_URLS=<peer>=http://peer.example:8000
 
 Не добавляйте `<peer>` в `MICROSERVICE_MODULES` на этом хосте. Токен `BRIDGE_INTERNAL_TOKEN` одинаковый на обоих концах. Пользователей связывают по `public_id`.
 
-**Microservice (приближение к боевому).** Отдельный API модуля за nginx, HTTP-мост, worker только своей очереди:
+**Microservice (приближение к боевому).** Отдельный API модуля за nginx, HTTP-мост, worker только своей очереди. Соседи на этой машине (`127.0.0.1` / тот же хост) при `BRIDGE_COLOCATE=auto` вызываются в процессе; на другой сервер уходит HTTP.
 
 ```cmd
 MODULE_RUNTIME=microservice

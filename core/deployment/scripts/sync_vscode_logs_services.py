@@ -33,10 +33,10 @@ from module_tasks_loader import (  # noqa: E402
 from logs_paths import parse_module_process_unit  # noqa: E402
 from service_names import names_from_root  # noqa: E402
 
-_MODULE_PROCESS_DESCRIPTIONS = {
-    'api': 'Module API ({module})',
-    'worker': 'Module Celery Worker ({module})',
-    'beat': 'Module Celery Beat ({module})',
+_SHARED_PROCESS_DESCRIPTIONS = {
+    'api': 'Shared microservice API',
+    'worker': 'Shared Celery Worker',
+    'beat': 'Shared Celery Beat',
 }
 
 # Имена target для extension provider: ergo-sync
@@ -190,12 +190,8 @@ def _celery_worker_keys(project_root: Path | None = None) -> list[str]:
     return [str(key) for key in workers]
 
 
-def _module_process_log_services(
-    project_root: Path | None = None,
-    *,
-    with_commands: bool = True,
-) -> list[dict[str, str]]:
-    """API / worker / Beat модулей из host_lifecycle (MODULE_RUNTIME=microservice)."""
+def _module_process_log_kinds(project_root: Path | None = None) -> set[str]:
+    """Какие из api/worker/beat есть у микросервисов (host_lifecycle + профиль)."""
     from env_file_loader import load_project_env  # noqa: WPS433
     from host_lifecycle_loader import (  # noqa: WPS433
         allows_module_kind,
@@ -208,25 +204,59 @@ def _module_process_log_services(
     file_env = load_project_env(root)
     catalog = ModuleCatalog.from_env(root, file_env)
     host_profile = resolve_host_profile(file_env)
-    items: list[dict[str, str]] = []
+    kinds: set[str] = set()
     for entry in load_host_lifecycle_entries(str(root)):
         for unit in entry.service_units:
             parsed = parse_module_process_unit(unit)
             if parsed is None:
                 continue
             _module_name, kind = parsed
+            if kind not in _SHARED_PROCESS_DESCRIPTIONS:
+                continue
             if not allows_module_kind(catalog, host_profile, entry.module, kind):
                 continue
-            template = _MODULE_PROCESS_DESCRIPTIONS.get(kind)
-            if template is None:
-                continue
-            items.append(
-                _svc(
-                    unit,
-                    template.format(module=entry.module),
-                    command=f'ergoms logs {unit} 500' if with_commands else '',
-                )
+            kinds.add(kind)
+    return kinds
+
+
+def _shared_log_key(kind: str, names) -> str:
+    if kind == 'api':
+        return names.api_dev
+    if kind == 'worker':
+        return names.celery_worker_base
+    if kind == 'beat':
+        return names.celery_beat
+    raise ValueError(f'unknown shared log kind: {kind}')
+
+
+def _shared_microservice_log_services(
+    project_root: Path | None = None,
+    *,
+    with_commands: bool = True,
+    existing_keys: set[str] | None = None,
+) -> list[dict[str, str]]:
+    """Три общих хвоста, не отдельный терминал на каждый модуль."""
+    root = project_root or PROJECT_ROOT
+    names = names_from_root(root)
+    skip = set(existing_keys or ())
+    kinds = _module_process_log_kinds(root)
+    items: list[dict[str, str]] = []
+    for kind in ('api', 'worker', 'beat'):
+        if kind not in kinds:
+            continue
+        key = _shared_log_key(kind, names)
+        if key in skip:
+            continue
+        if kind == 'worker' and any(names.is_celery_worker(item) for item in skip):
+            continue
+        items.append(
+            _svc(
+                key,
+                _SHARED_PROCESS_DESCRIPTIONS[kind],
+                command=f'ergoms logs {key} 500' if with_commands else '',
             )
+        )
+        skip.add(key)
     return items
 
 
@@ -256,7 +286,13 @@ def _module_services(
 def build_logs_services(project_root: Path | None = None) -> list[dict[str, str]]:
     root = project_root or PROJECT_ROOT
     items = list(_core_log_services(with_commands=False, project_root=root))
-    items.extend(_module_process_log_services(root, with_commands=False))
+    items.extend(
+        _shared_microservice_log_services(
+            root,
+            with_commands=False,
+            existing_keys={item['key'] for item in items},
+        )
+    )
     return items
 
 
@@ -277,7 +313,13 @@ def build_logs_all_services(project_root: Path | None = None) -> list[dict[str, 
                     command=f'ergoms logs {unit} 500',
                 )
             )
-    items.extend(_module_process_log_services(root, with_commands=True))
+    items.extend(
+        _shared_microservice_log_services(
+            root,
+            with_commands=True,
+            existing_keys={item['key'] for item in items},
+        )
+    )
     items.extend(_module_services(INCLUDE_LOGS_ALL, root))
     return items
 

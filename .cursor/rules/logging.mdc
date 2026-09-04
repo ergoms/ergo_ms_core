@@ -40,7 +40,7 @@ alwaysApply: false
 | `ergoms.log` | остальные конечные команды `ergoms` (не `logs`/`help` и не долгий start/dev) |
 | `<service>.stderr.log` | crash/traceback служб (не дублирует app-логи) |
 
-OS-службы модуля (`{prefix}_module_<name>_api|worker|beat`) пишут в те же общие файлы: API → `api.log`, worker → `celery_worker.log`, Beat → `celery_beat.log`. `ergoms logs` и **Logs: All Services** в microservice показывают эти процессы.
+OS-службы модуля (`{prefix}_module_<name>_api|worker|beat`) пишут в те же общие файлы: API → `api.log`, worker → `celery_worker.log`, Beat → `celery_beat.log`. `ergoms logs` принимает и имя модуля, и общий ключ (`ergo_ms_api_dev`, `ergo_ms_celery_worker`, `ergo_ms_celery_beat`). **Logs: All Services** в microservice открывает эти три хвоста, а не отдельный терминал на каждый модуль.
 
 **Ротация:** Python (`api.log`, Celery, …) — `RotatingFileHandler` (`ERGO_LOG_MAX_BYTES`). nginx / Redis / `client-dev.log` / `ollama-serve.log` / `jupyter.log` / `meilisearch.log` / `postgresql.log` / `setup-full.log` / `ergoms.log` — `ergoms rotate-logs` (`ERGO_LOG_INFRA_*`); ежедневно — `ergoms install-infra-log-rotate`. Сессия CLI перед записью тоже крутит файл по `ERGO_LOG_MAX_BYTES`.
 

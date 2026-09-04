@@ -7,7 +7,8 @@ from pathlib import Path
 import _bootstrap  # noqa: F401
 
 from sync_vscode_logs_services import (  # noqa: E402
-    _module_process_log_services,
+    _module_process_log_kinds,
+    _shared_microservice_log_services,
     build_logs_all_services,
 )
 
@@ -52,33 +53,44 @@ class SyncVscodeLogsMicroserviceTests(unittest.TestCase):
             encoding='utf-8',
         )
 
-    def test_microservice_lists_module_api_worker_beat(self) -> None:
+    def test_microservice_shares_three_process_logs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._env(root, profile='modules', runtime='microservice', modules='demo_mod')
             self._write_module_host(root, 'demo_mod', with_beat=True)
-            items = _module_process_log_services(root, with_commands=True)
+            self.assertEqual(
+                _module_process_log_kinds(root),
+                {'api', 'worker', 'beat'},
+            )
+            items = _shared_microservice_log_services(root, with_commands=True)
             keys = [item['key'] for item in items]
             self.assertEqual(
                 keys,
                 [
-                    'ergo_ms_module_demo_mod_api',
-                    'ergo_ms_module_demo_mod_worker',
-                    'ergo_ms_module_demo_mod_beat',
+                    'ergo_ms_api_dev',
+                    'ergo_ms_celery_worker',
+                    'ergo_ms_celery_beat',
                 ],
             )
             self.assertTrue(all(item['command'].startswith('ergoms logs ') for item in items))
-            self.assertIn('Module API (demo_mod)', [item['description'] for item in items])
+            self.assertEqual(
+                [item['description'] for item in items],
+                [
+                    'Shared microservice API',
+                    'Shared Celery Worker',
+                    'Shared Celery Beat',
+                ],
+            )
 
-    def test_monolith_skips_module_process_logs(self) -> None:
+    def test_monolith_skips_shared_microservice_logs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._env(root, profile='full', runtime='monolith', modules='')
             self._write_module_host(root, 'demo_mod', with_beat=True)
-            items = _module_process_log_services(root)
-            self.assertEqual(items, [])
+            self.assertEqual(_module_process_log_kinds(root), set())
+            self.assertEqual(_shared_microservice_log_services(root), [])
 
-    def test_modules_host_logs_all_omits_core_api_and_yaml_workers(self) -> None:
+    def test_modules_host_logs_all_uses_shared_keys_not_per_module(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._env(root, profile='modules', runtime='microservice', modules='demo_mod')
@@ -88,12 +100,13 @@ class SyncVscodeLogsMicroserviceTests(unittest.TestCase):
                 encoding='utf-8',
             )
             keys = [item['key'] for item in build_logs_all_services(root)]
-            self.assertNotIn('ergo_ms_api_dev', keys)
-            self.assertNotIn('ergo_ms_celery_beat', keys)
             self.assertNotIn('ergo_ms_celery_worker_all', keys)
-            self.assertIn('ergo_ms_module_demo_mod_api', keys)
-            self.assertIn('ergo_ms_module_demo_mod_worker', keys)
-            self.assertIn('ergo_ms_module_demo_mod_beat', keys)
+            self.assertNotIn('ergo_ms_module_demo_mod_api', keys)
+            self.assertNotIn('ergo_ms_module_demo_mod_worker', keys)
+            self.assertNotIn('ergo_ms_module_demo_mod_beat', keys)
+            self.assertIn('ergo_ms_api_dev', keys)
+            self.assertIn('ergo_ms_celery_worker', keys)
+            self.assertIn('ergo_ms_celery_beat', keys)
 
 
 if __name__ == '__main__':
