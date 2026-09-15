@@ -13,7 +13,7 @@
 
 Отключённый модуль (`DISABLED_MODULES` в `.env`) не участвует в discovery, зависимостях, меню и Docker build context — см. [configuration.md](configuration.md#настройки-модулей).
 
-Проверка изоляции и контрактов: `ergoms core-rules-check` (в том числе наличие `README.md` и `AGENTS.md` у установленного модуля). Вынос в отдельный процесс и схему — [modularization.md](modularization.md). Правила для агента Cursor: [`.cursor/rules/modules.mdc`](../.cursor/rules/modules.mdc), [`.cursor/rules/core-module-isolation.mdc`](../.cursor/rules/core-module-isolation.mdc), [`.cursor/rules/module-contracts.mdc`](../.cursor/rules/module-contracts.mdc), [`.cursor/rules/modularization.mdc`](../.cursor/rules/modularization.mdc). Документация самого модуля (`AGENTS.md`, `.cursor/rules/`, `README.md`) — [`.cursor/rules/module-docs.mdc`](../.cursor/rules/module-docs.mdc): обновляйте её вместе с контрактами и безопасностью.
+Проверка изоляции и контрактов: `ergoms core-rules-check` (в том числе наличие `README.md` и `AGENTS.md` у установленного модуля). Вынос в отдельный процесс и схему — [modularization.md](modularization.md). Правила для агента Cursor: [`.cursor/rules/modules.mdc`](../.cursor/rules/modules.mdc), [`.cursor/rules/core-module-isolation.mdc`](../.cursor/rules/core-module-isolation.mdc), [`.cursor/rules/module-contracts.mdc`](../.cursor/rules/module-contracts.mdc), [`.cursor/rules/modularization.mdc`](../.cursor/rules/modularization.mdc). Документация самого модуля (`AGENTS.md`, `BEHAVIOR.md`, `.cursor/rules/`, `README.md`) — [`.cursor/rules/module-docs.mdc`](../.cursor/rules/module-docs.mdc): обновляйте её вместе с контрактами и безопасностью. Устойчивые пожелания из чата («как должен работать модуль») пишите в `BEHAVIOR.md` — [`.cursor/rules/module-behavior.mdc`](../.cursor/rules/module-behavior.mdc).
 
 ## Карта каталога модуля
 
@@ -50,6 +50,7 @@ modules/<имя>/
 ├── mcp/                        # MCP-сервер для Cursor
 ├── .cursor/rules/              # правила Cursor модуля
 ├── AGENTS.md                   # обязательный указатель для агента
+├── BEHAVIOR.md                 # как должен работать модуль (нормы из чата)
 ├── README.md                   # обязательный обзор для человека
 ├── ergoms.conf                 # команды ergoms <имя>:<команда>
 ├── ergoms.help.yaml            # справка help module
@@ -74,6 +75,7 @@ modules/<имя>/
 | Фоновые задачи | `api/tasks.py` + `celery_config.py` |
 | Вызов из другого модуля / ядра | ModuleBridge в `integrations.py` |
 | Пакет справки | `api/user_guides/*.md`, `user_description` и автокаталог экранов (маршруты, поля, кнопки); процесс пишет `knowledge/<имя>/`, чтение — `load_published_pack_documents` |
+| Сводка «как должен работать» из чата | `BEHAVIOR.md` в корне модуля |
 | Своя схема PostgreSQL / запрет FK наружу | `api/schema.yaml` + [modularization.md](modularization.md) |
 | Обязательная / расширяющая зависимость модуля | `integrations.yaml` (`requires` / `extends`) |
 | Свои команды CLI | `ergoms.conf` + `ergoms.help.yaml` |
@@ -312,6 +314,8 @@ Lock ядра не должен впитывать модульные пакет
 ### Правила модуля
 
 Доменные инструкции агенту — в `modules/<имя>/.cursor/rules/*.mdc` (globs от корня workspace: `modules/<имя>/**`) и кратко в `AGENTS.md`. Подхват: расширение **ERGO MS Module Cursor Rules** (`ergoms install-extensions`, команда Sync Module Cursor Rules). Платформенные правила остаются в корневом `.cursor/rules/`.
+
+Устойчивые пожелания из чата («должно быть так», «не так») агент записывает в `modules/<имя>/BEHAVIOR.md` и при работе с модулем читает этот файл первым. Это не журнал переписки и не замена `README.md`. Правило: [`.cursor/rules/module-behavior.mdc`](../.cursor/rules/module-behavior.mdc).
 
 ### MCP-сервер модуля
 

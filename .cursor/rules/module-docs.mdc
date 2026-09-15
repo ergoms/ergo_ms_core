@@ -1,8 +1,9 @@
 ---
-description: Документация модуля — AGENTS.md, .cursor/rules, README; обновлять при смене контрактов, безопасности, CLI и hooks
+description: Документация модуля — AGENTS.md, BEHAVIOR.md, .cursor/rules, README; обновлять при смене контрактов, безопасности, CLI и hooks
 globs:
   - "modules/**/README.md"
   - "modules/**/AGENTS.md"
+  - "modules/**/BEHAVIOR.md"
   - "modules/**/.cursor/rules/**"
   - "modules/**/ergoms.help.yaml"
   - "modules/**/ergoms.conf"
@@ -21,6 +22,7 @@ alwaysApply: false
 |-----------|------|------------|
 | Агент (кратко) | `AGENTS.md` | куда смотреть, обязательно / запрещено, ключевые команды |
 | Агент (детали) | `.cursor/rules/*.mdc` | globs `modules/<name>/**`, чеклист, BAD/GOOD |
+| Как должен работать | `BEHAVIOR.md` | устойчивые нормы из чата; появляется при первом пожелании — [`module-behavior.mdc`](module-behavior.mdc) |
 | Люди | `README.md` | назначение, зависимости, настройка `.env`, команды ergoms |
 | CLI | `ergoms.help.yaml` (+ `locales/<lang>/`) | справка `ergoms help module` |
 | Учебный эталон | `modules/module_template/` | HOWTO + living patterns |
@@ -38,6 +40,7 @@ alwaysApply: false
 5. **CLI** — новые/удалённые команды в `ergoms.conf` → `ergoms.help.yaml` и overlays
 6. **Клиентские hooks** — routes, endpoints, theme-defaults, proxy вместо чужого REST
 7. **Вынос процесса / данных** — `api/schema.yaml`, `api/bridge_manifest.yaml`
+8. **Нормы из чата** — новое или изменённое «так / не так» → `BEHAVIOR.md` ([`module-behavior.mdc`](module-behavior.mdc))
 
 Мелкий внутренний рефактор без смены поведения — документацию не раздувай.
 
@@ -47,6 +50,7 @@ alwaysApply: false
 |----------|--------|
 | `AGENTS.md` | всегда (fallback без sync `.mdc`) |
 | `README.md` | всегда (для человека: назначение, зависимости, `.env`, ergoms) |
+| `BEHAVIOR.md` | когда в чате появилось устойчивое «так / не так»; пустой файл не создавай |
 | `.cursor/rules/<topic>.mdc` | доменные запреты и эталоны кода |
 | `.env.example` | есть модульные переменные окружения |
 | `ergoms.help.yaml` | есть `ergoms.conf` |
@@ -57,7 +61,9 @@ alwaysApply: false
 
 ## Структура
 
-**`AGENTS.md`** — короткий указатель (ориентир до ~40 строк): роль модуля → куда смотреть → запрещено → обязательно → команды.
+**`AGENTS.md`** — короткий указатель (ориентир до ~40 строк): роль модуля → куда смотреть → запрещено → обязательно → команды. Если есть `BEHAVIOR.md`, в «Куда смотреть» одна строка на этот файл.
+
+**`BEHAVIOR.md`** — сводка, как должен работать модуль по словам пользователя в чате. Не копия README и не platform-правила ядра. Когда писать и как формулировать — [`module-behavior.mdc`](module-behavior.mdc).
 
 **`.mdc` модуля** — одна тема на файл; frontmatter:
 
@@ -75,6 +81,7 @@ alwaysApply: false
 ## Запрещено
 
 - Править код модуля и **не** обновить устаревший запрет/контракт в `AGENTS.md` / `.mdc` / README
+- Игнорировать `BEHAVIOR.md` при работе с модулем или не записать туда новое устойчивое пожелание из чата
 - Класть домен модуля только в корневой `.cursor/rules/` (новые доменные правила — в модуле)
 - `alwaysApply: true` на модульных `.mdc`
 - Дублировать platform-правила ядра вместо ссылки
@@ -106,6 +113,7 @@ alwaysApply: false
 | Тема | Файл |
 |------|------|
 | Когда создавать docs в целом | [`docs.mdc`](docs.mdc) |
+| Пожелания из чата → BEHAVIOR.md | [`module-behavior.mdc`](module-behavior.mdc) |
 | Стиль текста | [`writing-docs-and-rules.mdc`](writing-docs-and-rules.mdc) |
 | Структура модуля | [`modules.mdc`](modules.mdc) |
 | Cursor rules модуля | [`module-cursor-rules.mdc`](module-cursor-rules.mdc) |

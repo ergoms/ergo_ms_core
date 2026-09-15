@@ -73,7 +73,7 @@ alwaysApply: false        # true — только неснимаемый мин�
 
 | Поле | Когда |
 |------|--------|
-| `alwaysApply: true` | **Только** то, без чего агент ломает проект в любой задаче: isolation, ergoms, `virtual_env`, краткий security-чеклист, краткая архитектура, куда коммитить, `docs`/`code`/`clarifying-questions`, тон ответов в чате. Не справочники и не UI-компоненты |
+| `alwaysApply: true` | **Только** то, без чего агент ломает проект в любой задаче: isolation, ergoms, `virtual_env`, краткий security-чеклист, краткая архитектура, куда коммитить, `docs`/`code`/`clarifying-questions`, тон ответов в чате, пожелания модуля в `BEHAVIOR.md`. Не справочники и не UI-компоненты |
 | `globs` | YAML-список паттернов (`- pattern`). Не CSV-строка в кавычках, не `{a,b}` / `*.{vue,js}`. **Не** комбинируй с `alwaysApply: true` |
 | `description` без globs | Agent Requested: справочники (Celery, Docker, audit) — агент подтягивает по ключевым словам |
 | `description` | 1 предложение; nouns из реальных задач (`SelectBox`, `migrate`, `ModuleBridge`, `nginx`) |
@@ -121,6 +121,7 @@ modules/<name>/
   .cursor/rules/
     <topic>.mdc
   AGENTS.md                 # короткий fallback без расширения
+  BEHAVIOR.md               # как должен работать модуль (нормы из чата)
 ```
 
 | Что | Где |
@@ -128,6 +129,7 @@ modules/<name>/
 | Platform (isolation, ergoms, security, ModuleBridge) | корневой `.cursor/rules/` |
 | Домен модуля | `modules/<name>/.cursor/rules/*.mdc` |
 | Fallback без Cursor plugins API | `modules/<name>/AGENTS.md` |
+| Нормы «так / не так» из чата | `modules/<name>/BEHAVIOR.md` — [`module-behavior.mdc`](module-behavior.mdc) |
 
 Frontmatter модульного `.mdc`:
 
