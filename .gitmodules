@@ -222,3 +222,10 @@
 	branch = dev
 	update = merge
 	ignore = all
+
+[submodule "modules/messenger"]
+	path = modules/messenger
+	url = https://github.com/ergoms/ergo_ms_messenger.git
+	branch = dev
+	update = merge
+	ignore = all

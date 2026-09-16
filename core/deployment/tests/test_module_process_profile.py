@@ -19,18 +19,18 @@ class ModuleProcessProfileTests(unittest.TestCase):
     def test_full_does_not_filter(self) -> None:
         env = {'ERGO_PROCESS_ROLE': 'module:demo', 'MODULE_PROCESS_PROFILE': 'full'}
         self.assertFalse(is_slim_module_process(env))
-        apps = ['src.core.audit', 'src.core.search', 'src.core.messenger']
+        apps = ['src.core.audit', 'src.core.search', 'src.core.jupyter']
         self.assertEqual(filter_core_apps(apps, None, env), apps)
 
     def test_slim_keeps_platform_drops_optional(self) -> None:
         env = {'ERGO_PROCESS_ROLE': 'module:demo', 'MODULE_PROCESS_PROFILE': 'slim'}
         self.assertTrue(is_slim_module_process(env))
-        apps = ['src.core.audit', 'src.core.cms', 'src.core.search', 'src.core.messenger']
+        apps = ['src.core.audit', 'src.core.cms', 'src.core.search', 'src.core.jupyter']
         kept = filter_core_apps(apps, None, env)
         self.assertIn('src.core.audit', kept)
         self.assertIn('src.core.cms', kept)
         self.assertNotIn('src.core.search', kept)
-        self.assertNotIn('src.core.messenger', kept)
+        self.assertNotIn('src.core.jupyter', kept)
 
     def test_slim_extra_from_env(self) -> None:
         env = {
