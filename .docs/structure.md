@@ -17,7 +17,7 @@
 В корне проекта:
 
 - **`.env`** — общие настройки и режимы `ERGO_*` (из `.env.example`, в том числе при `setup-full`).
-- **`env/`** — фрагменты `nginx`, `docker`, `jupyter`, `smtp`, `logging`, `mcp`, `media`, `realtime`, `cache`, `celery` (из `env/*.example`).
+- **`env/`** — фрагменты `nginx`, `docker`, `jupyter`, `smtp`, `logging`, `mcp`, `kaggle`, `media`, `realtime`, `cache`, `celery` (из `env/*.example`).
 - **`databases.yaml`** — каталог подключений SQL и Redis (из `databases.yaml.example`).
 - **`celery_workers.yaml`** — какие очереди обслуживает каждый исполнитель Celery.
 

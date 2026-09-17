@@ -151,6 +151,11 @@ class ConfigTemplateRegistry:
                 FullCopyStrategy(),
             ),
             ConfigTemplate(
+                'env/kaggle.env.example',
+                'env/kaggle.env',
+                FullCopyStrategy(),
+            ),
+            ConfigTemplate(
                 'env/media.env.example',
                 'env/media.env',
                 FullCopyStrategy(),

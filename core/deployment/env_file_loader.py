@@ -17,6 +17,7 @@ _FRAGMENT_PRIORITY = (
     'smtp.env',
     'logging.env',
     'mcp.env',
+    'kaggle.env',
     'media.env',
     'realtime.env',
     'cache.env',

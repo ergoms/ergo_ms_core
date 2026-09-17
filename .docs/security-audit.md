@@ -80,7 +80,7 @@ class ImportUsersView(MediaApiFileMixin, BaseAPIViewAuthMixin):
 
 ### К3. Шаблоны конфигурации содержат рабочие значения секретов
 
-**Где:** [.env.example](../.env.example), [env/mcp.env.example](../env/mcp.env.example), [databases.yaml.example](../databases.yaml.example).
+**Где:** [.env.example](../.env.example), [env/mcp.env.example](../env/mcp.env.example), [env/kaggle.env.example](../env/kaggle.env.example), [databases.yaml.example](../databases.yaml.example).
 
 ```dotenv
 API_SECRET_KEY=secret_key

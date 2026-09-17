@@ -117,6 +117,8 @@ const filterFields = computed(() => [
 }
 ```
 
+Боковой список значений (`flyout`) растёт по самому длинному пункту, до 640px или края окна. Текст пункта не обрезается многоточием: если ширина упёрлась в потолок, подпись переносится на следующую строку.
+
 Toolbar layout: `SearchInput` — `flex: 1 1 0`, FilterMenu — `flex: 0 0 auto`. Обёртка для tooltip: `:deep(.hover-tooltip) { display: contents; }`.
 
 ## Связанные правила
