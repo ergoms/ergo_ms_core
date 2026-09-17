@@ -126,7 +126,7 @@ ADMIN_PASSWORD=admin
 
 ### В3. Мессенджер разрешает доступ по умолчанию
 
-**Где:** [core/api/src/core/messenger/access.py](../core/api/src/core/messenger/access.py), строки 30–32.
+**Где:** [core/api/src/core/realtime/room_access.py](../core/api/src/core/realtime/room_access.py).
 
 ```python
     if hasattr(obj, 'has_messenger_access'):

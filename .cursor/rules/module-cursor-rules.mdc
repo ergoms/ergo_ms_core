@@ -56,6 +56,7 @@ alwaysApply: false
 |------|------|
 | Структура модуля | [`modules.mdc`](modules.mdc) |
 | Документация модуля (AGENTS/README) | [`module-docs.mdc`](module-docs.mdc) |
+| Пожелания из чата → BEHAVIOR.md | [`module-behavior.mdc`](module-behavior.mdc) |
 | MCP модулей | [`mcp.mdc`](mcp.mdc) |
 | Стиль `.mdc` | [`writing-docs-and-rules.mdc`](writing-docs-and-rules.mdc) |
 | Изоляция ядра | [`core-module-isolation.mdc`](core-module-isolation.mdc) |
