@@ -7,12 +7,13 @@ alwaysApply: false
 Файл: `core/client/src/js/utils/timeUtils.js`.
 
 ```javascript
-import { getRelativeTime, formatDateTime } from '@/js/utils/timeUtils.js'
+import { getRelativeTime, formatDateTime, formatChatListTime } from '@/js/utils/timeUtils.js'
 ```
 
 | Задача | Функция |
 |--------|---------|
 | «5 минут назад» | `getRelativeTime` |
+| Список чатов (сегодня часы, вчера слово, иначе дата) | `formatChatListTime` |
 | Дата и время | `formatDateTime` |
 | Дата словами и время | `formatDateTimeLong` |
 | Дата со днём недели и временем | `formatDateWeekdayTime` |

@@ -337,7 +337,7 @@ import { MoreHorizontal, Edit, Trash2 } from '@lucide/vue'
 
 Компоненты: [`DocumentViewer.vue`](../../core/client/src/components/DocumentViewer.vue), [`DocumentViewerModal.vue`](../../core/client/src/components/DocumentViewerModal.vue). Файл грузится через `fetchMediaBlob` из [`mediaPreview.js`](../../core/client/src/js/utils/mediaPreview.js), не через iframe `/serve/` (`X-Frame-Options: DENY`).
 
-PDF — `pdfjs-dist` (worker из бандла). DOCX — `docx-preview`. Старый `.doc`, таблицы и архивы — кнопка «Скачать». Компонент подключай через `defineAsyncComponent`. На панели PDF: масштаб, книжная/альбомная ориентация, показ 1 / 2 / 4 страниц.
+PDF — `pdfjs-dist` (worker из бандла). DOCX — `docx-preview`. Старый `.doc`, таблицы и архивы — кнопка «Скачать». Компонент подключай через `defineAsyncComponent`. На панели PDF: масштаб, книжная/альбомная ориентация, показ 1 / 2 / 4 страниц. Лист страницы всегда белый, текст тёмный — даже в тёмной теме; рамка и панель остаются цветом интерфейса. DOCX рисуется стопкой листов с промежутком, не сплошной лентой; панель страниц как у PDF не нужна. При прокрутке DOCX снизу по центру на секунду показывается счётчик «N из M» в том же виде, что HoverTooltip.
 
 ```vue
 <script setup>
