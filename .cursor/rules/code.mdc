@@ -8,7 +8,7 @@ alwaysApply: true
 - Тесты модулей и точечные правки — только по просьбе пользователя. Правки развёртывания, `commands.conf`, служб ОС, docker/nginx, security стека и клиентского e2e — пиши и гоняй `ergoms system-test` по [`system-test.mdc`](system-test.mdc)
 - Файл — не больше **700** строк; длиннее — режь **по домену** (`def` / `class` / ответственность), не по номеру строки
 - SOLID, меньше дублирования; импорты вверху; внутри модуля — относительные, из ядра — `src.core...`
-- Тяжёлые задачи — **Celery**; в модуле — `config.py` CPU/GPU (по умолчанию GPU)
+- Тяжёлые задачи — **Celery**; в модуле — `config.py` CPU/GPU (по умолчанию GPU). Часовой расчёт не в shell Cursor: `--async`, чекпоинт, `--resume` — [`long-running-jobs.mdc`](long-running-jobs.mdc)
 - В командах и логах — без эмодзи
 - После задачи — убери лишний код и неиспользуемые импорты
 
@@ -32,3 +32,4 @@ alwaysApply: true
 | Celery | [`celery.mdc`](celery.mdc) |
 | Тесты | [`testing.mdc`](testing.mdc) |
 | Системные тесты | [`system-test.mdc`](system-test.mdc) |
+| Долгий расчёт | [`long-running-jobs.mdc`](long-running-jobs.mdc) |

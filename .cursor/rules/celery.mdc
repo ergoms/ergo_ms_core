@@ -70,6 +70,7 @@ ergoms logs celery-beat notifications 200
 | Docker, workers в compose | [`docker.mdc`](docker.mdc) |
 | Балансировщик concurrency | [`celery-balance.mdc`](celery-balance.mdc) |
 | Вынос модуля в сервис | [`modularization.mdc`](modularization.mdc) |
+| Долгий расчёт, пауза, --resume | [`long-running-jobs.mdc`](long-running-jobs.mdc) |
 
 ## Не делай
 
