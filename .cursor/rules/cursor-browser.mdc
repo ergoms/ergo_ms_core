@@ -42,4 +42,4 @@ alwaysApply: true
 | MCP читает те же поля | [`mcp.mdc`](mcp.mdc) |
 | Безопасность, секреты | [`security.mdc`](security.mdc) |
 | Живые проверки стека | [`system-test.mdc`](system-test.mdc) |
-| Окно проверки 1920×1280 | [`cursor-browser.local.mdc`](cursor-browser.local.mdc) |
+| SSH: браузер только в фоне | [`cursor-browser.local.mdc`](cursor-browser.local.mdc) |
