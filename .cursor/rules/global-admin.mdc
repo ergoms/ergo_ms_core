@@ -59,6 +59,7 @@ if PermissionService.is_admin(user):
 
 - Глобальный админ: `requiresGlobalAdmin` в маршрутах, `checkGlobalAdminAccess()` — не дублировать проверку через JWT-поля `is_superuser` / `is_staff` (их нет в клиентском контракте).
 - `permission-rules.js` — только UX; сервер обязан проверять через `PermissionService`.
+- Если отказ не должен отличаться от несуществующего адреса — `meta.notFoundIfDenied`, не карточка «нет доступа». [`route-concealment.mdc`](route-concealment.mdc)
 
 ## Связанные правила
 
@@ -67,3 +68,4 @@ if PermissionService.is_admin(user):
 | Безопасность auth/API | [`security.mdc`](security.mdc) |
 | Права модулей | [`modules.mdc`](modules.mdc) → `adp.permission_check` |
 | UX маршрутов | [`permission_rules.mdc`](permission_rules.mdc) |
+| Эмуляция 404 | [`route-concealment.mdc`](route-concealment.mdc) |

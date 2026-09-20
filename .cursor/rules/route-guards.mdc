@@ -44,7 +44,8 @@ export default organizationGuard
 
 | Тема | Файл |
 |------|------|
-| Права на маршруты (UX) | [`permission_rules.mdc`](permission_rules.mdc) |
+| Права на маршрутах (UX) | [`permission_rules.mdc`](permission_rules.mdc) |
+| Эмуляция 404 | [`route-concealment.mdc`](route-concealment.mdc) |
 | Вход за nginx, Login в matcher | [`nginx-spa-boot.mdc`](nginx-spa-boot.mdc) |
 | Архитектура hook-файлов | [`struct.mdc`](struct.mdc) |
 | Модули | [`modules.mdc`](modules.mdc) |

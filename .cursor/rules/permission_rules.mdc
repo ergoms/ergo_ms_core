@@ -42,4 +42,5 @@ export default [
 |------|------|
 | Сервер — источник истины | [`security.mdc`](security.mdc) |
 | Глобальный админ | [`global-admin.mdc`](global-admin.mdc) |
+| Эмуляция 404 | [`route-concealment.mdc`](route-concealment.mdc) |
 | Модули | [`modules.mdc`](modules.mdc) |
