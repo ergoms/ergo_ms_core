@@ -1,5 +1,5 @@
 ---
-description: Индекс UI-компонентов ядра — SelectBox, SearchInput, DecimalInput, DatePicker, ToggleSwitch, TriStateSwitch, DropZone, FormCard, FormField, SettingsCard, SettingsCardRow, FilterMenu, DropDown, DataTable, UserAvatar, DocumentViewer
+description: Индекс UI-компонентов ядра — SelectBox, SearchInput, DecimalInput, DatePicker, ToggleSwitch, TriStateSwitch, DropZone, FormCard, FormField, SettingsCard, SettingsCardRow, FilterMenu, DropDown, TabBar, DataTable, UserAvatar, DocumentViewer
 alwaysApply: false
 ---
 
@@ -22,6 +22,7 @@ alwaysApply: false
 | Настройки: карточка + строки label/hint/контрол | `SettingsCard`, `SettingsCardRow` | этот раздел |
 | Несколько фильтров в toolbar | `FilterMenu` | [`filter-menu.mdc`](filter-menu.mdc) |
 | Меню действий (⋯, контекст) | `DropDown` | этот раздел |
+| Вкладки страницы | `TabBar` | этот раздел |
 | Боковое меню приложения | `MenuList`, миграции `MenuItem` | [`menu.mdc`](menu.mdc) |
 | Загрузка списков без «мигания» | `LoadingContentArea` | [`loading-content-area.mdc`](loading-content-area.mdc) |
 | Быстрая прогрузка страниц | lazy-модалки, prefetch | [`client-perf.mdc`](client-perf.mdc) |
@@ -275,6 +276,46 @@ import { MoreHorizontal, Edit, Trash2 } from '@lucide/vue'
 ```
 
 Эталон: checklist/dropdown в модуле — `modules/<name>/client/components/…` с `DropDown` ядра.
+
+## Вкладки — TabBar
+
+Компонент: `@/components/TabBar.vue`.
+
+Полоса вкладок страницы: иконка, подпись, опциональный бейдж. Контент вкладки — в слоте по умолчанию (или снаружи, если слот пустой). Не копируй `.nav-tabs-container` / `.nav-tab` в модуле.
+
+Админские экраны ядра с Bootstrap `nav nav-tabs` / `nav-link` не переводи на `TabBar` без отдельной задачи: это другой вид.
+
+```vue
+<script setup>
+import TabBar from '@/components/TabBar.vue'
+</script>
+
+<template>
+  <TabBar v-model="activeTab" :tabs="tabs">
+    <Overview v-if="activeTab === 'overview'" />
+  </TabBar>
+</template>
+```
+
+`tabs` — массив `{ id, name, icon?, count? }`. `icon` — Vue-компонент Lucide. Бейдж виден при истинном `count`.
+
+| Prop | Когда |
+|------|-------|
+| `modelValue` | id активной вкладки |
+| `tabs` | список вкладок |
+| `overflow` | `'scroll'` (по умолчанию) — горизонтальная прокрутка без полосы; `'menu'` — невместившееся уходит в кнопку «Ещё» (`DropDown`) |
+| `ariaLabel` | подпись `tablist`; иначе `components.tabBar.ariaLabel` |
+
+На одном экземпляре один режим `overflow`, без смеси прокрутки и «Ещё». В режиме `menu` активная вкладка остаётся в видимом ряду, даже если по ширине она должна была попасть в список.
+
+### Запрещено
+
+```vue
+<!-- BAD — своя полоса вкладок в модуле -->
+<nav class="nav-tabs-container">
+  <button class="nav-tab" :class="{ active: tab === 'a' }">…</button>
+</nav>
+```
 
 ## Multi-select выбор пользователей — MemberPickerModal
 
