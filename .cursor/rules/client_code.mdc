@@ -74,7 +74,9 @@ showError(tGlobal('errors.api.generic'))
 try { ... } catch (e) { await handleApiError(e, tGlobal('errors.api.generic')) }
 ```
 
-Полезные функции: `showWarning`, `showInfo`, `showToast`, `normalizeToastMessage`, `getToast`, `showValidationError`, `showSaveSuccess`, `showDeleteSuccess`.
+Полезные функции: `showWarning`, `showInfo`, `showToast`, `showCustomToast`, `normalizeToastMessage`, `getToast`, `showValidationError`, `showSaveSuccess`, `showDeleteSuccess`.
+
+Кастомное тело — любой Vue-компонент через `showCustomToast(component, props, options)` из того же `toast.js`. Модуль не импортирует `vue-sonner`.
 
 Мягкая отмена через кнопку в success-toast — `showUndoableSuccess` (флаг `CLIENT_TOAST_UNDO_ENABLED`, по умолчанию выкл.): [`toast-undo.mdc`](toast-undo.mdc).
 
