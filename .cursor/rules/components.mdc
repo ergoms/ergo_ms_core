@@ -1,5 +1,5 @@
 ---
-description: Индекс UI-компонентов ядра — SelectBox, SearchInput, DecimalInput, DatePicker, ToggleSwitch, TriStateSwitch, DropZone, FormCard, FormField, SettingsCard, SettingsCardRow, FilterMenu, DropDown, TabBar, DataTable, UserAvatar, DocumentViewer
+description: Индекс UI-компонентов ядра — SelectBox, SearchInput, DecimalInput, DatePicker, ToggleSwitch, TriStateSwitch, DropZone, FormCard, FormField, SettingsCard, SettingsCardRow, FilterMenu, DropDown, TabBar, DataTable, UserAvatar, DocumentViewer, LinkBoard, GraphAtlas, LaneGraph
 alwaysApply: false
 ---
 
@@ -30,9 +30,12 @@ alwaysApply: false
 | Модальные окна | `ModalCenter`, `confirm.js` | [`modal-center.mdc`](modal-center.mdc) |
 | Multi-select выбор пользователей | `MemberPickerModal` | этот раздел |
 | Аватар пользователя | `UserAvatar` | этот раздел |
+| Атлас / граф на холсте | `GraphAtlas` | этот раздел |
 | Контентное изображение (режим без картинок) | `ContentImage` | [`client-a11y.mdc`](client-a11y.mdc) |
 | Предпросмотр фото (галерея, зум) | `ImageLightbox` (`backdrop`: `dim` / `blur`) | этот раздел |
 | Просмотр PDF и DOCX | `DocumentViewer`, `DocumentViewerModal` | этот раздел |
+| Схема узлов по колонкам (зависимости, нагрузка) | `LaneGraph` | этот раздел |
+| Схема связей двух списков | `LinkBoard` | этот раздел |
 | Skip-link / landmarks | `SkipLink`, `<main id="main-content">` | [`client-a11y.mdc`](client-a11y.mdc) |
 | Динамические Lucide-иконки | `LucideIcon` (имя PascalCase) | [`icons.mdc`](icons.mdc) |
 
@@ -413,6 +416,120 @@ const showViewer = ref(false)
 Модалка: `visible`, `src`, `filename`, `title`, `modalId`.
 
 **Запрещено:** iframe `/serve/`, worker pdf.js с CDN, JWT в query URL.
+
+## Атлас — GraphAtlas
+
+Компонент: [`GraphAtlas.vue`](../../core/client/src/components/GraphAtlas.vue). Холст Canvas 2D + d3: панорама, масштаб, полный экран, кнопка «Фильтры». Данные, фильтры и боковая карточка — у родителя. Не копируй локальный движок графа в модуле.
+
+```vue
+<script setup>
+import GraphAtlas from '@/components/GraphAtlas.vue'
+</script>
+
+<template>
+  <GraphAtlas
+    :data="graph"
+    :filters="filters"
+    :strings="strings"
+    :focus-id="focusId"
+    @select="onSelect"
+  >
+    <template #filters>…</template>
+    <template #panel>…</template>
+  </GraphAtlas>
+</template>
+```
+
+Снимок `data`: массивы `nodes` / `edges` / `clusters` (и опционально `group_clusters`). Узел: `[id, name, hubFlag, cluster, x, y, occ, deg, …]`. Ребро: `[source, target, kind, weight]`. Слой фильтра — `both` | `hub` | `leaf`, не доменные имена модуля. Загрузка снимка — GET родителя, не внутри компонента.
+
+| Prop / слот | Когда |
+|------|-------|
+| `data` | снимок графа |
+| `filters` | `layers`, `kinds`, `wmin`, `iso`, `allEdges`, `query`, `areas` |
+| `strings` | подписи движка (группы связей, пустые состояния) |
+| `embed` | ниже холст на карточке сущности; вместе с `focusId` или `egoIds` рисует только 1 шаг вокруг якорей, кадр вписывает эту окрестность |
+| `focusId` | посадка на узел (`public_id`); на полном атласе — перелёт только при первом mount |
+| `egoIds` | якоря окрестности (`public_id`); если пусто, а `embed` и `focusId` заданы, якорь — `focusId` |
+| `#filters` / `#panel` / `#hint` | доменные фильтры, карточка, подсказка |
+| `#loading` / `#error` / `#empty` | состояния загрузки |
+
+**Запрещено:** вызывать API модуля из `GraphAtlas`; хардкодить имена модулей в движке; iframe, Google Fonts и CDN на холсте.
+
+## Схема по колонкам — LaneGraph
+
+Компонент: [`LaneGraph.vue`](../../core/client/src/components/LaneGraph.vue). Раскладка: [`laneGraphLayout.js`](../../core/client/src/js/utils/laneGraphLayout.js).
+
+Универсальная схема: колонки (дорожки), карточки, стрелки зависимостей, полоса нагрузки колонки, режимы «обзор / критический путь / блокирующие». Ядро не знает учебный план, семестр и з.е. Модуль сам мапит домен в `items` / `lanes` / `categories`. Подключай через `defineAsyncComponent`.
+
+```vue
+<script setup>
+import { defineAsyncComponent } from 'vue'
+
+const LaneGraph = defineAsyncComponent(() => import('@/components/LaneGraph.vue'))
+</script>
+
+<template>
+  <LaneGraph
+    :items="items"
+    :lanes="lanes"
+    :categories="categories"
+    weight-unit="з.е."
+  />
+</template>
+```
+
+| Prop | Когда |
+|------|-------|
+| `items` | `{ id, title, lane, row?, category, weight, badge, optional, dependsOn[], highlight }` — `id` непрозрачный, не pk БД |
+| `lanes` | `{ id, title, weightLimit? }` — индекс колонки 0-based; без `weightLimit` полоса без «перегруза» |
+| `categories` | `{ id, label, tone }` — `tone`: `accent` / `info` / `success` / `warning` / `neutral` |
+| `weightUnit` | подпись единиц нагрузки |
+| `emptyText` | своё пустое состояние |
+| `defaultMode` | `overview` (по умолчанию) / `critical` / `blocking` |
+| `showModes` | `false` — без переключателя режимов, всегда обзор |
+| `showEdges` | `false` — без SVG-стрелок |
+| `showDetail` | `false` — без текста под схемой |
+| `showWarnings` | `false` — без предупреждений под схемой |
+
+Слоты `#item`, `#detail`, `#legend`. События `hover`, `select`. Режимы критического пути и блокирующих скрываются, если рёбер нет или `showModes` выключен. Карточки — поверхность системы и обычный текст, цвет категории только на левой кромке. Цвета только `--ui-*`, координаты — `v-csp-style`.
+
+**Запрещено:** имена вроде «учебный план» в ядре; vue-flow/d3 в этом компоненте; прямые вызовы API модулей из `LaneGraph`.
+
+## Схема связей — LinkBoard
+
+Компоненты: [`LinkBoard.vue`](../../core/client/src/components/LinkBoard.vue), [`LinkBoardCanvas.vue`](../../core/client/src/components/LinkBoardCanvas.vue), [`LinkBoardMatrix.vue`](../../core/client/src/components/LinkBoardMatrix.vue). Данные собирает родитель: ядро не знает домен модуля.
+
+Слева карточки, справа сгруппированные пилюли, кривые SVG с толщиной уровня 1–3, виды «Связи» и «Матрица». Редактирование матрицы — только при `editable`.
+
+```vue
+<script setup>
+import LinkBoard from '@/components/LinkBoard.vue'
+</script>
+
+<template>
+  <LinkBoard
+    :left-items="leftItems"
+    :right-groups="rightGroups"
+    :links="links"
+    :weak-threshold="2"
+  />
+</template>
+```
+
+| Prop | Когда |
+|------|-------|
+| `leftItems` | `{ id, code?, title, compact? }` — `compact` оставляет название в две строки |
+| `rightGroups` | `{ id, label, items: [{ id, label, compact? }] }` |
+| `links` | `{ from, to, level }` — `from` это id слева, `to` справа, `level` 1 знать / 2 уметь / 3 владеть |
+| `weakThreshold` | карточка слабая, если связей меньше порога (по умолчанию 2) |
+| `editable` | цикл уровня в матрице, событие `update:link` |
+| `rightLabel` | заголовок первого столбца матрицы |
+| `hideViewSwitch` | родитель уже показывает «Связи / Матрица» — внутренний ряд кнопок скрыт, легенда остаётся |
+| `v-model` | `'links'` / `'matrix'` |
+
+Слоты `#left-card`, `#right-pill`, `#info`, `#info-extra`. Событие `select` — закреплённая карточка или пилюля.
+
+**Запрещено:** копировать SVG-схему связей в модуле; хардкод hex из HTML-макета.
 
 ## Связанные правила
 

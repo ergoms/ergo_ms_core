@@ -16,6 +16,7 @@ from lifecycle.host.ops import (  # noqa: E402
 from project_layout import (  # noqa: E402
     backups_dir,
     cache_tmp_dir,
+    cache_cursor_browser_queue_dir,
     client_cli_path_dirs,
     huggingface_snapshot_dir,
     npm_bin_dir,
@@ -62,6 +63,7 @@ class HostOpsPathTests(unittest.TestCase):
                 virtual_env_dir(root),
                 npm_root_dir(root),
                 cache_tmp_dir(root),
+                cache_cursor_browser_queue_dir(root),
                 wrappers_dir(root),
                 backups_dir(root),
                 portable_python_exe(root),

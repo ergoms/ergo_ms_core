@@ -25,6 +25,7 @@ alwaysApply: false
 | Docker BuildKit local cache (`DOCKER_DEPS_CACHE=project`) | `virtual_env/cache/docker-cache/` |
 | Loadtest (temp DB/ephemeral) | `virtual_env/cache/loadtest/` |
 | Балансировщик Celery (overlay, история) | `virtual_env/cache/celery_balance/` |
+| Очередь встроенного браузера Cursor по SSH | `virtual_env/cache/cursor_browser_queue/` |
 | Lock записи секретов в `.env` / `databases.yaml` | `virtual_env/cache/env_secrets.lock` |
 | Meilisearch (runtime, LMDB) | `virtual_env/cache/meilisearch/` |
 | Portable Meilisearch | `virtual_env/packages/meilisearch/` |

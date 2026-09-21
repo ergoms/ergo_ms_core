@@ -161,6 +161,11 @@ def cache_celery_balance_dir(root: Path) -> Path:
     return cache_dir(root) / 'celery_balance'
 
 
+def cache_cursor_browser_queue_dir(root: Path) -> Path:
+    """Очередь встроенного браузера Cursor по SSH (один держатель)."""
+    return cache_dir(root) / 'cursor_browser_queue'
+
+
 def env_secrets_lock_path(root: Path) -> Path:
     """Межпроцессный lock записи секретов в .env / databases.yaml."""
     return cache_dir(root) / 'env_secrets.lock'
