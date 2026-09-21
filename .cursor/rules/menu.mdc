@@ -23,6 +23,7 @@ alwaysApply: false
 - Доступ пунктов и разделителей — `allowed_roles` / `allowed_role_groups` (пустые = всем); user-menu фильтрует оба
 - Свёрнутость sidebar — UI-преференс в `localStorage` (`menu-sidebar-collapsed`), см. [`security-details.mdc`](security-details.mdc)
 - Тип `offcanvas` — боковая панель через `openOffcanvasSidebar`, не отдельный маршрут
+- Бейдж справа в строке — ModuleBridge-группа `menu.item_trailing`; ядро рисует число слева от стрелки группы. Стрелку по-прежнему прячут без наведения, число нет
 
 ## Обязательно
 
@@ -97,6 +98,25 @@ class Migration(migrations.Migration):
     dependencies = [('cms_adp', '0007_populate_core_menu')]
     operations = [migrations.RunPython(populate_menu, reverse_populate_menu)]
 ```
+
+## Бейдж справа в строке
+
+Число непрочитанных (и другие хвостовые виджеты) — группа `menu.item_trailing`, не правка `MenuItem` / `MenuGroup` в модуле. Ядро ставит бейдж на совпавший `routeName` и на родительские группы, слева от стрелки. Ноль скрыт. Стрелку по-прежнему прячут без наведения. Кружок — `--ui-accent` / `--ui-accent-text`, не `--bs-danger`.
+
+```js
+import { MENU_ITEM_TRAILING_GROUP } from '@/integrations/moduleContracts.js'
+
+bridge.provideMany(MENU_ITEM_TRAILING_GROUP, '<name>_unread', {
+  id: '<name>_unread',
+  match: { routeName: 'MyModuleList' },
+  order: 10,
+  count: () => unreadTotal.value,
+  title: () => tGlobal('<name>.menu.unread', { count: unreadTotal.value }),
+  route: { name: 'MyModuleList' },
+})
+```
+
+Сбор — [`menuItemTrailing.js`](../../core/client/src/integrations/menuItemTrailing.js). Это не колокольчик уведомлений ядра.
 
 ## Меню приложений (AppsMenu)
 

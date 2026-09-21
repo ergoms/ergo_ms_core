@@ -182,6 +182,8 @@ class MyModuleConfig(AppConfig):
 
 Плавающие виджеты оболочки (мини-чат и т.п.) — группа `shell.floating_widgets` (`{ id, component, order?, isVisible? }`), хост [`FloatingWidgetsHost`](../../core/client/src/components/FloatingWidgetsHost.vue) в `LayoutMenu`. Компонент виджета — `markRaw` / `defineAsyncComponent`, не сырой объект в `ref`. Не использовать `LayoutPlugin` ради плавающего UI.
 
+Бейдж справа в строке бокового меню — группа `menu.item_trailing` (`{ match: { routeName }, count, title?, route?, order? }`). Ядро рисует число на совпавшем пункте и на родительских группах, слева от стрелки; ноль скрыт. Имя группы берите из `@/integrations/moduleContracts.js`. Сбор — [`menuItemTrailing.js`](../../core/client/src/integrations/menuItemTrailing.js).
+
 ## Темы оформления модуля
 
 Подробности — [`themes.mdc`](themes.mdc). Кратко:
