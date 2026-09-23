@@ -14,7 +14,7 @@ alwaysApply: false
 - API: `showUndoableSuccess(message, { onUndo, … })` из `@/js/utils/toast.js`
 - Флаг: `CLIENT_TOAST_UNDO_ENABLED` (по умолчанию **`false`**) — без него обычный `showSuccess`
 - Перед действием сохрани **snapshot** «как было»; в `onUndo` восстанови его (API и/или локальный state)
-- Журнал отмен: `undoAudit` → `reportUndo` (не блокирует UI)
+- Журнал отмен: `undoAudit` → `reportUndo` (не блокирует UI). Событие `undo.performed` видно на вкладке «Отмененные действия», не среди остальных действий ([`audit.mdc`](audit.mdc))
 - Стек / «Отменить все»: `group` + `kind` + опционально `stackMax` / `batchUndo`
 - Не дублируй свой Undo UI и свой registry в модуле
 

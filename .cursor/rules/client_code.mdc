@@ -78,7 +78,7 @@ try { ... } catch (e) { await handleApiError(e, tGlobal('errors.api.generic')) }
 
 Кастомное тело — любой Vue-компонент через `showCustomToast(component, props, options)` из того же `toast.js`. Модуль не импортирует `vue-sonner`.
 
-Мягкая отмена через кнопку в success-toast — `showUndoableSuccess` (флаг `CLIENT_TOAST_UNDO_ENABLED`, по умолчанию выкл.): [`toast-undo.mdc`](toast-undo.mdc).
+Мягкая отмена через кнопку в success-toast — `showUndoableSuccess` (флаг `CLIENT_TOAST_UNDO_ENABLED`, по умолчанию выкл.): [`toast-undo.mdc`](toast-undo.mdc). Выполненная отмена пишется как `undo.performed` и попадает на вкладку «Отмененные действия», не в общий список журнала ([`audit.mdc`](audit.mdc)).
 
 Разбор ошибок API: `@/js/utils/apiErrorMessage.js` (`extractApiError`, `parseApiErrorData`); toast — `handleApiError`.
 
@@ -201,6 +201,7 @@ watchState(() => {
 | Темы, шрифты | [`themes.mdc`](themes.mdc) |
 | Модалки, confirm | [`modal-center.mdc`](modal-center.mdc) |
 | Undo в toast | [`toast-undo.mdc`](toast-undo.mdc) |
+| Журнал отмен (`undo.performed`) | [`audit.mdc`](audit.mdc) |
 | Ошибки API | [`log-error.mdc`](log-error.mdc) |
 | Права маршрутов (UX) | [`permission_rules.mdc`](permission_rules.mdc) |
 | Модули, мост | [`modules.mdc`](modules.mdc) |

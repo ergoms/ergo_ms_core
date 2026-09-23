@@ -1,5 +1,5 @@
 ---
-description: Аудит действий — запись через мост, автоаудит CRUD, каталог действий
+description: Аудит действий — запись через мост, автоаудит CRUD, каталог действий, журнал отмен (undo.performed)
 alwaysApply: false
 ---
 # Журнал действий (аудит)
@@ -9,7 +9,7 @@ alwaysApply: false
 события. Инициатор, IP, User-Agent, scope (измерения) и request_id подставляет
 ядро автоматически из контекста запроса.
 
-Смотреть журнал: админ-панель → «Журнал действий» (только глобальный админ).
+Смотреть журнал: админ-панель → «Журнал действий» (только глобальный админ). Три вкладки: «Действия пользователей» (все события, кроме отмен), «Сессии веб-клиента» и «Отмененные действия» (только `undo.performed` и старые `theme.undone`). Отмены не дублируются в первой вкладке.
 Файл: `logs/audit.log` — каждая успешная запись дублируется строкой (см. [`logging.mdc`](logging.mdc));
 отключить: `AUDIT_LOG_FILE_ENABLED=false`.
 
@@ -113,6 +113,18 @@ bridge.provide_many(AUDIT_SCOPE_DIMENSIONS_GROUP, 'project', {
 - Список измерений для UI: `GET .../audit/dimensions/`.
 - Источники `core.cms.adp` и `core.settings` читает только глобальный администратор (`PermissionService.is_admin`): список, карточка, экспорт, каталог и инициаторы. Если в запросе есть фильтр измерения `organization`, эти источники не попадают в выборку и глобальному администратору.
 
+## Журнал отмен (toast Undo)
+
+Отмена из всплывающего уведомления — отдельное событие `undo.performed`, не повтор исходного действия. Пока кнопка «Отменить» видна, запись в журнал не пишется. В журнал попадает только успешно выполненный откат.
+
+Кнопка есть, только если `CLIENT_TOAST_UNDO_ENABLED=true`. В шаблоне и по умолчанию флаг выключен: тогда `showUndoableSuccess` ведёт себя как обычный success. Стек и payload — [`toast-undo.mdc`](toast-undo.mdc).
+
+- Эндпоинт: `POST .../audit/events/record-undo/`. Инициатор всегда текущий пользователь.
+- Клиент передаёт `undoAudit` в `showUndoableSuccess`; вручную — `reportUndo`.
+- Устаревшее `theme.undone` остаётся в выборке вкладки «Отмененные действия», новые отмены его не пишут.
+- Подпись действия ищется через `find_action_spec`: сначала секция модуля-источника, затем остальные секции каталога.
+- Отдельный эндпоинт record-undo в доменном ViewSet не заводи.
+
 ## Правила именования действий
 
 - Формат `action`: `<модуль>.<объект>.<действие>`, например `<name>.item.status_changed`.
@@ -132,6 +144,7 @@ bridge.provide_many(AUDIT_SCOPE_DIMENSIONS_GROUP, 'project', {
 - Свой UI журнала в модуле. Нужен встроенный виджет «история объекта» — фильтруй
   центральный API по `entity_type` + `entity_ref`, не копируй страницу.
 - Логировать в аудит шум (каждый GET, служебные модели) — только значимые действия.
+- Писать отмену отдельным доменным действием вместо `undo.performed` и дублировать её на вкладке «Действия пользователей».
 
 ## Где что
 
@@ -145,6 +158,9 @@ bridge.provide_many(AUDIT_SCOPE_DIMENSIONS_GROUP, 'project', {
 | Контекст (actor/ip/scope) | `core/api/src/core/audit/context.py` (middleware) |
 | Файл `logs/audit.log` | `core/api/src/core/audit/service.py` → `log_audit_event` |
 | UI (только ядро) | `core/client/src/core/cms/adp/admin/AuditLog.vue` |
+| Запись отмен с клиента | `core/client/src/core/audit/js/reportUndo.js` |
+| `POST record-undo` | `core/api/src/core/audit/views.py` → `AuditEventViewSet.record_undo` |
+| Подпись с запасным поиском по каталогу | `core/api/src/core/audit/catalog.py` → `find_action_spec` |
 | Фильтр инициаторов | `GET .../audit/events/actors/` (отдельно от catalog — для 3G) |
 
 ## Связанные правила
@@ -152,6 +168,7 @@ bridge.provide_many(AUDIT_SCOPE_DIMENSIONS_GROUP, 'project', {
 | Тема | Файл |
 |---|---|
 | Уведомления (тот же паттерн моста) | [`notifications.mdc`](notifications.mdc) |
+| Кнопка «Отменить» во всплывающем уведомлении | [`toast-undo.mdc`](toast-undo.mdc) |
 | Безопасность, public_id вместо pk | [`security.mdc`](security.mdc) |
 | Мост между модулями | [`modules.mdc`](modules.mdc) |
 | Глобальный админ | [`global-admin.mdc`](global-admin.mdc) |
