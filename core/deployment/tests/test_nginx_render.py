@@ -14,6 +14,7 @@ from render_common import (  # noqa: E402
     build_core_proxy_locations,
     build_docker_upstream_blocks,
     build_host_upstream_blocks,
+    render_client_upstream_block,
     render_docker_nginx_config,
     render_spa_locations_host,
     resolve_host_api_upstream,
@@ -178,10 +179,16 @@ class NginxRenderTests(unittest.TestCase):
             'NGINX_CLIENT_REMOTES_UPSTREAM': '10.0.0.8:80',
         })
         self.assertIn('proxy_pass http://ergo_client_remotes;', remote)
+        self.assertIn('proxy_connect_timeout 2s;', remote)
+        self.assertIn('proxy_read_timeout 4s;', remote)
         self.assertIn('proxy_set_header Host 10.0.0.8;', remote)
         self.assertIn('location ~* /(?:chunks|assets)/', remote)
         self.assertIn('proxy_hide_header Cache-Control', remote)
         self.assertNotIn('alias ${ERGO_ROOT}/virtual_env/client-remotes/;', remote)
+        upstream = render_client_upstream_block({
+            'NGINX_CLIENT_REMOTES_UPSTREAM': '10.0.0.8:80',
+        })
+        self.assertIn('server 10.0.0.8:80 max_fails=1 fail_timeout=30s;', upstream)
 
     def test_host_and_docker_renderers_use_shared_function(self) -> None:
         deployment_dir = Path(__file__).resolve().parents[1]
@@ -347,6 +354,9 @@ class ModuleNginxTests(unittest.TestCase):
         self.assertIn('X-Request-ID', block)
         self.assertIn('proxy_set_header Host 10.1.2.3;', block)
         self.assertIn('proxy_set_header X-Forwarded-Host $host;', block)
+        self.assertIn('proxy_connect_timeout 2s;', block)
+        self.assertIn('proxy_read_timeout 8s;', block)
+        self.assertIn('proxy_read_timeout 3600s;', block)
 
     def test_upstreams_have_max_fails(self) -> None:
         from module_nginx import render_module_upstreams_host
@@ -356,7 +366,7 @@ class ModuleNginxTests(unittest.TestCase):
             'MICROSERVICE_MODULES': 'demo_mod',
             'DEMO_MOD_PORT': '8123',
         })
-        self.assertIn('max_fails=3 fail_timeout=10s', block)
+        self.assertIn('max_fails=1 fail_timeout=30s', block)
 
     def test_bind_any_module_host_proxies_loopback(self) -> None:
         from module_nginx import render_module_locations_host, render_module_upstreams_host
@@ -434,6 +444,7 @@ class ModuleNginxTests(unittest.TestCase):
         self.assertIn('proxy_pass http://ergo_media;', block)
         self.assertIn('proxy_buffering off;', block)
         self.assertNotIn('ergo_media_modules', block)
+        self.assertNotIn('proxy_connect_timeout 2s;', block)
 
     def test_module_media_prefixes_go_to_peer(self) -> None:
         from module_nginx import render_module_media_locations_host
@@ -450,6 +461,8 @@ class ModuleNginxTests(unittest.TestCase):
         self.assertIn('proxy_pass http://ergo_media_modules/upload/;', block)
         self.assertIn('proxy_pass http://ergo_media_modules;', block)
         self.assertIn('proxy_set_header Host 10.0.0.8;', block)
+        self.assertIn('proxy_connect_timeout 2s;', block)
+        self.assertIn('proxy_read_timeout 8s;', block)
         rendered = build_host_nginx_shared_replacements(values)['${ERGO_HOST_MEDIA_PROXY}']
         self.assertIn('location ^~ /upload/demo_mod/', rendered)
         self.assertIn('location /upload/', rendered)

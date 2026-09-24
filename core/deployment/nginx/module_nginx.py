@@ -80,6 +80,15 @@ _MODULE_UNAVAILABLE_LOCATION = """    location @module_unavailable {
     }
 """
 
+# Peer принял TCP и молчит: не ждать общий proxy_read_timeout (60s).
+# Таймер между пакетами; stream-location задаёт свой read/send.
+_PEER_FAIL_FAST_TIMEOUTS = (
+    '        proxy_connect_timeout 2s;\n'
+    '        proxy_send_timeout 8s;\n'
+    '        proxy_read_timeout 8s;\n'
+)
+_PEER_UPSTREAM_FAIL = 'max_fails=1 fail_timeout=30s'
+
 
 def render_module_upstreams_host(values: Mapping[str, str]) -> str:
     """Блок upstream для host nginx (127.0.0.1:port)."""
@@ -98,7 +107,7 @@ def render_module_upstreams_host(values: Mapping[str, str]) -> str:
             host, port = _nginx_peer_host(resolved[0]), resolved[1]
         safe = _upstream_safe_name(name)
         lines.append(f'upstream ergo_module_{safe} {{')
-        lines.append(f'    server {host}:{port} max_fails=3 fail_timeout=10s;')
+        lines.append(f'    server {host}:{port} {_PEER_UPSTREAM_FAIL};')
         lines.append('}')
         lines.append('')
     return '\n'.join(lines)
@@ -127,7 +136,7 @@ def render_module_locations_host(values: Mapping[str, str]) -> str:
         limit_conn ergo_conn 50;
         limit_conn_status 429;
         proxy_pass http://ergo_module_{safe};
-        proxy_intercept_errors on;
+{_PEER_FAIL_FAST_TIMEOUTS}        proxy_intercept_errors on;
         error_page 502 503 504 =503 @module_unavailable;
         proxy_set_header Host {upstream_host};
         proxy_set_header X-Forwarded-Host $host;
@@ -179,7 +188,7 @@ def render_module_upstreams_docker(values: Mapping[str, str]) -> str:
         else:
             port = str(8100 + (sum(ord(c) for c in name) % 500))
         lines.append(f'upstream ergo_module_{safe} {{')
-        lines.append(f'    server {service}:{port} max_fails=3 fail_timeout=10s;')
+        lines.append(f'    server {service}:{port} {_PEER_UPSTREAM_FAIL};')
         lines.append('    keepalive 8;')
         lines.append('}')
         lines.append('')
@@ -203,7 +212,7 @@ def render_module_locations_docker(values: Mapping[str, str]) -> str:
         limit_conn ergo_conn 50;
         limit_conn_status 429;
         proxy_pass http://ergo_module_{safe};
-        proxy_http_version 1.1;
+{_PEER_FAIL_FAST_TIMEOUTS}        proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -280,6 +289,7 @@ def _render_module_media_locations(
     peer = _media_modules_peer(values)
     upstream = 'ergo_media_modules' if peer else 'ergo_media'
     peer_host = peer.rsplit(':', 1)[0] if peer else ''
+    timeouts = _PEER_FAIL_FAST_TIMEOUTS if peer else ''
     extra_headers = ''
     if peer_host:
         extra_headers = (
@@ -296,7 +306,7 @@ def _render_module_media_locations(
         blocks.append(
             f"""    location ^~ /upload/{name}/ {{
 {maintenance}${{ERGO_UPLOAD_LIMIT_LINES}}        proxy_pass http://{upstream}/upload/;
-        client_max_body_size ${{ERGO_CLIENT_MAX_BODY_SIZE}};
+{timeouts}        client_max_body_size ${{ERGO_CLIENT_MAX_BODY_SIZE}};
 {extra_headers}    }}
 
     location ^~ /serve/{name}/ {{
@@ -307,7 +317,7 @@ def _render_module_media_locations(
         proxy_buffering off;
         gzip off;
         proxy_pass http://{upstream};
-{extra_headers}    }}
+{timeouts}{extra_headers}    }}
 """
         )
     return '\n'.join(blocks)

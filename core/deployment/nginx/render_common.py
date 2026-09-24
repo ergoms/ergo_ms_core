@@ -133,7 +133,11 @@ def render_client_upstream_block(values: Mapping[str, str]) -> str:
     remotes_peer = resolve_host_client_remotes_upstream(values)
     if remotes_peer:
         parts.append(
-            render_upstream_block('ergo_client_remotes', remotes_peer, no_keepalive_comment=True),
+            render_upstream_block(
+                'ergo_client_remotes',
+                f'{remotes_peer} max_fails=1 fail_timeout=30s',
+                no_keepalive_comment=True,
+            ),
         )
     if not parts:
         return ''
@@ -143,6 +147,9 @@ def render_client_upstream_block(values: Mapping[str, str]) -> str:
 def _remotes_proxy_headers(host: str) -> str:
     return (
         '        proxy_pass http://ergo_client_remotes;\n'
+        '        proxy_connect_timeout 2s;\n'
+        '        proxy_send_timeout 4s;\n'
+        '        proxy_read_timeout 4s;\n'
         f'        proxy_set_header Host {host};\n'
         '        proxy_set_header X-Forwarded-Host $host;\n'
         '        proxy_set_header X-Forwarded-Proto $scheme;\n'
@@ -305,7 +312,10 @@ def build_host_upstream_blocks(values: Mapping[str, str]) -> tuple[str, str]:
     media = render_upstream_block('ergo_media', resolve_host_media_upstream(values))
     peer = resolve_host_media_modules_upstream(values)
     if peer and media_route_modules(values):
-        media = media + '\n\n' + render_upstream_block('ergo_media_modules', peer)
+        media = media + '\n\n' + render_upstream_block(
+            'ergo_media_modules',
+            f'{peer} max_fails=1 fail_timeout=30s',
+        )
     return api, media
 
 
