@@ -69,6 +69,7 @@ modules/<имя>/
 ├── packages.yaml            # portable-пакеты в virtual_env/packages (если модуль ставит бинарники)
 ├── huggingface_models.yaml  # снимки Hugging Face в virtual_env/trained_models/huggingface/
 ├── vscode.tasks.yaml        # задачи Run Task + include_in setup-full/start-all (необязательно)
+├── cursor_hooks.yaml        # команды на события Cursor, диспетчер ядра без имён модулей (необязательно)
 ├── integrations.yaml        # depends: requires (обязательные) / extends (опциональные)
 ```
 
@@ -95,6 +96,7 @@ modules/<имя>/
 | Portable-пакеты | `packages.yaml` | [`packages.mdc`](packages.mdc) |
 | Снимки Hugging Face | `huggingface_models.yaml` | [`huggingface-models.mdc`](huggingface-models.mdc) |
 | Run Task / setup-full | `vscode.tasks.yaml` | [`module-vscode-tasks.mdc`](module-vscode-tasks.mdc) |
+| События Cursor | `cursor_hooks.yaml` | [`cursor_module_hooks.py`](../../core/deployment/scripts/cursor_module_hooks.py) |
 | Схема PostgreSQL | `api/schema.yaml` | [`modularization.mdc`](modularization.mdc) |
 | HTTP-мост | `api/bridge_manifest.yaml` | [`modularization.mdc`](modularization.mdc) |
 | Поиск | `search_indexes.py` | [`discovery.py`](../../core/api/src/core/search/discovery.py) |
@@ -112,6 +114,8 @@ Portable-бинарники модуля (ollama, ffmpeg и т.п.) — толь
 Снимки Hugging Face (`org/name`) — только через `huggingface_models.yaml` и `ergoms pull-huggingface-models` ([`huggingface-models.mdc`](huggingface-models.mdc)); веса в `virtual_env/trained_models/huggingface/`, не в `ollama_models.yaml`, не в `~/.cache` и не в кэш модуля.
 
 Задачи VS Code / Cursor (Run Task) и участие в **Setup Full** / **Start All** — только через `vscode.tasks.yaml` (`include_in: setup-full` / `start-all`): hook модульности, не правка монолита ядра. Подробности — [`module-vscode-tasks.mdc`](module-vscode-tasks.mdc); формат shell-задач ядра — [`vscode-tasks.mdc`](vscode-tasks.mdc).
+
+Команды модуля на событие Cursor (`stop` и другие) объявляются в `cursor_hooks.yaml`. Диспетчер [`cursor_module_hooks.py`](../../core/deployment/scripts/cursor_module_hooks.py) обходит каталоги модулей, читает этот файл и запускает команду из каталога модуля. Имя модуля в ядре не пишется. Ответ команды с `followup_message` возвращается агенту.
 
 Вложенные подприложения (`client/<раздел>/js/routes.js`) подхватываются для маршрутов и `integrations.js`. Файлы `endpoints.js`, `permission-rules.js` — только из `client/js/` (или re-export оттуда).
 
