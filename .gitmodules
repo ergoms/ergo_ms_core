@@ -229,3 +229,10 @@
 	branch = dev
 	update = merge
 	ignore = all
+
+[submodule "modules/scout"]
+	path = modules/scout
+	url = https://github.com/ergoms/ergo_ms_scout.git
+	branch = dev
+	update = merge
+	ignore = all
