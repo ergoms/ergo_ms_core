@@ -1,5 +1,5 @@
 ---
-description: Индекс UI-компонентов ядра — SelectBox, SearchInput, DecimalInput, DatePicker, ToggleSwitch, TriStateSwitch, DropZone, FormCard, FormField, SettingsCard, SettingsCardRow, FilterMenu, DropDown, TabBar, DataTable, UserAvatar, DocumentViewer, LinkBoard, GraphAtlas, LaneGraph
+description: Индекс UI-компонентов ядра — SelectBox, SearchInput, DecimalInput, DatePicker, TimePicker, ToggleSwitch, TriStateSwitch, DropZone, FormCard, FormField, SettingsCard, SettingsCardRow, FilterMenu, DropDown, TextEditor, TabBar, StepRail, DataTable, UserAvatar, DocumentViewer, LinkBoard, GraphAtlas, LaneGraph
 alwaysApply: false
 ---
 
@@ -15,6 +15,7 @@ alwaysApply: false
 | Текстовый поиск | `SearchInput` | [`search-input.mdc`](search-input.mdc) |
 | Ввод десятичного числа (цифры, `.`/`,`) | `DecimalInput` | этот раздел |
 | Выбор даты | `DatePicker` | этот раздел |
+| Выбор времени | `TimePicker` | этот раздел |
 | Бинарный тумблер вкл/выкл | `ToggleSwitch` | этот раздел |
 | Три позиции: запрещено / не задано / разрешено | `TriStateSwitch` | этот раздел |
 | Зона выбора файлов (клик + перетаскивание) | `DropZone` | этот раздел |
@@ -22,7 +23,9 @@ alwaysApply: false
 | Настройки: карточка + строки label/hint/контрол | `SettingsCard`, `SettingsCardRow` | этот раздел |
 | Несколько фильтров в toolbar | `FilterMenu` | [`filter-menu.mdc`](filter-menu.mdc) |
 | Меню действий (⋯, контекст) | `DropDown` | этот раздел |
+| Форматированный текст (HTML) | `TextEditor` | этот раздел |
 | Вкладки страницы | `TabBar` | этот раздел |
+| Шкала шагов с полосой | `StepRail` | этот раздел |
 | Боковое меню приложения | `MenuList`, миграции `MenuItem` | [`menu.mdc`](menu.mdc) |
 | Загрузка списков без «мигания» | `LoadingContentArea` | [`loading-content-area.mdc`](loading-content-area.mdc) |
 | Быстрая прогрузка страниц | lazy-модалки, prefetch | [`client-perf.mdc`](client-perf.mdc) |
@@ -60,6 +63,8 @@ alwaysApply: false
 
 `v-model` — **строка** `YYYY-MM-DD`; при `enableTime` — `YYYY-MM-DDTHH:mm`; при `monthPicker` — `YYYY-MM`. Нативный `input type="date"` не используй.
 
+Вставка даты словами («29 ноября 2024», «November 29, 2024») подставляется в числовую маску поля: `29.11.2024`, при коротком годе (`yy`) — `29.11.24`.
+
 ```vue
 <script setup>
 import DatePicker from '@/components/DatePicker.vue'
@@ -87,6 +92,31 @@ import DatePicker from '@/components/DatePicker.vue'
 | `monthPicker` | выбор месяца и года, значение `YYYY-MM` |
 | `disabled` | блокировка |
 | `invalid` | красная рамка (`is-invalid`) |
+
+## Время — TimePicker
+
+Компонент: `@/components/TimePicker.vue`. Обёртка над `@vuepic/vue-datepicker` в режиме только времени. Иконка часов стоит слева, как календарь у `DatePicker`.
+
+`v-model` — **строка** `HH:mm`. Пустая строка значит, что время не задано. Нативный `input type="time"` не используй.
+
+```vue
+<script setup>
+import TimePicker from '@/components/TimePicker.vue'
+</script>
+
+<template>
+  <TimePicker id="starts-at" v-model="startsAt" />
+  <TimePicker id="starts-at-pick" v-model="startsAt" :text-input="false" />
+</template>
+```
+
+| Prop | Когда |
+|------|-------|
+| `id` | для `<label for>` |
+| `placeholder` | своя подсказка; иначе `components.timePicker.placeholder` (`чч:мм`) |
+| `textInput` | набор с клавиатуры; по умолчанию включён и принимает только цифры, двоеточие ставится само. `false` оставляет только список |
+| `disabled` | блокировка |
+| `invalid` | красная рамка |
 
 ## Тумблер — ToggleSwitch
 
@@ -280,6 +310,29 @@ import { MoreHorizontal, Edit, Trash2 } from '@lucide/vue'
 
 Эталон: checklist/dropdown в модуле — `modules/<name>/client/components/…` с `DropDown` ядра.
 
+## Текст — TextEditor
+
+Компонент: `@/components/TextEditor.vue`.
+
+Редактор HTML (`contenteditable`): панель форматирования, стиль абзаца, список и дополнительные команды. Это не поле выбора значения из списка (`SelectBox`).
+
+| Prop / событие | Когда |
+|----------------|-------|
+| `content` / `update:content` | основной HTML |
+| `hintText` / `update:hintText` | HTML подсказки |
+
+Подписи панели — ключи `components.textEditor.*`.
+
+```vue
+<script setup>
+import TextEditor from '@/components/TextEditor.vue'
+</script>
+
+<template>
+  <TextEditor :content="html" @update:content="html = $event" />
+</template>
+```
+
 ## Вкладки — TabBar
 
 Компонент: `@/components/TabBar.vue`.
@@ -306,10 +359,10 @@ import TabBar from '@/components/TabBar.vue'
 |------|-------|
 | `modelValue` | id активной вкладки |
 | `tabs` | список вкладок |
-| `overflow` | `'scroll'` (по умолчанию) — горизонтальная прокрутка без полосы; `'menu'` — невместившееся уходит в кнопку «Ещё» (`DropDown`) |
+| `overflow` | `'scroll'` (по умолчанию) — если вкладки не помещаются, слева и справа кнопки сдвигают ряд, полосы прокрутки нет; `'menu'` — невместившееся уходит в кнопку «Ещё» (`DropDown`) |
 | `ariaLabel` | подпись `tablist`; иначе `components.tabBar.ariaLabel` |
 
-На одном экземпляре один режим `overflow`, без смеси прокрутки и «Ещё». В режиме `menu` активная вкладка остаётся в видимом ряду, даже если по ширине она должна была попасть в список.
+На одном экземпляре один режим `overflow`, без смеси прокрутки и «Ещё». В режиме `scroll` кнопки появляются только когда ряд не помещается и сдвигают его примерно на три четверти видимой ширины. В режиме `menu` активная вкладка остаётся в видимом ряду, даже если по ширине она должна была попасть в список.
 
 ### Запрещено
 
@@ -319,6 +372,33 @@ import TabBar from '@/components/TabBar.vue'
   <button class="nav-tab" :class="{ active: tab === 'a' }">…</button>
 </nav>
 ```
+
+## Шкала шагов — StepRail
+
+Компонент: `@/components/StepRail.vue`.
+
+Горизонтальные шаги и полоса между кружками. Полоса тянется от края кружка до края следующего и занимает долю ширины шага, поэтому растёт и сжимается вместе с контейнером. На узком экране ряд прокручивается, подписи не сжимаются в одну букву.
+
+Шаг: `{ id, label, caption?, marker?, state?, selected?, disabled?, link? }`. `state` — `passed` (залитый кружок с галочкой), `current` (обводка акцентом) или `upcoming`. `selected` подсвечивает просматриваемый шаг отдельным кольцом и `aria-pressed`, не подменяя `current`. `marker` — текст в кружке, пока шаг не пройден; пустая строка оставляет кружок пустым. `caption` — вторая строка под подписью. `link: 'done'` красит исходящую полосу акцентом; без `link` акцент ставится сам, если шаг `passed`.
+
+```vue
+<script setup>
+import StepRail from '@/components/StepRail.vue'
+</script>
+
+<template>
+  <StepRail :steps="steps" aria-label="Ход" />
+  <StepRail :steps="steps" interactive aria-label="Шаги" @select="onSelect" />
+</template>
+```
+
+| Prop | Когда |
+|------|-------|
+| `steps` | список шагов |
+| `ariaLabel` | подпись группы или навигации |
+| `interactive` | шаги становятся кнопками и шлют `select` с `id` |
+
+**Запрещено:** копировать полосу между кружками в модуле. Цвета только через токены темы.
 
 ## Multi-select выбор пользователей — MemberPickerModal
 

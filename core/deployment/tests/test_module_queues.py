@@ -10,7 +10,11 @@ _API_DIR = Path(__file__).resolve().parents[2] / 'api'
 if str(_API_DIR) not in sys.path:
     sys.path.insert(0, str(_API_DIR))
 
-from src.core.utils.celery.module_queues import queues_for_module  # noqa: E402
+from src.core.utils.celery.module_queues import (  # noqa: E402
+    dedicated_queue_names,
+    queues_for_module,
+    read_dedicated_queues,
+)
 
 
 class ModuleQueuesTests(unittest.TestCase):
@@ -56,6 +60,32 @@ class ModuleQueuesTests(unittest.TestCase):
                 queues_for_module('demo_mod', routes={}, module_dir=root),
                 ['demo_mod', 'roadmap_sh'],
             )
+
+    def test_dedicated_queues_stay_out_of_the_shared_list(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            module = root / 'demo_mod'
+            module.mkdir()
+            (module / 'dedicated_queues.yaml').write_text(
+                'queues:\n'
+                '  - name: file_load\n'
+                '    hostname: file_load_worker\n'
+                '    concurrency: 2\n',
+                encoding='utf-8',
+            )
+            specs = read_dedicated_queues(module)
+            self.assertEqual(
+                specs,
+                [{'name': 'file_load', 'hostname': 'file_load_worker', 'concurrency': 2}],
+            )
+            self.assertEqual(dedicated_queue_names(root), {'file_load'})
+            shared = [
+                name for name in ['demo_mod', 'file_load', 'site']
+                if name not in {spec['name'] for spec in specs}
+            ]
+            self.assertEqual(shared, ['demo_mod', 'site'])
 
 
 if __name__ == '__main__':

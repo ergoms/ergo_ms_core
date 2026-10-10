@@ -60,6 +60,7 @@ modules/<имя>/
 ├── host_lifecycle.yaml         # install/uninstall/stop OS-службы
 ├── process_roles.yaml          # роли в ergoms resource-usage
 ├── vscode.tasks.yaml           # Run Task + setup-full / start-all
+├── cursor_hooks.yaml           # команды на события Cursor
 ├── integrations.yaml           # requires / extends между модулями
 ├── pyproject.toml              # Python-зависимости модуля
 └── client/package.json         # npm-зависимости клиента модуля
@@ -84,6 +85,7 @@ modules/<имя>/
 | Portable-бинарник (ollama, ffmpeg…) | `packages.yaml` |
 | Снимок Hugging Face (`org/name`) | `huggingface_models.yaml` |
 | Учёт процесса в resource-usage | `process_roles.yaml` |
+| Команда на событие Cursor | `cursor_hooks.yaml` |
 | Отдельная тема оформления | `theme-defaults.js` + `theme-bootstrap.scss` |
 | Инструменты агента Cursor | `mcp/` + `.cursor/rules/` |
 
@@ -259,6 +261,17 @@ tasks:
 | `start-all` | `ergoms start-all` и multi-terminal Module Services |
 
 Корневой `.vscode/tasks.json` для модульных команд **не** правят. Правило: [`.cursor/rules/module-vscode-tasks.mdc`](../.cursor/rules/module-vscode-tasks.mdc).
+
+### События Cursor (`cursor_hooks.yaml`)
+
+Модуль объявляет команду, которую нужно выполнить в конце хода агента или на другом событии Cursor. Диспетчер `core/deployment/scripts/cursor_module_hooks.py` находит файл по имени и запускает команду в каталоге модуля. Имена модулей в диспетчере нет.
+
+```yaml
+stop:
+  - command: python -m tools.<проверка> --hook-stop
+```
+
+Если команда печатает JSON с полем `followup_message`, агент получает этот текст и продолжает правку. Запись в `.cursor/hooks.json` одна на все модули.
 
 ### OS-службы (`host_lifecycle.yaml`)
 

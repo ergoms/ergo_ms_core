@@ -239,6 +239,12 @@ def compose_registration_invitation(*, token, register_url, ttl_label, **kwargs)
     }
 ```
 
+### Вне Django
+
+| Hook-файл | Как находит ядро | Потребитель | Обязательность |
+|-----------|------------------|-------------|----------------|
+| `cursor_hooks.yaml` | обход `modules/*/cursor_hooks.yaml` в [`cursor_module_hooks.py`](../../core/deployment/scripts/cursor_module_hooks.py) | событие `stop` в `.cursor/hooks.json` | если модуль возвращает агента к правке |
+
 ## Связанные правила
 
 | Тема | Файл |
