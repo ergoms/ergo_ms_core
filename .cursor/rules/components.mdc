@@ -30,6 +30,7 @@ alwaysApply: false
 | Загрузка списков без «мигания» | `LoadingContentArea` | [`loading-content-area.mdc`](loading-content-area.mdc) |
 | Быстрая прогрузка страниц | lazy-модалки, prefetch | [`client-perf.mdc`](client-perf.mdc) |
 | Постраничная навигация | `Pagination` / `DataTable` (`enable-pagination`) | [`pagination.mdc`](pagination.mdc) |
+| Раскрывающаяся подстрока таблицы | `DataTable`: проп `is-row-expanded` + слот `#row-details`, плавно открывает `DataTableRowDetails`; группы не поддерживает | этот раздел |
 | Модальные окна | `ModalCenter`, `confirm.js` | [`modal-center.mdc`](modal-center.mdc) |
 | Multi-select выбор пользователей | `MemberPickerModal` | этот раздел |
 | Аватар пользователя | `UserAvatar` | этот раздел |
