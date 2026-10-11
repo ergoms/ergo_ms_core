@@ -283,6 +283,23 @@ def backups_dir(root: Path) -> Path:
     return virtual_env_dir(root) / 'backups'
 
 
+def workspace_access_plan_path(root: Path) -> Path:
+    """Локальный план ролей: virtual_env/access-plans/workspace-access.yaml.
+
+    Файл не коммитится. Формат YAML:
+
+    - ``workspaces`` — список организаций, ключ ``public_id``
+    - ``units`` — подразделение: ``name``, ``roles`` (профиль или ключ встроенной роли), ``members``
+    - ``members`` — ``user`` (public_id), ``mode`` ``set`` или ``add``, ``profiles``
+    - ``tool_order_assignees`` — два public_id ответственных за заказы с сайта
+    - ``grants`` — необязательно: ``user`` и ``clients`` (карточки своей организации)
+
+    ``set`` заменяет личные роли, ``add`` добавляет к текущим. Нет ключа ``grants`` —
+    выдачу карточек команда не трогает.
+    """
+    return virtual_env_dir(root) / 'access-plans' / 'workspace-access.yaml'
+
+
 def wrappers_dir(root: Path) -> Path:
     return root / 'core' / 'deployment' / 'wrappers'
 

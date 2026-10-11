@@ -129,6 +129,7 @@ modules/<имя>/
 |--------|-----|
 | Каталог событий уведомлений | `notification_catalog.py` + `bridge.provide_many('notifications.event_definitions', …)` |
 | Создать уведомление | `bridge.call('notifications.create', …)` |
+| Привязать уведомление к session-scope | `scope_ref` (public_id) на записи; клик и письмо входят через клиентский `session.enter_scope` |
 | Каталог действий аудита | группа `audit.action_definitions` |
 | CRUD-автоаудит | миксин `AuditedModelMixin` на ViewSet |
 

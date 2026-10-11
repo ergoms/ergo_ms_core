@@ -18,6 +18,7 @@
 include ${ERGO_NGINX_SNIPPETS}/http_hardening.conf;
 include ${ERGO_NGINX_SNIPPETS}/compression.conf;
 ${ERGO_RATE_LIMIT_CONF}
+${ERGO_EXTRA_HTTP_INCLUDE}
 
 ${ERGO_API_UPSTREAM_BLOCK}
 
@@ -66,6 +67,7 @@ server {
     client_max_body_size ${ERGO_CLIENT_MAX_BODY_SIZE};
 
     include ${ERGO_NGINX_SNIPPETS}/proxy_params.conf;
+${ERGO_EXTRA_SERVER_INCLUDE}
 
 ${ERGO_MAINTENANCE_SNIPPET}
     location ~ /\. {

@@ -26,6 +26,30 @@ from render_common import (  # noqa: E402
 
 
 class NginxRenderTests(unittest.TestCase):
+    def test_optional_extra_snippets_survive_render_with_opt_in_frames(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            http = root / 'office-http.conf'
+            server = root / 'office-server.conf'
+            http.write_text('map $http_upgrade $office_connection { default upgrade; "" close; }', encoding='utf-8')
+            server.write_text('location /office/ { proxy_pass http://127.0.0.1:8088/; }', encoding='utf-8')
+            (root / '.env').write_text(f'NGINX_HTTP_EXTRA_INCLUDE={http.as_posix()}\nNGINX_SERVER_EXTRA_INCLUDE={server.as_posix()}\nNGINX_ALLOW_SAME_ORIGIN_FRAMES=true\n', encoding='utf-8')
+            template_dir = Path(__file__).resolve().parents[1] / 'nginx'
+            for name, https in (('ergo_ms.conf.template', True), ('ergo_ms_http.conf.template', False)):
+                rendered = render_nginx_config.render_template(template_dir / name, root=root,
+                    server_name='crm.example.com', listen_host='127.0.0.1', listen_port='80', use_https=https)
+                self.assertIn(f'include "{http.as_posix()}";', rendered)
+                self.assertIn(f'include "{server.as_posix()}";', rendered)
+                self.assertIn("frame-src 'self'", rendered)
+                self.assertIn("frame-ancestors 'none'", rendered)
+                self.assertNotIn('${ERGO_EXTRA_', rendered)
+
+    def test_extra_include_rejects_missing_relative_or_injected_paths(self) -> None:
+        self.assertEqual(render_nginx_config.render_extra_include({}, 'EXTRA'), '')
+        for value in ('relative.conf', '/missing-office.conf', '/tmp/x.conf; include other.conf;', '/tmp/x.conf\nserver {}'):
+            with self.assertRaises(ValueError):
+                render_nginx_config.render_extra_include({'EXTRA': value}, 'EXTRA')
+
     def test_shared_core_proxy_locations_for_host_and_docker(self) -> None:
         host_block = build_core_proxy_locations(variant='host')
         docker_block = build_core_proxy_locations(variant='docker')
@@ -322,6 +346,10 @@ class NginxRenderTests(unittest.TestCase):
         self.assertIn('limit_req_status 429', api_loc[:400])
         self.assertIn('limit_conn_status 429', api_loc[:400])
         self.assertIn('burst=25', rendered)
+        self.assertIn('limit_conn_zone $binary_remote_addr zone=ergo_upload_conn:10m;', rendered)
+        upload_loc = rendered[rendered.find('location /upload/'):]
+        self.assertIn('limit_conn ergo_upload_conn 10;', upload_loc[:500])
+        self.assertNotIn('limit_conn ergo_conn', upload_loc[:500])
         self.assertIn('location /health/', rendered)
         health = rendered[rendered.find('location /health/'):]
         self.assertIn('deny all', health[:240])
@@ -463,11 +491,16 @@ class ModuleNginxTests(unittest.TestCase):
         self.assertIn('proxy_set_header Host 10.0.0.8;', block)
         self.assertIn('proxy_connect_timeout 2s;', block)
         self.assertIn('proxy_read_timeout 8s;', block)
-        rendered = build_host_nginx_shared_replacements(values)['${ERGO_HOST_MEDIA_PROXY}']
+        replacements = build_host_nginx_shared_replacements(values)
+        rendered = replacements['${ERGO_HOST_MEDIA_PROXY}']
         self.assertIn('location ^~ /upload/demo_mod/', rendered)
         self.assertIn('location /upload/', rendered)
         upload_generic = rendered[rendered.find('    location /upload/'):]
         self.assertIn('proxy_pass http://ergo_media;', upload_generic)
+        self.assertIn('${ERGO_UPLOAD_LIMIT_LINES}', upload_generic[:400])
+        module_upload = rendered[rendered.find('location ^~ /upload/demo_mod/'):]
+        self.assertIn('${ERGO_UPLOAD_LIMIT_LINES}', module_upload[:400])
+        self.assertIn('limit_conn ergo_upload_conn 10;', replacements['${ERGO_UPLOAD_LIMIT_LINES}'])
 
     def test_docker_template_proxies_jupyter(self) -> None:
         deployment_dir = Path(__file__).resolve().parents[1]

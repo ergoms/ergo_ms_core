@@ -212,6 +212,17 @@ function runNpmInstallWithCacheRepair(runOnce) {
 }
 
 function copyPackageTree(sourceDir, targetDir) {
+  const name = path.basename(sourceDir)
+  if (name.startsWith('@') && fs.existsSync(sourceDir) && fs.statSync(sourceDir).isDirectory()) {
+    fs.mkdirSync(targetDir, { recursive: true })
+    for (const child of fs.readdirSync(sourceDir)) {
+      if (child.startsWith('.')) {
+        continue
+      }
+      copyPackageTree(path.join(sourceDir, child), path.join(targetDir, child))
+    }
+    return
+  }
   if (fs.existsSync(targetDir)) {
     fs.rmSync(targetDir, { recursive: true, force: true })
   }

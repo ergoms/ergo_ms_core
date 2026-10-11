@@ -24,6 +24,16 @@ from security.profile_defaults import merge_security_profile_defaults
 
 
 class CspPolicyBuilderTests(unittest.TestCase):
+    def test_optional_same_origin_frames_preserve_other_restrictions(self) -> None:
+        for mode in ('as_is', 'no_unsafe', 'no_unsafe_plus_externals'):
+            original = build_csp_policy(mode)
+            self.assertNotIn('frame-src ', original)
+            enabled = build_csp_policy(mode, allow_same_origin_frames=True)
+            self.assertTrue(enabled.startswith(original + '; '))
+            self.assertIn("frame-src 'self'", enabled)
+            self.assertIn("frame-ancestors 'none'", enabled)
+            self.assertIn('X-Frame-Options "DENY"', build_security_headers_nginx(mode, allow_same_origin_frames=True))
+
     def test_normalize_unknown_falls_back(self) -> None:
         self.assertEqual(normalize_csp_mode(None), 'as_is')
         self.assertEqual(normalize_csp_mode(''), 'as_is')

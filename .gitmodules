@@ -81,7 +81,7 @@
 	
 [submodule "education_materials_parser"]
 	path = modules/education_materials_parser
-	url = https://github.com/SKB-AI/ergo_ms_education_materials_parser.git
+	url = https://github.com/ergoms/ergo_ms_education_materials_parser.git
 	branch = dev
 	update = merge
 	ignore = all

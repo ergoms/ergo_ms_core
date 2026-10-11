@@ -106,6 +106,8 @@ def _with_script_hashes(script: str, extra_script_hashes: Sequence[str] | None) 
 def build_csp_policy(
     mode: str | None = None,
     extra_script_hashes: Sequence[str] | None = None,
+    *,
+    allow_same_origin_frames: bool = False,
 ) -> str:
     """Строка Content-Security-Policy без кавычек обёртки nginx."""
     resolved = normalize_csp_mode(mode)
@@ -150,15 +152,24 @@ def build_csp_policy(
     ]
     script = _with_script_hashes(script, extra_script_hashes)
     parts[1] = script
+    if allow_same_origin_frames:
+        # Keep the existing map/blob frame sources and the top-level anti-framing policy.
+        sources = child.removeprefix('child-src ')
+        if "'self'" not in sources.split():
+            sources = "'self' " + sources
+        parts.append('frame-src ' + sources)
     return '; '.join(parts)
 
 
 def build_security_headers_nginx(
     mode: str | None = None,
     extra_script_hashes: Sequence[str] | None = None,
+    *,
+    allow_same_origin_frames: bool = False,
 ) -> str:
     """Фрагмент nginx add_header (как snippets/security_headers.conf) для режима CSP."""
-    csp = build_csp_policy(mode, extra_script_hashes=extra_script_hashes)
+    csp = build_csp_policy(mode, extra_script_hashes=extra_script_hashes,
+                           allow_same_origin_frames=allow_same_origin_frames)
     return (
         '# HTTP security headers для SPA, static и proxy (add_header ... always).\n'
         'add_header X-Frame-Options "DENY" always;\n'
