@@ -87,6 +87,7 @@ const STATUS_OPTIONS = [
 | `option-indent-per-level` | доп. отступ вложенных пунктов, rem; по умолчанию **`0`** |
 | `nested-option-font-size` / `nested-secondary-font-size` | размер шрифта вложенных строк; пусто — как у списка |
 | `disabled` | недоступное поле |
+| `menu-mode` | `compact` (по умолчанию) — список не выше 260px; `screen` — список тянется до края окна |
 
 ## Иерархические опции
 
