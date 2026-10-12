@@ -44,6 +44,8 @@ __pycache__/
 /virtual_env/cache/*
 !/virtual_env/cache/.gitkeep
 
+/unsloth_compiled_cache/
+
 /virtual_env/jupyter/*
 !/virtual_env/jupyter/.gitkeep
 

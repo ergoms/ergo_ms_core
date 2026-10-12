@@ -28,6 +28,11 @@ def huggingface_hub_cache_dir(root: Path) -> Path:
     return cache_dir(root) / 'huggingface'
 
 
+def unsloth_compiled_cache_dir(root: Path) -> Path:
+    """Сгенерированные модули Unsloth. Иначе они появляются в cwd процесса."""
+    return cache_dir(root) / 'unsloth_compiled'
+
+
 def huggingface_trained_models_dir(root: Path) -> Path:
     """Снимки весов Hugging Face: virtual_env/trained_models/huggingface/."""
     return virtual_env_dir(root) / 'trained_models' / 'huggingface'
