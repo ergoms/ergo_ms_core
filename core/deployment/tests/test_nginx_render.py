@@ -44,6 +44,44 @@ class NginxRenderTests(unittest.TestCase):
                 self.assertIn("frame-ancestors 'none'", rendered)
                 self.assertNotIn('${ERGO_EXTRA_', rendered)
 
+    def test_mjs_worker_is_javascript_on_host_and_docker(self) -> None:
+        deployment_dir = Path(__file__).resolve().parents[1]
+        snippet = (deployment_dir / 'nginx' / 'snippets' / 'mime_modules.conf').read_text(encoding='utf-8')
+        self.assertIn('application/javascript mjs', snippet)
+        template_dir = deployment_dir / 'nginx'
+        docker_template = deployment_dir / 'docker' / 'nginx' / 'ergo_ms.docker.conf.template'
+        raw_env = {
+            'DOCKER_SERVICE_API': 'api',
+            'DOCKER_SERVICE_MEDIA': 'media-api',
+            'API_PORT': '9001',
+            'MEDIA_API_BIND_PORT': '9003',
+            'NGINX_LISTEN_PORT': '8080',
+            'NGINX_SERVER_NAME': 'test.local',
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / '.env').write_text('API_PORT=9001\n', encoding='utf-8')
+            for name, https in (('ergo_ms.conf.template', True), ('ergo_ms_http.conf.template', False)):
+                rendered = render_nginx_config.render_template(
+                    template_dir / name,
+                    root=root,
+                    server_name='test.local',
+                    listen_host='127.0.0.1',
+                    listen_port='80',
+                    use_https=https,
+                )
+                include_at = rendered.find('mime_modules.conf')
+                server_at = rendered.find('\nserver {')
+                self.assertGreater(include_at, -1)
+                self.assertGreater(server_at, include_at)
+            out = Path(tmp) / 'docker.conf'
+            render_docker_nginx_config(raw_env, template_path=docker_template, output_path=out)
+            docker_rendered = out.read_text(encoding='utf-8')
+            mime_at = docker_rendered.find('application/javascript mjs')
+            server_at = docker_rendered.find('\nserver {')
+            self.assertGreater(mime_at, -1)
+            self.assertGreater(server_at, mime_at)
+
     def test_extra_include_rejects_missing_relative_or_injected_paths(self) -> None:
         self.assertEqual(render_nginx_config.render_extra_include({}, 'EXTRA'), '')
         for value in ('relative.conf', '/missing-office.conf', '/tmp/x.conf; include other.conf;', '/tmp/x.conf\nserver {}'):

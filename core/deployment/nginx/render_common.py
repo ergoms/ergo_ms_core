@@ -600,11 +600,12 @@ def _snippet_text(name: str) -> str:
 
 
 def build_docker_http_preamble(values: Mapping[str, str] | None = None) -> str:
-    """http-контекст внутри conf.d: hardening, gzip, зоны частоты (как host HTTP)."""
+    """http-контекст внутри conf.d: hardening, gzip, тип .mjs, зоны частоты (как host HTTP)."""
     rate_conf = build_rate_limit_conf(values or {})
     return (
         _snippet_text('http_hardening.conf')
         + _snippet_text('compression.conf')
+        + _snippet_text('mime_modules.conf')
         + rate_conf
     )
 
