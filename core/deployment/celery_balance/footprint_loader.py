@@ -22,8 +22,10 @@ from celery_balance.constants import (  # noqa: E402
     CLASS_DEFAULTS,
     CLASS_LIGHT,
     CLASS_MEDIUM,
+    DEFAULT_PLACEMENT,
     DEFAULT_QUEUE_NAME,
     FOOTPRINT_FILENAME,
+    PLACEMENTS,
     TASK_CLASSES,
 )
 
@@ -40,6 +42,7 @@ class TaskFootprint:
     max_parallel: int
     cpu_fallback: bool
     module: str
+    placement: str = DEFAULT_PLACEMENT
 
 
 @dataclass(frozen=True)
@@ -127,6 +130,18 @@ def _parse_task(
     if cpu_units <= 0:
         cpu_units = float(base['cpu_units'])
 
+    placement = str(raw.get('placement') or defaults.get('placement') or DEFAULT_PLACEMENT).strip().lower()
+    if placement not in PLACEMENTS:
+        _warn(
+            t(
+                'celery_balance_footprint_unknown_placement',
+                path=path,
+                module=module,
+                placement=placement,
+            )
+        )
+        placement = DEFAULT_PLACEMENT
+
     return TaskFootprint(
         queue=queue,
         pattern=pattern,
@@ -138,6 +153,7 @@ def _parse_task(
         max_parallel=max_parallel,
         cpu_fallback=cpu_fallback,
         module=module,
+        placement=placement,
     )
 
 
@@ -211,6 +227,7 @@ def default_footprint(queue: str) -> TaskFootprint:
         max_parallel=int(base['max_parallel']),
         cpu_fallback=True,
         module='',
+        placement=DEFAULT_PLACEMENT,
     )
 
 

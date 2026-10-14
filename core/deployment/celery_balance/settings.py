@@ -3,15 +3,23 @@
 from __future__ import annotations
 
 import os
+import socket
 from dataclasses import dataclass
 from pathlib import Path
 
 from env_file_loader import load_project_env
 
 from celery_balance.constants import (
+    CLUSTER_MODES,
+    CLUSTER_OFF,
+    CLUSTER_ON,
+    CLUSTER_ROLES,
+    DEFAULT_CLUSTER,
+    DEFAULT_CLUSTER_ROLE,
     DEFAULT_GPU_UTIL_CAP,
     DEFAULT_HYSTERESIS_RATIO,
     DEFAULT_MIN_CONCURRENCY,
+    DEFAULT_NODE_TTL_SEC,
     DEFAULT_OS_RESERVE_RAM_MB,
     DEFAULT_RESERVE_CPU,
     DEFAULT_MODE,
@@ -20,6 +28,7 @@ from celery_balance.constants import (
     MODE_OFF,
     MODE_RECOMMEND,
     MODES,
+    ROLE_MANAGER,
 )
 
 
@@ -62,10 +71,18 @@ class BalanceSettings:
     gpu_util_cap: float
     watch_interval_sec: float
     hysteresis_ratio: float
+    cluster: str
+    cluster_role: str
+    node_id: str
+    node_ttl_sec: int
 
     @property
     def apply_overlay(self) -> bool:
         return self.mode == MODE_AUTO
+
+    @property
+    def cluster_enabled(self) -> bool:
+        return self.cluster == CLUSTER_ON
 
     @property
     def compute_plan(self) -> bool:
@@ -101,6 +118,21 @@ def load_settings(project_root: Path) -> BalanceSettings:
     if os_reserve is None or os_reserve < 0:
         os_reserve = DEFAULT_OS_RESERVE_RAM_MB
 
+    cluster = _pick(environ, 'CELERY_CLUSTER', DEFAULT_CLUSTER).lower()
+    if cluster in {'1', 'true', 'yes', 'on'}:
+        cluster = CLUSTER_ON
+    if cluster not in CLUSTER_MODES:
+        cluster = CLUSTER_OFF
+
+    role = _pick(environ, 'CELERY_CLUSTER_ROLE', DEFAULT_CLUSTER_ROLE).lower()
+    if role not in CLUSTER_ROLES:
+        role = ROLE_MANAGER
+
+    node_id = _pick(environ, 'ERGO_NODE_ID', '') or socket.gethostname()
+    node_ttl = _as_int(_pick(environ, 'CELERY_CLUSTER_NODE_TTL'), DEFAULT_NODE_TTL_SEC)
+    if node_ttl is None or node_ttl < 15:
+        node_ttl = DEFAULT_NODE_TTL_SEC
+
     return BalanceSettings(
         mode=mode,
         os_reserve_ram_mb=os_reserve,
@@ -135,4 +167,8 @@ def load_settings(project_root: Path) -> BalanceSettings:
                 DEFAULT_HYSTERESIS_RATIO,
             ),
         ),
+        cluster=cluster,
+        cluster_role=role,
+        node_id=node_id,
+        node_ttl_sec=node_ttl,
     )

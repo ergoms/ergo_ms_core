@@ -1,6 +1,7 @@
 # ERGO MS — локальный Redis (virtual_env/packages/redis)
 # Сгенерировано install_redis.py; не редактируйте пути вручную без переустановки.
 
+# Дополнительный адрес — REDIS_BIND_EXTRA, только вместе с паролем Redis.
 bind {{REDIS_BIND}}
 port {{REDIS_PORT}}
 protected-mode yes

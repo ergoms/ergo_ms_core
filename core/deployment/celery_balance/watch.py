@@ -19,9 +19,13 @@ def run_watch(
     *,
     dry_run: bool,
     as_json: bool,
+    show_cluster: bool = False,
 ) -> int:
     while True:
         snapshot = collect_snapshot(project_root)
+        from celery_balance.cluster import sync_cluster
+
+        sync_cluster(project_root, snapshot, write=not dry_run)
         prev = previous_concurrency(project_root)
         skip_all = True
         for plan in snapshot.plans:
@@ -63,7 +67,11 @@ def run_watch(
         else:
             if skip_all:
                 print(format_console('info', t('celery_balance_watch_skip')))
-            print_report(snapshot, dry_run=dry_run)
+            print_report(
+                snapshot,
+                dry_run=dry_run,
+                show_cluster=show_cluster or snapshot.settings.cluster_enabled,
+            )
             if result.needs_restart and snapshot.settings.mode == MODE_AUTO:
                 print(format_console('info', t('celery_balance_restart_hint')))
         time.sleep(snapshot.settings.watch_interval_sec)

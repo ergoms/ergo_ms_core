@@ -73,3 +73,13 @@ RUN sed -i 's/\r$//' /usr/local/bin/ergo-docker-entrypoint.sh \
 ENV PATH="/app/virtual_env/python/bin:${PATH}"
 
 ENTRYPOINT ["/usr/local/bin/ergo-docker-entrypoint.sh"]
+
+# Воркер кластера: код и venv внутри образа, без bind-mount корня проекта.
+FROM base AS worker
+COPY core/deployment ./core/deployment
+ENV CELERY_CLUSTER=on \
+    CELERY_CLUSTER_ROLE=agent
+CMD ["python", "core/api/scripts/start_celery_worker.py"]
+
+# Последняя стадия — прежний образ Compose. Сборка без --target её и берёт.
+FROM base AS runtime

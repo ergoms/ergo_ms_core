@@ -100,7 +100,7 @@ sections:
     invoke: ergoms resource-usage [--json] [-w] [--interval N]
     summary: Consommation RAM/CPU des processus ERGO MS sur l'hôte
   - name: celery-balance
-    invoke: ergoms celery-balance [--dry-run] [--watch] [--json]
+    invoke: ergoms celery-balance [--dry-run] [--watch] [--json] [--cluster]
     summary: Budget et concurrence Celery (observe / recommend / auto)
   - name: loadtest
     invoke: ergoms loadtest [--profile …] [--isolated-db|--docker-isolated] | --find-limit … | --cleanup-users
@@ -149,6 +149,14 @@ sections:
     summary: Régénérer compose depuis celery_workers.yaml
   - name: docker-gen-modules
     summary: Régénérer compose depuis MICROSERVICE_MODULES (MODULE_RUNTIME=microservice)
+  - name: docker-registry
+    summary: Registre d'images local sur DOCKER_SWARM_REGISTRY, uniquement pour les nœuds du cluster
+  - name: docker-swarm-push
+    summary: Construire la cible worker de l'image Python et l'envoyer au registre du cluster
+  - name: docker-swarm-deploy
+    summary: Démarrer l'agent de budget et le worker Celery sur les nœuds Swarm
+  - name: docker-swarm-down
+    summary: Retirer la pile des workers Swarm
 - id: dependencies
   title: Dépendances et base de données
   commands:

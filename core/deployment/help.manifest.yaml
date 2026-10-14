@@ -101,7 +101,7 @@ sections:
     invoke: ergoms resource-usage [--json] [-w] [--interval N]
     summary: Потребление RAM/CPU процессов ERGO MS на хосте
   - name: celery-balance
-    invoke: ergoms celery-balance [--dry-run] [--watch] [--json]
+    invoke: ergoms celery-balance [--dry-run] [--watch] [--json] [--cluster]
     summary: Бюджет и concurrency Celery (observe / recommend / auto)
   - name: loadtest
     invoke: ergoms loadtest [--profile …] [--isolated-db|--docker-isolated] | --find-limit … | --cleanup-users
@@ -150,6 +150,14 @@ sections:
     summary: Перегенерировать compose из celery_workers.yaml
   - name: docker-gen-modules
     summary: Перегенерировать compose из MICROSERVICE_MODULES (MODULE_RUNTIME=microservice)
+  - name: docker-registry
+    summary: Локальный реестр образов на адресе DOCKER_SWARM_REGISTRY, только для узлов кластера
+  - name: docker-swarm-push
+    summary: Собрать цель worker образа Python и отправить её в реестр кластера
+  - name: docker-swarm-deploy
+    summary: Поднять агент бюджета и воркер Celery на рабочих узлах Swarm
+  - name: docker-swarm-down
+    summary: Снять стек воркеров Swarm
 - id: dependencies
   title: Зависимости и база данных
   commands:

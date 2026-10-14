@@ -36,6 +36,8 @@ def write_decision(
     forecast: dict[str, Any],
     workers: list[WorkerPlan],
     yaml_workers: dict[str, Any],
+    allowed_queues: list[str] | None = None,
+    node_id: str | None = None,
 ) -> Path:
     path = decision_path(project_root)
     ensure_dir(path.parent)
@@ -69,6 +71,10 @@ def write_decision(
         'non_light_cap': min(non_light_caps) if non_light_caps else 0,
         'pause_queues': sorted(set(pause_queues)),
     }
+    if node_id:
+        payload['node_id'] = node_id
+    if allowed_queues is not None:
+        payload['allowed_queues'] = list(allowed_queues)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     return path
 

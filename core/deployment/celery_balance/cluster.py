@@ -1,0 +1,261 @@
+"""Бюджет и план узла в Redis. Ключи живут, пока узел присылает бюджет."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+from celery_balance.constants import (
+    NODE_KEY_PREFIX,
+    PLAN_KEY_PREFIX,
+    ROLE_AGENT,
+    ROLE_MANAGER,
+)
+from celery_balance.cluster_plan import NodePlan, NodeView, apply_cluster_share, plan_cluster
+from celery_balance.host_budget import HostBudget
+from celery_balance.overlay import load_decision
+from celery_balance.settings import BalanceSettings, load_settings
+
+
+def _node_key(node_id: str) -> str:
+    return f'{NODE_KEY_PREFIX}{node_id}'
+
+
+def _plan_key(node_id: str) -> str:
+    return f'{PLAN_KEY_PREFIX}{node_id}'
+
+
+def connect(project_root: Path) -> Any | None:
+    from env_file_loader import load_project_env
+
+    from celery_balance.queues import _redis_connect_kwargs
+
+    try:
+        import redis
+    except ImportError:
+        return None
+    kwargs = _redis_connect_kwargs(project_root, load_project_env(project_root))
+    try:
+        client = redis.Redis(decode_responses=True, **kwargs)
+        client.ping()
+    except Exception:  # noqa: BLE001 — нет брокера, кластер молча остаётся локальным
+        return None
+    return client
+
+
+def view_from_budget(node_id: str, primary: bool, budget: HostBudget) -> NodeView:
+    devices = tuple((item.index, item.vram_free_mb) for item in budget.gpu.devices)
+    return NodeView(
+        node_id=node_id,
+        primary=primary,
+        celery_ram_budget_mb=budget.celery_ram_budget_mb,
+        celery_cpu_budget=budget.celery_cpu_budget,
+        cpu_count=budget.cpu_count,
+        gpu_available=budget.gpu.available,
+        vram_free_mb=budget.gpu.vram_free_mb,
+        utilization_pct=budget.gpu.utilization_pct,
+        devices=devices,
+        vram_total_mb=budget.gpu.vram_total_mb,
+    )
+
+
+def view_from_payload(data: dict[str, Any]) -> NodeView | None:
+    node_id = str(data.get('node_id') or '').strip()
+    budget = data.get('budget')
+    if not node_id or not isinstance(budget, dict):
+        return None
+    gpu = budget.get('gpu') if isinstance(budget.get('gpu'), dict) else {}
+    devices: list[tuple[int, float]] = []
+    raw_devices = gpu.get('devices') if isinstance(gpu, dict) else None
+    if isinstance(raw_devices, list):
+        for item in raw_devices:
+            if not isinstance(item, dict):
+                continue
+            try:
+                devices.append((int(item.get('index') or 0), float(item.get('vram_free_mb') or 0)))
+            except (TypeError, ValueError):
+                continue
+    try:
+        return NodeView(
+            node_id=node_id,
+            primary=bool(data.get('primary')),
+            celery_ram_budget_mb=float(budget.get('celery_ram_budget_mb') or 0),
+            celery_cpu_budget=float(budget.get('celery_cpu_budget') or 0),
+            cpu_count=float(budget.get('cpu_count') or 1),
+            gpu_available=bool(gpu.get('available')) if isinstance(gpu, dict) else False,
+            vram_free_mb=float(gpu.get('vram_free_mb') or 0) if isinstance(gpu, dict) else 0.0,
+            utilization_pct=float(gpu.get('utilization_pct') or 0) if isinstance(gpu, dict) else 0.0,
+            devices=tuple(devices),
+            vram_total_mb=float(gpu.get('vram_total_mb') or 0) if isinstance(gpu, dict) else 0.0,
+        )
+    except (TypeError, ValueError):
+        return None
+
+
+def publish_node(client: Any, settings: BalanceSettings, budget: HostBudget) -> None:
+    payload = {
+        'node_id': settings.node_id,
+        'role': settings.cluster_role,
+        'primary': settings.cluster_role == ROLE_MANAGER,
+        'budget': budget.to_dict(),
+    }
+    client.set(_node_key(settings.node_id), json.dumps(payload, ensure_ascii=False), ex=settings.node_ttl_sec)
+
+
+def list_views(client: Any) -> list[NodeView]:
+    try:
+        keys = list(client.scan_iter(match=f'{NODE_KEY_PREFIX}*'))
+    except Exception:  # noqa: BLE001
+        return []
+    if not keys:
+        return []
+    try:
+        raw_values = client.mget(keys)
+    except Exception:  # noqa: BLE001
+        return []
+    views: list[NodeView] = []
+    for raw in raw_values:
+        if not raw:
+            continue
+        try:
+            data = json.loads(raw)
+        except (TypeError, json.JSONDecodeError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        view = view_from_payload(data)
+        if view is not None:
+            views.append(view)
+    return views
+
+
+def publish_plan(client: Any, plan: NodePlan, ttl_sec: int) -> None:
+    client.set(
+        _plan_key(plan.node_id),
+        json.dumps(plan.to_overlay(), ensure_ascii=False),
+        ex=ttl_sec,
+    )
+
+
+def load_plan(client: Any, node_id: str) -> dict[str, Any] | None:
+    try:
+        raw = client.get(_plan_key(node_id))
+    except Exception:  # noqa: BLE001
+        return None
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw)
+    except (TypeError, json.JSONDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _limits_from_plan(data: dict[str, Any] | None) -> dict[str, int]:
+    if not data:
+        return {}
+    raw = data.get('queue_limits')
+    if not isinstance(raw, dict):
+        return {}
+    limits: dict[str, int] = {}
+    for name, value in raw.items():
+        try:
+            limits[str(name)] = int(value)
+        except (TypeError, ValueError):
+            continue
+    return limits
+
+
+def _merge_nodes(local: NodeView, remote: list[NodeView]) -> list[NodeView]:
+    by_id = {item.node_id: item for item in remote}
+    by_id[local.node_id] = local
+    return sorted(by_id.values(), key=lambda item: (not item.primary, item.node_id))
+
+
+def sync_cluster(project_root: Path, snapshot: Any, *, write: bool) -> None:
+    """Менеджер делит очереди. Агент только публикует свой бюджет."""
+    settings = snapshot.settings
+    if not settings.cluster_enabled:
+        return
+    local = view_from_budget(
+        settings.node_id,
+        settings.cluster_role == ROLE_MANAGER,
+        snapshot.budget,
+    )
+    client = connect(project_root)
+    remote: list[NodeView] = []
+    previous: dict[str, dict[str, int]] = {}
+    if client is None:
+        snapshot.cluster_note = 'redis'
+    else:
+        if write:
+            publish_node(client, settings, snapshot.budget)
+        remote = list_views(client)
+        for view in _merge_nodes(local, remote):
+            previous[view.node_id] = _limits_from_plan(load_plan(client, view.node_id))
+    nodes = _merge_nodes(local, remote)
+    snapshot.cluster_nodes = nodes
+    if settings.cluster_role != ROLE_MANAGER:
+        return
+
+    depths = {
+        item.name: int(item.depth or 0)
+        for item in snapshot.queues.queues
+        if item.depth is not None
+    }
+    queue_names = sorted({item.name for item in snapshot.queues.queues} | set(depths))
+    if not queue_names:
+        queue_names = ['default']
+    from celery_balance.history import stats_by_queue
+
+    plans = plan_cluster(
+        nodes,
+        all_queues=queue_names,
+        catalog=_catalog(project_root),
+        settings=settings,
+        depths=depths,
+        history=stats_by_queue(project_root),
+        previous_limits=previous,
+    )
+    snapshot.cluster_plans = plans
+    local_plan = next((item for item in plans if item.node_id == settings.node_id), None)
+    if local_plan is not None:
+        apply_cluster_share(snapshot.plans, local_plan)
+        snapshot.allowed_queues = list(local_plan.queues)
+    if write and client is not None:
+        for plan in plans:
+            publish_plan(client, plan, settings.node_ttl_sec)
+
+
+def _catalog(project_root: Path):
+    from celery_balance.footprint_loader import load_footprints
+
+    return load_footprints(str(project_root.resolve()))
+
+
+def resolve_allowed_queues(project_root: Path) -> list[str] | None:
+    """None — фильтр кластера не действует. Пустой список — воркер не стартует."""
+    settings = load_settings(project_root)
+    if not settings.cluster_enabled:
+        return None
+    plan: dict[str, Any] | None = None
+    client = connect(project_root)
+    if client is not None:
+        plan = load_plan(client, settings.node_id)
+    if plan is None or 'allowed_queues' not in plan:
+        data = load_decision(project_root)
+        if (
+            isinstance(data, dict)
+            and data.get('node_id') == settings.node_id
+            and 'allowed_queues' in data
+        ):
+            plan = data
+    if plan is None or 'allowed_queues' not in plan:
+        if settings.cluster_role == ROLE_AGENT:
+            return []
+        return None
+    raw = plan.get('allowed_queues')
+    if not isinstance(raw, list):
+        return [] if settings.cluster_role == ROLE_AGENT else None
+    return [str(item) for item in raw if str(item).strip()]

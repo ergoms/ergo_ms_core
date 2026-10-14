@@ -40,8 +40,11 @@ def resolve_root(explicit: str | None) -> Path:
     raise SystemExit(format_console('error', t('project_root_resolve_failed')))
 
 
-def _run_once(root: Path, *, dry_run: bool, as_json: bool) -> int:
+def _run_once(root: Path, *, dry_run: bool, as_json: bool, show_cluster: bool) -> int:
     snapshot = collect_snapshot(root)
+    from celery_balance.cluster import sync_cluster
+
+    sync_cluster(root, snapshot, write=not dry_run)
     write_overlay = (not dry_run) and snapshot.settings.mode in {MODE_RECOMMEND, MODE_AUTO}
     if write_overlay:
         persist_snapshot(root, snapshot)
@@ -64,7 +67,7 @@ def _run_once(root: Path, *, dry_run: bool, as_json: bool) -> int:
         }
         print(json.dumps(payload, ensure_ascii=False, indent=2))
     else:
-        print_report(snapshot, dry_run=dry_run)
+        print_report(snapshot, dry_run=dry_run, show_cluster=show_cluster)
         if result.needs_restart and snapshot.settings.mode == MODE_AUTO and not dry_run:
             print(format_console('info', t('celery_balance_restart_hint')))
     return 0
@@ -80,6 +83,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument('--dry-run', action='store_true', help=t('celery_balance_help_dry_run'))
     parser.add_argument('--watch', action='store_true', help=t('help_watch_report'))
     parser.add_argument('--json', action='store_true', help=t('help_json_output'))
+    parser.add_argument('--cluster', action='store_true', help=t('celery_balance_help_cluster'))
     parser.add_argument('--interval', type=float, default=None, help=t('help_watch_interval'))
     parser.add_argument('--root', default=None, help=t('help_project_root'))
     args = parser.parse_args(argv)
@@ -93,11 +97,11 @@ def main(argv: list[str] | None = None) -> int:
 
             os.environ['CELERY_BALANCE_WATCH_INTERVAL'] = str(args.interval)
         try:
-            return run_watch(root, dry_run=args.dry_run, as_json=args.json)
+            return run_watch(root, dry_run=args.dry_run, as_json=args.json, show_cluster=args.cluster)
         except KeyboardInterrupt:
             print()
             return 0
-    return _run_once(root, dry_run=args.dry_run, as_json=args.json)
+    return _run_once(root, dry_run=args.dry_run, as_json=args.json, show_cluster=args.cluster)
 
 
 if __name__ == '__main__':

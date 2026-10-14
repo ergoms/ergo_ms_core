@@ -143,6 +143,20 @@ proxy_pass http://127.0.0.1:8000;
 5. Команда ergoms — строка в `commands.conf` + `help.manifest.yaml` (раздел `docker`)
 6. Документация — `.docs/docker.md` и этот файл при смене контракта
 
+## Воркеры Swarm на других узлах
+
+Compose-воркеры монтируют корень проекта с хоста. Узел без checkout их не запустит. Для кластера:
+
+- `ergoms docker-registry` — контейнер `registry:2`, данные в `virtual_env/cache/docker-registry`. Адрес `DOCKER_SWARM_REGISTRY` слушает только быструю сеть.
+- `ergoms docker-swarm-push` — цель `worker` в `Dockerfile.python` (код ядра, модули и `core/deployment` внутри образа) и `docker push`.
+- `ergoms docker-swarm-deploy` / `docker-swarm-down` — стек `ergo_workers` из `docker-stack.workers.generated.yml` (файл в `.gitignore`). Сервисы `ergo-celery-agent` и `ergo-celery-worker`, `deploy.mode: global`, ограничение `node.labels.ergo.worker == true`.
+- `ERGO_NODE_ID` в сервисе — `{{.Node.Hostname}}`. `CELERY_CLUSTER=on`, роль `agent`.
+- Видеокарта — `generic_resources` `NVIDIA-GPU`, если `DOCKER_SWARM_GPU` не выключен. На узле нужен `nvidia-container-toolkit`; его ставит человек.
+- `.env` и `databases.yaml` уходят как Swarm config из `virtual_env/cache/swarm-config/`. В копии базы адреса `127.0.0.1` и `localhost` заменяются на `DOCKER_SWARM_MANAGER_HOST`. Исходные файлы не меняются.
+- Оба демона Docker должны знать реестр как `insecure-registries`. Скрипт `daemon.json` не переписывает.
+
+Очередь на другой узел уходит только при `placement: any` или `gpu` в `task_footprint.yaml`. См. [`celery-balance.mdc`](celery-balance.mdc).
+
 ## Связанные правила
 
 | Тема | Файл |

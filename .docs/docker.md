@@ -239,6 +239,18 @@ ergoms docker-init
 
 Таймаут ожидания — `ERGO_DOCKER_WAIT_TIMEOUT` (по умолчанию 120 с) в effective env.
 
+## Воркеры на других узлах Swarm
+
+Обычный `ergoms docker-up` держит воркеры на той же машине и монтирует каталог проекта. Чтобы воркер работал на узле без этого каталога, код кладётся в образ.
+
+1. На основном узле: `ergoms docker-registry`. Адрес реестра — `DOCKER_SWARM_REGISTRY` в `env/docker.env`, только интерфейс быстрой сети.
+2. На обоих узлах Docker должен принимать этот реестр по HTTP (`insecure-registries`). Перезапуск демона делает человек.
+3. `ergoms docker-swarm-push` собирает цель `worker` и отправляет образ в реестр.
+4. `ergoms docker-swarm-deploy` поднимает стек `ergo_workers`: агент бюджета и воркер на узлах с меткой `ergo.worker=true`. Снять стек — `ergoms docker-swarm-down`.
+5. На узле с видеокартой заранее ставится `nvidia-container-toolkit`. Без него слот GPU в стеке не назначится; `DOCKER_SWARM_GPU=false` убирает требование карты.
+6. Redis и PostgreSQL основного узла должны слушать адрес быстрой сети: `REDIS_BIND_EXTRA`, `POSTGRES_LISTEN_EXTRA`, `POSTGRES_HBA_EXTRA`. Значения задаются в локальных `env/*.env` и применяются при `ergoms install-redis` и `ergoms install-postgres`.
+7. `CELERY_CLUSTER=on` на основном узле, и там должен идти `ergoms celery-balance --watch`. Пока ключ выключен, воркеры Swarm не получают план и не стартуют очереди.
+
 ## Типичные ошибки
 
 | Симптом | Что проверить |

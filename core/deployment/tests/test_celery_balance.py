@@ -37,6 +37,10 @@ def _settings(**kwargs) -> BalanceSettings:
         gpu_util_cap=80.0,
         watch_interval_sec=30.0,
         hysteresis_ratio=0.2,
+        cluster='off',
+        cluster_role='manager',
+        node_id='test-node',
+        node_ttl_sec=90,
     )
     values.update(kwargs)
     return BalanceSettings(**values)
