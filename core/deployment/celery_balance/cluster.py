@@ -173,6 +173,13 @@ def _merge_nodes(local: NodeView, remote: list[NodeView]) -> list[NodeView]:
     return sorted(by_id.values(), key=lambda item: (not item.primary, item.node_id))
 
 
+def _agent_image_ready(project_root: Path) -> bool:
+    """Маркер пишет старт, когда образ воркера уже умеет готовить пакеты на узле."""
+    from project_layout import cache_dir
+
+    return (cache_dir(project_root) / 'celery_balance' / 'agent_ready').is_file()
+
+
 def sync_cluster(project_root: Path, snapshot: Any, *, write: bool) -> None:
     """Менеджер делит очереди. Агент только публикует свой бюджет."""
     settings = snapshot.settings
@@ -217,6 +224,7 @@ def sync_cluster(project_root: Path, snapshot: Any, *, write: bool) -> None:
         depths=depths,
         history=stats_by_queue(project_root),
         previous_limits=previous,
+        agent_ready=_agent_image_ready(project_root),
     )
     snapshot.cluster_plans = plans
     local_plan = next((item for item in plans if item.node_id == settings.node_id), None)

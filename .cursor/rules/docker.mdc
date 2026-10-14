@@ -155,7 +155,11 @@ Compose-воркеры монтируют корень проекта с хос�
 - `.env` и `databases.yaml` уходят как Swarm config из `virtual_env/cache/swarm-config/`. В копии базы адреса `127.0.0.1` и `localhost` заменяются на `DOCKER_SWARM_MANAGER_HOST`. Исходные файлы не меняются.
 - Оба демона Docker должны знать реестр как `insecure-registries`. Скрипт `daemon.json` не переписывает.
 
-Очередь на другой узел уходит только при `placement: any` или `gpu` в `task_footprint.yaml`. См. [`celery-balance.mdc`](celery-balance.mdc).
+Очередь на другой узел уходит при `placement: any`, `gpu` или `agent` в `task_footprint.yaml`. `agent` отдаёт весь потолок рабочему узлу. См. [`celery-balance.mdc`](celery-balance.mdc).
+
+`ergoms start` при `CELERY_CLUSTER=on` поднимает `celery-balance --watch` и, если Swarm активен и образ уже содержит `prepare_swarm_packages.py`, раскладывает стек `ergo_workers`. Сборку образа каждый старт не повторяет: первый раз нужен `ergoms docker-swarm-push`. `ergoms stop` снимает стек, пока Redis ещё жив. Нет Docker или Swarm — старт и остановка идут как раньше, разбор остаётся на этой машине.
+
+Воркер на узле сидит в сети host, видит сокет Docker этого узла и держит кэш с пакетами в томах `ergo_worker_cache` и `ergo_worker_packages`. Пакет с `swarm_worker: true` ставится в том при старте контейнера. Агент плана сокет не получает.
 
 ## Связанные правила
 

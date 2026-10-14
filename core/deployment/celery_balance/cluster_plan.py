@@ -7,13 +7,14 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from celery_balance.apply import should_skip_change
 from celery_balance.constants import (
     DEFAULT_PREFETCH,
     HEAVY_PREFETCH,
+    PLACEMENT_AGENT,
     PLACEMENT_ANY,
     PLACEMENT_GPU,
     PLACEMENT_PRIMARY,
@@ -124,6 +125,11 @@ def _eligible(spec: TaskFootprint, nodes: list[NodeView]) -> list[NodeView]:
         if spec.cpu_fallback:
             return primary or nodes[:1]
         return []
+    if spec.placement == PLACEMENT_AGENT:
+        agents = [node for node in nodes if not node.primary and _capacity(node, spec) > 0]
+        if agents:
+            return agents
+        return primary or nodes[:1]
     fitted = [node for node in nodes if _capacity(node, spec) > 0]
     if fitted:
         return fitted
@@ -174,6 +180,7 @@ def plan_cluster(
     depths: dict[str, int],
     history: dict[str, HistoryStats],
     previous_limits: dict[str, dict[str, int]] | None = None,
+    agent_ready: bool = True,
 ) -> list[NodePlan]:
     """Доли очередей. Узлы, которых нет в списке, уже отсеяны по TTL."""
     if not nodes:
@@ -183,9 +190,12 @@ def plan_cluster(
     classes: dict[str, str] = {}
     paused: dict[str, list[str]] = {node.node_id: [] for node in nodes}
     reasons: dict[str, list[str]] = {node.node_id: [] for node in nodes}
+    held_on_primary: set[str] = set()
 
     for queue in all_queues:
         spec = _effective_footprint(resolve_footprint(queue, catalog), history)
+        if spec.placement == PLACEMENT_AGENT and not agent_ready:
+            spec = replace(spec, placement=PLACEMENT_PRIMARY)
         classes[queue] = spec.task_class
         eligible = _eligible(spec, nodes)
         if not eligible:
@@ -215,11 +225,24 @@ def plan_cluster(
         for node in nodes:
             if node not in eligible:
                 reasons[node.node_id].append(f'{queue}: placement={spec.placement}')
+        if spec.placement == PLACEMENT_AGENT:
+            holder = next((node for node in nodes if node.primary), None)
+            agent_slots = sum(
+                shares[node.node_id].get(queue, 0)
+                for node in nodes
+                if not node.primary
+            )
+            if holder is not None and agent_slots > 0:
+                held_on_primary.add(queue)
+                if queue not in paused[holder.node_id]:
+                    paused[holder.node_id].append(queue)
 
     plans: list[NodePlan] = []
     for node in nodes:
         limits = shares[node.node_id]
         allowed = sorted(limits)
+        if node.primary:
+            allowed = sorted(set(allowed) | held_on_primary)
         hard = settings.max_concurrency or max(1, int(math.floor(node.cpu_count * 2)))
         concurrency = min(hard, sum(limits.values())) if limits else 0
         heavy = any(classes.get(name) == CLASS_HEAVY for name in allowed)
@@ -250,6 +273,11 @@ def apply_cluster_share(plans: list[WorkerPlan], node_plan: NodePlan) -> None:
                     plan.pause_queues.append(queue)
                 continue
             share = node_plan.queue_limits.get(queue, 0)
+            if share <= 0:
+                plan.queue_limits[queue] = 0
+                if queue not in plan.pause_queues:
+                    plan.pause_queues.append(queue)
+                continue
             current = plan.queue_limits.get(queue, share)
             plan.queue_limits[queue] = min(current, share) if current > 0 else share
         plan.reasons.append(f'cluster node {node_plan.node_id}')

@@ -13,17 +13,26 @@ import yaml
 import _bootstrap  # noqa: F401
 
 from celery_balance.cluster_plan import (  # noqa: E402
+    NodePlan,
     NodeView,
     apply_cluster_share,
     plan_cluster,
 )
-from celery_balance.constants import CLASS_HEAVY, PLACEMENT_ANY, PLACEMENT_GPU, PLACEMENT_PRIMARY  # noqa: E402
+from celery_balance.constants import (  # noqa: E402
+    CLASS_HEAVY,
+    PLACEMENT_AGENT,
+    PLACEMENT_ANY,
+    PLACEMENT_GPU,
+    PLACEMENT_PRIMARY,
+)
 from celery_balance.footprint_loader import (  # noqa: E402
     FootprintCatalog,
     TaskFootprint,
     _parse_task,
 )
 from celery_balance.planner import WorkerPlan  # noqa: E402
+from packages.models import PackageSource  # noqa: E402
+from packages.registry import _parse_package  # noqa: E402
 from celery_balance.settings import load_settings  # noqa: E402
 from generate_swarm_stack import render_stack  # noqa: E402
 
@@ -186,6 +195,64 @@ class ClusterPlanTests(unittest.TestCase):
         )
         self.assertEqual(local.queue_limits['sample_q'], 1)
 
+    def test_agent_queue_goes_to_worker_and_primary_stays_paused(self) -> None:
+        plans = plan_cluster(
+            [_node('primary', primary=True), _node('worker', primary=False)],
+            all_queues=['sample_q'],
+            catalog=_catalog(_spec('sample_q', placement=PLACEMENT_AGENT, max_parallel=4)),
+            settings=_settings(),
+            depths={},
+            history={},
+        )
+        by_id = {item.node_id: item for item in plans}
+        self.assertEqual(by_id['worker'].queue_limits['sample_q'], 4)
+        self.assertNotIn('sample_q', by_id['primary'].queue_limits)
+        self.assertIn('sample_q', by_id['primary'].queues)
+        self.assertIn('sample_q', by_id['primary'].pause_queues)
+        local = WorkerPlan(
+            name='all',
+            hostname='all',
+            queues=['sample_q'],
+            pool='threads',
+            yaml_concurrency=4,
+            concurrency=4,
+            prefetch_multiplier=1,
+            autoscale_min=None,
+            autoscale_max=None,
+            gpu_required=False,
+            queue_limits={'sample_q': 4},
+        )
+        apply_cluster_share([local], by_id['primary'])
+        self.assertEqual(local.queue_limits['sample_q'], 0)
+        self.assertIn('sample_q', local.pause_queues)
+
+    def test_agent_queue_falls_back_to_primary(self) -> None:
+        plans = plan_cluster(
+            [_node('primary', primary=True)],
+            all_queues=['sample_q'],
+            catalog=_catalog(_spec('sample_q', placement=PLACEMENT_AGENT, max_parallel=4)),
+            settings=_settings(),
+            depths={},
+            history={},
+        )
+        self.assertEqual(plans[0].queue_limits['sample_q'], 4)
+        self.assertNotIn('sample_q', plans[0].pause_queues)
+
+    def test_agent_queue_stays_local_until_image_is_ready(self) -> None:
+        plans = plan_cluster(
+            [_node('primary', primary=True), _node('worker', primary=False)],
+            all_queues=['sample_q'],
+            catalog=_catalog(_spec('sample_q', placement=PLACEMENT_AGENT, max_parallel=4)),
+            settings=_settings(),
+            depths={},
+            history={},
+            agent_ready=False,
+        )
+        by_id = {item.node_id: item for item in plans}
+        self.assertEqual(by_id['primary'].queue_limits['sample_q'], 4)
+        self.assertNotIn('sample_q', by_id['worker'].queues)
+        self.assertNotIn('sample_q', by_id['primary'].pause_queues)
+
 
 class PlacementParseTests(unittest.TestCase):
     def test_default_placement_is_primary(self) -> None:
@@ -238,6 +305,30 @@ class SwarmStackTests(unittest.TestCase):
         self.assertIn('NVIDIA-GPU', text)
         self.assertIn('ergo-celery-agent', data['services'])
         self.assertEqual(worker['environment']['REDIS_HOST'], '10.0.0.1')
+        self.assertEqual(worker['networks'], ['host'])
+        self.assertEqual(worker['stop_grace_period'], '60s')
+        self.assertIn('/var/run/docker.sock', str(worker['volumes']))
+        self.assertIn('ergo_worker_cache', text)
+        self.assertIn('ergo_worker_packages', text)
+        self.assertIn('prepare_swarm_packages.py', str(worker['command']))
+        self.assertNotIn('vacancies_parser', text)
+        agent = data['services']['ergo-celery-agent']
+        self.assertNotIn('docker.sock', str(agent))
+
+    def test_swarm_worker_flag_parses(self) -> None:
+        spec = _parse_package(
+            'browser',
+            {'kind': 'custom', 'installer': 'install.py', 'swarm_worker': True},
+            source=PackageSource.CORE,
+        )
+        self.assertIsNotNone(spec)
+        self.assertTrue(spec.swarm_worker)
+        plain = _parse_package(
+            'plain',
+            {'kind': 'custom', 'installer': 'install.py'},
+            source=PackageSource.CORE,
+        )
+        self.assertFalse(plain.swarm_worker)
 
 
 if __name__ == '__main__':

@@ -57,6 +57,29 @@ _join_csv_names() {
   printf '%s' "$out"
 }
 
+# Совпадает с именем unit, без учёта регистра. Уже живой unit не трогает.
+_start_unit_matching() {
+  local root="$1" needle="$2" u
+  for u in $(units_list "$root"); do
+    [[ "${u,,}" == *"${needle,,}"* ]] || continue
+    _unit_is_present "$u" || continue
+    systemctl is-active --quiet "$u" 2>/dev/null && return 0
+    systemctl_do start "$u" >/dev/null 2>&1 || true
+    return 0
+  done
+}
+
+# Стек воркеров и наблюдатель плана. Нет Swarm — скрипт выходит сам и start не падает.
+_swarm_lifecycle() {
+  local action="$1" root="$2"
+  local py="$root/virtual_env/python/bin/python"
+  local script="$root/core/deployment/docker/swarm_lifecycle.py"
+  if [[ ! -x "$py" || ! -f "$script" ]]; then
+    return 0
+  fi
+  "$py" "$script" "$action" || true
+}
+
 start_all() {
   local root="${SERVICE_PROJECT_ROOT:-}"
   local u name err items
@@ -91,6 +114,10 @@ start_all() {
       failed=$((failed + 1))
     fi
   fi
+
+  # База нужна воркеру на другом узле раньше, чем поднимется весь список служб.
+  _start_unit_matching "$root" postgres
+  _swarm_lifecycle start "$root"
 
   local -a pending=()
   for u in $(units_list "$root"); do
@@ -306,6 +333,9 @@ stop_all() {
   items="$(_join_csv_names "${planned[@]}")"
   write_ergoms_message svc_stopping_all cyan "" \
     "count=${#planned[@]}" "items=$items"
+
+  # Стек снимаем, пока Redis ещё жив: задача на узле успевает записать чекпоинт.
+  _swarm_lifecycle stop "$root"
 
   for u in $(units_list "$root"); do
     [[ "$u" == *_redis.service || "$u" == *_redis ]] && continue

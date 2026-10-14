@@ -88,7 +88,14 @@ services:
       DOCKER_PROFILE_POSTGRES: "true"
       ERGO_DATABASES_YAML: /app/databases.yaml
       NVIDIA_VISIBLE_DEVICES: all
-{remote_env}{service_configs}    command: ["python", "core/api/scripts/start_celery_worker.py"]
+{remote_env}{service_configs}    command: ["sh", "-c", "if [ -f /app/core/deployment/scripts/prepare_swarm_packages.py ]; then python /app/core/deployment/scripts/prepare_swarm_packages.py || exit 1; fi; exec python /app/core/api/scripts/start_celery_worker.py"]
+    networks:
+      - host
+    volumes:
+      - ergo_worker_cache:/app/virtual_env/cache
+      - ergo_worker_packages:/app/virtual_env/packages
+      - /var/run/docker.sock:/var/run/docker.sock
+    stop_grace_period: 60s
     deploy:
       mode: global
       restart_policy:
@@ -96,7 +103,14 @@ services:
       placement:
         constraints:
           - node.labels.ergo.worker == true
-{gpu_block}configs:
+{gpu_block}networks:
+  host:
+    external: true
+    name: host
+volumes:
+  ergo_worker_cache:
+  ergo_worker_packages:
+configs:
   ergo_dotenv:
     file: {env_file}
   ergo_databases:

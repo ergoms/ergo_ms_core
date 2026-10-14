@@ -118,6 +118,7 @@ def _parse_package(
     marker_linux = str(data.get('marker_linux') or '').strip() or None
     extra_dirs = _as_str_tuple(data.get('extra_dirs'))
     always_run = bool(data.get('always_run', False))
+    swarm_worker = bool(data.get('swarm_worker', False))
 
     platforms: dict[str, PlatformArchive] = {}
     platforms_raw = data.get('platforms')
@@ -152,6 +153,7 @@ def _parse_package(
         marker_linux=marker_linux,
         extra_dirs=extra_dirs,
         always_run=always_run,
+        swarm_worker=swarm_worker,
         platforms=platforms,
         raw=dict(data),
     )

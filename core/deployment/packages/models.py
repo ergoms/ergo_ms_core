@@ -48,6 +48,7 @@ class PackageSpec:
     marker_linux: str | None = None
     extra_dirs: tuple[str, ...] = ()
     always_run: bool = False
+    swarm_worker: bool = False
     platforms: dict[str, PlatformArchive] = field(default_factory=dict)
     raw: dict[str, Any] = field(default_factory=dict, repr=False, compare=False)
 

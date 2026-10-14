@@ -431,6 +431,17 @@ function Test-OsServiceInstalled {
 }
 
 
+function Invoke-SwarmLifecycle {
+    param(
+        [string]$ProjectRoot,
+        [string]$Action
+    )
+    $py = Join-Path $ProjectRoot 'virtual_env\python\Scripts\python.exe'
+    $script = Join-Path $ProjectRoot 'core\deployment\docker\swarm_lifecycle.py'
+    if (-not (Test-Path $py) -or -not (Test-Path $script)) { return }
+    & $py $script $Action
+}
+
 function Start-AllServices {
     param([string]$ProjectRoot)
 
@@ -524,6 +535,8 @@ function Start-AllServices {
         }
     }
 
+    Invoke-SwarmLifecycle -ProjectRoot $ProjectRoot -Action start
+
     Write-ErgomsMessage -Key 'svc_start_summary' -Color Green -Param @{
         started = $started
         already = $already
@@ -549,6 +562,8 @@ function Stop-AllServices {
         count = $planned.Count
         items = ($planned -join ', ')
     }
+
+    Invoke-SwarmLifecycle -ProjectRoot $ProjectRoot -Action stop
 
     $stopped = 0
     $skipped = 0
