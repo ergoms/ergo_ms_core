@@ -14,7 +14,7 @@ alwaysApply: true
 - `git -C <каталог_файла> rev-parse --show-toplevel` — репозиторий для `git add` / `commit` / `push`.
 - Обёртка (`ergo_ms`, корень workspace): `.cursor/rules/`, `.docs/`, `core/deployment/`, `.gitmodules`, корневые `.gitignore` / `.cursorrules` / примеры env.
 - Свой репозиторий: `core/api`, `core/client`, `core/media_api`, `core/.github`, `modules/<name>`.
-- В `.gitmodules` у submodule стоит `ignore = all`: обёртка **не** фиксирует каждый новый SHA.
+- У submodule в `.gitmodules` нет `ignore`. Обёртка всё равно **не** фиксирует каждый новый SHA: указатель меняют только по явной просьбе.
 
 ## Обязательно
 
