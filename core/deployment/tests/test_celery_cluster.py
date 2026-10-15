@@ -37,7 +37,16 @@ from celery_balance.settings import load_settings  # noqa: E402
 from generate_swarm_stack import render_stack  # noqa: E402
 
 
-def _node(node_id: str, *, primary: bool, ram: float = 8000, cpu: float = 8, gpu: bool = False, vram: float = 0) -> NodeView:
+def _node(
+    node_id: str,
+    *,
+    primary: bool,
+    ram: float = 8000,
+    cpu: float = 8,
+    gpu: bool = False,
+    vram: float = 0,
+    egress_ok: bool = True,
+) -> NodeView:
     devices = ((0, vram),) if gpu else ()
     return NodeView(
         node_id=node_id,
@@ -49,6 +58,7 @@ def _node(node_id: str, *, primary: bool, ram: float = 8000, cpu: float = 8, gpu
         vram_free_mb=vram,
         utilization_pct=0,
         devices=devices,
+        egress_ok=egress_ok,
     )
 
 
@@ -253,6 +263,50 @@ class ClusterPlanTests(unittest.TestCase):
         self.assertNotIn('sample_q', by_id['worker'].queues)
         self.assertNotIn('sample_q', by_id['primary'].pause_queues)
 
+    def test_agent_keeps_the_remainder_on_primary(self) -> None:
+        plans = plan_cluster(
+            [
+                _node('primary', primary=True, ram=80000, cpu=16),
+                _node('worker', primary=False, ram=80000, cpu=2),
+            ],
+            all_queues=['sample_q'],
+            catalog=_catalog(_spec(
+                'sample_q',
+                placement=PLACEMENT_AGENT,
+                max_parallel=50,
+                ram_mb=768,
+            )),
+            settings=_settings(),
+            depths={},
+            history={},
+        )
+        by_id = {item.node_id: item for item in plans}
+        self.assertEqual(by_id['worker'].queue_limits['sample_q'], 2)
+        self.assertEqual(by_id['primary'].queue_limits['sample_q'], 48)
+        self.assertNotIn('sample_q', by_id['primary'].pause_queues)
+
+    def test_agent_without_egress_stays_on_primary(self) -> None:
+        plans = plan_cluster(
+            [
+                _node('primary', primary=True),
+                _node('worker', primary=False, egress_ok=False),
+            ],
+            all_queues=['sample_q'],
+            catalog=_catalog(_spec(
+                'sample_q',
+                placement=PLACEMENT_AGENT,
+                needs_network=True,
+                max_parallel=4,
+            )),
+            settings=_settings(),
+            depths={},
+            history={},
+        )
+        by_id = {item.node_id: item for item in plans}
+        self.assertEqual(by_id['primary'].queue_limits['sample_q'], 4)
+        self.assertNotIn('sample_q', by_id['worker'].queues)
+        self.assertNotIn('sample_q', by_id['primary'].pause_queues)
+
 
 class PlacementParseTests(unittest.TestCase):
     def test_default_placement_is_primary(self) -> None:
@@ -277,6 +331,18 @@ class PlacementParseTests(unittest.TestCase):
         self.assertEqual(parsed.placement, PLACEMENT_PRIMARY)
 
 
+class EgressProbeTests(unittest.TestCase):
+    def test_empty_url_skips_the_check(self) -> None:
+        from celery_balance.egress import probe_egress
+
+        self.assertTrue(probe_egress(''))
+
+    def test_closed_port_is_not_egress(self) -> None:
+        from celery_balance.egress import probe_egress
+
+        self.assertFalse(probe_egress('http://127.0.0.1:1', timeout=0.5))
+
+
 class ClusterSettingsTests(unittest.TestCase):
     def test_cluster_off_by_default(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
@@ -297,6 +363,7 @@ class SwarmStackTests(unittest.TestCase):
             databases_file='/tmp/databases.yaml',
             env_file='/tmp/dotenv',
             gpu=True,
+            db_port='5433',
         )
         data = yaml.safe_load(text)
         worker = data['services']['ergo-celery-worker']
@@ -305,6 +372,7 @@ class SwarmStackTests(unittest.TestCase):
         self.assertIn('NVIDIA-GPU', text)
         self.assertIn('ergo-celery-agent', data['services'])
         self.assertEqual(worker['environment']['REDIS_HOST'], '10.0.0.1')
+        self.assertEqual(str(worker['environment']['ERGO_DOCKER_DB_PORT']), '5433')
         self.assertEqual(worker['networks'], ['host'])
         self.assertEqual(worker['stop_grace_period'], '60s')
         self.assertIn('/var/run/docker.sock', str(worker['volumes']))
@@ -329,6 +397,16 @@ class SwarmStackTests(unittest.TestCase):
             source=PackageSource.CORE,
         )
         self.assertFalse(plain.swarm_worker)
+
+
+class WorkerImageTests(unittest.TestCase):
+    def test_worker_stage_installs_cairo(self) -> None:
+        dockerfile = Path(__file__).resolve().parents[1] / 'docker' / 'Dockerfile.python'
+        text = dockerfile.read_text(encoding='utf-8')
+        worker = text.split('FROM base AS worker', 1)[1].split('FROM base AS runtime', 1)[0]
+        self.assertIn('libcairo2', worker)
+        self.assertGreater(worker.find('poetry run pip install'), worker.find('libnss3'))
+        self.assertGreater(worker.find('libcairo2'), worker.find('poetry run pip install'))
 
 
 if __name__ == '__main__':

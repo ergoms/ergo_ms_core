@@ -57,6 +57,7 @@ def view_from_budget(node_id: str, primary: bool, budget: HostBudget) -> NodeVie
         utilization_pct=budget.gpu.utilization_pct,
         devices=devices,
         vram_total_mb=budget.gpu.vram_total_mb,
+        egress_ok=budget.egress_ok,
     )
 
 
@@ -88,6 +89,7 @@ def view_from_payload(data: dict[str, Any]) -> NodeView | None:
             utilization_pct=float(gpu.get('utilization_pct') or 0) if isinstance(gpu, dict) else 0.0,
             devices=tuple(devices),
             vram_total_mb=float(gpu.get('vram_total_mb') or 0) if isinstance(gpu, dict) else 0.0,
+            egress_ok=bool(budget.get('egress_ok', True)),
         )
     except (TypeError, ValueError):
         return None

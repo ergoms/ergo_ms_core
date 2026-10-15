@@ -88,12 +88,43 @@ def _quote_env(value: str) -> str:
     return f'"{escaped}"'
 
 
+_LOOPBACK_PROXY_KEYS = (
+    'HTTP_PROXY',
+    'HTTPS_PROXY',
+    'ALL_PROXY',
+    'http_proxy',
+    'https_proxy',
+    'all_proxy',
+)
+
+
+def _drop_loopback_proxies(env: dict[str, str]) -> None:
+    """Прокси на 127.0.0.1 есть только на этой машине. На узле Chrome из-за него сразу падает."""
+    for key in _LOOPBACK_PROXY_KEYS:
+        value = str(env.get(key) or '')
+        if '127.0.0.1' in value or 'localhost' in value:
+            env.pop(key, None)
+
+
+def _rewrite_local_hosts(node: object, manager_host: str) -> None:
+    """127.0.0.1 в databases.yaml — эта машина. На узле это уже не она."""
+    if not isinstance(node, dict):
+        return
+    host = str(node.get('host') or '').strip()
+    if host in {'127.0.0.1', 'localhost'}:
+        node['host'] = manager_host
+    for value in node.values():
+        if isinstance(value, dict):
+            _rewrite_local_hosts(value, manager_host)
+
+
 def prepare_worker_files(root: Path, manager_host: str) -> tuple[Path, Path]:
     """Копии .env и databases.yaml в кэше. Swarm раздаёт их воркерам как config."""
     import yaml
 
     folder = ensure_dir(cache_dir(root) / 'swarm-config')
     merged = load_project_env(root)
+    _drop_loopback_proxies(merged)
     modules = root / 'modules'
     if modules.is_dir():
         for path in sorted(modules.glob('*/.env')):
@@ -110,12 +141,7 @@ def prepare_worker_files(root: Path, manager_host: str) -> tuple[Path, Path]:
         except Exception:  # noqa: BLE001
             parsed = {}
         if isinstance(parsed, dict):
-            for section in parsed.values():
-                if not isinstance(section, dict):
-                    continue
-                host = str(section.get('host') or '').strip()
-                if host in {'127.0.0.1', 'localhost'}:
-                    section['host'] = manager_host
+            _rewrite_local_hosts(parsed, manager_host)
             databases.write_text(
                 yaml.safe_dump(parsed, allow_unicode=True, sort_keys=False),
                 encoding='utf-8',
@@ -125,6 +151,23 @@ def prepare_worker_files(root: Path, manager_host: str) -> tuple[Path, Path]:
     else:
         databases.write_text('{}\n', encoding='utf-8')
     return dotenv, databases
+
+
+def _postgres_port(databases: Path) -> str:
+    """Порт из databases.yaml. Portable слушает не 5432, и ожидание на узле иначе не кончается."""
+    import yaml
+
+    try:
+        parsed = yaml.safe_load(databases.read_text(encoding='utf-8')) or {}
+    except (OSError, yaml.YAMLError):
+        return '5432'
+    section = parsed.get('databases') if isinstance(parsed, dict) else None
+    default = section.get('default') if isinstance(section, dict) else None
+    if not isinstance(default, dict):
+        default = parsed.get('default') if isinstance(parsed, dict) else None
+    if isinstance(default, dict) and default.get('port'):
+        return str(default['port'])
+    return '5432'
 
 
 def write_stack(root: Path) -> Path:
@@ -141,6 +184,7 @@ def write_stack(root: Path) -> Path:
         gpu=_gpu_enabled(env),
         media_url=str(env.get('DOCKER_SWARM_MEDIA_URL') or '').strip(),
         ollama_url=str(env.get('DOCKER_SWARM_OLLAMA_URL') or '').strip(),
+        db_port=_postgres_port(databases),
     )
     OUTPUT.write_text(content, encoding='utf-8')
     print(format_console('ok', t('docker_swarm_stack_written', output=OUTPUT)))
@@ -163,7 +207,7 @@ def cmd_registry() -> int:
     data = ensure_dir(cache_dir(root) / 'docker-registry')
     _run([*docker, 'rm', '-f', REGISTRY_NAME])
     code = _run([
-        docker, 'run', '-d',
+        *docker, 'run', '-d',
         '--name', REGISTRY_NAME,
         '--restart', 'unless-stopped',
         '-p', f'{host}:{port}:5000',

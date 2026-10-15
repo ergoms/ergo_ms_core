@@ -43,6 +43,7 @@ class TaskFootprint:
     cpu_fallback: bool
     module: str
     placement: str = DEFAULT_PLACEMENT
+    needs_network: bool = False
 
 
 @dataclass(frozen=True)
@@ -142,6 +143,8 @@ def _parse_task(
         )
         placement = DEFAULT_PLACEMENT
 
+    needs_network = bool(raw.get('needs_network', defaults.get('needs_network', False)))
+
     return TaskFootprint(
         queue=queue,
         pattern=pattern,
@@ -154,6 +157,7 @@ def _parse_task(
         cpu_fallback=cpu_fallback,
         module=module,
         placement=placement,
+        needs_network=needs_network,
     )
 
 

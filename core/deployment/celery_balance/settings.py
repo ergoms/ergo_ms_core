@@ -75,6 +75,7 @@ class BalanceSettings:
     cluster_role: str
     node_id: str
     node_ttl_sec: int
+    egress_url: str = ''
 
     @property
     def apply_overlay(self) -> bool:
@@ -171,4 +172,5 @@ def load_settings(project_root: Path) -> BalanceSettings:
         cluster_role=role,
         node_id=node_id,
         node_ttl_sec=node_ttl,
+        egress_url=_pick(environ, 'CELERY_CLUSTER_EGRESS_URL'),
     )

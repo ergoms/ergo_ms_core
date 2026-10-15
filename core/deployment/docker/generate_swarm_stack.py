@@ -26,6 +26,7 @@ def render_stack(
     gpu: bool,
     media_url: str = '',
     ollama_url: str = '',
+    db_port: str = '5432',
 ) -> str:
     gpu_block = ''
     if gpu:
@@ -63,6 +64,7 @@ services:
       ERGO_BROKER: redis
       REDIS_HOST: {manager_host}
       ERGO_DOCKER_DB_HOST: {manager_host}
+      ERGO_DOCKER_DB_PORT: "{db_port}"
       DOCKER_DATABASE: container
       DOCKER_PROFILE_POSTGRES: "true"
       ERGO_DATABASES_YAML: /app/databases.yaml
@@ -84,6 +86,7 @@ services:
       ERGO_BROKER: redis
       REDIS_HOST: {manager_host}
       ERGO_DOCKER_DB_HOST: {manager_host}
+      ERGO_DOCKER_DB_PORT: "{db_port}"
       DOCKER_DATABASE: container
       DOCKER_PROFILE_POSTGRES: "true"
       ERGO_DATABASES_YAML: /app/databases.yaml

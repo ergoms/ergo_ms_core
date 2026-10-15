@@ -38,6 +38,7 @@ class NodeView:
     utilization_pct: float
     devices: tuple[tuple[int, float], ...] = ()
     vram_total_mb: float = 0.0
+    egress_ok: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -49,6 +50,7 @@ class NodeView:
             'gpu_available': self.gpu_available,
             'vram_free_mb': self.vram_free_mb,
             'utilization_pct': self.utilization_pct,
+            'egress_ok': self.egress_ok,
         }
 
 
@@ -125,11 +127,6 @@ def _eligible(spec: TaskFootprint, nodes: list[NodeView]) -> list[NodeView]:
         if spec.cpu_fallback:
             return primary or nodes[:1]
         return []
-    if spec.placement == PLACEMENT_AGENT:
-        agents = [node for node in nodes if not node.primary and _capacity(node, spec) > 0]
-        if agents:
-            return agents
-        return primary or nodes[:1]
     fitted = [node for node in nodes if _capacity(node, spec) > 0]
     if fitted:
         return fitted
@@ -171,6 +168,39 @@ def _split(total: int, weights: list[int]) -> list[int]:
     return [reserved[index] + floors[index] for index in range(len(floors))]
 
 
+def _agent_share(
+    spec: TaskFootprint,
+    nodes: list[NodeView],
+) -> tuple[list[NodeView], list[int], list[NodeView]]:
+    """Узел заполняется до своего бюджета. Остаток потолка остаётся на primary.
+
+    Третий список — узлы, которым очередь не отдана, потому что нет выхода в сеть.
+    """
+    primary = [node for node in nodes if node.primary]
+    agents: list[NodeView] = []
+    blocked: list[NodeView] = []
+    for node in nodes:
+        if node.primary:
+            continue
+        if spec.needs_network and not node.egress_ok:
+            blocked.append(node)
+            continue
+        if _capacity(node, spec) > 0:
+            agents.append(node)
+    if not agents:
+        eligible = primary or nodes[:1]
+        weights = [_capacity(node, spec) for node in eligible]
+        return eligible, _split(spec.max_parallel, weights), blocked
+    agent_slots = _split(spec.max_parallel, [_capacity(node, spec) for node in agents])
+    remainder = spec.max_parallel - sum(agent_slots)
+    eligible = list(agents)
+    split = list(agent_slots)
+    if remainder > 0 and primary:
+        eligible.append(primary[0])
+        split.append(remainder)
+    return eligible, split, blocked
+
+
 def plan_cluster(
     nodes: list[NodeView],
     *,
@@ -197,14 +227,26 @@ def plan_cluster(
         if spec.placement == PLACEMENT_AGENT and not agent_ready:
             spec = replace(spec, placement=PLACEMENT_PRIMARY)
         classes[queue] = spec.task_class
-        eligible = _eligible(spec, nodes)
+        blocked: list[NodeView] = []
+        if spec.placement == PLACEMENT_AGENT:
+            eligible, split, blocked = _agent_share(spec, nodes)
+            weights = []
+            for node, slots in zip(eligible, split):
+                if node.primary and slots > 0 and any(not item.primary for item in eligible):
+                    weights.append(slots)
+                else:
+                    weights.append(_capacity(node, spec))
+        else:
+            eligible = _eligible(spec, nodes)
+            weights = [_capacity(node, spec) for node in eligible]
+            split = _split(spec.max_parallel, weights)
+        for node in blocked:
+            reasons[node.node_id].append(f'{queue}: нет выхода в сеть')
         if not eligible:
             holder = next((node for node in nodes if node.primary), nodes[0])
             paused[holder.node_id].append(queue)
             reasons[holder.node_id].append(f'{queue}: нет узла под placement={spec.placement}')
             continue
-        weights = [_capacity(node, spec) for node in eligible]
-        split = _split(spec.max_parallel, weights)
         prev_by_node = {
             node.node_id: int((previous_limits.get(node.node_id) or {}).get(queue, -1))
             for node in eligible
@@ -232,7 +274,8 @@ def plan_cluster(
                 for node in nodes
                 if not node.primary
             )
-            if holder is not None and agent_slots > 0:
+            primary_slots = shares[holder.node_id].get(queue, 0) if holder is not None else 0
+            if holder is not None and agent_slots > 0 and primary_slots <= 0:
                 held_on_primary.add(queue)
                 if queue not in paused[holder.node_id]:
                     paused[holder.node_id].append(queue)

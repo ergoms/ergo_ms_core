@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -63,6 +63,10 @@ def extra_queue_names(workers_file: WorkersFile, cached: list[str]) -> list[str]
 def collect_snapshot(project_root: Path) -> BalanceSnapshot:
     settings = load_settings(project_root)
     budget = sample_budget(project_root, settings)
+    if settings.egress_url:
+        from celery_balance.egress import probe_egress
+
+        budget = replace(budget, egress_ok=probe_egress(settings.egress_url))
     workers_file = load_workers_file(project_root)
     cached = load_queue_names(project_root)
     extras = extra_queue_names(workers_file, cached)

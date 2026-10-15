@@ -113,6 +113,7 @@ def _effective_footprint(
         cpu_fallback=declared.cpu_fallback,
         module=declared.module,
         placement=declared.placement,
+        needs_network=declared.needs_network,
     )
 
 
