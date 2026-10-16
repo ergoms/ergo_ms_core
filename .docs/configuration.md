@@ -143,7 +143,7 @@ Nginx: отдельный location для `/api/realtime/stream/` — `core/depl
 | `file` | без Redis на Linux (не рекомендуется на Windows) |
 | `redis` | несколько процессов, общий кэш |
 
-При `ERGO_BROKER=redis` без явного `API_CACHE_BACKEND` effective-backend — `redis` (см. [`redis_runtime.py`](../core/api/src/config/redis_runtime.py)).
+При `ERGO_BROKER=redis` без явного `API_CACHE_BACKEND` effective-backend — `redis` (см. [`redis_runtime.py`](../core/api/src/config/redis_runtime.py)). Поминутные счётчики живых экранов при включённом Redis пишутся в него и тогда, когда обычный кэш API оставлен в `locmem`: страница и воркеры должны видеть одно и то же.
 
 ## Celery broker
 
