@@ -1,6 +1,6 @@
 ---
-description: Долгие расчёты — не в shell Cursor; Celery --async, чекпоинт --resume, пауза с той же точки; PostgreSQL Redis worker
-alwaysApply: true
+description: Долгий расчёт, обучение и обход каталога — Celery --async, чекпоинт и --resume, не shell Cursor
+alwaysApply: false
 ---
 
 # Долгие расчёты вне сессии Cursor

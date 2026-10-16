@@ -458,11 +458,11 @@ def sync_on_start() -> int:
         _mark_agent_ready(root, False)
         _ensure_watch(root)
         if swarm_up and not image_ready:
-            print(format_console('warn', t('celery_cluster_image_missing', image=image)))
+            print(format_console('warning', t('celery_cluster_image_missing', image=image)))
         elif registry and not swarm_up:
-            print(format_console('warn', t('celery_cluster_swarm_skipped')))
+            print(format_console('warning', t('celery_cluster_swarm_skipped')))
         elif swarm_up and image_ready:
-            print(format_console('warn', t('celery_cluster_swarm_skipped')))
+            print(format_console('warning', t('celery_cluster_swarm_skipped')))
         return 0
     _mark_agent_ready(root, True)
     _ensure_watch(root)
