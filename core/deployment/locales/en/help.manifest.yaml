@@ -71,8 +71,8 @@ sections:
   - name: start-media
     summary: Media API
   - name: start-worker
-    invoke: ergoms start-worker [--worker=<name>] [--module=<name>]
-    summary: Celery worker (--module listens to all queues of that module)
+    invoke: ergoms start-worker [--worker=<name>] [--module=<name> [--worker=<id>]]
+    summary: Celery worker. With --module, the shared module worker and each named worker from celery_workers.yaml; with both flags, one module worker
   - name: start-beat
     invoke: ergoms start-beat [--module=<name>]
     summary: Celery beat (core schedule, or one module with --module)
@@ -83,7 +83,8 @@ sections:
   - name: stop-jupyter-dev
     summary: Stub to stop JupyterLab (the process ends with the terminal)
   - name: stop-worker
-    summary: Stop all Celery workers
+    invoke: ergoms stop-worker [--module=<name> [--worker=<id>]]
+    summary: Stop Celery workers. No flags stops every worker on the host; --module stops that module; --worker stops one
   - name: stop-beat
     summary: Stop Celery beat
   - name: sync-logs-services

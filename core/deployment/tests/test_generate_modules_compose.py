@@ -38,6 +38,26 @@ class GenerateModulesComposeTests(unittest.TestCase):
         )
         self.assertNotIn('demo_mod-beat', services)
 
+    def test_named_worker_is_its_own_service(self) -> None:
+        text = generate(
+            ['demo_mod'],
+            {'DEMO_MOD_PORT': '8123'},
+            named_workers={'demo_mod': [{'name': 'crawl', 'hostname': 'crawl_worker'}]},
+        )
+        data = yaml.safe_load(text)
+        named = data['services']['demo_mod-worker-crawl']
+        self.assertEqual(
+            named['command'],
+            [
+                'python',
+                'core/api/scripts/start_celery_worker.py',
+                '--module=demo_mod',
+                '--worker=crawl',
+            ],
+        )
+        shared = data['services']['demo_mod-worker']
+        self.assertNotIn('--worker=crawl', shared['command'])
+
     def test_microservice_beat_when_requested(self) -> None:
         text = generate(['demo_mod'], {'DEMO_MOD_PORT': '8123'}, beat_modules=frozenset({'demo_mod'}))
         data = yaml.safe_load(text)

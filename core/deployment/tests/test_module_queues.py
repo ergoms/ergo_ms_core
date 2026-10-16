@@ -14,6 +14,7 @@ from src.core.utils.celery.module_queues import (  # noqa: E402
     dedicated_queue_names,
     queues_for_module,
     read_dedicated_queues,
+    read_module_workers,
 )
 
 
@@ -86,6 +87,50 @@ class ModuleQueuesTests(unittest.TestCase):
                 if name not in {spec['name'] for spec in specs}
             ]
             self.assertEqual(shared, ['demo_mod', 'site'])
+
+    def test_celery_workers_yaml_names_several_queues(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as raw:
+            module = Path(raw) / 'demo_mod'
+            module.mkdir()
+            (module / 'celery_workers.yaml').write_text(
+                'workers:\n'
+                '  - name: crawl\n'
+                '    hostname: crawl_worker\n'
+                '    queues: [site, files]\n'
+                '    concurrency: 2\n',
+                encoding='utf-8',
+            )
+            specs = read_module_workers(module)
+            self.assertEqual(specs[0]['name'], 'crawl')
+            self.assertEqual(specs[0]['queues'], ['site', 'files'])
+            self.assertEqual(dedicated_queue_names(Path(raw)), {'site', 'files'})
+
+    def test_legacy_dedicated_file_stays_a_worker(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as raw:
+            module = Path(raw) / 'demo_mod'
+            module.mkdir()
+            (module / 'dedicated_queues.yaml').write_text(
+                'queues:\n'
+                '  - name: file_load\n'
+                '    hostname: file_load_worker\n'
+                '    concurrency: 2\n',
+                encoding='utf-8',
+            )
+            (module / 'celery_workers.yaml').write_text(
+                'workers:\n'
+                '  - name: crawl\n'
+                '    hostname: crawl_worker\n'
+                '    queues: [site]\n'
+                '    concurrency: 1\n',
+                encoding='utf-8',
+            )
+            names = [spec['name'] for spec in read_module_workers(module)]
+            self.assertEqual(names, ['crawl', 'file_load'])
+            self.assertEqual(dedicated_queue_names(Path(raw)), {'site', 'file_load'})
 
 
 if __name__ == '__main__':

@@ -67,7 +67,7 @@ BRIDGE_SERVICE_URLS=<peer>=http://peer.example:8000
 
 Не добавляйте `<peer>` в `MICROSERVICE_MODULES` на этом хосте. Токен `BRIDGE_INTERNAL_TOKEN` одинаковый на обоих концах. Пользователей связывают по `public_id`.
 
-**Microservice (приближение к боевому).** Отдельный API модуля за nginx, HTTP-мост, worker только своей очереди. Соседи на этой машине (`127.0.0.1` / тот же хост) при `BRIDGE_COLOCATE=auto` вызываются в процессе; на другой сервер уходит HTTP.
+**Microservice (приближение к боевому).** Отдельный API модуля за nginx, HTTP-мост, worker только своих очередей. Соседи на этой машине (`127.0.0.1` / тот же хост) при `BRIDGE_COLOCATE=auto` вызываются в процессе; на другой сервер уходит HTTP. Если в модуле есть `celery_workers.yaml`, `start-worker --module` поднимает общий воркер и каждый именованный отдельно; `--worker=<id>` запускает или, у `stop-worker`, останавливает только его.
 
 ```cmd
 MODULE_RUNTIME=microservice
@@ -77,6 +77,8 @@ BRIDGE_TRANSPORT=http
 BRIDGE_EVENT_BUS=redis
 ergoms start-module --module=<name>
 ergoms start-worker --module=<name>
+ergoms start-worker --module=<name> --worker=<id>
+ergoms stop-worker --module=<name> --worker=<id>
 ergoms docker-gen-modules
 ```
 
