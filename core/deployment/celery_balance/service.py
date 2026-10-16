@@ -30,6 +30,7 @@ class BalanceSnapshot:
     cluster_plans: list[Any] = field(default_factory=list)
     cluster_note: str = ''
     allowed_queues: list[str] | None = None
+    quarantine: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -41,6 +42,7 @@ class BalanceSnapshot:
             'plans': [item.to_dict() for item in self.plans],
             'overlay_path': str(self.overlay_path) if self.overlay_path else None,
             'cluster_note': self.cluster_note,
+            'quarantine': list(self.quarantine),
             'allowed_queues': self.allowed_queues,
             'cluster_nodes': [
                 item.to_dict() if hasattr(item, 'to_dict') else item

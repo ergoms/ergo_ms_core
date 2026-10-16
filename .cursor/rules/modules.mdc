@@ -102,7 +102,7 @@ modules/<имя>/
 | HTTP-мост | `api/bridge_manifest.yaml` | [`modularization.mdc`](modularization.mdc) |
 | Поиск | `search_indexes.py` | [`discovery.py`](../../core/api/src/core/search/discovery.py) |
 
-Правила агента Cursor для модуля — в `.cursor/rules/*.mdc` (globs `modules/<имя>/**`) и кратко в `AGENTS.md`. Подхват `.mdc` в Cursor: расширение **ERGO MS Module Cursor Rules** из [`.vscode/extensions/module-rules/`](../../.vscode/extensions/module-rules/) (`ergoms install-extensions`). Платформенные правила остаются в корневом `.cursor/rules/`. Подробности: [`module-cursor-rules.mdc`](module-cursor-rules.mdc), [`writing-docs-and-rules.mdc`](writing-docs-and-rules.mdc).
+Правила агента Cursor для модуля — в `.cursor/rules/*.mdc` (globs `modules/<имя>/**`) и кратко в `AGENTS.md`. Cursor читает вложенные правила сам, без копии плагина. Платформенные правила остаются в корневом `.cursor/rules/`. Подробности: [`module-cursor-rules.mdc`](module-cursor-rules.mdc).
 
 При правках модуля **обновляй его документацию** (`AGENTS.md`, `.mdc`, `README.md`, help) вместе с кодом — [`module-docs.mdc`](module-docs.mdc). Устойчивые пожелания из чата («должно быть так / не так») — в `BEHAVIOR.md` по [`module-behavior.mdc`](module-behavior.mdc). Это исключение из общего «не пиши docs без просьбы» в [`docs.mdc`](docs.mdc).
 

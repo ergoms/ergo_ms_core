@@ -40,6 +40,18 @@ def resolve_root(explicit: str | None) -> Path:
     raise SystemExit(format_console('error', t('project_root_resolve_failed')))
 
 
+def _release_quarantine(root: Path, *, queue: str | None, release_all: bool) -> int:
+    from celery_balance.cluster import connect, release_quarantine
+
+    client = connect(root)
+    if client is None:
+        print(format_console('error', t('celery_balance_quarantine_redis_down')), file=sys.stderr)
+        return 1
+    removed = release_quarantine(client, None if release_all else queue)
+    print(format_console('ok', t('celery_balance_quarantine_released', count=removed)))
+    return 0
+
+
 def _run_once(root: Path, *, dry_run: bool, as_json: bool, show_cluster: bool) -> int:
     snapshot = collect_snapshot(root)
     from celery_balance.cluster import sync_cluster
@@ -84,11 +96,21 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument('--watch', action='store_true', help=t('help_watch_report'))
     parser.add_argument('--json', action='store_true', help=t('help_json_output'))
     parser.add_argument('--cluster', action='store_true', help=t('celery_balance_help_cluster'))
+    parser.add_argument('--release-queue', default=None, help=t('celery_balance_help_release_queue'))
+    parser.add_argument('--release-all', action='store_true', help=t('celery_balance_help_release_all'))
     parser.add_argument('--interval', type=float, default=None, help=t('help_watch_interval'))
     parser.add_argument('--root', default=None, help=t('help_project_root'))
     args = parser.parse_args(argv)
 
     root = resolve_root(args.root)
+    if args.release_all or args.release_queue:
+        code = _release_quarantine(
+            root,
+            queue=args.release_queue,
+            release_all=args.release_all,
+        )
+        if code != 0:
+            return code
     if args.watch:
         if args.interval is not None:
             if args.interval <= 0:

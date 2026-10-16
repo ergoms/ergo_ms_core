@@ -19,6 +19,7 @@
 - сырой ModelViewSet в core/api без ObjectPermissionMixin / BaseModelViewSet / admin-маркера
 - README.md и AGENTS.md у каждого установленного модуля (есть api/apps.py или client/)
 - контракт logout: один POST на волну, nginx избыток → 204 (не 429)
+- размер always-правил, правила на весь модуль и BEHAVIOR.md без behavior/
 """
 
 from __future__ import annotations
@@ -716,6 +717,66 @@ def check_module_docs() -> tuple[list[str], list[str]]:
     return violations, skipped
 
 
+ALWAYS_RULES_LIMIT = 20 * 1024
+MODULE_RULE_LIMIT = 10 * 1024
+BEHAVIOR_LIMIT = 15 * 1024
+_WHOLE_MODULE_GLOB = re.compile(r'^modules/[^/*]+/\*\*$')
+
+
+def _rule_frontmatter(text: str) -> str:
+    if not text.startswith('---'):
+        return ''
+    parts = text.split('---', 2)
+    return parts[1] if len(parts) >= 3 else ''
+
+
+def _kb(size: int) -> int:
+    return max(1, (size + 1023) // 1024)
+
+
+def check_cursor_context_budget() -> list[str]:
+    """Лимиты из writing-docs-and-rules.mdc: always, glob на весь модуль, BEHAVIOR.md."""
+    errors: list[str] = []
+    always_total = 0
+    if CURSOR_RULES_DIR.is_dir():
+        for path in sorted(CURSOR_RULES_DIR.glob('*.mdc')):
+            frontmatter = _rule_frontmatter(path.read_text(encoding='utf-8'))
+            if re.search(r'(?m)^alwaysApply:\s*true\s*$', frontmatter):
+                always_total += path.stat().st_size
+    if always_total > ALWAYS_RULES_LIMIT:
+        errors.append(t(
+            'core_rules_context_always',
+            size=_kb(always_total),
+            limit=_kb(ALWAYS_RULES_LIMIT),
+        ))
+
+    if MODULES_DIR.is_dir():
+        for path in sorted(MODULES_DIR.glob('*/.cursor/rules/*.mdc')):
+            frontmatter = _rule_frontmatter(path.read_text(encoding='utf-8'))
+            globs = re.findall(r'(?m)^[ \t]+-[ \t]+["\']?([^"\'\n#]+)', frontmatter)
+            whole = any(_WHOLE_MODULE_GLOB.match(item.strip().strip('"\'')) for item in globs)
+            size = path.stat().st_size
+            if whole and size > MODULE_RULE_LIMIT:
+                errors.append(t(
+                    'core_rules_context_module_rule',
+                    rel=path.relative_to(PROJECT_ROOT),
+                    size=_kb(size),
+                    limit=_kb(MODULE_RULE_LIMIT),
+                ))
+        for behavior in sorted(MODULES_DIR.glob('*/BEHAVIOR.md')):
+            if (behavior.parent / 'behavior').is_dir():
+                continue
+            size = behavior.stat().st_size
+            if size > BEHAVIOR_LIMIT:
+                errors.append(t(
+                    'core_rules_context_behavior',
+                    rel=behavior.relative_to(PROJECT_ROOT),
+                    size=_kb(size),
+                    limit=_kb(BEHAVIOR_LIMIT),
+                ))
+    return errors
+
+
 def main() -> int:
     all_errors: list[str] = []
 
@@ -873,6 +934,15 @@ def main() -> int:
             print(format_console('error', msg))
     else:
         print(format_console('ok', t('core_rules_sh_ok')))
+
+    _section('core_rules_heading_context_budget')
+    context_violations = check_cursor_context_budget()
+    if context_violations:
+        all_errors.extend(context_violations)
+        for item in context_violations:
+            print(format_console('error', item))
+    else:
+        print(format_console('ok', t('core_rules_context_budget_ok')))
 
     _section('core_rules_heading_logout_storm')
     logout_storm_violations = find_logout_storm_guard_violations()

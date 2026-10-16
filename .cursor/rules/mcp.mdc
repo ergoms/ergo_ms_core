@@ -19,7 +19,7 @@ MCP даёт агенту Cursor инструменты для работы с A
 - **Основной путь:** `vscode.cursor.mcp.registerServer`. [`.cursor/mcp.json`](../../.cursor/mcp.json) при доступном API **не перезаписывается** (кроме однократной очистки серверов ERGO из файла).
 - Включённые серверы — в `workspaceState` расширения. Включение: **ERGO MS: Enable MCP Servers**. Sync: **ERGO MS: Sync Module Cursor MCP**. Output → **ERGO MS Module MCP**.
 - **Fallback** (нет Cursor MCP API): запись в `mcp.json` **только при реальном diff**.
-- Rules модулей — отдельное расширение [`.vscode/extensions/module-rules/`](../../.vscode/extensions/module-rules/) ([`module-cursor-rules.mdc`](module-cursor-rules.mdc)).
+- Правила модулей Cursor читает из `modules/<имя>/.cursor/rules/` сам ([`module-cursor-rules.mdc`](module-cursor-rules.mdc)). Расширение module-rules только снимает старые копии плагинов.
 - Пользовательских команд `ergoms mcp-sync` / `mcp-list` **нет**.
 
 ## Обязательно

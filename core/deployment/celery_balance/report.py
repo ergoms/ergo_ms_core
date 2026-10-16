@@ -156,3 +156,17 @@ def _print_cluster(snapshot: BalanceSnapshot) -> None:
                 queues=queues,
             )
         )
+    if snapshot.quarantine:
+        print(t('celery_balance_quarantine_header'))
+        for row in snapshot.quarantine:
+            print(
+                t(
+                    'celery_balance_quarantine_line',
+                    queue=row.get('queue') or '',
+                    reason=row.get('reason') or '-',
+                    node=row.get('node_id') or '-',
+                    ts=row.get('ts') or '-',
+                )
+            )
+    else:
+        print(t('celery_balance_quarantine_empty'))

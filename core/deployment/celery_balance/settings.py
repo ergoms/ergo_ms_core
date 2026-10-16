@@ -14,9 +14,13 @@ from celery_balance.constants import (
     CLUSTER_OFF,
     CLUSTER_ON,
     CLUSTER_ROLES,
+    AUTO_PLACEMENT_OFF,
+    AUTO_PLACEMENTS,
+    DEFAULT_AUTO_PLACEMENT,
     DEFAULT_CLUSTER,
     DEFAULT_CLUSTER_ROLE,
     DEFAULT_GPU_UTIL_CAP,
+    DEFAULT_QUARANTINE_TTL_SEC,
     DEFAULT_HYSTERESIS_RATIO,
     DEFAULT_MIN_CONCURRENCY,
     DEFAULT_NODE_TTL_SEC,
@@ -76,6 +80,8 @@ class BalanceSettings:
     node_id: str
     node_ttl_sec: int
     egress_url: str = ''
+    auto_placement: str = DEFAULT_AUTO_PLACEMENT
+    quarantine_ttl_sec: int = DEFAULT_QUARANTINE_TTL_SEC
 
     @property
     def apply_overlay(self) -> bool:
@@ -134,6 +140,19 @@ def load_settings(project_root: Path) -> BalanceSettings:
     if node_ttl is None or node_ttl < 15:
         node_ttl = DEFAULT_NODE_TTL_SEC
 
+    auto_placement = _pick(environ, 'CELERY_CLUSTER_AUTO_PLACEMENT', DEFAULT_AUTO_PLACEMENT).lower()
+    if auto_placement in {'0', 'false', 'no', 'primary'}:
+        auto_placement = AUTO_PLACEMENT_OFF
+    if auto_placement not in AUTO_PLACEMENTS:
+        auto_placement = DEFAULT_AUTO_PLACEMENT
+
+    quarantine_ttl = _as_int(
+        _pick(environ, 'CELERY_CLUSTER_QUARANTINE_TTL'),
+        DEFAULT_QUARANTINE_TTL_SEC,
+    )
+    if quarantine_ttl is None or quarantine_ttl < 60:
+        quarantine_ttl = DEFAULT_QUARANTINE_TTL_SEC
+
     return BalanceSettings(
         mode=mode,
         os_reserve_ram_mb=os_reserve,
@@ -173,4 +192,6 @@ def load_settings(project_root: Path) -> BalanceSettings:
         node_id=node_id,
         node_ttl_sec=node_ttl,
         egress_url=_pick(environ, 'CELERY_CLUSTER_EGRESS_URL'),
+        auto_placement=auto_placement,
+        quarantine_ttl_sec=quarantine_ttl,
     )

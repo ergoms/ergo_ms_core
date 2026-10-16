@@ -12,13 +12,16 @@ from typing import Any
 
 from celery_balance.apply import should_skip_change
 from celery_balance.constants import (
+    AUTO_PLACEMENT_AGENT,
+    CLASS_HEAVY,
+    CLASS_LIGHT,
     DEFAULT_PREFETCH,
     HEAVY_PREFETCH,
     PLACEMENT_AGENT,
     PLACEMENT_ANY,
+    PLACEMENT_AUTO,
     PLACEMENT_GPU,
     PLACEMENT_PRIMARY,
-    CLASS_HEAVY,
 )
 from celery_balance.footprint_loader import FootprintCatalog, TaskFootprint, resolve_footprint
 from celery_balance.history import HistoryStats
@@ -201,6 +204,25 @@ def _agent_share(
     return eligible, split, blocked
 
 
+def _resolve_auto(
+    spec: TaskFootprint,
+    settings: BalanceSettings,
+    quarantined: set[str],
+) -> TaskFootprint:
+    """auto: процессорные medium и heavy уходят на рабочие узлы, пока очередь не в карантине."""
+    if spec.placement != PLACEMENT_AUTO:
+        return spec
+    movable = (
+        settings.auto_placement == AUTO_PLACEMENT_AGENT
+        and spec.task_class != CLASS_LIGHT
+        and not spec.gpu_required
+        and spec.queue not in quarantined
+    )
+    if movable:
+        return replace(spec, placement=PLACEMENT_AGENT, needs_network=True)
+    return replace(spec, placement=PLACEMENT_PRIMARY)
+
+
 def plan_cluster(
     nodes: list[NodeView],
     *,
@@ -211,6 +233,7 @@ def plan_cluster(
     history: dict[str, HistoryStats],
     previous_limits: dict[str, dict[str, int]] | None = None,
     agent_ready: bool = True,
+    quarantined: set[str] | None = None,
 ) -> list[NodePlan]:
     """Доли очередей. Узлы, которых нет в списке, уже отсеяны по TTL."""
     if not nodes:
@@ -224,6 +247,7 @@ def plan_cluster(
 
     for queue in all_queues:
         spec = _effective_footprint(resolve_footprint(queue, catalog), history)
+        spec = _resolve_auto(spec, settings, quarantined or set())
         if spec.placement == PLACEMENT_AGENT and not agent_ready:
             spec = replace(spec, placement=PLACEMENT_PRIMARY)
         classes[queue] = spec.task_class

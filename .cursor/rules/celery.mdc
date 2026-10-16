@@ -31,7 +31,7 @@ Worker и Beat должны смотреть на **один** брокер. И�
 - `modules/<имя>/api/tasks.py` — задачи с `@shared_task`
 - `modules/<имя>/api/celery_config.py` — очереди и маршруты
 - `modules/<имя>/celery_workers.yaml` — именованные воркеры (id, hostname, очереди, concurrency). Старый `dedicated_queues.yaml` читается так же: `name` там и очередь, и id. Очереди из обоих файлов общий worker и `queues: all` не слушают. Служба `--kind=worker` ставит общий unit и по одному на каждый id; перезапуск unit не гасит соседей.
-- `modules/<имя>/task_footprint.yaml` — ожидаемый footprint задач для `ergoms celery-balance` (опционально)
+- `modules/<имя>/task_footprint.yaml` — ожидаемый footprint задач для `ergoms celery-balance` (опционально). При включённом кластере процессорные очереди `medium` и `heavy` уходят на рабочие узлы сами; файл нужен, чтобы оставить очередь на основном сервере (`placement: primary`) или задать память и потолок.
 - `modules/<имя>/api/celery_beat_config.py` — расписание (если нужно)
 
 Пример маршрута:

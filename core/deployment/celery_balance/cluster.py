@@ -9,6 +9,7 @@ from typing import Any
 from celery_balance.constants import (
     NODE_KEY_PREFIX,
     PLAN_KEY_PREFIX,
+    QUARANTINE_KEY_PREFIX,
     ROLE_AGENT,
     ROLE_MANAGER,
 )
@@ -132,6 +133,60 @@ def list_views(client: Any) -> list[NodeView]:
     return views
 
 
+def _quarantine_key(queue: str) -> str:
+    return f'{QUARANTINE_KEY_PREFIX}{queue}'
+
+
+def list_quarantine(client: Any) -> list[dict[str, Any]]:
+    """Очереди, которые рабочий узел вернул на основной сервер."""
+    try:
+        keys = list(client.scan_iter(match=f'{QUARANTINE_KEY_PREFIX}*'))
+    except Exception:  # noqa: BLE001
+        return []
+    if not keys:
+        return []
+    try:
+        raw_values = client.mget(keys)
+    except Exception:  # noqa: BLE001
+        return []
+    rows: list[dict[str, Any]] = []
+    for key, raw in zip(keys, raw_values):
+        queue = str(key)[len(QUARANTINE_KEY_PREFIX):]
+        if not queue:
+            continue
+        row = {'queue': queue, 'reason': '', 'node_id': '', 'ts': ''}
+        if raw:
+            try:
+                data = json.loads(raw)
+            except (TypeError, json.JSONDecodeError):
+                data = None
+            if isinstance(data, dict):
+                row['reason'] = str(data.get('reason') or '')
+                row['node_id'] = str(data.get('node_id') or '')
+                row['ts'] = str(data.get('ts') or '')
+        rows.append(row)
+    return sorted(rows, key=lambda item: item['queue'])
+
+
+def release_quarantine(client: Any, queue: str | None) -> int:
+    """Снимает одну очередь или все. Возвращает число удалённых ключей."""
+    if queue:
+        try:
+            return int(client.delete(_quarantine_key(queue)) or 0)
+        except Exception:  # noqa: BLE001
+            return 0
+    try:
+        keys = list(client.scan_iter(match=f'{QUARANTINE_KEY_PREFIX}*'))
+    except Exception:  # noqa: BLE001
+        return 0
+    if not keys:
+        return 0
+    try:
+        return int(client.delete(*keys) or 0)
+    except Exception:  # noqa: BLE001
+        return 0
+
+
 def publish_plan(client: Any, plan: NodePlan, ttl_sec: int) -> None:
     client.set(
         _plan_key(plan.node_id),
@@ -195,16 +250,19 @@ def sync_cluster(project_root: Path, snapshot: Any, *, write: bool) -> None:
     client = connect(project_root)
     remote: list[NodeView] = []
     previous: dict[str, dict[str, int]] = {}
+    quarantine_rows: list[dict[str, Any]] = []
     if client is None:
         snapshot.cluster_note = 'redis'
     else:
         if write:
             publish_node(client, settings, snapshot.budget)
         remote = list_views(client)
+        quarantine_rows = list_quarantine(client)
         for view in _merge_nodes(local, remote):
             previous[view.node_id] = _limits_from_plan(load_plan(client, view.node_id))
     nodes = _merge_nodes(local, remote)
     snapshot.cluster_nodes = nodes
+    snapshot.quarantine = quarantine_rows
     if settings.cluster_role != ROLE_MANAGER:
         return
 
@@ -227,6 +285,7 @@ def sync_cluster(project_root: Path, snapshot: Any, *, write: bool) -> None:
         history=stats_by_queue(project_root),
         previous_limits=previous,
         agent_ready=_agent_image_ready(project_root),
+        quarantined={str(item.get('queue') or '') for item in quarantine_rows},
     )
     snapshot.cluster_plans = plans
     local_plan = next((item for item in plans if item.node_id == settings.node_id), None)

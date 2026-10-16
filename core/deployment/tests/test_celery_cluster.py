@@ -20,8 +20,11 @@ from celery_balance.cluster_plan import (  # noqa: E402
 )
 from celery_balance.constants import (  # noqa: E402
     CLASS_HEAVY,
+    CLASS_LIGHT,
+    CLASS_MEDIUM,
     PLACEMENT_AGENT,
     PLACEMENT_ANY,
+    PLACEMENT_AUTO,
     PLACEMENT_GPU,
     PLACEMENT_PRIMARY,
 )
@@ -307,9 +310,94 @@ class ClusterPlanTests(unittest.TestCase):
         self.assertNotIn('sample_q', by_id['worker'].queues)
         self.assertNotIn('sample_q', by_id['primary'].pause_queues)
 
+    def test_auto_medium_fills_the_worker_first(self) -> None:
+        plans = plan_cluster(
+            [_node('primary', primary=True), _node('worker', primary=False)],
+            all_queues=['sample_q'],
+            catalog=_catalog(_spec(
+                'sample_q',
+                placement=PLACEMENT_AUTO,
+                task_class=CLASS_MEDIUM,
+                max_parallel=4,
+            )),
+            settings=_settings(),
+            depths={},
+            history={},
+        )
+        by_id = {item.node_id: item for item in plans}
+        self.assertEqual(by_id['worker'].queue_limits['sample_q'], 4)
+        self.assertNotIn('sample_q', by_id['worker'].pause_queues)
+        self.assertIn('sample_q', by_id['primary'].pause_queues)
+
+    def test_auto_light_and_gpu_stay_on_primary(self) -> None:
+        nodes = [_node('primary', primary=True), _node('worker', primary=False, gpu=True, vram=8000)]
+        for task_class, gpu_required in ((CLASS_LIGHT, False), (CLASS_HEAVY, True)):
+            plans = plan_cluster(
+                nodes,
+                all_queues=['sample_q'],
+                catalog=_catalog(_spec(
+                    'sample_q',
+                    placement=PLACEMENT_AUTO,
+                    task_class=task_class,
+                    gpu_required=gpu_required,
+                    max_parallel=2,
+                )),
+                settings=_settings(),
+                depths={},
+                history={},
+            )
+            by_id = {item.node_id: item for item in plans}
+            self.assertEqual(by_id['primary'].queue_limits['sample_q'], 2)
+            self.assertNotIn('sample_q', by_id['worker'].queues)
+
+    def test_auto_quarantine_stays_on_primary(self) -> None:
+        plans = plan_cluster(
+            [_node('primary', primary=True), _node('worker', primary=False)],
+            all_queues=['sample_q'],
+            catalog=_catalog(_spec('sample_q', placement=PLACEMENT_AUTO, task_class=CLASS_MEDIUM)),
+            settings=_settings(),
+            depths={},
+            history={},
+            quarantined={'sample_q'},
+        )
+        by_id = {item.node_id: item for item in plans}
+        self.assertEqual(by_id['primary'].queue_limits['sample_q'], 4)
+        self.assertNotIn('sample_q', by_id['worker'].queues)
+
+    def test_auto_off_stays_on_primary(self) -> None:
+        from dataclasses import replace
+
+        plans = plan_cluster(
+            [_node('primary', primary=True), _node('worker', primary=False)],
+            all_queues=['sample_q'],
+            catalog=_catalog(_spec('sample_q', placement=PLACEMENT_AUTO, task_class=CLASS_MEDIUM)),
+            settings=replace(_settings(), auto_placement='off'),
+            depths={},
+            history={},
+        )
+        by_id = {item.node_id: item for item in plans}
+        self.assertEqual(by_id['primary'].queue_limits['sample_q'], 4)
+        self.assertNotIn('sample_q', by_id['worker'].queues)
+
+    def test_auto_without_egress_stays_on_primary(self) -> None:
+        plans = plan_cluster(
+            [
+                _node('primary', primary=True),
+                _node('worker', primary=False, egress_ok=False),
+            ],
+            all_queues=['sample_q'],
+            catalog=_catalog(_spec('sample_q', placement=PLACEMENT_AUTO, task_class=CLASS_MEDIUM)),
+            settings=_settings(),
+            depths={},
+            history={},
+        )
+        by_id = {item.node_id: item for item in plans}
+        self.assertEqual(by_id['primary'].queue_limits['sample_q'], 4)
+        self.assertNotIn('sample_q', by_id['worker'].queues)
+
 
 class PlacementParseTests(unittest.TestCase):
-    def test_default_placement_is_primary(self) -> None:
+    def test_default_placement_is_auto(self) -> None:
         parsed = _parse_task(
             {'queue': 'sample_q'},
             module='sample',
@@ -318,7 +406,7 @@ class PlacementParseTests(unittest.TestCase):
         )
         self.assertIsNotNone(parsed)
         assert parsed is not None
-        self.assertEqual(parsed.placement, PLACEMENT_PRIMARY)
+        self.assertEqual(parsed.placement, PLACEMENT_AUTO)
 
     def test_unknown_placement_falls_back(self) -> None:
         parsed = _parse_task(
@@ -328,7 +416,17 @@ class PlacementParseTests(unittest.TestCase):
             path=Path('task_footprint.yaml'),
         )
         assert parsed is not None
-        self.assertEqual(parsed.placement, PLACEMENT_PRIMARY)
+        self.assertEqual(parsed.placement, PLACEMENT_AUTO)
+
+    def test_explicit_auto_parses(self) -> None:
+        parsed = _parse_task(
+            {'queue': 'sample_q', 'placement': 'auto'},
+            module='sample',
+            defaults={},
+            path=Path('task_footprint.yaml'),
+        )
+        assert parsed is not None
+        self.assertEqual(parsed.placement, PLACEMENT_AUTO)
 
 
 class EgressProbeTests(unittest.TestCase):
@@ -349,10 +447,14 @@ class ClusterSettingsTests(unittest.TestCase):
             root = Path(folder)
             with patch.dict(os.environ, {'CELERY_CLUSTER': '', 'ERGO_NODE_ID': 'node-a'}, clear=False):
                 os.environ.pop('CELERY_CLUSTER', None)
+                os.environ.pop('CELERY_CLUSTER_AUTO_PLACEMENT', None)
+                os.environ.pop('CELERY_CLUSTER_QUARANTINE_TTL', None)
                 settings = load_settings(root)
         self.assertEqual(settings.cluster, 'off')
         self.assertFalse(settings.cluster_enabled)
         self.assertEqual(settings.node_id, 'node-a')
+        self.assertEqual(settings.auto_placement, 'agent')
+        self.assertEqual(settings.quarantine_ttl_sec, 7 * 24 * 3600)
 
 
 class SwarmStackTests(unittest.TestCase):
