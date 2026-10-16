@@ -43,7 +43,7 @@ birth_date = profile.birth_date if profile else None
 <input v-model="person.age" type="number" />
 ```
 
-Человек без учётной записи платформы под это правило не попадает: поля профиля у него нет.
+Человек без учётной записи платформы под это правило не попадает: поля профиля у него нет. Его дата рождения хранится в карточке человека ядра (`Person.birth_date`), а не в модуле — см. [`person.mdc`](person.mdc). Пока учётка привязана к карточке, источник даты — `UserProfile`.
 
 ## Связанные правила
 
@@ -51,4 +51,5 @@ birth_date = profile.birth_date if profile else None
 |------|------|
 | Модель пользователя | [`django.mdc`](django.mdc) |
 | Модули | [`modules.mdc`](modules.mdc) |
+| Человек без учётки | [`person.mdc`](person.mdc) |
 | Выбор даты | [`components.mdc`](components.mdc) |

@@ -326,6 +326,7 @@ def get_my_serializer_class():
 | Host lifecycle (тесты deployment) | [`host-lifecycle.mdc`](host-lifecycle.mdc) |
 | Portable-пакеты (virtual_env/packages) | [`packages.mdc`](packages.mdc) |
 | Дата рождения и возраст пользователя | [`user-birth-date.mdc`](user-birth-date.mdc) |
+| Карточка человека без учётки (Person) | [`person.mdc`](person.mdc) |
 | Модульные задачи Run Task | [`module-vscode-tasks.mdc`](module-vscode-tasks.mdc) |
 | Формат задач ядра (tasks.json) | [`vscode-tasks.mdc`](vscode-tasks.mdc) |
 | Правила Cursor модуля | [`module-cursor-rules.mdc`](module-cursor-rules.mdc) |
