@@ -117,7 +117,7 @@ databases:
 
 Список ключей — в `modules/<имя>/.env.example` каждого модуля, не в ядре. Имена установленных модулей сюда не копируют.
 
-Если модуль указан в `DISABLED_MODULES`, его `.env` не учитывается при сборке клиента, Python/npm-зависимости не устанавливаются (`ergoms python-install`, `ergoms npm run install:all`), пункты меню скрываются в API, `restore_menu` не наполняет меню модуля; в Docker build context каталог `modules/<имя>/` исключается через `Dockerfile.*.dockerignore` (корневой `.dockerignore` не меняется).
+Если модуль указан в `DISABLED_MODULES`, его `.env` не учитывается при сборке клиента, Python/npm-зависимости не устанавливаются (`ergoms python-install`, `ergoms npm run install:all`), `restore_menu` не проигрывает меню-миграции с диска этого процесса. Пункты бокового меню при этом скрываются, только если у модуля нет своего HTTP-процесса: имя в `MICROSERVICE_MODULES` или ключ в `BRIDGE_SERVICE_URLS` значит, что вкладки приходят снимком `menu.catalog` и остаются в меню. В Docker build context каталог `modules/<имя>/` исключается через `Dockerfile.*.dockerignore` (корневой `.dockerignore` не меняется).
 
 ## Realtime (WebSocket, SSE и polling)
 
