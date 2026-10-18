@@ -266,7 +266,7 @@ class ClusterPlanTests(unittest.TestCase):
         self.assertNotIn('sample_q', by_id['worker'].queues)
         self.assertNotIn('sample_q', by_id['primary'].pause_queues)
 
-    def test_agent_keeps_the_remainder_on_primary(self) -> None:
+    def test_agent_takes_the_queue_while_it_is_up(self) -> None:
         plans = plan_cluster(
             [
                 _node('primary', primary=True, ram=80000, cpu=16),
@@ -285,8 +285,8 @@ class ClusterPlanTests(unittest.TestCase):
         )
         by_id = {item.node_id: item for item in plans}
         self.assertEqual(by_id['worker'].queue_limits['sample_q'], 2)
-        self.assertEqual(by_id['primary'].queue_limits['sample_q'], 48)
-        self.assertNotIn('sample_q', by_id['primary'].pause_queues)
+        self.assertNotIn('sample_q', by_id['primary'].queue_limits)
+        self.assertIn('sample_q', by_id['primary'].pause_queues)
 
     def test_agent_without_egress_stays_on_primary(self) -> None:
         plans = plan_cluster(
@@ -509,6 +509,27 @@ class WorkerImageTests(unittest.TestCase):
         self.assertIn('libcairo2', worker)
         self.assertGreater(worker.find('poetry run pip install'), worker.find('libnss3'))
         self.assertGreater(worker.find('libcairo2'), worker.find('poetry run pip install'))
+
+
+class DeclaredModuleQueueTests(unittest.TestCase):
+    def test_workers_yaml_queues_join_the_plan(self) -> None:
+        from celery_balance.workers import _names_from_workers_file
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'celery_workers.yaml'
+            path.write_text(
+                'workers:\n'
+                '  vpn:\n'
+                '    queues: [hh_vpn]\n'
+                '  catalog:\n'
+                '    queues: education_materials_catalog\n',
+                encoding='utf-8',
+            )
+            self.assertEqual(
+                _names_from_workers_file(path),
+                {'hh_vpn', 'education_materials_catalog'},
+            )
+            self.assertEqual(_names_from_workers_file(Path(tmp) / 'missing.yaml'), set())
 
 
 if __name__ == '__main__':

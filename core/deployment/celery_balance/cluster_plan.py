@@ -175,7 +175,7 @@ def _agent_share(
     spec: TaskFootprint,
     nodes: list[NodeView],
 ) -> tuple[list[NodeView], list[int], list[NodeView]]:
-    """Узел заполняется до своего бюджета. Остаток потолка остаётся на primary.
+    """Пока жив рабочий узел, очередь слушает только он. Сверх его бюджета задачи ждут в брокере.
 
     Третий список — узлы, которым очередь не отдана, потому что нет выхода в сеть.
     """
@@ -195,13 +195,12 @@ def _agent_share(
         weights = [_capacity(node, spec) for node in eligible]
         return eligible, _split(spec.max_parallel, weights), blocked
     agent_slots = _split(spec.max_parallel, [_capacity(node, spec) for node in agents])
-    remainder = spec.max_parallel - sum(agent_slots)
-    eligible = list(agents)
-    split = list(agent_slots)
-    if remainder > 0 and primary:
-        eligible.append(primary[0])
-        split.append(remainder)
-    return eligible, split, blocked
+    if sum(agent_slots) > 0:
+        # Общая очередь: если менеджер тоже слушает, он забирает сообщения раньше узла.
+        return agents, agent_slots, blocked
+    eligible = primary or nodes[:1]
+    weights = [_capacity(node, spec) for node in eligible]
+    return eligible, _split(spec.max_parallel, weights), blocked
 
 
 def _resolve_auto(
@@ -291,16 +290,17 @@ def plan_cluster(
         for node in nodes:
             if node not in eligible:
                 reasons[node.node_id].append(f'{queue}: placement={spec.placement}')
-        if spec.placement == PLACEMENT_AGENT:
-            holder = next((node for node in nodes if node.primary), None)
-            agent_slots = sum(
+        holder = next((node for node in nodes if node.primary), None)
+        if holder is not None:
+            elsewhere = sum(
                 shares[node.node_id].get(queue, 0)
                 for node in nodes
                 if not node.primary
             )
-            primary_slots = shares[holder.node_id].get(queue, 0) if holder is not None else 0
-            if holder is not None and agent_slots > 0 and primary_slots <= 0:
-                held_on_primary.add(queue)
+            primary_slots = shares[holder.node_id].get(queue, 0)
+            if elsewhere > 0 and primary_slots <= 0:
+                if spec.placement != PLACEMENT_GPU:
+                    held_on_primary.add(queue)
                 if queue not in paused[holder.node_id]:
                     paused[holder.node_id].append(queue)
 

@@ -275,11 +275,19 @@ def sync_cluster(project_root: Path, snapshot: Any, *, write: bool) -> None:
     if not queue_names:
         queue_names = ['default']
     from celery_balance.history import stats_by_queue
+    from celery_balance.workers import declared_module_queues
+
+    catalog = _catalog(project_root)
+    queue_names = sorted(
+        set(queue_names)
+        | declared_module_queues(project_root)
+        | {item.queue for item in catalog.tasks}
+    )
 
     plans = plan_cluster(
         nodes,
         all_queues=queue_names,
-        catalog=_catalog(project_root),
+        catalog=catalog,
         settings=settings,
         depths=depths,
         history=stats_by_queue(project_root),
@@ -327,4 +335,29 @@ def resolve_allowed_queues(project_root: Path) -> list[str] | None:
     raw = plan.get('allowed_queues')
     if not isinstance(raw, list):
         return [] if settings.cluster_role == ROLE_AGENT else None
+    return [str(item) for item in raw if str(item).strip()]
+
+
+def resolve_paused_queues(project_root: Path) -> list[str] | None:
+    """None — кластер выключен и пауза не действует. Иначе очереди, которые этот узел не слушает."""
+    settings = load_settings(project_root)
+    if not settings.cluster_enabled:
+        return None
+    plan: dict[str, Any] | None = None
+    client = connect(project_root)
+    if client is not None:
+        plan = load_plan(client, settings.node_id)
+    if plan is None or 'pause_queues' not in plan:
+        data = load_decision(project_root)
+        if (
+            isinstance(data, dict)
+            and data.get('node_id') == settings.node_id
+            and 'pause_queues' in data
+        ):
+            plan = data
+    if plan is None or 'pause_queues' not in plan:
+        return []
+    raw = plan.get('pause_queues')
+    if not isinstance(raw, list):
+        return []
     return [str(item) for item in raw if str(item).strip()]
