@@ -50,6 +50,22 @@ def _module_worker_ids(module: str) -> list[str]:
     return [str(spec['name']) for spec in specs if spec.get('name')]
 
 
+def _generic_worker_needed(module: str) -> bool:
+    api_dir = PROJECT_ROOT / 'core' / 'api'
+    if str(api_dir) not in sys.path:
+        sys.path.insert(0, str(api_dir))
+    from src.core.utils.celery.module_queues import generic_module_worker_needed
+
+    return generic_module_worker_needed(module, PROJECT_ROOT / 'modules' / module)
+
+
+def _worker_service_ids(module: str, *, include_idle_generic: bool) -> list[str]:
+    named = _module_worker_ids(module)
+    if include_idle_generic or _generic_worker_needed(module):
+        return ['', *named]
+    return list(named)
+
+
 def _write_wrappers(module: str, kind: str, worker_id: str = '') -> tuple[Path, Path]:
     ensure_dir(WRAPPERS)
     safe = _safe(module)
@@ -208,7 +224,12 @@ def main() -> int:
     if not (PROJECT_ROOT / 'modules' / module).is_dir():
         print(format_console('error', t('module_service_unknown_module', name=module)), file=sys.stderr)
         return 2
-    worker_ids = [''] if kind != 'worker' else ['', *_module_worker_ids(module)]
+    if kind != 'worker':
+        worker_ids = ['']
+    elif args.uninstall:
+        worker_ids = _worker_service_ids(module, include_idle_generic=True)
+    else:
+        worker_ids = _worker_service_ids(module, include_idle_generic=False)
     if args.uninstall:
         code = 0
         for worker_id in worker_ids:
@@ -218,6 +239,12 @@ def main() -> int:
             else:
                 code = _uninstall_linux(name) or code
         return code
+    if kind == 'worker' and not _generic_worker_needed(module):
+        idle_name = _service_name(module, 'worker', '')
+        if os.name == 'nt':
+            _uninstall_windows(idle_name)
+        else:
+            _uninstall_linux(idle_name)
     from lifecycle.modules.catalog import ModuleCatalog  # noqa: WPS433
 
     catalog = ModuleCatalog.from_project_env(PROJECT_ROOT)

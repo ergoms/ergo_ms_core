@@ -12,6 +12,7 @@ if str(_API_DIR) not in sys.path:
 
 from src.core.utils.celery.module_queues import (  # noqa: E402
     dedicated_queue_names,
+    generic_module_worker_needed,
     queues_for_module,
     read_dedicated_queues,
     read_module_workers,
@@ -131,6 +132,38 @@ class ModuleQueuesTests(unittest.TestCase):
             names = [spec['name'] for spec in read_module_workers(module)]
             self.assertEqual(names, ['crawl', 'file_load'])
             self.assertEqual(dedicated_queue_names(Path(raw)), {'site', 'file_load'})
+
+    def test_generic_worker_skipped_when_named_worker_owns_every_queue(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as raw:
+            module = Path(raw) / 'demo_mod'
+            module.mkdir()
+            (module / 'celery_config.py').write_text(
+                'class Cfg:\n'
+                '    def get_task_routes(self):\n'
+                '        return {}\n',
+                encoding='utf-8',
+            )
+            (module / 'celery_workers.yaml').write_text(
+                'workers:\n'
+                '  - name: demo_mod\n'
+                '    hostname: demo_mod_worker\n'
+                '    queues: [demo_mod]\n'
+                '    concurrency: 1\n',
+                encoding='utf-8',
+            )
+            self.assertFalse(generic_module_worker_needed('demo_mod', module))
+
+            (module / 'celery_workers.yaml').write_text(
+                'workers:\n'
+                '  - name: crawl\n'
+                '    hostname: crawl_worker\n'
+                '    queues: [site]\n'
+                '    concurrency: 1\n',
+                encoding='utf-8',
+            )
+            self.assertTrue(generic_module_worker_needed('demo_mod', module))
 
 
 if __name__ == '__main__':

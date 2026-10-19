@@ -535,6 +535,7 @@ def build_host_media_locations(values: Mapping[str, str] | None = None) -> str:
         limit_conn_status 429;
         proxy_buffering off;
         gzip off;
+        proxy_set_header X-Ergo-Accel 1;
         proxy_pass http://ergo_media;
     }
 
@@ -605,6 +606,7 @@ def build_docker_core_proxy_locations() -> str:
         limit_conn_status 429;
         proxy_buffering off;
         gzip off;
+        proxy_set_header X-Ergo-Accel 1;
         proxy_pass http://ergo_media;
     }}
 

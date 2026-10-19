@@ -250,6 +250,19 @@ def _kind_from_process_unit(unit: str, module: str) -> str | None:
     return None
 
 
+def _redundant_generic_worker_unit(root: Path, module: str, unit: str) -> bool:
+    """Общий worker не нужен, если именованные воркеры забрали все очереди."""
+    short = unit[: -len('.service')] if unit.endswith('.service') else unit
+    if short != process_service_unit_name(module, 'worker'):
+        return False
+    api_dir = Path(root) / 'core' / 'api'
+    if str(api_dir) not in sys.path:
+        sys.path.insert(0, str(api_dir))
+    from src.core.utils.celery.module_queues import generic_module_worker_needed
+
+    return not generic_module_worker_needed(module, Path(root) / 'modules' / module)
+
+
 def allows_module_kind(catalog: ModuleCatalog, host_profile, module: str, kind: str) -> bool:
     if not catalog.allows_module_process_os_services(module):
         return False
@@ -308,6 +321,8 @@ def aggregate_host_lifecycle(project_root: Path | str) -> HostLifecycleAggregate
             if kind is not None and not allows_module_kind(
                 catalog, host_profile, entry.module, kind
             ):
+                continue
+            if _redundant_generic_worker_unit(root, entry.module, unit):
                 continue
             if unit not in seen_units:
                 seen_units.add(unit)
