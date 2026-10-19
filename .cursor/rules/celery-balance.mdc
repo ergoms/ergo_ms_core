@@ -99,7 +99,7 @@ ergoms celery-balance --watch
 
 Отчёт: `ergoms celery-balance --cluster`.
 
-Воркеры других машин — образ `worker` и стек Swarm (`ergoms docker-swarm-deploy`), не bind-mount корня проекта. См. [`docker.mdc`](docker.mdc).
+Воркеры других машин — образ `worker` и стек Swarm (`ergoms docker-swarm-deploy`), не bind-mount корня проекта. См. [`docker.mdc`](docker.mdc). При `CELERY_CLUSTER=on` тот же стек и наблюдатель плана поднимает `ergoms start`. Если Docker стартовал раньше адреса менеджера и Swarm остался с ошибкой прослушивания, этот старт один раз перезапускает Docker, когда адрес уже назначен, и раскладывает стек снова. Следующий запуск Docker ждёт этот адрес.
 
 Knobs: [`env/celery.env.example`](../../env/celery.env.example). Inventory железа только runtime, не в git.
 

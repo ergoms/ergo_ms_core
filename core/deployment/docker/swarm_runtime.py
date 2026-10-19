@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import os
 import shutil
 import signal
@@ -315,12 +316,17 @@ def _watch_pid_path(root: Path) -> Path:
 
 
 def _pid_alive(pid: int) -> bool:
+    """Чужой процесс тоже жив: отказ в сигнале — это не «такого pid нет»."""
     if pid <= 0:
         return False
     try:
         os.kill(pid, 0)
-    except OSError:
+    except ProcessLookupError:
         return False
+    except PermissionError:
+        return True
+    except OSError as exc:
+        return exc.errno == errno.EPERM
     return True
 
 
@@ -334,28 +340,68 @@ def _watch_cmdline(pid: int) -> str:
         return ''
 
 
+def _project_watch_pids(root: Path) -> list[int]:
+    """Наблюдатели плана этого дерева. Процесс в контейнере лежит по другому пути."""
+    needle = str(root / 'core' / 'deployment' / 'celery_balance' / 'cli.py')
+    found: list[int] = []
+    proc_root = Path('/proc')
+    if not proc_root.is_dir():
+        return found
+    for entry in proc_root.iterdir():
+        if not entry.name.isdigit():
+            continue
+        pid = int(entry.name)
+        cmdline = _watch_cmdline(pid)
+        if needle in cmdline and '--watch' in cmdline:
+            found.append(pid)
+    return found
+
+
+def _signal_pid(pid: int, sig: int) -> None:
+    try:
+        os.kill(pid, sig)
+        return
+    except PermissionError:
+        pass
+    except OSError:
+        return
+    sudo = shutil.which('sudo')
+    if not sudo:
+        return
+    flag = '-TERM' if sig == signal.SIGTERM else '-KILL'
+    subprocess.run([sudo, '-n', 'kill', flag, str(pid)], check=False)
+
+
+def _kill_pid(pid: int) -> bool:
+    if not _pid_alive(pid):
+        return False
+    _signal_pid(pid, signal.SIGTERM)
+    deadline = time.monotonic() + 10
+    while _pid_alive(pid) and time.monotonic() < deadline:
+        time.sleep(0.2)
+    if _pid_alive(pid):
+        _signal_pid(pid, signal.SIGKILL)
+    return True
+
+
 def _stop_watch(root: Path) -> None:
     path = _watch_pid_path(root)
-    if not path.is_file():
-        return
-    try:
-        pid = int(path.read_text(encoding='utf-8').strip() or '0')
-    except ValueError:
+    pids = set(_project_watch_pids(root))
+    if path.is_file():
+        try:
+            recorded = int(path.read_text(encoding='utf-8').strip() or '0')
+        except ValueError:
+            recorded = 0
+        cmdline = _watch_cmdline(recorded) if recorded else ''
+        if recorded and (not cmdline or 'celery_balance' in cmdline):
+            pids.add(recorded)
         path.unlink(missing_ok=True)
-        return
-    cmdline = _watch_cmdline(pid)
-    if cmdline and 'celery_balance' not in cmdline:
-        path.unlink(missing_ok=True)
-        return
-    if _pid_alive(pid):
-        os.kill(pid, signal.SIGTERM)
-        deadline = time.monotonic() + 10
-        while _pid_alive(pid) and time.monotonic() < deadline:
-            time.sleep(0.2)
-        if _pid_alive(pid):
-            os.kill(pid, signal.SIGKILL)
+    stopped = False
+    for pid in sorted(pids):
+        if _kill_pid(pid):
+            stopped = True
+    if stopped:
         print(format_console('ok', t('celery_cluster_watch_stopped')))
-    path.unlink(missing_ok=True)
 
 
 def _ensure_watch(root: Path) -> None:
@@ -385,6 +431,135 @@ def _mark_agent_ready(root: Path, ready: bool) -> None:
         path.write_text('1\n', encoding='utf-8')
         return
     path.unlink(missing_ok=True)
+
+
+def swarm_listen_recoverable(state: str, error: str, address_ready: bool) -> bool:
+    """Менеджер не занял порт, потому что адреса ещё не было. Адрес уже есть — Docker можно поднять снова."""
+    return (
+        state.strip().lower() == 'error'
+        and 'cannot assign requested address' in error.lower()
+        and address_ready
+    )
+
+
+def _swarm_error_text(docker: list[str]) -> tuple[str, str]:
+    result = subprocess.run(
+        [*docker, 'info', '--format', '{{.Swarm.LocalNodeState}}|{{.Swarm.Error}}'],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return '', ''
+    state, _, error = result.stdout.strip().partition('|')
+    return state.strip().lower(), error.strip()
+
+
+def _ipv4_assigned(host: str) -> bool:
+    if not host:
+        return False
+    result = subprocess.run(
+        ['ip', '-4', '-o', 'addr', 'show'],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return False
+    return f'inet {host}/' in result.stdout
+
+
+def _install_docker_wait(root: Path) -> None:
+    """Следующий старт Docker ждёт адрес менеджера. Иначе Swarm снова остаётся в ошибке до ручного перезапуска."""
+    script = root / 'core' / 'deployment' / 'docker' / 'wait_swarm_address.sh'
+    if not script.is_file():
+        return
+    try:
+        script.chmod(0o755)
+    except OSError:
+        return
+    target = Path('/etc/systemd/system/docker.service.d/ergo-swarm-address.conf')
+    body = f'[Service]\nExecStartPre={script}\n'
+    try:
+        if target.is_file() and target.read_text(encoding='utf-8') == body:
+            return
+    except OSError:
+        pass
+    sudo = shutil.which('sudo')
+    systemctl = shutil.which('systemctl')
+    if not sudo or not systemctl:
+        return
+    folder = subprocess.run(
+        [sudo, '-n', 'mkdir', '-p', str(target.parent)],
+        check=False,
+    )
+    if folder.returncode != 0:
+        return
+    written = subprocess.run(
+        [sudo, '-n', 'tee', str(target)],
+        input=body,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if written.returncode != 0:
+        return
+    subprocess.run([sudo, '-n', systemctl, 'daemon-reload'], check=False)
+
+
+def _restart_dockerd() -> bool:
+    systemctl = shutil.which('systemctl')
+    if not systemctl:
+        return False
+    cmd = [systemctl, 'restart', 'docker']
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=120)
+    except (OSError, subprocess.TimeoutExpired):
+        result = None
+    if result is not None and result.returncode == 0:
+        return True
+    sudo = shutil.which('sudo')
+    if not sudo:
+        return False
+    try:
+        elevated = subprocess.run(
+            [sudo, '-n', *cmd],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=180,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return elevated.returncode == 0
+
+
+def _ensure_swarm(docker: list[str], env: dict[str, str]) -> bool:
+    if _swarm_active(docker):
+        return True
+    state, error = _swarm_error_text(docker)
+    host = _manager_host(env, _registry(env))
+    if not swarm_listen_recoverable(state, error, _ipv4_assigned(host)):
+        return False
+    if not _restart_dockerd():
+        return False
+    print(format_console('ok', t('celery_cluster_swarm_recovered')))
+    deadline = time.monotonic() + 40
+    while time.monotonic() < deadline:
+        if _swarm_active(docker):
+            return True
+        time.sleep(1)
+    return _swarm_active(docker)
+
+
+def _container_running(docker: list[str], name: str) -> bool:
+    result = subprocess.run(
+        [*docker, 'inspect', '-f', '{{.State.Running}}', name],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.returncode == 0 and result.stdout.strip() == 'true'
 
 
 def _swarm_active(docker: list[str]) -> bool:
@@ -450,7 +625,10 @@ def sync_on_start() -> int:
     env = _env(root)
     registry = _registry(env)
     docker = _docker()
-    swarm_up = bool(registry and docker and _swarm_active(docker))
+    _install_docker_wait(root)
+    swarm_up = bool(registry and docker and _ensure_swarm(docker, env))
+    if swarm_up and registry and docker and not _container_running(docker, REGISTRY_NAME):
+        cmd_registry()
     image = f'{registry}/{IMAGE_NAME}' if registry else ''
     image_ready = bool(swarm_up and image and _image_has_prepare(docker, image))
     deployed = swarm_up and image_ready and cmd_deploy() == 0
@@ -466,7 +644,7 @@ def sync_on_start() -> int:
         return 0
     _mark_agent_ready(root, True)
     _ensure_watch(root)
-    if _wait_for_agent(root):
+    if _wait_for_agent(root, timeout=90):
         _run_balance_once(root)
     return 0
 
