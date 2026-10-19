@@ -282,6 +282,15 @@ kill_ergo_project_session_processes() {
 _SYSTEMD_STOP_WAIT_SEC=30
 export _SYSTEMD_STOP_WAIT_SEC
 
+# Воркер умер по SIGKILL раньше, чем Celery вернул задачу в очередь.
+_requeue_unacked() {
+  local root="$1"
+  local py="$root/virtual_env/python/bin/python"
+  local script="$root/core/deployment/scripts/celery_requeue_unacked.py"
+  [[ -x "$py" && -f "$script" ]] || return 0
+  "$py" "$script" --quiet || true
+}
+
 _units_still_busy() {
   local states st
   [[ $# -eq 0 ]] && return 1
@@ -399,6 +408,11 @@ stop_all() {
       [[ "$need_stop" -eq 1 ]] || continue
       ( cd "$root" && ergoms "$pair_cmd" ) || true
     done < <(list_module_host_stop_pairs "$root")
+  fi
+
+  # Пока Redis жив: незакрытые задачи убитого воркера снова лежат в очереди.
+  if [[ -n "$root" ]]; then
+    _requeue_unacked "$root"
   fi
 
   if is_search_enabled "$root" && declare -F meilisearch_stop >/dev/null 2>&1; then

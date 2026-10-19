@@ -11,6 +11,7 @@ services:
       - ./nginx/ergo_ms.conf.rendered:/etc/nginx/conf.d/default.conf:ro
       - ${ERGO_PROJECT_ROOT:-../../..}/core/client/dist:/usr/share/nginx/html:ro
       - ${ERGO_PROJECT_ROOT:-../../..}/virtual_env/static_api:/usr/share/nginx/static:ro
+      - ${ERGO_MEDIA_BIND:-../../../media}:/var/lib/ergo/media:ro
       - ${ERGO_LOGS_BIND:-../../../logs}:/var/log/ergo:rw
     depends_on:
       api:

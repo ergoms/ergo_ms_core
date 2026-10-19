@@ -40,7 +40,7 @@ server {
     # Вычисляется из MEDIA_UPLOAD_MAX_SIZE + direct-upload env (upload_limits.py)
     client_max_body_size ${ERGO_CLIENT_MAX_BODY_SIZE};
 
-    include ${ERGO_NGINX_SNIPPETS}/proxy_params.conf;
+    include ${ERGO_NGINX_SNIPPETS}/${ERGO_PROXY_PARAMS_FILE};
 ${ERGO_EXTRA_SERVER_INCLUDE}
 
 ${ERGO_MAINTENANCE_SNIPPET}

@@ -103,6 +103,9 @@ sections:
   - name: celery-balance
     invoke: ergoms celery-balance [--dry-run] [--watch] [--json] [--cluster]
     summary: Celery budget and concurrency (observe / recommend / auto)
+  - name: celery-requeue
+    invoke: ergoms celery-requeue
+    summary: Return Celery tasks to the queue when their worker no longer holds them
   - name: loadtest
     invoke: ergoms loadtest [--profile …] [--isolated-db|--docker-isolated] | --find-limit … | --cleanup-users
     summary: API/pages load test (Locust), find-limit, DB isolation, or delete lt_* users

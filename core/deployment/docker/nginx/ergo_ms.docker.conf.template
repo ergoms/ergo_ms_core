@@ -20,6 +20,11 @@ server {
 
     root /usr/share/nginx/html;
     index index.html;
+    tcp_nopush on;
+    gzip_static on;
+    open_file_cache max=10000 inactive=20s;
+    open_file_cache_valid 30s;
+    open_file_cache_min_uses 2;
 
     # Вычисляется из MEDIA_UPLOAD_MAX_SIZE + direct-upload env (upload_limits.py)
     client_max_body_size ${ERGO_CLIENT_MAX_BODY_SIZE};

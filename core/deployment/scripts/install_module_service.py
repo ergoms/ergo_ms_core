@@ -92,6 +92,14 @@ def _write_systemd_unit(module: str, kind: str, sh_path: Path, worker_id: str = 
     unit = unit_dir / f'{name}.service'
     stderr = PROJECT_ROOT / 'logs' / f'{name}.stderr.log'
     env_file = WRAPPERS / 'ergo_ms.env'
+    stop_post = ''
+    if kind == 'worker':
+        # SIGKILL по TimeoutStopSec не даёт Celery вернуть задачу. Это делает скрипт,
+        # когда процесса уже нет и новый ещё не поднялся (RestartSec).
+        stop_post = (
+            f'ExecStopPost={PROJECT_ROOT}/virtual_env/python/bin/python '
+            f'{PROJECT_ROOT}/core/deployment/scripts/celery_requeue_unacked.py --quiet\n'
+        )
     content = (
         '[Unit]\n'
         f'Description=ERGO MS module {label} ({module})\n'
@@ -104,6 +112,7 @@ def _write_systemd_unit(module: str, kind: str, sh_path: Path, worker_id: str = 
         'Restart=always\n'
         'RestartSec=5\n'
         'TimeoutStopSec=30\n'
+        f'{stop_post}'
         'Environment=PYTHONUNBUFFERED=1\n'
         'Environment=ERGO_LOG_CONSOLE=false\n'
         'StandardOutput=null\n'

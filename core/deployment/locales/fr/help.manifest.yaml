@@ -103,6 +103,9 @@ sections:
   - name: celery-balance
     invoke: ergoms celery-balance [--dry-run] [--watch] [--json] [--cluster]
     summary: Budget et concurrence Celery (observe / recommend / auto)
+  - name: celery-requeue
+    invoke: ergoms celery-requeue
+    summary: Remettre dans la file les tâches Celery dont le worker ne les détient plus
   - name: loadtest
     invoke: ergoms loadtest [--profile …] [--isolated-db|--docker-isolated] | --find-limit … | --cleanup-users
     summary: Test de charge API/pages (Locust), find-limit, isolation BDD ou suppression lt_*

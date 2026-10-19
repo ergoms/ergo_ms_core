@@ -30,7 +30,8 @@ Worker и Beat должны смотреть на **один** брокер. И�
 
 - `modules/<имя>/api/tasks.py` — задачи с `@shared_task`
 - `modules/<имя>/api/celery_config.py` — очереди и маршруты
-- `modules/<имя>/celery_workers.yaml` — именованные воркеры (id, hostname, очереди, concurrency). Старый `dedicated_queues.yaml` читается так же: `name` там и очередь, и id. Очереди из обоих файлов общий worker и `queues: all` не слушают. Служба `--kind=worker` ставит общий unit и по одному на каждый id; перезапуск unit не гасит соседей.
+- `modules/<имя>/celery_workers.yaml` — именованные воркеры (id, hostname, очереди, concurrency, `pool`). Старый `dedicated_queues.yaml` читается так же: `name` там и очередь, и id. Очереди из обоих файлов общий worker и `queues: all` не слушают. Служба `--kind=worker` ставит общий unit и по одному на каждый id; перезапуск unit не гасит соседей.
+- `max_tasks_per_child` и `max_memory_per_child` в `celery_workers.yaml` (корень или модуль) попадают в команду worker только при `pool: prefork`. `max_memory_per_child` — килобайты, как у Celery. При `threads` ключи не передаются: потоки не перезапускают процесс.
 - `modules/<имя>/task_footprint.yaml` — ожидаемый footprint задач для `ergoms celery-balance` (опционально). При включённом кластере процессорные очереди `medium` и `heavy` уходят на рабочие узлы сами; файл нужен, чтобы оставить очередь на основном сервере (`placement: primary`) или задать память и потолок.
 - `modules/<имя>/api/celery_beat_config.py` — расписание (если нужно)
 

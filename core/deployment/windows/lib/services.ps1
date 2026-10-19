@@ -546,6 +546,19 @@ function Start-AllServices {
 }
 
 
+function Invoke-CeleryRequeueUnacked {
+    param([string]$ProjectRoot)
+    $py = Join-Path $ProjectRoot 'virtual_env\python\Scripts\python.exe'
+    $script = Join-Path $ProjectRoot 'core\deployment\scripts\celery_requeue_unacked.py'
+    if ((Test-Path -LiteralPath $py) -and (Test-Path -LiteralPath $script)) {
+        try {
+            & $py $script --quiet
+        } catch {
+            Write-ErgomsMessage -Key 'celery_requeue_failed' -Color Yellow -Stderr
+        }
+    }
+}
+
 function Stop-AllServices {
     param([string]$ProjectRoot)
 
@@ -635,6 +648,8 @@ function Stop-AllServices {
             }
         }
     }
+
+    Invoke-CeleryRequeueUnacked -ProjectRoot $ProjectRoot
 
     if (Test-SearchEnabled -ProjectRoot $ProjectRoot) {
         if (Get-Command Stop-MeilisearchProcess -ErrorAction SilentlyContinue) {

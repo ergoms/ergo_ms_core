@@ -303,6 +303,32 @@ def _extra_bind(root: Path, password: str | None) -> str:
     return ' '.join(found)
 
 
+def _mem_available_bytes() -> int:
+    if platform.system().lower() == 'windows':
+        return 0
+    try:
+        for line in Path('/proc/meminfo').read_text(encoding='utf-8').splitlines():
+            if line.startswith('MemAvailable:'):
+                return int(line.split()[1]) * 1024
+    except (OSError, IndexError, ValueError):
+        return 0
+    return 0
+
+
+def resolve_redis_maxmemory(root: Path) -> str:
+    """Явный REDIS_MAXMEMORY или доля доступной памяти. В git размер не пишется."""
+    from env_file_loader import load_project_env
+
+    explicit = str(load_project_env(root).get('REDIS_MAXMEMORY') or '').strip()
+    if explicit:
+        return explicit
+    available = _mem_available_bytes()
+    if available <= 0:
+        return '256mb'
+    target = max(64 * 1024 * 1024, available // 8)
+    return str(target)
+
+
 def render_redis_conf(
     root: Path,
     port: int = DEFAULT_PORT,
@@ -334,7 +360,8 @@ def render_redis_conf(
         daemonize = 'yes'
 
     content = (
-        template.replace('{{REDIS_BIND}}', ' '.join(part for part in (bind, _extra_bind(root, effective_password)) if part))
+        template.replace('{{REDIS_MAXMEMORY}}', resolve_redis_maxmemory(root))
+        .replace('{{REDIS_BIND}}', ' '.join(part for part in (bind, _extra_bind(root, effective_password)) if part))
         .replace('{{REDIS_PORT}}', str(port))
         .replace('{{REDIS_REQUIREPASS_LINE}}', requirepass_line)
         .replace('{{REDIS_ACL_USER_LINE}}', acl_user_line)

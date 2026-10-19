@@ -19,4 +19,7 @@ save 300 10
 save 60 10000
 
 appendonly no
-maxmemory-policy noeviction
+# Потолок задаёт установка: доля доступной памяти или REDIS_MAXMEMORY.
+# volatile-lru вытесняет только ключи с TTL. Очереди брокера без TTL остаются.
+maxmemory {{REDIS_MAXMEMORY}}
+maxmemory-policy volatile-lru

@@ -22,6 +22,10 @@ def run_watch(
     show_cluster: bool = False,
 ) -> int:
     while True:
+        # Каталог читается с диска каждый круг: процесс живёт сутками и иначе держит старый placement.
+        from celery_balance.footprint_loader import load_footprints
+
+        load_footprints.cache_clear()
         snapshot = collect_snapshot(project_root)
         from celery_balance.cluster import sync_cluster
 
@@ -74,4 +78,28 @@ def run_watch(
             )
             if result.needs_restart and snapshot.settings.mode == MODE_AUTO:
                 print(format_console('info', t('celery_balance_restart_hint')))
+        _requeue_orphaned(project_root)
         time.sleep(snapshot.settings.watch_interval_sec)
+
+
+def _requeue_orphaned(project_root: Path) -> None:
+    """Сигнал воркеру не вернул задачу. Здесь её забирает общий механизм."""
+    from celery_requeue.restore import requeue_orphaned
+
+    format_result = None
+    try:
+        from celery_requeue_unacked import format_result as _format_result
+        format_result = _format_result
+    except ImportError:
+        format_result = None
+    try:
+        result = requeue_orphaned(project_root)
+    except Exception:
+        print(format_console('warning', t('celery_requeue_failed')))
+        return
+    if not result.restored:
+        return
+    if format_result is not None:
+        print(format_result(result))
+        return
+    print(format_console('ok', t('celery_requeue_done', count=result.restored, queues='')))

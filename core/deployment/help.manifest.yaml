@@ -104,6 +104,9 @@ sections:
   - name: celery-balance
     invoke: ergoms celery-balance [--dry-run] [--watch] [--json] [--cluster]
     summary: Бюджет и concurrency Celery (observe / recommend / auto)
+  - name: celery-requeue
+    invoke: ergoms celery-requeue
+    summary: Вернуть в очередь задачи Celery, чей воркер уже не держит их
   - name: loadtest
     invoke: ergoms loadtest [--profile …] [--isolated-db|--docker-isolated] | --find-limit … | --cleanup-users
     summary: Нагрузочный прогон API/pages (Locust), find-limit, изоляция БД или удаление lt_*

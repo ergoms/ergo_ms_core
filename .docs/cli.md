@@ -37,6 +37,8 @@ ergoms celery-balance --dry-run
 
 `celery-balance` показывает очереди, бюджет RAM/CPU и рекомендуемый concurrency. По умолчанию (`CELERY_BALANCE=auto`) при старте worker читается overlay; yaml — fallback и режим `off`. Подробнее — `ergoms help` и `.cursor/rules/celery-balance.mdc`.
 
+В `celery_workers.yaml` у воркера с `pool: prefork` можно задать `max_tasks_per_child` и `max_memory_per_child` (килобайты). `ergoms start-worker` передаёт их Celery, и процесс перезапускается, когда наберёт столько задач или памяти. Для пула `threads` эти ключи не действуют.
+
 Полный набор для разработки (API, клиент, Media API, worker, beat; Redis, Meilisearch и JupyterLab — если включены в `.env`) одной командой:
 
 ```cmd
