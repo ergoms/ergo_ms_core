@@ -485,6 +485,40 @@ class SwarmStackTests(unittest.TestCase):
         agent = data['services']['ergo-celery-agent']
         self.assertNotIn('docker.sock', str(agent))
 
+    def test_ollama_service_takes_the_gpu_and_configs_are_hashed(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            dotenv = root / 'dotenv'
+            databases = root / 'databases.yaml'
+            dotenv.write_text('A=1\n', encoding='utf-8')
+            databases.write_text('port: 1\n', encoding='utf-8')
+            text = render_stack(
+                image='registry.example/ergo-worker:local',
+                manager_host='10.0.0.1',
+                databases_file=str(databases),
+                env_file=str(dotenv),
+                gpu=True,
+                media_url='http://10.0.0.1:8003',
+                media_internal_key='test-media-key',
+                ollama_service=True,
+                ollama_bind='10.0.0.2:11434',
+                ollama_image='registry.example/ollama:local',
+            )
+        data = yaml.safe_load(text)
+        worker = data['services']['ergo-celery-worker']
+        ollama = data['services']['ergo-ollama']
+        self.assertNotIn('resources', worker['deploy'])
+        self.assertEqual(ollama['environment']['OLLAMA_HOST'], '10.0.0.2:11434')
+        self.assertEqual(
+            worker['environment']['OLLAMA_BASE_URL_OVERRIDE'],
+            'http://10.0.0.2:11434',
+        )
+        self.assertEqual(worker['environment']['MEDIA_API_INTERNAL_KEY'], 'test-media-key')
+        self.assertIn('NVIDIA-GPU', str(ollama['deploy']))
+        self.assertIn('ergo_ollama_models', data['volumes'])
+        names = list(data['configs'])
+        self.assertTrue(any(name.startswith('ergo_dotenv_') and name != 'ergo_dotenv' for name in names))
+
     def test_swarm_worker_flag_parses(self) -> None:
         spec = _parse_package(
             'browser',

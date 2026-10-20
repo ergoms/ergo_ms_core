@@ -16,7 +16,7 @@ from console_tags import format_console
 from env_file_loader import load_project_env, parse_env_file
 from project_layout import cache_dir, ensure_dir
 
-from generate_swarm_stack import OUTPUT, render_stack
+from generate_swarm_stack import OUTPUT, ollama_bind, ollama_enabled, render_stack
 
 STACK_NAME = 'ergo_workers'
 REGISTRY_NAME = 'ergo-registry'
@@ -171,12 +171,37 @@ def _postgres_port(databases: Path) -> str:
     return '5432'
 
 
+def _media_internal_key(root: Path) -> str:
+    """Ключ internal API media. Пустой файл заполняется, иначе воркер узла не читает файлы."""
+    path = root / 'env' / 'media.env'
+    if not path.is_file():
+        return ''
+    from security.ensure_secret import (  # noqa: WPS433
+        MEDIA_API_INTERNAL_KEY,
+        _file_value,
+        _upsert_env_key,
+        generate_secret_hex,
+        secret_value_is_empty,
+    )
+
+    current = _file_value(path, MEDIA_API_INTERNAL_KEY).strip().strip('"').strip("'")
+    if not secret_value_is_empty(current):
+        return current
+    secret = generate_secret_hex()
+    _upsert_env_key(path, MEDIA_API_INTERNAL_KEY, secret)
+    return secret
+
+
 def write_stack(root: Path) -> Path:
     env = _env(root)
     registry = _registry(env)
     if not registry:
         raise SystemExit(format_console('error', t('docker_swarm_registry_missing')))
     dotenv, databases = prepare_worker_files(root, _manager_host(env, registry))
+    serve_on_node = ollama_enabled(env)
+    bind = ollama_bind(env)
+    if serve_on_node and not bind:
+        raise SystemExit(format_console('error', t('docker_swarm_ollama_bind_missing')))
     content = render_stack(
         image=f'{registry}/{IMAGE_NAME}',
         manager_host=_manager_host(env, registry),
@@ -184,8 +209,16 @@ def write_stack(root: Path) -> Path:
         env_file=str(dotenv),
         gpu=_gpu_enabled(env),
         media_url=str(env.get('DOCKER_SWARM_MEDIA_URL') or '').strip(),
+        media_internal_key=(
+            _media_internal_key(root)
+            if str(env.get('DOCKER_SWARM_MEDIA_URL') or '').strip()
+            else ''
+        ),
         ollama_url=str(env.get('DOCKER_SWARM_OLLAMA_URL') or '').strip(),
         db_port=_postgres_port(databases),
+        ollama_service=serve_on_node,
+        ollama_bind=bind,
+        ollama_image=f'{registry}/ollama:local' if serve_on_node else '',
     )
     OUTPUT.write_text(content, encoding='utf-8')
     print(format_console('ok', t('docker_swarm_stack_written', output=OUTPUT)))

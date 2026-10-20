@@ -99,7 +99,7 @@ ergoms celery-balance --watch
 
 Отчёт: `ergoms celery-balance --cluster`.
 
-Воркеры других машин — образ `worker` и стек Swarm (`ergoms docker-swarm-deploy`), не bind-mount корня проекта. См. [`docker.mdc`](docker.mdc). При `CELERY_CLUSTER=on` тот же стек и наблюдатель плана поднимает `ergoms start`. Если Docker стартовал раньше адреса менеджера и Swarm остался с ошибкой прослушивания, этот старт один раз перезапускает Docker, когда адрес уже назначен, и раскладывает стек снова. Следующий запуск Docker ждёт этот адрес.
+Воркеры других машин — образ `worker` и стек Swarm (`ergoms docker-swarm-deploy`), не bind-mount корня проекта. См. [`docker.mdc`](docker.mdc). При `CELERY_CLUSTER=on` тот же стек и наблюдатель плана поднимает `ergoms start`. Если Docker стартовал раньше адреса менеджера и Swarm остался с ошибкой прослушивания, этот старт один раз перезапускает Docker, когда адрес уже назначен, и раскладывает стек снова. Следующий запуск Docker ждёт этот адрес. При `DOCKER_SWARM_OLLAMA=on` стек поднимает на рабочем узле сервис Ollama (`DOCKER_SWARM_OLLAMA_BIND` — адрес узла в быстрой сети). Карту резервирует этот сервис, а не воркер. Воркер ходит к нему через `OLLAMA_BASE_URL_OVERRIDE`: файл модуля в образе иначе переписывает `OLLAMA_BASE_URL`. Имена config стека содержат хеш файла, потому что Swarm не меняет config с тем же именем.
 
 Knobs: [`env/celery.env.example`](../../env/celery.env.example). Inventory железа только runtime, не в git.
 
