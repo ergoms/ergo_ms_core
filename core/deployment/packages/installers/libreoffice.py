@@ -1,7 +1,7 @@
 """Portable LibreOffice для конвертации DOCX→PDF (рассылки, пропуск, ТКП).
 
 Качает официальный архив The Document Foundation и распаковывает его в
-virtual_env/packages/libreoffice, без apt и без записи вне корня проекта.
+virtual_env/packages/libreoffice, без установки системных пакетов и записи вне корня проекта.
 """
 
 from __future__ import annotations
@@ -58,7 +58,13 @@ _SO_TO_PACKAGE = {
     'libplc4.so': 'libnspr4',
     'libnspr4.so': 'libnspr4',
     'libcairo.so.2': 'libcairo2',
-    'libcups.so.2': 'libcups2t64',
+    'libcups.so.2': 'libcups2',
+    'libdbus-1.so.3': 'libdbus-1-3',
+    'libgio-2.0.so.0': 'libglib2.0-0',
+    'libgobject-2.0.so.0': 'libglib2.0-0',
+    'libglib-2.0.so.0': 'libglib2.0-0',
+    'libX11.so.6': 'libx11-6',
+    'libpcre2-8.so.0': 'libpcre2-8-0',
     'libX11-xcb.so.1': 'libx11-xcb1',
     'libdbus-glib-1.so.2': 'libdbus-glib-1-2',
     'libxslt.so.1': 'libxslt1.1',

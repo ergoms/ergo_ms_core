@@ -86,6 +86,45 @@ class CommonToolInstallerTests(unittest.TestCase):
             self.assertEqual(tesseract.install(self.root), 0)
             download.assert_not_called()
 
+    def test_linux_office_downloads_debian_libraries_and_tries_t64_on_renamed_packages(self):
+        libraries = {
+            'libdbus-1.so.3': 'libdbus-1-3',
+            'libgio-2.0.so.0': 'libglib2.0-0',
+            'libgobject-2.0.so.0': 'libglib2.0-0',
+            'libglib-2.0.so.0': 'libglib2.0-0',
+            'libX11.so.6': 'libx11-6',
+            'libcups.so.2': 'libcups2',
+            'libpcre2-8.so.0': 'libpcre2-8-0',
+        }
+        for soname, package in libraries.items():
+            with self.subTest(soname=soname):
+                self.assertEqual(libreoffice._guess_package(soname), package)
+
+        dest = self.root / 'libreoffice'
+        work = self.root / 'work'
+        downloads = []
+
+        def download(argv, *, cwd, **kwargs):
+            package = argv[-1]
+            downloads.append(package)
+            if package == 'libglib2.0-0':
+                return SimpleNamespace(returncode=100)
+            (Path(cwd) / f'{package}.deb').write_bytes(b'test-deb')
+            return SimpleNamespace(returncode=0)
+
+        with (
+            patch.object(libreoffice, 'sys', SimpleNamespace(platform='linux')),
+            patch.object(libreoffice, '_missing_shared_libs', side_effect=[list(libraries), []]),
+            patch.object(libreoffice.subprocess, 'run', side_effect=download),
+            patch.object(libreoffice, '_extract_deb') as extract,
+        ):
+            libreoffice.ensure_runtime_libs(dest, work=work)
+        self.assertEqual(downloads.count('libglib2.0-0'), 1)
+        self.assertEqual(downloads.count('libglib2.0-0t64'), 1)
+        self.assertEqual(len(downloads), len(set(libraries.values())) + 1)
+        self.assertTrue(extract.called)
+        self.assertTrue(all(call.args[1] == dest / 'sysroot' for call in extract.call_args_list))
+
     def test_chrome_installs_both_archives_then_repeat_needs_no_metadata_or_download(self):
         urls = []
         for name in ('chrome', 'chromedriver'):
