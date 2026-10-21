@@ -97,6 +97,9 @@ def compose_file_list(
         files.append(home / 'docker-compose.postgres.yml')
     if env_bool_key(raw_env, 'DOCKER_PROFILE_NGINX'):
         files.append(home / 'docker-compose.nginx.yml')
+        tls = home / 'docker-compose.nginx-tls.generated.yml'
+        if tls.is_file():
+            files.append(tls)
     if env_bool_key(raw_env, 'DOCKER_PROFILE_JUPYTER'):
         files.append(home / 'docker-compose.jupyter.yml')
     if env_bool_key(raw_env, 'DOCKER_PROFILE_LOADTEST'):
@@ -134,6 +137,9 @@ def compose_file_list_full(*, docker_home: Path | None = None) -> list[Path]:
         home / 'docker-compose.meilisearch.yml',
     ]
     build_cache = home / BUILD_CACHE_OUTPUT.name
+    tls = home / 'docker-compose.nginx-tls.generated.yml'
+    if tls.is_file():
+        files.append(tls)
     if build_cache.is_file():
         files.append(build_cache)
     workers = home / 'docker-compose.workers.generated.yml'
@@ -454,12 +460,17 @@ def _api_pythonpath_prefix() -> str:
 
 
 def api_install_shell() -> str:
-    # entrypoint делает poetry env info и подменяет PATH на пустой volume venv.
-    # Берём python образа, не poetry run.
+    # Используем уже заполненный image/volume venv. Системный Python — только
+    # bootstrap пустого окружения; установка в /usr/local одноразового контейнера
+    # не обновляет окружение, которым затем пользуются API и workers.
     return (
         'mkdir -p /app/logs/docker '
         f'&& cd /app/core/api '
-        f'&& {_api_pythonpath_prefix()} /usr/local/bin/python -m commands install '
+        '&& API_PYTHON=/usr/local/bin/python '
+        '&& for candidate in /app/virtual_env/python/bin/python /app/virtual_env/python/*/bin/python; do '
+        'if [ -x "$candidate" ] && "$candidate" -c "import django" >/dev/null 2>&1; then '
+        'API_PYTHON="$candidate"; break; fi; done '
+        f'&& {_api_pythonpath_prefix()} "$API_PYTHON" -m commands install '
         '2>&1 | tee -a /app/logs/docker/python-install.log'
     )
 

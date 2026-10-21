@@ -19,7 +19,7 @@ if str(_DEPLOYMENT_DIR) not in sys.path:
     sys.path.insert(0, str(_DEPLOYMENT_DIR))
 
 from api_processes import upstream_servers
-from ergo_modes import env_bool
+from ergo_modes import effective_docker_profile_jupyter, env_bool
 from security.csp_policy import (
     build_security_headers_nginx,
     read_federation_importmap_hashes,
@@ -703,7 +703,25 @@ def build_docker_nginx_shared_replacements(
     body_size = resolve_client_max_body_size(values)
     csp_mode = resolve_csp_mode(values)
     rates = resolve_upload_rates(values)
+    tls = use_https(values)
+    listen_port = _env(values, 'NGINX_LISTEN_PORT', '80')
     return {
+        '${ERGO_DOCKER_JUPYTER_LOCATION}': (
+            'location /jupyter/ {\n'
+            f'        proxy_pass http://jupyter:{_env(values, "API_JUPYTER_BIND_PORT", "8002")}/jupyter/;\n'
+            '        proxy_set_header Host $host;\n'
+            '        proxy_set_header X-Real-IP $remote_addr;\n'
+            '        proxy_http_version 1.1;\n'
+            '        proxy_set_header Upgrade $http_upgrade;\n'
+            '        proxy_set_header Connection "upgrade";\n'
+            '    }'
+        ) if effective_docker_profile_jupyter(values) else 'location /jupyter/ { return 404; }',
+        '${ERGO_DOCKER_LISTEN}': f'listen {listen_port}{" ssl" if tls else ""};',
+        '${ERGO_DOCKER_TLS}': (
+            'ssl_certificate /etc/ergo/tls/cert.pem;\n'
+            '    ssl_certificate_key /etc/ergo/tls/key.pem;\n'
+            '    ssl_protocols TLSv1.2 TLSv1.3;'
+        ) if tls else '',
         '${ERGO_DOCKER_HTTP_PREAMBLE}': build_docker_http_preamble(values),
         '${ERGO_DOCKER_SECURITY_HEADERS}': build_security_headers_nginx(
             csp_mode,

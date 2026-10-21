@@ -544,6 +544,7 @@ class ModuleNginxTests(unittest.TestCase):
         deployment_dir = Path(__file__).resolve().parents[1]
         docker_template = deployment_dir / 'docker' / 'nginx' / 'ergo_ms.docker.conf.template'
         raw_env = {
+            'DOCKER_PROFILE_JUPYTER': 'true',
             'DOCKER_SERVICE_API': 'api',
             'DOCKER_SERVICE_MEDIA': 'media-api',
             'API_PORT': '8000',

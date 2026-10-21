@@ -6,10 +6,17 @@ import yaml
 
 import _bootstrap  # noqa: F401
 
-from generate_modules_compose import generate, module_port, parse_modules  # noqa: E402
+from generate_modules_compose import generate, load_module_workers, module_port, parse_modules  # noqa: E402
 
 
 class GenerateModulesComposeTests(unittest.TestCase):
+    def test_monolith_worker_discovery_needs_no_django_runtime(self) -> None:
+        import sys
+        from unittest.mock import patch
+
+        with patch.dict(sys.modules, {'src.core.utils.celery.module_queues': None}):
+            self.assertEqual(load_module_workers([]), {})
+
     def test_parse_modules_csv(self) -> None:
         self.assertEqual(parse_modules('demo_mod, other'), ['demo_mod', 'other'])
         self.assertEqual(parse_modules(''), [])

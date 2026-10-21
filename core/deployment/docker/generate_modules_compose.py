@@ -169,6 +169,8 @@ def _service_token(value: str) -> str:
 
 def load_module_workers(names: list[str], project_root: Path | None = None) -> dict[str, list[dict]]:
     """Именованные воркеры модулей для отдельных сервисов compose."""
+    if not names:
+        return {}
     root = project_root or PROJECT_ROOT
     api_dir = root / 'core' / 'api'
     if str(api_dir) not in sys.path:

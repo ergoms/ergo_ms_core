@@ -1,10 +1,10 @@
 # ERGO MS — prod-override (daphne, сборка клиента)
 services:
   api:
-    ports: []
+    ports: !reset []
 
   media-api:
-    ports: []
+    ports: !reset []
 
   client-build:
     image: ${DOCKER_NODE_IMAGE:-ergo_ms-client:local}

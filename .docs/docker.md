@@ -220,6 +220,22 @@ ergoms docker-init
 
 ## nginx в Docker
 
+В режиме `prod` nginx читает сборку из общего тома `client_dist`, куда пишет
+`client-build`; в `dev` используется каталог `core/client/dist` хоста.
+Для сброса публикации портов API и media-api нужен Docker Compose с поддержкой
+`!reset`. Выключенный profile Jupyter возвращает `404` на `/jupyter/`.
+
+HTTPS включается через `NGINX_USE_HTTPS=true`. `ERGO_SSL_CERT` и `ERGO_SSL_KEY`
+должны указывать на существующие файлы (относительные пути считаются от корня
+проекта). Lifecycle создаёт отдельный `docker-compose.nginx-tls.generated.yml`
+и монтирует сертификат и ключ только для чтения. При выключении HTTPS этот
+фрагмент удаляется; сгенерированные файлы не коммитятся.
+
+Для PostgreSQL 18 путь тома можно явно задать через
+`DOCKER_POSTGRES_VOLUME_PATH=/var/lib/postgresql`. Значение по умолчанию остаётся
+`/var/lib/postgresql/data`. Смена этого пути не переносит существующие данные:
+обновление версии БД требует отдельной миграции и резервной копии.
+
 При `DOCKER_PROFILE_NGINX=true`:
 
 - Шаблон — `core/deployment/docker/nginx/ergo_ms.docker.conf.template`
