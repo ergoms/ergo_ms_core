@@ -23,6 +23,17 @@ function Install-Service {
         return
     }
 
+    # Имена из host_lifecycle.yaml ставит ModuleHostServicesStep своей командой модуля.
+    if (-not $script:ErgoModuleHostUnitsByRoot) {
+        $script:ErgoModuleHostUnitsByRoot = @{}
+    }
+    if (-not $script:ErgoModuleHostUnitsByRoot.ContainsKey($Root)) {
+        $script:ErgoModuleHostUnitsByRoot[$Root] = @(Get-ModuleHostServiceUnits -ProjectRoot $Root)
+    }
+    if (@($script:ErgoModuleHostUnitsByRoot[$Root]) -contains $ServiceName) {
+        return
+    }
+
     # Check if service already exists
 
     $existingService = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue

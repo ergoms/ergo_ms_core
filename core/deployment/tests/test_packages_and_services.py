@@ -136,6 +136,15 @@ printf '%s' "$API_UNIT"
         self.assertIn('ergo_service_name redis', self.services_sh)
         self.assertIn('ergo_service_name nginx', self.services_sh)
 
+    def test_windows_install_skips_module_host_units(self) -> None:
+        start = self.services_ps1.index('function Install-Service')
+        end = self.services_ps1.index('function Install-AllServices')
+        body = self.services_ps1[start:end]
+        self.assertLess(
+            body.index('Get-ModuleHostServiceUnits'),
+            body.index('New-ServiceWrapper'),
+        )
+
 
 if __name__ == '__main__':
     unittest.main()
