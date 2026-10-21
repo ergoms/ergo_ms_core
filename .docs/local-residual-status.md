@@ -1,6 +1,7 @@
 # Локальная серия и сохранённый остаток — 21.10.2026
 
-Срез Git-состояния: 21.10.2026 20:13:30 (Москва).
+Срез исходной серии: 21.10.2026 20:13:30 (Москва).
+Дополнительная проверка Docker и локальные исправления описаны ниже отдельно.
 
 Работа выполнена локально. SSH, production и push не использовались. Исходная
 ревизия обёртки — `3aec711`. Отменённый `201330bc` не является предком текущего HEAD.
@@ -321,6 +322,8 @@ modules/lms/deployment/pilot/npm/package.json
 
 ## Проверки
 
+Исходный прогон, выполненный до восстановления Docker Desktop:
+
 | Проверка | Фактический результат |
 |---|---|
 | Развёртывание, полная рабочая копия | 603 теста: OK, 1 SKIP |
@@ -347,6 +350,107 @@ modules/lms/deployment/pilot/npm/package.json
 В финальном серверном кандидате проверено, что backend PostgreSQL; SQLite fallback запрещён.
 Реальное восстановление SQL/media и длительная нагрузка нового состава не выполнялись.
 MSSQL и ClickHouse остаются непроверенными по согласованному ограничению.
+
+### Дополнительная проверка Docker — 21.10.2026
+
+Docker Desktop установлен, но первоначально не запускался из-за недоступных
+нулевых IPC-файлов. После остановки его процессов сохранены временные каталоги
+`%LOCALAPPDATA%/Docker/run.stale-*` и `%LOCALAPPDATA%/docker-secrets-engine.stale-*`,
+содержавшие только сокеты; затем Desktop запущен повторно. Настройки, образы,
+тома и данные рабочих сервисов не очищались. Engine: 29.1.3, Linux/amd64.
+Команды явно направлялись в локальный `dockerDesktopLinuxEngine` через named pipe.
+
+| Проверка | Фактический результат |
+|---|---|
+| system-test install --launch docker | Первоначальный прогон и повтор после защиты cleanup: OK; повтор требует HTTP 200 и выполняет штатное удаление временного стека |
+| Недоступный Engine до provision | Ожидаемый SKIP; рабочие .env и databases.yaml совпали по SHA256, команды cleanup не запускаются |
+| system-test security --launch docker | Первый прогон: timeout HTTP 240s; повтор без autoreload: OK, anon=401, CSP |
+| system-test commands --launch docker | Первый прогон: отказ Windows status без прав администратора; повтор: OK — help, docker-migrate, security-check, docker-ps, docker-logs |
+| system-test scenarios --spec docker_direct | Первый прогон: API не успел загрузить дочерний процесс autoreload; последовательный повтор без autoreload: OK |
+| system-test unit после исправлений | 614 тестов: OK, 1 SKIP |
+| Контракты A в Linux-контейнере без сети | 67 тестов: 31 runtime/lifecycle, 14 целостности, 13 установщиков, 9 Ollama; OK |
+| Чистый npm ci ядра с postinstall | OK: установлен 561 пакет |
+| Полный npm ls --all после postinstall | OK: отсутствующих обязательных зависимостей нет |
+| Повторный npm --offline run install:all | OK: npm install пропущен, SHA256 package.json и package-lock.json не изменился |
+| lock-check | OK: утечек модулей в Poetry/npm lock нет |
+| Статические архитектурные проверки | 5 прежних ошибок размера документов CRM и 13 предупреждений о межмодульных импортах вне этой поставки; новых нарушений в затронутых файлах нет |
+| Полный core-rules-check с Django | Остановлен на затянувшейся инициализации validate_module_isolation в песочнице; повторная проверка isolation/bridge не завершена |
+
+Дополнительные локальные изменения:
+
+- `0f95e10`: npm lock дополнен peer-зависимостью Bootstrap `@popperjs/core` и
+  совместимыми Node-типами для Vite с `undici-types`. Прежние Node-типы 14.18.63
+  сохранены для fast-csv во вложенных каталогах. Остальные версии, integrity
+  и метаданные платформ сохранены; манифесты зависимостей не менялись.
+- Тот же коммит исправляет обход npm: учитываются фактические вложенные версии
+  и поиск зависимостей вверх по дереву. Прежняя очистка после успешного npm ci
+  удаляла `process-nextick-args`, `concat-map` и `emoji-regex`; полный npm ls
+  возвращал ELSPROBLEMS. Две регрессии сначала завершились отказом, после
+  исправления прошли. Повреждённый package.json теперь останавливает очистку
+  до удаления файлов. Ранее повреждённое дерево требует восстановления через
+  чистую установку; проверка прямых пакетов сама его не восстанавливает.
+- `2ce1583`: в тестовом Docker-профиле и сценарном окружении выключен autoreload,
+  как в существующем host-профиле.
+  Проверка readiness требует HTTP 200; ответы 400/404/500/503 больше не считаются
+  готовностью API. Обычная проверка доступности HTTP сохранила прежний контракт.
+  Добавлены три регрессии ожидания. Таймауты не увеличены; разработческий режим
+  обычного проекта не менялся. Причина первого превышения времени отдельно не доказана.
+- Docker-набор команд использует `docker-ps` и `docker-logs api` вместо команд
+  служб ОС `status` и `logs`; проверяет код ошибки обеих контейнерных операций.
+  Ограничения Windows-команд не ослаблены. Регрессия сначала воспроизвела `status:1`,
+  после исправления прошли три проверки: отсутствие host-команд и обработка отказов
+  Docker status/logs.
+- `9b8ddf8`: очистка тестового окружения разрешена после полной записи его временного профиля.
+  До provision и при частичной копии не выполняются clean, docker-down или
+  uninstall-services через рабочий каталог. На прежнем коде регрессии воспроизвели
+  ошибку во всех трёх вариантах окружения; после исправления прошли три теста
+  с проверкой host/Docker/os-services и сохранением штатной очистки готового дерева.
+
+Первый запуск unit-тестов в песочнице получил ошибки доступа к системному Temp,
+повтор с локальным Temp всё ещё не мог создать тестовый junction. Итоговый прогон
+с доступом к этим операциям и Temp внутри кэша проекта прошёл: 614 тестов.
+
+Изменённые файлы дополнительной поставки:
+
+- `virtual_env/npm/package-lock.json` — недостающий peer-граф, без изменения прочих версий.
+- `core/deployment/scripts/sync-module-npm-tree.js` — обход вложенных пакетов и отказ при повреждённом манифесте.
+- `core/deployment/tests/test_sync_module_npm_tree.py` — две регрессии очистки.
+- `core/deployment/system_test/http.py` — необязательное требование конкретного HTTP-статуса.
+- `core/deployment/system_test/docker_env.py` — readiness 200 и отключение тестового autoreload.
+- `core/deployment/scenario_test/stack.py` — отключение autoreload в сценарном окружении.
+- `core/deployment/system_test/cases/commands.py` — контейнерные status/logs с проверкой ошибок.
+- `core/deployment/tests/test_system_test_http.py` — три проверки ожидания HTTP.
+- `core/deployment/tests/test_system_test_commands.py` — три проверки Docker-команд.
+- `core/deployment/system_test/worktree_env.py`, `os_services_env.py`, `docker_env.py` — защита cleanup до подготовки временного профиля.
+- `core/deployment/tests/test_system_test_cleanup.py` — три проверки раннего отказа и штатной очистки.
+- `.docs/runtime-requirements.md`, `.docs/local-residual-status.md` — фактический статус и ограничения QA.
+
+Это не полная приёмка A. Docker smoke использует кэш Python, пропускает шаги
+установки Python/npm в runtime lifecycle и не загружает четыре модуля-потребителя инструментов.
+67 контрактных тестов работают с временными локальными архивами и подменами отказов,
+а не с полной загрузкой дистрибутивов производителей. Отдельный npm-прогон проверяет
+только ядро. Образ клиента использует Node 20.20.2 и выдаёт EBADENGINE для части
+зависимостей с требованием Node 22 и выше; поддержка их исполнения на Node 20
+не подтверждена. Согласование Docker Node с portable Node требует отдельного изменения.
+В пустом core-окружении наблюдались повторные старты `celery-worker-all` с exit=0;
+обработка задач и причина перезапусков в этих HTTP-проверках не проверялись.
+Нативная Windows, полный повтор setup-full, живой пилот LMS, SQL/media-восстановление
+и браузерная приёмка нового состава остаются открытыми. Чужие исходники и gitlinks
+этими исправлениями не менялись; push, SSH и production не использовались.
+
+Логи: `virtual_env/cache/residual-install-docker-active.log`,
+`residual-security-docker-active.log`, `residual-security-docker-no-reload.log`,
+`residual-commands-docker-final.log`, `residual-scenarios-docker-final.log`,
+`residual-runtime-a-docker-contract.log`, `residual-docker-followup-unit-final.log`,
+`residual-npm-docker-clean.log`, `residual-npm-docker-final.log`,
+`residual-npm-docker-prune-fixed.log`, `residual-npm-prune-before.log`,
+`residual-npm-prune-after.log`, `residual-docker-followup-unit-complete.log`,
+`residual-docker-static-architecture.log`, `residual-docker-commands-before.log`,
+`residual-docker-commands-after.log`, `residual-commands-docker-retry.log`,
+`residual-scenarios-docker-retry.log`, `residual-docker-followup-unit-guard.log`,
+`residual-cleanup-before.log`, `residual-cleanup-after.log`,
+`residual-install-docker-guard.log`, `residual-install-no-engine-guard.log`,
+`residual-docker-static-architecture-final.log`. Диагностические runner находятся только в кэше.
 
 ### Что выявила независимая проверка
 

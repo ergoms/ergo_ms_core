@@ -2,8 +2,12 @@
 
 > Состояние проверки на 21.10.2026: адаптеры четырёх инструментов вынесены
 > в отдельные локальные коммиты модулей. Прогон развёртывания и точного кандидата:
-> 603 теста, OK, один SKIP. Это не приёмка полного setup-full: Docker недоступен,
-> чистая установка и повторный setup на Windows/Linux ещё не подтверждены.
+> 603 теста, OK, один SKIP. Дополнительная проверка после запуска Docker Desktop:
+> 614 unit-тестов, OK, один SKIP; 67 контрактных тестов A в Linux-контейнере, OK.
+> Чистый npm ci ядра, полный npm ls и повторный install:all прошли после исправления
+> peer-графа и обхода вложенных зависимостей. Полный setup-full четырёх инструментов
+> и его повтор на чистых Windows/Linux ещё не подтверждены. Результаты живых
+> Docker-проверок и ограничения записаны в local-residual-status.md.
 > Следующий этап B требует отдельной поставки; общий индекс моделей здесь не создан.
 
 Модуль описывает потребности в `modules/<name>/runtime_requirements.yaml`.
@@ -203,7 +207,7 @@ sentence-transformers, chonkie, pandas, openpyxl, tabulate.
 | `modules/education_materials_parser/api/kag/tests/test_install_tesseract.py` | Проверка прежнего импорта с каноническим каталогом packages и безопасной заменой |
 | `.docs/runtime-requirements.md`, `.docs/cli.md`, `core/deployment/logic.md`, `.cursor/rules/packages.mdc` | Схема, установка, переход и ограничения |
 
-## Проверенный результат на Windows
+## Предыдущая проверка на Windows
 
 - `ergoms deployment-test`: 618 тестов, ошибок нет, один Linux-тест пропущен.
 - Тесты `modules/ollama_framework/tests`: 16 прошли, включая девять сценариев манифеста.
@@ -246,7 +250,7 @@ sentence-transformers, chonkie, pandas, openpyxl, tabulate.
   обязательная модель останавливает загрузчик, необязательная пропускается.
   Противоречащие `repo`/`name` отклоняются, одинаковые алиасы нормализуются.
 
-## Linux-проверка
+## Предыдущая Linux-проверка
 
 В Ubuntu WSL с Python 3.12.3 прошли 67 тестов: схема/lifecycle — 31,
 целостность и восстановление архивов — 14, установщики — 13,
@@ -262,7 +266,8 @@ Linux-прогон также выявил ошибку тестовой изо�
 
 Журнал: `virtual_env/cache/runtime-a-review2-linux.log`.
 Диагностический runner: `virtual_env/cache/runtime_a_linux_review.py`.
-Docker CLI обнаружен, но daemon недоступен; контейнеры не запускались.
+На том прогоне Docker CLI был обнаружен, но daemon был недоступен;
+контейнеры тогда не запускались. Последующая проверка Docker указана в начале документа.
 
 Логи проверки находятся в `virtual_env/cache/runtime-a-review*.log`;
 они не входят в исходники поставки. Контрольные суммы защищённых чужих
