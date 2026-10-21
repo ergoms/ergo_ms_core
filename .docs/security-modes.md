@@ -162,7 +162,7 @@ controls:
 | `realtime.origin_validation` | нет | да | да | да |
 | `realtime.device_binding` | нет | да | да | да |
 | `realtime.message_limits` | нет | ограничение размера | размер и частота | размер, частота и разрыв соединения при превышении |
-| `messenger.access_default` | доступ разрешён | доступ запрещён | запрещён | запрещён |
+| `chat.access_default` | доступ разрешён | доступ запрещён | запрещён | запрещён |
 
 ### Файлы
 

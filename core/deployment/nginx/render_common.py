@@ -511,7 +511,7 @@ def build_host_api_ws_locations() -> str:
         proxy_pass http://ergo_api;
     }
 
-    # --- WebSocket: мессенджер, уведомления (/ws/messenger/, /ws/notifications/) ---
+    # --- WebSocket: чаты и уведомления (/ws/notifications/) ---
     location /ws/ {
         if ($maintenance = 1) { return 503; }
         limit_conn ergo_conn 20;
