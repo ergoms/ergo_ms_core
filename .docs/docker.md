@@ -91,7 +91,13 @@ ERGO MS можно запустить в контейнерах через **Doc
 Образы:
 
 - **`ergo_ms-python:local`** — `Dockerfile.python` (API, media_api, Celery, Jupyter)
-- **`ergo_ms-client:local`** — `Dockerfile.client` (Node 20, Vite / сборка)
+- **`ergo_ms-client:local`** — `Dockerfile.client` (Node 24 LTS, Vite / сборка; как portable runtime хоста)
+
+При обновлении с Node 20 сначала загрузите `node:24-bookworm-slim` и выполните
+`ergoms docker-build`. Автоматическая сборка от кэшированного client-образа
+допускается, если его `NODE_VERSION` подтверждает Node 24.11 или новее в ветке 24;
+старый или непроверяемый образ не подменяет новую базу. Явный `DOCKER_NODE_BASE`
+сохраняет приоритет.
 
 ## Команды
 

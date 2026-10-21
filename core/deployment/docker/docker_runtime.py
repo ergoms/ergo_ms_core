@@ -111,13 +111,33 @@ def resolve_docker_node_base(raw: dict[str, str] | None = None) -> str:
     explicit = _env(raw or {}, 'DOCKER_NODE_BASE', '')
     if explicit:
         return explicit
-    preferred = 'node:20-bookworm-slim'
+    preferred = 'node:24-bookworm-slim'
     if _docker_image_exists(preferred):
         return preferred
     fallback = _env(raw or {}, 'DOCKER_NODE_IMAGE', 'ergo_ms-client:local') or 'ergo_ms-client:local'
-    if _docker_image_exists(fallback):
+    if _docker_image_exists(fallback) and _docker_node_image_compatible(fallback):
         return fallback
     return preferred
+
+
+def _docker_node_image_compatible(image_ref: str) -> bool:
+    """Старый client-образ не должен возвращать Node 20 после обновления базы."""
+    try:
+        result = subprocess.run(
+            ['docker', 'image', 'inspect', '--format', '{{range .Config.Env}}{{println .}}{{end}}', image_ref],
+            capture_output=True, text=True, check=False, timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    if result.returncode == 0:
+        for line in result.stdout.splitlines():
+            if line.startswith('NODE_VERSION='):
+                try:
+                    major, minor, *_ = (int(part) for part in line.partition('=')[2].split('.'))
+                except ValueError:
+                    return False
+                return major == 24 and minor >= 11
+    return False
 
 
 def load_databases_config(project_root: Path | None = None) -> dict[str, Any]:
@@ -950,7 +970,7 @@ def prepare_compose_artifacts(
 
     node_base = resolve_docker_node_base(merged)
     merged['DOCKER_NODE_BASE'] = node_base
-    if warn_image_bases and not raw.get('DOCKER_NODE_BASE') and node_base != 'node:20-bookworm-slim':
+    if warn_image_bases and not raw.get('DOCKER_NODE_BASE') and node_base != 'node:24-bookworm-slim':
         warn_key = f'node-base:{node_base}'
         if warn_key not in _PUBLISH_WARNED:
             _PUBLISH_WARNED.add(warn_key)

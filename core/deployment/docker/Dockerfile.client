@@ -5,7 +5,7 @@
 # node_modules — в именованных томах (virtual_env/npm/node_modules),
 # установка — ensure_npm_deps.sh → npm run install:all
 # (тот же сценарий, что ergoms setup-full).
-ARG NODE_BASE=node:20-bookworm-slim
+ARG NODE_BASE=node:24-bookworm-slim
 FROM ${NODE_BASE}
 
 # npm 10.8.x в базовом образе на Docker Desktop (Windows) может зависать на reify;
