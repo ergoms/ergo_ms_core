@@ -61,12 +61,12 @@ class DockerEnvironment(HostWorktreeEnvironment):
             raise RuntimeError(detail or f'docker-up exit {result.returncode}')
         self._sync_ports_from_compose_env()
         try:
-            wait_http(self.http_base(), timeout_sec=240.0, path='/api/system/ready/')
+            wait_http(self.http_base(), timeout_sec=240.0, path='/api/system/ready/', expected_status=200)
         except RuntimeError as exc:
             raise RuntimeError(f'{exc}; {self._http_debug_detail()}') from None
 
     def ensure_api(self) -> None:
-        wait_http(self.http_base(), timeout_sec=180.0, path='/api/system/ready/')
+        wait_http(self.http_base(), timeout_sec=180.0, path='/api/system/ready/', expected_status=200)
 
     def _sync_ports_from_compose_env(self) -> None:
         path = self.tree_root / 'core' / 'deployment' / 'docker' / '.compose.env'
@@ -204,6 +204,7 @@ class DockerEnvironment(HostWorktreeEnvironment):
             f'API_JWT_SIGNING_KEY={secrets.token_hex(32)}\n'
             'DEBUG=false\n'
             'ERGO_LOG_CONSOLE=false\n'
+            'API_AUTORELOAD=false\n'
         )
         (self.tree_root / '.env').write_text(env_text, encoding='utf-8')
         (self.tree_root / 'databases.yaml').write_text(
