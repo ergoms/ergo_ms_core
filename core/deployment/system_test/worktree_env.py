@@ -80,6 +80,7 @@ class HostWorktreeEnvironment(IsolatedEnvironment):
         super().__init__(workspace, run_dir, prefix)
         self._fingerprint = workspace_config_fingerprint(workspace)
         self._used_worktree = False
+        self._configured = False
         self._ports: dict[str, int] = {}
         self._api = None
         self._client = None
@@ -141,10 +142,11 @@ class HostWorktreeEnvironment(IsolatedEnvironment):
         self._client = None
         stop_api(self._api)
         self._api = None
-        try:
-            self.run_ergoms('clean', timeout=600)
-        except Exception:
-            pass
+        if self._configured and self.tree_root.is_dir():
+            try:
+                self.run_ergoms('clean', timeout=600)
+            except Exception:
+                pass
         if self._used_worktree and self.tree_root.is_dir():
             subprocess.run(
                 ['git', 'worktree', 'remove', '--force', str(self.tree_root)],
@@ -291,3 +293,4 @@ class HostWorktreeEnvironment(IsolatedEnvironment):
             f'  name: {db_path}\n',
             encoding='utf-8',
         )
+        self._configured = True
