@@ -277,6 +277,9 @@ def build_compose_cmd(
         sys.exit(1)
 
     root = (project_root or PROJECT_ROOT).resolve()
+    from project_isolation import validate_project
+
+    validate_project(root)
     home = compose_docker_dir(root)
     raw = dict(load_merged_env(root))
     # Процессное окружение перекрывает .env для профилей / loadtest портов.

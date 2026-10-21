@@ -30,6 +30,10 @@ RUN if command -v poetry >/dev/null 2>&1; then \
       && pip install --no-cache-dir "poetry==${POETRY_VERSION}"; \
     fi
 
+# commands install запускается системным Python до заполнения volume venv.
+# Проверка изоляции должна читать YAML уже на этом этапе (версия из poetry.lock).
+RUN python -c "import yaml" 2>/dev/null || pip install --no-cache-dir "PyYAML==6.0.3"
+
 WORKDIR /app
 
 # Зависимости lock — отдельный слой (без modules/, чтобы правки кода не сбрасывали кэш)

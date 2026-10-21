@@ -226,6 +226,13 @@ def main() -> int:
     stats_p.set_defaults(handler=run_stats)
 
     args = parser.parse_args()
+    from project_isolation import IsolationError, validate_project
+
+    try:
+        validate_project(resolve_cli_project_root())
+    except IsolationError as exc:
+        print(format_console('error', str(exc)), file=sys.stderr)
+        return 1
     return args.handler(args)
 
 if __name__ == '__main__':
