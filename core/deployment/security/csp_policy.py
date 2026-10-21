@@ -142,6 +142,7 @@ def build_csp_policy(
         script,
         style,
         img,
+        "media-src 'self' blob:",
         "font-src 'self' data:",
         connect,
         worker,

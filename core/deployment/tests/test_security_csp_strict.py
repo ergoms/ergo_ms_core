@@ -24,6 +24,10 @@ from security.profile_defaults import merge_security_profile_defaults
 
 
 class CspPolicyBuilderTests(unittest.TestCase):
+    def test_local_media_and_captions_without_external_media_sources(self) -> None:
+        for mode in ('as_is', 'no_unsafe', 'no_unsafe_plus_externals'):
+            self.assertIn("media-src 'self' blob:;", build_csp_policy(mode))
+
     def test_optional_same_origin_frames_preserve_other_restrictions(self) -> None:
         for mode in ('as_is', 'no_unsafe', 'no_unsafe_plus_externals'):
             original = build_csp_policy(mode)
