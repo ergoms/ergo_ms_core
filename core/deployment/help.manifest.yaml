@@ -467,6 +467,11 @@ sections:
   commands:
   - name: package-list
     summary: Список пакетов реестра и статус установки
+  - name: runtime-check
+    summary: Проверить версии и ссылки runtime_requirements.yaml
+  - name: runtime-install-tools
+    invoke: ergoms runtime-install-tools [--include-optional]
+    summary: Установить обязательные инструменты через общий реестр пакетов
   - name: package-status
     invoke: ergoms package-status [name]
     summary: Подробный статус пакета или всех

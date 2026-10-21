@@ -16,6 +16,7 @@ from cli_locale import t  # noqa: E402
 from lifecycle.context import DeploymentTarget
 from lifecycle.pipeline import ParallelStepGroup
 from lifecycle.steps.base import DeploymentStep
+from lifecycle.steps.runtime_requirements_steps import RuntimeRequirementsStep
 from lifecycle.steps.common_steps import (
     ClientBuildStep,
     CollectStaticStep,
@@ -120,6 +121,7 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
                     NpmInstallStep(),
                     name='python_and_npm',
                 ),
+                RuntimeRequirementsStep(),
                 PullHuggingfaceModelsStep(),
                 EnsurePostgresStep(),
                 EnsurePostgresOsServiceStep(),

@@ -14,6 +14,12 @@
 
 ## Локальная разработка
 
+Общие инструменты модулей: `ergoms runtime-check [--json]` проверяет
+`runtime_requirements.yaml`, `ergoms runtime-install-tools` ставит обязательные
+инструменты через существующий реестр; `--include-optional` включает остальные.
+Этот шаг входит в `ergoms setup`. Прежние `package-*` и модульные алиасы
+сохранены. Подробнее: [runtime-requirements.md](runtime-requirements.md).
+
 Для запуска API с прогревом кэшей выполните:
 
 ```cmd
