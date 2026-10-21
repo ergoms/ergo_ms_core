@@ -37,6 +37,52 @@ def _run_tree_query(npm_root: Path, expression: str) -> str:
 
 
 class SyncModuleNpmTreeTests(unittest.TestCase):
+    def test_prune_follows_nested_versions_and_keeps_their_hoisted_dependencies(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            npm_root = Path(tmp)
+            node_modules = npm_root / 'node_modules'
+            packages = {
+                'entry': {'shared': '2', '@scope/lib': '1'},
+                'shared': {},
+                'entry/node_modules/shared': {'process-nextick-args': '~2'},
+                'entry/node_modules/@scope/lib': {'concat-map': '0.0.1'},
+                '@scope/lib': {'unused': '1'},
+                'process-nextick-args': {},
+                'concat-map': {'entry': '1'},
+                'unused': {},
+            }
+            for relative, dependencies in packages.items():
+                directory = node_modules / relative
+                directory.mkdir(parents=True, exist_ok=True)
+                (directory / 'package.json').write_text(
+                    json.dumps({'name': relative, 'version': '1.0.0', 'dependencies': dependencies}),
+                    encoding='utf-8',
+                )
+
+            removed = json.loads(_run_tree_query(
+                npm_root,
+                'console.log(JSON.stringify(mod.pruneUnreachableTopLevelPackages('
+                'nodeModules, new Set(["entry"]))))',
+            ))
+            self.assertEqual(sorted(removed), ['@scope/lib', 'shared', 'unused'])
+            self.assertTrue((node_modules / 'process-nextick-args/package.json').is_file())
+            self.assertTrue((node_modules / 'concat-map/package.json').is_file())
+            self.assertTrue((node_modules / 'entry/node_modules/@scope/lib/package.json').is_file())
+
+    def test_invalid_manifest_aborts_pruning_before_any_removal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            npm_root = Path(tmp)
+            node_modules = npm_root / 'node_modules'
+            entry = node_modules / 'entry'
+            unused = node_modules / 'unused'
+            entry.mkdir(parents=True)
+            unused.mkdir()
+            (entry / 'package.json').write_text('{invalid', encoding='utf-8')
+            with self.assertRaisesRegex(AssertionError, 'SyntaxError'):
+                _run_tree_query(npm_root, 'mod.pruneUnreachableTopLevelPackages('
+                                'nodeModules, new Set(["entry"]))')
+            self.assertTrue(unused.is_dir())
+
     def test_missing_core_specs_skip_installed_and_workspace(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             npm_root = Path(tmp)
