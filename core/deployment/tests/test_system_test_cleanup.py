@@ -6,6 +6,8 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
+import yaml
+
 import _bootstrap  # noqa: F401
 
 from system_test.docker_env import DockerEnvironment  # noqa: E402
@@ -15,6 +17,32 @@ from system_test.worktree_env import HostWorktreeEnvironment  # noqa: E402
 
 class SystemEnvironmentCleanupTests(unittest.TestCase):
     environments = (HostWorktreeEnvironment, DockerEnvironment, OsServicesEnvironment)
+
+    def test_host_download_cache_is_owned_by_the_test_tree(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            source = workspace / 'virtual_env/cache/downloads'
+            source.mkdir(parents=True)
+            (source / 'runtime.zip').write_bytes(b'archive')
+            env = HostWorktreeEnvironment(workspace, workspace / 'run', 'ergo_st_cache')
+            env.tree_root.mkdir(parents=True)
+            env._link_download_cache()
+            target = env.tree_root / 'virtual_env/cache/downloads'
+            self.assertNotEqual(source.resolve(), target.resolve())
+            (target / 'runtime.zip').unlink()
+            self.assertEqual((source / 'runtime.zip').read_bytes(), b'archive')
+
+    def test_host_database_config_uses_the_loader_wrapper_and_private_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            env = HostWorktreeEnvironment(workspace, workspace / 'run', 'ergo_st_database')
+            env.tree_root.mkdir(parents=True)
+            with patch('system_test.worktree_env.pick_scenario_ports', return_value={'api': 18000, 'client': 18001}):
+                env._write_throwaway_config()
+            document = yaml.safe_load((env.tree_root / 'databases.yaml').read_text(encoding='utf-8'))
+            database = document['databases']['default']
+            self.assertEqual(database['engine'], 'sqlite')
+            self.assertEqual(Path(database['name']), env.run_dir / 'scenario.sqlite3')
 
     def test_teardown_before_provision_does_not_run_workspace_commands(self) -> None:
         self.check_unconfigured_tree(create_tree=False)
