@@ -16,8 +16,8 @@
  * ссылок workspace. Недостающие пакеты ядра ставятся отдельно в staging, без
  * повторного разрешения уже стоящего Vue. Сменившийся lock при пакетах на
  * месте только обновляет отпечаток. Пакеты модулей тоже доустанавливаются
- * в staging и копируются, чтобы `npm install` в npm-root не снимал --no-save
- * пакеты и не упирался в peer-зависимости.
+ * в staging и копируются вместе со своими вложенными зависимостями, чтобы
+ * не заменять транзитивные пакеты ядра и не снимать его --no-save пакеты.
  * С --update — переустанавливает модульные пакеты в пределах semver из package.json.
  * С --check — код 0, если прямые пакеты ядра и модулей есть в node_modules, иначе 1.
  */
@@ -244,7 +244,7 @@ function installPackageSpecsInStaging(specs, label) {
   fs.writeFileSync(
     path.join(staging, '.npmrc'),
     [
-      'install-strategy=hoisted',
+      'install-strategy=shallow',
       'package-lock=false',
       'legacy-peer-deps=true',
       'fetch-timeout=60000',
