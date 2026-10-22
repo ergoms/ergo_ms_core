@@ -167,9 +167,7 @@ def _install_windows_binary(root: Path, dest: Path, *, refresh: bool = False) ->
         for item in found.parent.iterdir():
             target = dest / item.name
             if item.is_dir():
-                if target.exists():
-                    shutil.rmtree(target)
-                shutil.copytree(item, target)
+                shutil.copytree(item, target, dirs_exist_ok=True)
             else:
                 shutil.copy2(item, target)
     return dest / 'tesseract.exe'
@@ -195,8 +193,8 @@ def install(root: Path, *, force: bool = False, refresh: bool = False) -> int:
                 shutil.copytree(dest, staged)
             else:
                 staged.mkdir()
-            _install_tessdata(staged, root=root, refresh=refresh)
             binary = install_binary(root, staged, refresh=refresh)
+            _install_tessdata(staged, root=root, refresh=refresh)
             if binary is None or not is_complete(staged):
                 raise ArchiveInstallError(
                     'Не удалось подготовить полный Tesseract. '

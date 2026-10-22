@@ -194,10 +194,45 @@ class CommonToolInstallerTests(unittest.TestCase):
             data.mkdir(parents=True, exist_ok=True)
             (data / 'rus.traineddata').write_bytes(b'new data')
             raise ArchiveInstallError('second language download failed')
-        with patch.object(tesseract, 'sys', SimpleNamespace(platform='win32', stderr=sys.stderr)), patch.object(tesseract, '_install_tessdata', side_effect=partial_language_update):
+        with patch.object(tesseract, 'sys', SimpleNamespace(platform='win32', stderr=sys.stderr)), patch.object(tesseract, 'install_binary', return_value=self.root / 'staged.exe'), patch.object(tesseract, '_install_tessdata', side_effect=partial_language_update):
             self.assertEqual(tesseract.install(self.root, force=True), 1)
         for path, previous in old.items():
             self.assertEqual(path.read_bytes(), previous)
+
+    def test_windows_nsis_install_keeps_custom_and_downloaded_language_files(self):
+        custom = self.file('tesseract/tessdata/custom.traineddata')
+        previous_custom = custom.read_bytes()
+        setup = self.file('cached-setup.exe')
+        languages = {name: (name.encode() * 200) for name in ('rus.traineddata', 'eng.traineddata')}
+
+        def extract(argv, **kwargs):
+            extracted = Path(next(arg[2:] for arg in argv if arg.startswith('-o'))) / 'app'
+            (extracted / 'tessdata/configs').mkdir(parents=True)
+            (extracted / 'tesseract.exe').write_bytes(b'binary' * 300)
+            (extracted / 'libtesseract.dll').write_bytes(b'library')
+            (extracted / 'tessdata/eng.traineddata').write_bytes(b'bundled English' * 200)
+            (extracted / 'tessdata/configs/pdf').write_bytes(b'config')
+            return SimpleNamespace(returncode=0)
+
+        def download(dest, **kwargs):
+            (dest / 'tessdata').mkdir(exist_ok=True)
+            for name, data in languages.items():
+                (dest / 'tessdata' / name).write_bytes(data)
+
+        with (
+            patch.object(tesseract, 'sys', SimpleNamespace(platform='win32', stderr=sys.stderr)),
+            patch.object(tesseract, '_link_system_binary', return_value=None),
+            patch.object(tesseract, '_seven_zip', return_value='7z'),
+            patch.object(tesseract, '_download_cached', return_value=setup),
+            patch.object(tesseract, '_install_tessdata', side_effect=download),
+            patch.object(tesseract.subprocess, 'run', side_effect=extract),
+        ):
+            self.assertEqual(tesseract.install(self.root, force=True), 0)
+        self.assertEqual(custom.read_bytes(), previous_custom)
+        for name, data in languages.items():
+            self.assertEqual((custom.parent / name).read_bytes(), data)
+        self.assertTrue((custom.parent / 'configs/pdf').is_file())
+        self.assertTrue((custom.parent.parent / 'libtesseract.dll').is_file())
 
     def test_tesseract_repair_from_portable_path_does_not_create_a_self_link(self):
         binary = self.file('tesseract/tesseract.exe')
