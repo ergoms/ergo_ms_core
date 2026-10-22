@@ -47,6 +47,12 @@ httpx = ">=0.27.0,<1.0.0"
 meilisearch = ">=0.40.0,<0.42"
 filetype = ">=1.2.0,<2.0.0"
 
+[tool.poetry.group.analytics]
+optional = true
+
+[tool.poetry.group.analytics.dependencies]
+polars = "^1.35.2"
+
 [tool.poetry.group.jupyter]
 optional = true
 
