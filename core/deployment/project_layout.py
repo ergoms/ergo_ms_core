@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import sys
+import json
+import re
 from pathlib import Path
 
 
@@ -40,14 +42,19 @@ def huggingface_trained_models_dir(root: Path) -> Path:
 
 def huggingface_snapshot_dir(root: Path, repo_id: str) -> Path:
     """Каталог весов org/name внутри huggingface_trained_models_dir."""
-    parts = [
-        part
-        for part in (repo_id or '').strip().strip('/').split('/')
-        if part and part not in ('.', '..')
-    ]
+    name = (repo_id or '').strip()
+    parts = name.split('/')
+    if len(parts) not in (1, 2) or any(
+        not re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.-]*', part)
+        or '..' in part or '--' in part or part.endswith('.')
+        for part in parts
+    ):
+        raise ValueError('Недопустимый идентификатор модели Hugging Face')
     dest = huggingface_trained_models_dir(root)
     for part in parts:
         dest = dest / part
+    if not dest.resolve().is_relative_to(huggingface_trained_models_dir(root).resolve()):
+        raise ValueError('Снимок Hugging Face находится вне каталога весов')
     return dest
 
 
@@ -96,8 +103,36 @@ def huggingface_weight_files(path: Path) -> list[Path]:
 
 
 def huggingface_snapshot_ready(path: Path) -> bool:
-    """True, если в каталоге есть настоящие веса, а не только токенизатор."""
-    return bool(huggingface_weight_files(path))
+    """Конфигурация и полный набор весов; частичный shard не означает готовность."""
+    try:
+        config_path = path / 'config.json'
+        if not config_path.resolve().is_relative_to(path.resolve()):
+            return False
+        config = json.loads(config_path.read_text(encoding='utf-8'))
+        if not isinstance(config, dict):
+            return False
+        for filename in ('model.safetensors.index.json', 'pytorch_model.bin.index.json'):
+            index = path / filename
+            if not index.is_file():
+                continue
+            if not index.resolve().is_relative_to(path.resolve()):
+                return False
+            data = json.loads(index.read_text(encoding='utf-8'))
+            weights = data.get('weight_map') if isinstance(data, dict) else None
+            if not isinstance(weights, dict) or not weights:
+                return False
+            return all(
+                isinstance(name, str) and (path / name).resolve().is_relative_to(path.resolve())
+                and is_real_model_blob(path / name)
+                for name in weights.values()
+            )
+        return any(
+            candidate.resolve().is_relative_to(path.resolve())
+            and not re.search(r'-\d+-of-\d+\.', candidate.name)
+            for candidate in huggingface_weight_files(path)
+        )
+    except (OSError, ValueError, TypeError):
+        return False
 
 
 def resolve_huggingface_source(root: Path, repo_id: str) -> str:

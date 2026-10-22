@@ -1453,3 +1453,5 @@ isolation_directory: "Каталог изолированной установк
 isolation_celery: "{key} указывает за пределы изолированной установки."
 isolation_django_database: "Фактический Django DB alias вне изолированной установки: {alias}."
 isolation_django_media: "Фактический MEDIA_ROOT вне изолированной установки."
+model_index_identity_required: "Укажите одновременно --provider и --model."
+model_index_status: "Индекс моделей: отсутствует обязательных — {missing}."

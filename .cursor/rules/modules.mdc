@@ -21,6 +21,8 @@ globs:
   - "modules/*/host_lifecycle.yaml"
   - "modules/*/packages.yaml"
   - "modules/*/huggingface_models.yaml"
+  - "modules/*/runtime_requirements.yaml"
+  - "modules/*/model_providers.yaml"
   - "modules/*/vscode.tasks.yaml"
   - "modules/*/task_footprint.yaml"
 alwaysApply: false
@@ -69,6 +71,8 @@ modules/<имя>/
 ├── host_lifecycle.yaml      # install/uninstall/stop демона в install-services и тестах (если есть служба/процесс)
 ├── packages.yaml            # portable-пакеты в virtual_env/packages (если модуль ставит бинарники)
 ├── huggingface_models.yaml  # снимки Hugging Face в virtual_env/trained_models/huggingface/
+├── runtime_requirements.yaml # инструменты, модели и Python-группы (версия 1)
+├── model_providers.yaml     # адаптер локального индекса моделей (если модуль — провайдер)
 ├── vscode.tasks.yaml        # задачи Run Task + include_in setup-full/start-all (необязательно)
 ├── cursor_hooks.yaml        # команды на события Cursor, диспетчер ядра без имён модулей (необязательно)
 ├── integrations.yaml        # depends: requires (обязательные) / extends (опциональные)
@@ -96,6 +100,7 @@ modules/<имя>/
 | OS-службы | `host_lifecycle.yaml` | [`host-lifecycle.mdc`](host-lifecycle.mdc) |
 | Portable-пакеты | `packages.yaml` | [`packages.mdc`](packages.mdc) |
 | Снимки Hugging Face | `huggingface_models.yaml` | [`huggingface-models.mdc`](huggingface-models.mdc) |
+| Индекс моделей и runtime | `runtime_requirements.yaml`, `model_providers.yaml` | [runtime-models.md](../../.docs/runtime-models.md) |
 | Run Task / setup-full | `vscode.tasks.yaml` | [`module-vscode-tasks.mdc`](module-vscode-tasks.mdc) |
 | События Cursor | `cursor_hooks.yaml` | [`cursor_module_hooks.py`](../../core/deployment/scripts/cursor_module_hooks.py) |
 | Схема PostgreSQL | `api/schema.yaml` | [`modularization.mdc`](modularization.mdc) |

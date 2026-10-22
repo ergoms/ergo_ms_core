@@ -487,6 +487,18 @@ sections:
   commands:
   - name: huggingface-models
     summary: Список снимков из huggingface_models.yaml и статус на диске
+  - name: runtime-models
+    invoke: ergoms runtime-models [--json]
+    summary: Общий индекс объявленных моделей и проверенных локальных ссылок
+  - name: runtime-model-check
+    invoke: ergoms runtime-model-check [--json]
+    summary: Проверить обязательные модели без скачиваний и обновить файловый индекс
+  - name: runtime-model-install
+    invoke: ergoms runtime-model-install [--include-optional] [--provider NAME --model NAME]
+    summary: Установить модели прежними загрузчиками; по умолчанию только обязательные
+  - name: runtime-model-resolve
+    invoke: ergoms runtime-model-resolve --provider NAME --model NAME [--allow-download] [--json]
+    summary: Получить проверенную локальную ссылку; загрузка разрешается явно
   - name: pull-huggingface-models
     invoke: ergoms pull-huggingface-models [--force] [--repo org/name] [--include-optional]
     summary: Скачать обязательные снимки (авто в setup-full). Уже лежащие в trained_models не качает повторно

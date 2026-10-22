@@ -34,6 +34,11 @@ RUN if command -v poetry >/dev/null 2>&1; then \
 # Проверка изоляции должна читать YAML уже на этом этапе (версия из poetry.lock).
 RUN python -c "import yaml" 2>/dev/null || pip install --no-cache-dir "PyYAML==6.0.3"
 
+# Existing portable model runtime archives use zstd on Linux.
+RUN command -v zstd >/dev/null 2>&1 || (apt-get update \
+    && apt-get install -y --no-install-recommends zstd \
+    && rm -rf /var/lib/apt/lists/*)
+
 WORKDIR /app
 
 # Зависимости lock — отдельный слой (без modules/, чтобы правки кода не сбрасывали кэш)

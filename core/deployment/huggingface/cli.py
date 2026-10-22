@@ -129,7 +129,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == 'list':
             return cmd_list(root)
         return cmd_install(root, repo=args.repo, force=args.force, include_optional=args.include_optional)
-    except RuntimeRequirementsError as exc:
+    except (RuntimeRequirementsError, ValueError, OSError) as exc:
         print(format_console('error', str(exc)), file=sys.stderr)
         return 1
 

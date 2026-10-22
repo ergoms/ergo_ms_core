@@ -1451,3 +1451,5 @@ isolation_directory: "Isolated directory points outside the installation: {relat
 isolation_celery: "Queue setting points outside the isolated installation: {key}."
 isolation_django_database: "Actual Django database alias is outside the isolated profile: {alias}."
 isolation_django_media: "Actual MEDIA_ROOT is outside the isolated installation."
+model_index_identity_required: "Indiquez --provider et --model ensemble."
+model_index_status: "Index des modèles : modèles obligatoires manquants — {missing}."

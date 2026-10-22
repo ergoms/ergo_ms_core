@@ -17,6 +17,7 @@ from lifecycle.context import DeploymentTarget
 from lifecycle.pipeline import ParallelStepGroup
 from lifecycle.steps.base import DeploymentStep
 from lifecycle.steps.runtime_requirements_steps import RuntimeRequirementsStep
+from lifecycle.steps.model_index_steps import InstallRuntimeModelsStep, VerifyRequiredModelsStep
 from lifecycle.steps.common_steps import (
     ClientBuildStep,
     CollectStaticStep,
@@ -131,6 +132,7 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
                 ClientBuildStep(),
                 # До migrate: модульные portable (pgvector и т.п.) должны быть в БД до CREATE EXTENSION.
                 ModuleSetupTasksStep(),
+                VerifyRequiredModelsStep(),
                 MigrateStep(),
                 # После migrate: задачи, которым нужна схема БД (RAG sync и т.п.).
                 ModuleSetupTasksAfterMigrateStep(),
@@ -251,6 +253,8 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
                 DockerBootstrapInfraStep(),
                 PythonInstallStep(),
                 NpmInstallStep(),
+                RuntimeRequirementsStep(),
+                InstallRuntimeModelsStep(),
                 MigrateStep(),
                 WarmupCachesStep(),
                 DockerMarkSetupStep(),
@@ -268,6 +272,8 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
                 DockerBootstrapInfraStep(),
                 PythonInstallStep(),
                 NpmInstallStep(),
+                RuntimeRequirementsStep(),
+                InstallRuntimeModelsStep(),
                 MigrateStep(),
                 WarmupCachesStep(),
                 DockerMarkSetupStep(),

@@ -57,6 +57,8 @@ modules/<имя>/
 ├── locales/<lang>/ergoms.help.yaml
 ├── packages.yaml               # portable-бинарники
 ├── huggingface_models.yaml     # снимки Hugging Face
+├── runtime_requirements.yaml   # инструменты, модели, Python-группы
+├── model_providers.yaml        # адаптер провайдера общего индекса моделей
 ├── host_lifecycle.yaml         # install/uninstall/stop OS-службы
 ├── process_roles.yaml          # роли в ergoms resource-usage
 ├── vscode.tasks.yaml           # Run Task + setup-full / start-all
@@ -84,6 +86,8 @@ modules/<имя>/
 | OS-служба вместе с install-services | `host_lifecycle.yaml` (install **и** uninstall) |
 | Portable-бинарник (ollama, ffmpeg…) | `packages.yaml` |
 | Снимок Hugging Face (`org/name`) | `huggingface_models.yaml` |
+| Общие инструменты и модели | `runtime_requirements.yaml`; [runtime-requirements.md](runtime-requirements.md) |
+| Провайдер локальных моделей | `model_providers.yaml`; [runtime-models.md](runtime-models.md) |
 | Учёт процесса в resource-usage | `process_roles.yaml` |
 | Команда на событие Cursor | `cursor_hooks.yaml` |
 | Отдельная тема оформления | `theme-defaults.js` + `theme-bootstrap.scss` |
