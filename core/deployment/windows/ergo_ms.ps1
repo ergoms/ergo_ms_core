@@ -373,7 +373,7 @@ function Main {
 
                 Invoke-PoetryCommand -CommandArgs $RemainingArgs -Root $projectRoot
 
-                return
+                exit $LASTEXITCODE
 
             }
 
@@ -381,7 +381,7 @@ function Main {
 
                 Invoke-ApiCommand -CommandArgs $RemainingArgs -Root $projectRoot
 
-                return
+                exit $LASTEXITCODE
 
             }
 
@@ -389,7 +389,7 @@ function Main {
 
                 Invoke-MediaApiCommand -CommandArgs $RemainingArgs -Root $projectRoot
 
-                return
+                exit $LASTEXITCODE
 
             }
 
