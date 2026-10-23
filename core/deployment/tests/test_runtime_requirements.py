@@ -208,7 +208,7 @@ class RuntimeRequirementsTests(unittest.TestCase):
 
         self.manifest(python={'groups': ['analytics']})
         command = InstallCommand()
-        with patch.object(command, '_find_project_root', return_value=self.root), patch.object(command, '_scan_module_configs', return_value=[]), patch.object(command, '_python_deps_stamp_matches', return_value=True), patch.object(command, '_write_python_deps_stamp') as stamp, patch.object(command, '_install_core') as install:
+        with patch.object(command, '_find_project_root', return_value=self.root), patch.object(command, '_scan_module_configs', return_value=[]), patch.object(command, '_python_deps_stamp_matches', return_value=True), patch.object(command, '_core_lock_satisfied', return_value=True), patch.object(command, '_write_python_deps_stamp') as stamp, patch.object(command, '_install_core') as install:
             self.assertEqual(command.run(), 0)
             self.assertEqual(command.run(), 0)
         install.assert_not_called()
