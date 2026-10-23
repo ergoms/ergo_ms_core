@@ -52,6 +52,7 @@ optional = true
 
 [tool.poetry.group.analytics.dependencies]
 polars = "^1.35.2"
+statsmodels = "^0.14.6"
 
 [tool.poetry.group.jupyter]
 optional = true
