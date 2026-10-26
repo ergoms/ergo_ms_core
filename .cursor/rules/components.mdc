@@ -40,6 +40,7 @@ alwaysApply: false
 | Просмотр PDF и DOCX | `DocumentViewer`, `DocumentViewerModal` | [`document-viewer.mdc`](document-viewer.mdc) |
 | Схема узлов по колонкам (зависимости, нагрузка) | `LaneGraph` | [`lane-graph.mdc`](lane-graph.mdc) |
 | Схема связей двух списков | `LinkBoard` | [`link-board.mdc`](link-board.mdc) |
+| Мониторинг источников (запуск/стоп, график) | `SourceRunActions`, `LiveRateChart`, `useSourceMonitor` | [`source-monitor.mdc`](source-monitor.mdc) |
 | Skip-link / landmarks | `SkipLink`, `<main id="main-content">` | [`client-a11y.mdc`](client-a11y.mdc) |
 | Динамические Lucide-иконки | `LucideIcon` (имя PascalCase) | [`icons.mdc`](icons.mdc) |
 
