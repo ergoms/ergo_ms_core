@@ -5,6 +5,12 @@ from __future__ import annotations
 FOOTPRINT_FILENAME = 'task_footprint.yaml'
 DECISION_FILENAME = 'decision.json'
 HISTORY_FILENAME = 'history.jsonl'
+# Потолок на диске: иначе postrun каждой задачи раздувает jsonl до гигабайт,
+# а stats_by_queue зависает на полном read_text.
+HISTORY_MAX_BYTES = 32 * 1024 * 1024
+# Для медианы достаточно хвоста; не читаем весь файл в память.
+HISTORY_READ_MAX_BYTES = 8 * 1024 * 1024
+HISTORY_MAX_SAMPLES_PER_QUEUE = 500
 QUEUES_CACHE_NAME = 'celery_queues.bin'
 BEAT_SCHEDULE_CACHE_NAME = 'celery_beat_schedule.bin'
 SIGNATURE_SEPARATOR = b'\n---SIGNATURE---\n'
@@ -63,6 +69,10 @@ ROLE_AGENT = 'agent'
 CLUSTER_ROLES = frozenset({ROLE_MANAGER, ROLE_AGENT})
 DEFAULT_CLUSTER_ROLE = ROLE_MANAGER
 DEFAULT_NODE_TTL_SEC = 90
+# План в Redis живёт дольше узла: один долгий круг watch не должен гасить ключ.
+DEFAULT_PLAN_TTL_SEC = 600
+DEFAULT_PLAN_TTL_MIN_SEC = 120
+LAST_PLAN_FILENAME = 'last_plan.json'
 
 PLACEMENT_PRIMARY = 'primary'
 PLACEMENT_ANY = 'any'

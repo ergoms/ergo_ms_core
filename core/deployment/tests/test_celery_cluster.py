@@ -566,5 +566,157 @@ class DeclaredModuleQueueTests(unittest.TestCase):
             self.assertEqual(_names_from_workers_file(Path(tmp) / 'missing.yaml'), set())
 
 
+class PlanTtlAndLastPlanTests(unittest.TestCase):
+    def test_default_plan_ttl_is_longer_than_node_ttl(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / '.env').write_text(
+                'CELERY_CLUSTER=on\n'
+                'CELERY_CLUSTER_NODE_TTL=90\n'
+                'CELERY_BALANCE_WATCH_INTERVAL=30\n',
+                encoding='utf-8',
+            )
+            with patch.dict(os.environ, {}, clear=False):
+                for key in (
+                    'CELERY_CLUSTER',
+                    'CELERY_CLUSTER_NODE_TTL',
+                    'CELERY_BALANCE_WATCH_INTERVAL',
+                    'CELERY_CLUSTER_PLAN_TTL',
+                ):
+                    os.environ.pop(key, None)
+                settings = load_settings(root)
+            self.assertEqual(settings.node_ttl_sec, 90)
+            self.assertGreaterEqual(settings.plan_ttl_sec, 600)
+            self.assertGreaterEqual(settings.plan_ttl_sec, settings.node_ttl_sec * 2)
+
+    def test_explicit_plan_ttl_env(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / '.env').write_text(
+                'CELERY_CLUSTER=on\nCELERY_CLUSTER_PLAN_TTL=900\n',
+                encoding='utf-8',
+            )
+            with patch.dict(os.environ, {}, clear=False):
+                os.environ.pop('CELERY_CLUSTER_PLAN_TTL', None)
+                self.assertEqual(load_settings(root).plan_ttl_sec, 900)
+
+    def test_renew_plans_expires_existing_keys(self) -> None:
+        from celery_balance.cluster import renew_plans
+        from celery_balance.constants import PLAN_KEY_PREFIX
+
+        class _Client:
+            def __init__(self) -> None:
+                self.expired: list[tuple[str, int]] = []
+
+            def scan_iter(self, match: str = '*'):
+                yield f'{PLAN_KEY_PREFIX}worker-a'
+                yield f'{PLAN_KEY_PREFIX}worker-b'
+
+            def expire(self, key: str, ttl: int) -> bool:
+                self.expired.append((key, ttl))
+                return True
+
+        client = _Client()
+        self.assertEqual(renew_plans(client, 600), 2)
+        self.assertEqual(
+            client.expired,
+            [(f'{PLAN_KEY_PREFIX}worker-a', 600), (f'{PLAN_KEY_PREFIX}worker-b', 600)],
+        )
+
+    def test_missing_redis_plan_falls_back_to_last_plan(self) -> None:
+        from celery_balance.cluster import resolve_allowed_queues, save_last_plan
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / '.env').write_text(
+                'CELERY_CLUSTER=on\n'
+                'CELERY_CLUSTER_ROLE=agent\n'
+                'ERGO_NODE_ID=agent-1\n',
+                encoding='utf-8',
+            )
+            (root / 'virtual_env' / 'cache' / 'celery_balance').mkdir(parents=True)
+            save_last_plan(
+                root,
+                {
+                    'allowed_queues': ['education_materials_structure'],
+                    'pause_queues': [],
+                    'queue_limits': {},
+                },
+                node_id='agent-1',
+            )
+            with patch.dict(
+                os.environ,
+                {
+                    'CELERY_CLUSTER': 'on',
+                    'CELERY_CLUSTER_ROLE': 'agent',
+                    'ERGO_NODE_ID': 'agent-1',
+                },
+                clear=False,
+            ):
+                with patch('celery_balance.cluster.connect', return_value=None):
+                    queues = resolve_allowed_queues(root)
+            self.assertEqual(queues, ['education_materials_structure'])
+
+    def test_live_empty_redis_plan_is_not_replaced_by_cache(self) -> None:
+        from celery_balance.cluster import resolve_allowed_queues, save_last_plan
+
+        class _Client:
+            def get(self, _key: str):
+                import json
+
+                return json.dumps({
+                    'node_id': 'agent-1',
+                    'allowed_queues': [],
+                    'pause_queues': [],
+                })
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / '.env').write_text(
+                'CELERY_CLUSTER=on\n'
+                'CELERY_CLUSTER_ROLE=agent\n'
+                'ERGO_NODE_ID=agent-1\n',
+                encoding='utf-8',
+            )
+            (root / 'virtual_env' / 'cache' / 'celery_balance').mkdir(parents=True)
+            save_last_plan(
+                root,
+                {'allowed_queues': ['education_materials_structure'], 'pause_queues': []},
+                node_id='agent-1',
+            )
+            with patch.dict(
+                os.environ,
+                {
+                    'CELERY_CLUSTER': 'on',
+                    'CELERY_CLUSTER_ROLE': 'agent',
+                    'ERGO_NODE_ID': 'agent-1',
+                },
+                clear=False,
+            ):
+                with patch('celery_balance.cluster.connect', return_value=_Client()):
+                    self.assertEqual(resolve_allowed_queues(root), [])
+
+    def test_watch_cycle_survives_exception(self) -> None:
+        from celery_balance import watch as watch_mod
+
+        calls = {'n': 0}
+
+        def _once(*_args, **_kwargs):
+            calls['n'] += 1
+            if calls['n'] == 1:
+                raise RuntimeError('boom')
+            raise SystemExit(0)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / '.env').write_text('CELERY_CLUSTER=off\n', encoding='utf-8')
+            with patch.object(watch_mod, '_watch_once', side_effect=_once):
+                with patch.object(watch_mod, '_start_plan_keepalive'):
+                    with patch.object(watch_mod.time, 'sleep', return_value=None):
+                        with self.assertRaises(SystemExit):
+                            watch_mod.run_watch(root, dry_run=True, as_json=False)
+        self.assertGreaterEqual(calls['n'], 2)
+
+
 if __name__ == '__main__':
     unittest.main()
