@@ -7,11 +7,12 @@ import sys
 import tempfile
 import unittest
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import _bootstrap  # noqa: F401
 from model_index import ModelIndexError, build_index, install_models, resolve_local_model
 from model_index.registry import discover_providers
+from huggingface import snapshot
 from project_layout import huggingface_snapshot_dir
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -194,3 +195,72 @@ print(json.dumps({'models':[record]} if args.action=='list' else record))
         with redirect_stdout(output):
             self.assertEqual(main(['--root',str(self.root),'--json','list']), 0)
         self.assertEqual(len(json.loads(output.getvalue())['models']), 2)
+
+
+class ModelStorageBoundaryTests(unittest.TestCase):
+    def setUp(self):
+        base = ROOT / 'virtual_env/cache/tmp'
+        base.mkdir(parents=True, exist_ok=True)
+        self.work = tempfile.TemporaryDirectory(dir=base, prefix='model_boundary_')
+        self.addCleanup(self.work.cleanup)
+        self.base = Path(self.work.name)
+        self.counter = 0
+        self.environment = patch.dict(os.environ, {'DISABLED_MODULES': '', 'MODULE_RUNTIME': 'monolith',
+                                                  'ERGO_PROCESS_ROLE': '', 'PROCESS_MODULES': ''})
+        self.environment.start()
+        self.addCleanup(self.environment.stop)
+
+    def linked_storage(self, relative='virtual_env/trained_models/huggingface', *, internal=False):
+        self.counter += 1
+        root = self.base / f'installation_{self.counter}'
+        (root / 'modules').mkdir(parents=True)
+        (root / 'pyproject.toml').write_text('[tool.poetry]\n')
+        target = root / 'virtual_env/owned_models' if internal else self.base / f'other_weights_{self.counter}'
+        target.mkdir(parents=True)
+        link = root / relative
+        link.parent.mkdir(parents=True, exist_ok=True)
+        if os.name == 'nt':
+            import _winapi
+            _winapi.CreateJunction(str(target), str(link))
+        else:
+            link.symlink_to(target, target_is_directory=True)
+        model = root / 'virtual_env/trained_models/huggingface/team/model'
+        model.mkdir(parents=True, exist_ok=True)
+        (model / 'config.json').write_text('{}')
+        (model / 'model.safetensors').write_bytes(b'x' * 2048)
+        return root, model.resolve()
+
+    def test_resolver_rejects_external_storage_at_each_ancestor(self):
+        for relative in ('virtual_env', 'virtual_env/trained_models', 'virtual_env/trained_models/huggingface'):
+            with self.subTest(relative=relative):
+                root, model = self.linked_storage(relative)
+                with self.assertRaises(ValueError):
+                    resolve_local_model(root, 'huggingface', 'team/model')
+                self.assertEqual((model / 'model.safetensors').read_bytes(), b'x' * 2048)
+
+    def test_install_and_legacy_adoption_reject_external_storage_before_download(self):
+        root, model = self.linked_storage()
+        download = Mock(side_effect=AssertionError('Download must not start'))
+        with patch.dict(sys.modules, {'huggingface_hub': SimpleNamespace(snapshot_download=download)}), \
+                patch.dict(os.environ, {'HF_HUB_CACHE': str(root / 'virtual_env/cache/hub')}), \
+                patch.object(snapshot, 'apply_hf_home') as environment:
+            for force in (False, True):
+                with self.subTest(force=force), self.assertRaises(ValueError):
+                    snapshot.install(root, 'team/model', force=force)
+            with self.subTest(operation='legacy'), self.assertRaises(ValueError):
+                snapshot.adopt_legacy_snapshot(root, 'team/model')
+        environment.assert_not_called()
+        download.assert_not_called()
+        self.assertEqual((model / 'model.safetensors').read_bytes(), b'x' * 2048)
+
+    def test_model_directory_alias_cannot_escape_internal_storage(self):
+        root, model = self.linked_storage('virtual_env/trained_models/huggingface/team/model')
+        with self.assertRaises(ValueError):
+            resolve_local_model(root, 'huggingface', 'team/model')
+        self.assertTrue(model.is_dir())
+
+    def test_storage_alias_inside_own_virtual_env_remains_supported(self):
+        root, model = self.linked_storage(internal=True)
+        reference = resolve_local_model(root, 'huggingface', 'team/model')
+        self.assertTrue(reference['ready'])
+        self.assertEqual(Path(reference['local_path']), model)

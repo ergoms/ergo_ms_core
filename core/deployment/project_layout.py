@@ -37,7 +37,12 @@ def unsloth_compiled_cache_dir(root: Path) -> Path:
 
 def huggingface_trained_models_dir(root: Path) -> Path:
     """Снимки весов Hugging Face: virtual_env/trained_models/huggingface/."""
-    return virtual_env_dir(root) / 'trained_models' / 'huggingface'
+    directory = virtual_env_dir(root) / 'trained_models' / 'huggingface'
+    boundary = root.resolve() / 'virtual_env'
+    resolved = directory.resolve()
+    if resolved == boundary or not resolved.is_relative_to(boundary):
+        raise ValueError('Хранилище Hugging Face находится вне virtual_env этой установки')
+    return directory
 
 
 def huggingface_snapshot_dir(root: Path, repo_id: str) -> Path:
