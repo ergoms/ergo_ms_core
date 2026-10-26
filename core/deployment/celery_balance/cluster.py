@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from celery_balance.constants import (
+    LAST_PLAN_FILENAME,
     NODE_KEY_PREFIX,
     PLAN_KEY_PREFIX,
     QUARANTINE_KEY_PREFIX,
@@ -17,6 +18,7 @@ from celery_balance.cluster_plan import NodePlan, NodeView, apply_cluster_share,
 from celery_balance.host_budget import HostBudget
 from celery_balance.overlay import load_decision
 from celery_balance.settings import BalanceSettings, load_settings
+from project_layout import cache_celery_balance_dir, ensure_dir
 
 
 def _node_key(node_id: str) -> str:
@@ -195,6 +197,24 @@ def publish_plan(client: Any, plan: NodePlan, ttl_sec: int) -> None:
     )
 
 
+def renew_plans(client: Any, ttl_sec: int) -> int:
+    """Продлить TTL уже опубликованных планов без пересчёта. Число обновлённых ключей."""
+    if ttl_sec < 1:
+        return 0
+    try:
+        keys = list(client.scan_iter(match=f'{PLAN_KEY_PREFIX}*'))
+    except Exception:  # noqa: BLE001
+        return 0
+    renewed = 0
+    for key in keys:
+        try:
+            if client.expire(key, ttl_sec):
+                renewed += 1
+        except Exception:  # noqa: BLE001
+            continue
+    return renewed
+
+
 def load_plan(client: Any, node_id: str) -> dict[str, Any] | None:
     try:
         raw = client.get(_plan_key(node_id))
@@ -207,6 +227,51 @@ def load_plan(client: Any, node_id: str) -> dict[str, Any] | None:
     except (TypeError, json.JSONDecodeError):
         return None
     return data if isinstance(data, dict) else None
+
+
+def _last_plan_path(project_root: Path) -> Path:
+    return cache_celery_balance_dir(project_root) / LAST_PLAN_FILENAME
+
+
+def save_last_plan(project_root: Path, plan: dict[str, Any], *, node_id: str) -> None:
+    """Кэш последнего живого плана агента: переживает краткое протухание ключа в Redis."""
+    previous = load_last_plan(project_root, node_id=node_id) or {}
+    payload = {
+        'node_id': node_id,
+        'allowed_queues': (
+            list(plan['allowed_queues'])
+            if isinstance(plan.get('allowed_queues'), list)
+            else list(previous.get('allowed_queues') or [])
+        ),
+        'pause_queues': (
+            list(plan['pause_queues'])
+            if isinstance(plan.get('pause_queues'), list)
+            else list(previous.get('pause_queues') or [])
+        ),
+        'queue_limits': (
+            dict(plan['queue_limits'])
+            if isinstance(plan.get('queue_limits'), dict)
+            else dict(previous.get('queue_limits') or {})
+        ),
+    }
+    path = _last_plan_path(project_root)
+    ensure_dir(path.parent)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+
+def load_last_plan(project_root: Path, *, node_id: str) -> dict[str, Any] | None:
+    path = _last_plan_path(project_root)
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    if str(data.get('node_id') or '') != node_id:
+        return None
+    return data
 
 
 def _limits_from_plan(data: dict[str, Any] | None) -> dict[str, int]:
@@ -302,7 +367,7 @@ def sync_cluster(project_root: Path, snapshot: Any, *, write: bool) -> None:
         snapshot.allowed_queues = list(local_plan.queues)
     if write and client is not None:
         for plan in plans:
-            publish_plan(client, plan, settings.node_ttl_sec)
+            publish_plan(client, plan, settings.plan_ttl_sec)
 
 
 def _catalog(project_root: Path):
@@ -311,23 +376,37 @@ def _catalog(project_root: Path):
     return load_footprints(str(project_root.resolve()))
 
 
+def _plan_from_decision(project_root: Path, node_id: str, field: str) -> dict[str, Any] | None:
+    data = load_decision(project_root)
+    if (
+        isinstance(data, dict)
+        and data.get('node_id') == node_id
+        and field in data
+    ):
+        return data
+    return None
+
+
 def resolve_allowed_queues(project_root: Path) -> list[str] | None:
     """None — фильтр кластера не действует. Пустой список — воркер не стартует."""
     settings = load_settings(project_root)
     if not settings.cluster_enabled:
         return None
     plan: dict[str, Any] | None = None
+    from_redis = False
     client = connect(project_root)
     if client is not None:
         plan = load_plan(client, settings.node_id)
+        if plan is not None and 'allowed_queues' in plan:
+            from_redis = True
+            save_last_plan(project_root, plan, node_id=settings.node_id)
     if plan is None or 'allowed_queues' not in plan:
-        data = load_decision(project_root)
-        if (
-            isinstance(data, dict)
-            and data.get('node_id') == settings.node_id
-            and 'allowed_queues' in data
-        ):
-            plan = data
+        # Ключа нет — краткий сбой TTL. Живой Redis с пустым списком уважаем выше.
+        cached = load_last_plan(project_root, node_id=settings.node_id)
+        if cached is not None and 'allowed_queues' in cached:
+            plan = cached
+    if plan is None or 'allowed_queues' not in plan:
+        plan = _plan_from_decision(project_root, settings.node_id, 'allowed_queues')
     if plan is None or 'allowed_queues' not in plan:
         if settings.cluster_role == ROLE_AGENT:
             return []
@@ -335,7 +414,11 @@ def resolve_allowed_queues(project_root: Path) -> list[str] | None:
     raw = plan.get('allowed_queues')
     if not isinstance(raw, list):
         return [] if settings.cluster_role == ROLE_AGENT else None
-    return [str(item) for item in raw if str(item).strip()]
+    queues = [str(item) for item in raw if str(item).strip()]
+    if from_redis and not queues and settings.cluster_role == ROLE_AGENT:
+        # Менеджер явно не дал очереди — кэш не подменяет.
+        return []
+    return queues
 
 
 def resolve_paused_queues(project_root: Path) -> list[str] | None:
@@ -347,14 +430,14 @@ def resolve_paused_queues(project_root: Path) -> list[str] | None:
     client = connect(project_root)
     if client is not None:
         plan = load_plan(client, settings.node_id)
+        if plan is not None and 'pause_queues' in plan:
+            save_last_plan(project_root, plan, node_id=settings.node_id)
     if plan is None or 'pause_queues' not in plan:
-        data = load_decision(project_root)
-        if (
-            isinstance(data, dict)
-            and data.get('node_id') == settings.node_id
-            and 'pause_queues' in data
-        ):
-            plan = data
+        cached = load_last_plan(project_root, node_id=settings.node_id)
+        if cached is not None and 'pause_queues' in cached:
+            plan = cached
+    if plan is None or 'pause_queues' not in plan:
+        plan = _plan_from_decision(project_root, settings.node_id, 'pause_queues')
     if plan is None or 'pause_queues' not in plan:
         return []
     raw = plan.get('pause_queues')

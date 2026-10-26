@@ -375,7 +375,9 @@ def _watch_cmdline(pid: int) -> str:
 
 def _project_watch_pids(root: Path) -> list[int]:
     """Наблюдатели плана этого дерева. Процесс в контейнере лежит по другому пути."""
-    needle = str(root / 'core' / 'deployment' / 'celery_balance' / 'cli.py')
+    balance = root / 'core' / 'deployment' / 'celery_balance'
+    cli_needle = str(balance / 'cli.py')
+    supervise_needle = str(balance / 'supervise_watch.py')
     found: list[int] = []
     proc_root = Path('/proc')
     if not proc_root.is_dir():
@@ -385,7 +387,10 @@ def _project_watch_pids(root: Path) -> list[int]:
             continue
         pid = int(entry.name)
         cmdline = _watch_cmdline(pid)
-        if needle in cmdline and '--watch' in cmdline:
+        if supervise_needle in cmdline:
+            found.append(pid)
+            continue
+        if cli_needle in cmdline and '--watch' in cmdline:
             found.append(pid)
     return found
 
@@ -440,14 +445,16 @@ def _stop_watch(root: Path) -> None:
 def _ensure_watch(root: Path) -> None:
     python = _python(root)
     script = root / 'core' / 'deployment' / 'celery_balance' / 'cli.py'
-    if python is None or not script.is_file():
+    supervisor = root / 'core' / 'deployment' / 'celery_balance' / 'supervise_watch.py'
+    if python is None or not script.is_file() or not supervisor.is_file():
         return
     _stop_watch(root)
     folder = ensure_dir(cache_dir(root) / 'celery_balance')
     logs = ensure_dir(root / 'logs')
     handle = (logs / 'celery-balance-watch.log').open('a', encoding='utf-8')
+    # Супервизор сам перезапускает --watch; в pid — он, не дочерний круг.
     proc = subprocess.Popen(
-        [str(python), str(script), '--watch'],
+        [str(python), str(supervisor), str(root), str(script)],
         cwd=str(root),
         stdout=handle,
         stderr=handle,

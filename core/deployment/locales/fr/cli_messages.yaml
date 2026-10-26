@@ -420,6 +420,7 @@ celery_balance_mode_off: "CELERY_BALANCE=off — celery_workers.yaml est utilis�
 celery_balance_recommend_only: "Mode recommend — rapport uniquement, workers inchangés"
 celery_balance_restart_hint: "Redémarrez le worker pour prendre la nouvelle concurrence : ergoms stop-worker && ergoms start-worker"
 celery_balance_watch_skip: "Changement dans l'hystérésis — ignoré"
+celery_balance_watch_error: "Le cycle celery-balance --watch a échoué, on continue : {error}"
 celery_requeue_done: "Tâches remises dans la file : {count} ({queues})"
 celery_requeue_none: "Aucune tâche non acquittée sans worker vivant"
 celery_requeue_not_redis: "Le broker n'est pas Redis — les tâches non acquittées n'y sont pas retenues"
