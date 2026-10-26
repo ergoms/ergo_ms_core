@@ -1,6 +1,8 @@
 from pathlib import Path
+import errno
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -92,6 +94,79 @@ class ModelStorageTests(unittest.TestCase):
             snapshot._publish_snapshot(staged, self.dest)
         self.assertTrue(huggingface_snapshot_ready(self.dest))
         self.assertEqual((self.dest/'model.safetensors').read_bytes(), b'x' * 2048)
+
+    def staged_snapshot(self):
+        staged = self.root / 'virtual_env/cache/tmp/download'
+        staged.mkdir(parents=True)
+        (staged / 'config.json').write_text('{}')
+        (staged / 'model.safetensors').write_bytes(b'y' * 2048)
+        return staged
+
+    def test_publish_from_another_filesystem(self):
+        staged = self.staged_snapshot()
+        replace = os.replace
+        def separate_mounts(source, target):
+            if Path(source) == staged:
+                raise OSError(errno.EXDEV, 'different filesystem')
+            return replace(source, target)
+        with patch.object(snapshot.os, 'replace', side_effect=separate_mounts):
+            snapshot._publish_snapshot(staged, self.dest)
+        self.assertTrue(huggingface_snapshot_ready(self.dest))
+        self.assertEqual((self.dest / 'model.safetensors').read_bytes(), b'y' * 2048)
+
+    def test_cross_filesystem_copy_keeps_previous_weights_available(self):
+        self.ready()
+        staged = self.staged_snapshot()
+        replace, copytree = os.replace, shutil.copytree
+        def separate_mounts(source, target):
+            if Path(source) == staged:
+                raise OSError(errno.EXDEV, 'different filesystem')
+            return replace(source, target)
+        def copy(source, target):
+            self.assertTrue(huggingface_snapshot_ready(self.dest))
+            self.assertEqual((self.dest / 'model.safetensors').read_bytes(), b'x' * 2048)
+            return copytree(source, target)
+        with patch.object(snapshot.os, 'replace', side_effect=separate_mounts), \
+                patch.object(snapshot.shutil, 'copytree', side_effect=copy):
+            snapshot._publish_snapshot(staged, self.dest)
+        self.assertEqual((self.dest / 'model.safetensors').read_bytes(), b'y' * 2048)
+
+    def test_interrupted_cross_filesystem_copy_preserves_previous_snapshot(self):
+        self.ready()
+        staged = self.staged_snapshot()
+        replace = os.replace
+        def separate_mounts(source, target):
+            if Path(source) == staged:
+                raise OSError(errno.EXDEV, 'different filesystem')
+            return replace(source, target)
+        with patch.object(snapshot.os, 'replace', side_effect=separate_mounts), \
+                patch.object(snapshot.shutil, 'copytree', side_effect=OSError('copy interrupted')), \
+                self.assertRaisesRegex(OSError, 'copy interrupted'):
+            snapshot._publish_snapshot(staged, self.dest)
+        self.assertTrue(huggingface_snapshot_ready(self.dest))
+        self.assertEqual((self.dest / 'model.safetensors').read_bytes(), b'x' * 2048)
+        self.assertEqual(list(self.dest.parent.iterdir()), [self.dest])
+
+    def test_final_switch_failure_restores_previous_snapshot_after_copy(self):
+        self.ready()
+        staged = self.staged_snapshot()
+        replace = os.replace
+        failed = False
+        def fail_switch(source, target):
+            nonlocal failed
+            if Path(source) == staged:
+                raise OSError(errno.EXDEV, 'different filesystem')
+            if Path(target) == self.dest and not failed:
+                failed = True
+                raise OSError(errno.EIO, 'publish interrupted')
+            return replace(source, target)
+        with patch.object(snapshot.os, 'replace', side_effect=fail_switch), \
+                self.assertRaises(OSError) as caught:
+            snapshot._publish_snapshot(staged, self.dest)
+        self.assertEqual(caught.exception.errno, errno.EIO)
+        self.assertTrue(huggingface_snapshot_ready(self.dest))
+        self.assertEqual((self.dest / 'model.safetensors').read_bytes(), b'x' * 2048)
+        self.assertEqual(list(self.dest.parent.iterdir()), [self.dest])
 
     def test_legacy_adoption_preserves_content_and_repeats_without_network(self):
         self.ready()

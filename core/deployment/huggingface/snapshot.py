@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import os
 import shutil
 import sys
@@ -120,21 +121,33 @@ def _publish_snapshot(staged: Path, dest: Path) -> None:
     if not huggingface_snapshot_ready(staged):
         raise ValueError('Нет конфигурации или полного набора весов')
     ensure_dir(dest.parent)
-    backup = dest.with_name(dest.name + '.backup-' + uuid4().hex)
-    moved = dest.exists()
-    if moved:
-        os.replace(dest, backup)
-    try:
-        os.replace(staged, dest)
-    except OSError:
-        if moved:
-            os.replace(backup, dest)
-        raise
-    if moved:
+    # Cache and weights can be different mounts, even with the same st_dev.
+    # Prepare on the destination mount before moving the previous snapshot.
+    with tempfile.TemporaryDirectory(dir=dest.parent, prefix=f'.{dest.name}.publish-') as work:
+        prepared = Path(work) / 'snapshot'
         try:
-            shutil.rmtree(backup)
+            os.replace(staged, prepared)
         except OSError as exc:
-            print(format_console('warning', f'Снимок готов; резервный каталог сохранён: {exc}'))
+            if exc.errno != errno.EXDEV:
+                raise
+            shutil.copytree(staged, prepared)
+        if not huggingface_snapshot_ready(prepared):
+            raise ValueError('Нет конфигурации или полного набора весов')
+        backup = dest.with_name(dest.name + '.backup-' + uuid4().hex)
+        moved = dest.exists()
+        if moved:
+            os.replace(dest, backup)
+        try:
+            os.replace(prepared, dest)
+        except OSError:
+            if moved:
+                os.replace(backup, dest)
+            raise
+        if moved:
+            try:
+                shutil.rmtree(backup)
+            except OSError as exc:
+                print(format_console('warning', f'Снимок готов; резервный каталог сохранён: {exc}'))
 
 
 def install(root: Path, repo_id: str, *, force: bool = False) -> int:
