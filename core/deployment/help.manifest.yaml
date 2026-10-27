@@ -4,13 +4,16 @@ sections:
   title: Использование
   static_lines:
   - ergoms <команда> [аргументы]
-  - ergoms help                  — справка по ядру
+  - ergoms help                  — разделы справки
+  - ergoms help <раздел>         — команды раздела
+  - ergoms help all              — полный список команд
   - ergoms help modules          — список модулей с ergoms-командами
   - ergoms help module <имя>     — справка по модулю
   - ergoms <имя_модуля>:<команда> [аргументы] — вызов команды модуля
   - 'Составные сценарии (setup, deploy, службы, nginx/redis, docker, dev) — lifecycle/runner.py (рецепты); список: py -3.12
     core/deployment/lifecycle/runner.py --list'
 - id: builtin_services
+  help: services
   title: Службы ОС (встроенные)
   note: Требуют права администратора (Windows) или root/sudo (Linux). Для разработки достаточно start-all.
   commands:
@@ -55,6 +58,7 @@ sections:
   - name: uninstall-cli
     summary: Снять системную ссылку /usr/local/bin/ergoms; файлы в bin не удаляются
 - id: development
+  help: dev
   title: Локальная разработка
   commands:
   - name: dev
@@ -163,6 +167,7 @@ sections:
   - name: docker-swarm-down
     summary: Снять стек воркеров Swarm
 - id: dependencies
+  help: deps
   title: Зависимости и база данных
   commands:
   - name: setup
@@ -203,7 +208,7 @@ sections:
   - name: update-all
     summary: Обновить зависимости Python и npm (ядро и модули)
   - name: reinstall
-    summary: Переустановить зависимости (poetry install --sync, npm ci)
+    summary: Переустановить зависимости (poetry install --sync и npm run install:all)
   - name: deps
     summary: Отчёт о зависимостях проекта
 - id: build
@@ -228,6 +233,7 @@ sections:
   - name: collectstatic
     summary: Собрать статику Django
 - id: cache_env
+  help: cache
   title: Кэши и конфигурация
   commands:
   - name: warmup-caches
@@ -303,17 +309,11 @@ sections:
     summary: "Справка по уровням ERGO_SECURITY (этап 2: профиль подставляет незаданные ключи, .env не пишет)"
   - name: security-check
     summary: Отчёт о соответствии установки уровню безопасности (этап 2)
-  - name: deployment-test
-    invoke: ergoms deployment-test
-    summary: Unit-тесты deployment (docker_runtime, ergo_modes, env_resolvers, recipes, nginx render) без Docker daemon
   - name: deployment-scenario-test
     invoke: ergoms deployment-scenario-test
     summary: Изолированный прогон сценариев на хосте и в Docker (отдельные порты и каталоги; рабочий .env не меняет)
-  - name: test_system
-    invoke: ergoms test_system [--with-scenario] [--spec host_sqlite_direct]
-    summary: Unit-тесты развёртывания на Windows и Linux; с --with-scenario — изолированный spec без установки NSSM/systemd
   - name: system-test
-    invoke: ergoms system-test [--suite unit|install|commands|scenarios|security|performance|browser|os-services|all] [--launch docker|host|os-services] [--spec host_sqlite_direct]
+    invoke: ergoms system-test [--suite unit|install|commands|scenarios|security|performance|browser|os-services|all] [--launch docker|host|os-services] [--spec host_sqlite_direct] [--strict]
     summary: Изолированные системные тесты с нуля (unit, установка, команды, сценарии, безопасность, скорость, браузер, службы ОС)
 
   - name: ps1-encoding-check
@@ -327,8 +327,22 @@ sections:
     summary: Отчёт по лимитам загрузки (MEDIA_UPLOAD_MAX_SIZE, direct-upload, nginx client_max_body_size)
   - name: test-smtp
     summary: Проверка SMTP и отправка тестового письма
+  - name: lock-check
+    invoke: ergoms lock-check
+    summary: Проверить, что пакеты модулей не попали в poetry.lock и package-lock.json ядра
+  - name: npm-lock-refresh
+    summary: Пересобрать package-lock.json ядра после изменения зависимостей в virtual_env/npm/package.json
+  - name: npm-lock-sanitize
+    summary: Убрать из package-lock.json ядра случайные записи модулей
+  - name: ci
+    invoke: ergoms ci
+    summary: Быстрые проверки перед запросом на слияние (lock, правила ядра, unit-тесты развёртывания, lint клиента, тесты клиента модулей)
+  - name: ci-nightly
+    invoke: ergoms ci-nightly
+    summary: Быстрые проверки и строгий ночной прогон (SQLite, Docker, безопасность, браузер). Пропуск обязательной проверки — ошибка
 - id: service_aliases
-  title: Службы ОС (alias из commands.conf)
+  help: os-services
+  title: Отдельные службы ОС
   note: Для полного управления достаточно ergoms start, stop, restart, status.
   commands:
   - name: start-api-service
@@ -371,19 +385,11 @@ sections:
     summary: Перезапустить службу Media API
   - name: status-media-service
     summary: Статус службы Media API
-  - name: start-all-services
-    summary: Запустить все службы по отдельности
-  - name: stop-all-services
-    summary: Остановить все службы
-  - name: restart-all-services
-    summary: Перезапустить все службы
-  - name: status-all-services
-    summary: Статус всех служб
 - id: deploy
   title: Развёртывание
   commands:
   - name: deploy-api
-    summary: Обновить субмодули API, зависимости, миграции, static
+    summary: Обновить субмодули API, записать версии, снять копию баз, применить миграции и собрать static
   - name: deploy-client
     summary: Обновить субмодуль клиента, зависимости, сборка
   - name: deploy-api-dev
@@ -391,7 +397,7 @@ sections:
   - name: deploy-client-dev
     summary: Развёртывание клиента и запуск dev-сервера
   - name: deploy-all
-    summary: Полное развёртывание API и клиента
+    summary: Полное развёртывание API и клиента. Перед миграцией — копия баз, версии в logs/deploy-revision.txt
 - id: nginx
   title: Nginx (опционально)
   note: Авто в setup-full при NGINX_ENABLED=true. Установка требует прав администратора; status-nginx и test-nginx — без них.
@@ -431,6 +437,7 @@ sections:
   - name: test-redis
     summary: Проверка redis-cli ping
 - id: meilisearch
+  help: search
   title: Meilisearch (поиск BM25)
   note: Portable в virtual_env/packages/meilisearch. Авто в setup-full при ERGO_SEARCH_ENABLED=true; OS-служба — в install-services. Переменные — env/search.env.example.
   commands:
@@ -482,6 +489,7 @@ sections:
     invoke: ergoms package-uninstall <name> [--purge-extra]
     summary: Удалить каталог пакета (--purge-extra — также extra_dirs)
 - id: huggingface
+  help: models
   title: Снимки Hugging Face
   note: 'Реестр virtual_env/trained_models/huggingface: modules/*/huggingface_models.yaml. Не путать с ollama pull и packages.yaml.'
   commands:
@@ -548,6 +556,7 @@ sections:
   - ergoms npm <аргументы>                      — npm
   - ergoms media_api <аргументы>                — Media API manage.py
 - id: mcp_cursor
+  help: mcp
   title: MCP (Cursor)
   note: 'Подхват MCP — расширение ERGO MS Module Cursor MCP после ergoms install-extensions. Основной путь —
     registerServer Cursor API (mcp.json не перезаписывается); fallback — mcp.json только при изменении. Включение —
@@ -556,11 +565,13 @@ sections:
 platform_sections:
   windows:
   - id: nginx_service
+    help: nginx-service
     title: Nginx как служба Windows
     commands:
     - name: install-nginx-service
       summary: Установить nginx как службу Windows (автозапуск)
   - id: redis_service
+    help: redis-service
     title: Redis как служба Windows
     commands:
     - name: install-redis-service
@@ -577,6 +588,7 @@ platform_sections:
     - name: status-tls
       summary: Срок действия сертификата и пути
   - id: redis_service
+    help: redis-service
     title: Redis как служба systemd
     commands:
     - name: install-redis-service

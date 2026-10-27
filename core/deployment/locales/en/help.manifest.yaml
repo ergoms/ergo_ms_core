@@ -4,7 +4,9 @@ sections:
   title: Usage
   static_lines:
   - ergoms <command> [arguments]
-  - ergoms help                  — core help
+  - ergoms help                  — help sections
+  - ergoms help <section>        — commands in a section
+  - ergoms help all              — full command list
   - ergoms help modules          — list modules with ergoms commands
   - ergoms help module <name>    — module help
   - ergoms <module_name>:<command> [arguments] — invoke a module command
@@ -202,7 +204,7 @@ sections:
   - name: update-all
     summary: Update Python and npm dependencies (core and modules)
   - name: reinstall
-    summary: Reinstall dependencies (poetry install --sync, npm ci)
+    summary: Reinstall dependencies (poetry install --sync and npm run install:all)
   - name: deps
     summary: Project dependency report
 - id: build
@@ -302,17 +304,11 @@ sections:
     summary: 'ERGO_SECURITY levels reference (stage 2: profile fills unset keys; does not write .env)'
   - name: security-check
     summary: Report whether the install matches the security level (stage 2)
-  - name: deployment-test
-    invoke: ergoms deployment-test
-    summary: Deployment unit tests (docker_runtime, ergo_modes, env_resolvers, recipes, nginx render) without Docker daemon
   - name: deployment-scenario-test
     invoke: ergoms deployment-scenario-test
     summary: Isolated host and Docker scenario runs (separate ports and directories; does not change the workspace .env)
-  - name: test_system
-    invoke: ergoms test_system [--with-scenario] [--spec host_sqlite_direct]
-    summary: Deployment unit tests on Windows and Linux; --with-scenario runs an isolated spec without installing NSSM/systemd
   - name: system-test
-    invoke: ergoms system-test [--suite unit|install|commands|scenarios|security|performance|browser|os-services|all] [--launch docker|host|os-services] [--spec host_sqlite_direct]
+    invoke: ergoms system-test [--suite unit|install|commands|scenarios|security|performance|browser|os-services|all] [--launch docker|host|os-services] [--spec host_sqlite_direct] [--strict]
     summary: Isolated from-scratch system tests (unit, install, commands, scenarios, security, speed, browser, OS services)
 
   - name: ps1-encoding-check
@@ -326,8 +322,21 @@ sections:
     summary: Upload limits report (MEDIA_UPLOAD_MAX_SIZE, direct-upload, nginx client_max_body_size)
   - name: test-smtp
     summary: Verify SMTP and send a test email
+  - name: lock-check
+    invoke: ergoms lock-check
+    summary: Check that module packages did not leak into the core poetry.lock and package-lock.json
+  - name: npm-lock-refresh
+    summary: Rebuild the core package-lock.json after dependency changes in virtual_env/npm/package.json
+  - name: npm-lock-sanitize
+    summary: Remove accidental module entries from the core package-lock.json
+  - name: ci
+    invoke: ergoms ci
+    summary: Fast checks before a merge request (locks, core rules, deployment unit tests, client lint, module client tests)
+  - name: ci-nightly
+    invoke: ergoms ci-nightly
+    summary: Fast checks plus a strict nightly run (SQLite, Docker, security, browser). A skipped required check is a failure
 - id: service_aliases
-  title: OS services (aliases from commands.conf)
+  title: Individual OS services
   note: For full control, ergoms start, stop, restart, and status are enough.
   commands:
   - name: start-api-service
@@ -370,19 +379,11 @@ sections:
     summary: Restart the Media API service
   - name: status-media-service
     summary: Media API service status
-  - name: start-all-services
-    summary: Start all services individually
-  - name: stop-all-services
-    summary: Stop all services
-  - name: restart-all-services
-    summary: Restart all services
-  - name: status-all-services
-    summary: Status of all services
 - id: deploy
   title: Deployment
   commands:
   - name: deploy-api
-    summary: Update API submodules, dependencies, migrations, static
+    summary: Update API submodules, write revisions, snapshot databases, apply migrations, and collect static
   - name: deploy-client
     summary: Update the client submodule, dependencies, build
   - name: deploy-api-dev
@@ -390,7 +391,7 @@ sections:
   - name: deploy-client-dev
     summary: Deploy the client and start the dev server
   - name: deploy-all
-    summary: Full deployment of API and client
+    summary: Full API and client deployment. Before migrations — a database snapshot; revisions go to logs/deploy-revision.txt
 - id: nginx
   title: Nginx (optional)
   note: Automatic in setup-full when NGINX_ENABLED=true. Install requires administrator rights; status-nginx and test-nginx
@@ -467,6 +468,11 @@ sections:
   commands:
   - name: package-list
     summary: List registry packages and install status
+  - name: runtime-check
+    summary: Check versions and links in runtime_requirements.yaml
+  - name: runtime-install-tools
+    invoke: ergoms runtime-install-tools [--include-optional]
+    summary: Install required tools through the shared package registry
   - name: package-status
     invoke: ergoms package-status [name]
     summary: Detailed status of one package or all
@@ -482,6 +488,18 @@ sections:
   commands:
   - name: huggingface-models
     summary: List snapshots from huggingface_models.yaml and on-disk status
+  - name: runtime-models
+    invoke: ergoms runtime-models [--json]
+    summary: Combined index of declared models and verified local links
+  - name: runtime-model-check
+    invoke: ergoms runtime-model-check [--json]
+    summary: Check required models without downloading and refresh the file index
+  - name: runtime-model-install
+    invoke: ergoms runtime-model-install [--include-optional] [--provider NAME --model NAME]
+    summary: Install models with the existing downloaders; required models only by default
+  - name: runtime-model-resolve
+    invoke: ergoms runtime-model-resolve --provider NAME --model NAME [--allow-download] [--json]
+    summary: Return a verified local link; download only when requested explicitly
   - name: pull-huggingface-models
     invoke: ergoms pull-huggingface-models [--force] [--repo org/name] [--include-optional]
     summary: Download required snapshots (automatic in setup-full). Skips snapshots already in trained_models

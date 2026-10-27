@@ -157,7 +157,7 @@ ergoms help modules
 ergoms help module <имя>
 ```
 
-Общая справка по ядру: `ergoms help`.
+Общая справка по ядру показывает разделы: `ergoms help`. Команды раздела — `ergoms help <раздел>`, полный список — `ergoms help all`.
 
 ## Режимы безопасности (этап 0)
 
@@ -359,6 +359,10 @@ ergoms deploy-all
 
 `restore-menu` — восстановление пунктов бокового меню из миграций. `maintenance-on/off` — режим технических работ без перезапуска служб; `maintenance-status` — текущее состояние. `logs-status` — сколько места занимает каталог `logs/`. `rotate-logs` — ротация infra-журналов по размеру и сжатие копий; `install-infra-log-rotate` — планировщик ротации (по умолчанию каждый час). `invalidate-caches-warmup` — сброс кэшей ядра и прогрев.
 
+Перед запросом на слияние запустите `ergoms ci`. Команда проверяет lock-файлы, правила ядра, unit-тесты развёртывания, стиль клиента и клиентские тесты модулей и останавливается на первой ошибке. `ergoms ci-nightly` повторяет эти проверки и со строгим режимом поднимает сценарии `host_sqlite_direct` и `docker_direct`, проверку безопасности и вход в браузере. Пропуск обязательной проверки в ночном прогоне завершает команду с ошибкой. Планировщик операционной системы `ci-nightly` не включает.
+
+`ergoms deploy-api` и `ergoms deploy-all` перед миграцией снимают копию баз и записывают версии корня и submodule в `logs/deploy-revision.txt`. Рецепт процессы не стартует. После `ergoms start` готовность смотрят по адресу `/api/system/ready/`.
+
 ## Системные службы (Linux / Windows)
 
 Чтобы зарегистрировать API, клиент, Celery и media_api как службы операционной системы, нужны права администратора:
@@ -384,7 +388,7 @@ migrate-all=api:makemigrations && api:migrate
 install-deps=api:install && npm:run install:all && api:migrate && api:warmup_caches
 ```
 
-Команды `dev` и `start-client` вызывают скрипты в `core/api/scripts/` и `core/deployment/scripts/` (см. `commands.conf`). Команды **nginx**, **redis** и **TLS** — встроенные в `ergo_ms.ps1` / `ergo_ms.sh`; полный список — `ergoms help`.
+Команды `dev` и `start-client` вызывают скрипты в `core/api/scripts/` и `core/deployment/scripts/` (см. `commands.conf`). Команды **nginx**, **redis** и **TLS** — встроенные в `ergo_ms.ps1` / `ergo_ms.sh`; полный список — `ergoms help all`.
 
 Новую команду ядра добавляют в `commands.conf` и описание — в `core/deployment/help.manifest.yaml`. Команду модуля — в `ergoms.conf` и `ergoms.help.yaml` соответствующего модуля.
 

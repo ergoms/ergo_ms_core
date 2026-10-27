@@ -51,7 +51,7 @@ class CommandsSmokeCase(SystemCase):
             failed.append(f'{log_command}:{log_result.returncode}')
         extras: list[str] = []
         if env.kind == 'os-services':
-            extras.extend(('status-all-services', 'test-redis', 'test-nginx'))
+            extras.extend(('test-redis', 'test-nginx'))
         for command in extras:
             result = env.run_ergoms(command, timeout=180)
             ran.append(command)

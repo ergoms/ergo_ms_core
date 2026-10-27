@@ -150,8 +150,13 @@ def _format_command_line(
     width: int = 42,
 ) -> str:
     label = invoke or f'ergoms {name}'
-    padded = label.ljust(width)
-    return f'  {padded} {summary}'
+    # Вызов с длинным списком флагов не влезает в колонку и сдвигает описание.
+    if len(label) <= width:
+        return f'  {label.ljust(width)} {summary}'
+    lines = [f'  {label}']
+    if summary:
+        lines.append(f'  {"": <{width}} {summary}')
+    return '\n'.join(lines)
 
 
 def _as_text(value: Any) -> str:
@@ -251,6 +256,80 @@ def render_core(root: Path, platform: str, lang: str | None = None) -> str:
         out.append(t('help_config', lang=language, config=config))
 
     return '\n'.join(out).rstrip() + '\n'
+
+
+_SECTION_ID_WIDTH = 22
+
+
+def _section_label(section: dict[str, Any]) -> str:
+    """Имя, которое человек набирает в ergoms help. Поле help короче внутреннего id."""
+    return str(section.get('help') or section.get('id') or '').strip()
+
+
+def _section_matches(section: dict[str, Any], name: str) -> bool:
+    return name in {str(section.get('id') or '').strip(), _section_label(section)}
+
+
+def _catalog_sections(manifest: dict[str, Any], platform: str) -> list[dict[str, Any]]:
+    sections = [item for item in (manifest.get('sections') or []) if isinstance(item, dict)]
+    platform_sections = (manifest.get('platform_sections') or {}).get(platform) or []
+    sections.extend(item for item in platform_sections if isinstance(item, dict))
+    return sections
+
+
+def _render_scenarios(manifest: dict[str, Any], language: str) -> str:
+    out = [t('help_scenarios_heading', lang=language), '']
+    for scenario in manifest.get('scenarios') or []:
+        out.append(f'  {_as_text(scenario.get("title"))}')
+        for line in scenario.get('lines') or []:
+            text = _as_text(line)
+            if text:
+                out.append(f'    {text}')
+        out.append('')
+    return '\n'.join(out).rstrip() + '\n'
+
+
+def render_overview(root: Path, platform: str, lang: str | None = None) -> str:
+    """Оглавление: имя раздела и его заголовок, без списка команд."""
+    language = lang or resolve_cli_language(project_root=root)
+    manifest = _load_manifest(language)
+    platform_label = _PLATFORM_LABELS.get(platform, platform)
+    out = [
+        t('help_title', lang=language, platform=platform_label),
+        '=' * (18 + len(platform_label)),
+        '',
+        t('help_open_section', lang=language),
+        t('help_open_all', lang=language),
+        t('help_open_modules', lang=language),
+        '',
+    ]
+    for section in _catalog_sections(manifest, platform):
+        label = _section_label(section)
+        title = _as_text(section.get('title'))
+        if label and title:
+            out.append(f'  {label.ljust(_SECTION_ID_WIDTH)} {title}')
+    if manifest.get('scenarios'):
+        out.append(f'  {"scenarios".ljust(_SECTION_ID_WIDTH)} {t("help_scenarios_heading", lang=language)}')
+    doc = (manifest.get('footer') or {}).get('doc')
+    if doc:
+        out.append('')
+        out.append(t('help_more', lang=language, doc=doc))
+    return '\n'.join(out).rstrip() + '\n'
+
+
+def render_section(root: Path, platform: str, section_id: str, lang: str | None = None) -> str:
+    language = lang or resolve_cli_language(project_root=root)
+    manifest = _load_manifest(language)
+    if section_id == 'scenarios':
+        return _render_scenarios(manifest, language)
+    conf_commands = _parse_conf_commands(root / 'core' / 'deployment' / 'commands.conf')
+    for section in _catalog_sections(manifest, platform):
+        if _section_matches(section, section_id):
+            block = _render_section_commands(
+                section, conf_commands, validate=True, lang=language,
+            )
+            return '\n'.join(block).rstrip() + '\n'
+    raise SystemExit(t('help_unknown_section', lang=language, name=section_id))
 
 
 def render_modules(root: Path, lang: str | None = None) -> str:
@@ -382,13 +461,17 @@ def render_module(root: Path, module_name: str, lang: str | None = None) -> str:
 def resolve_help_subargs(help_subargs: list[str], lang: str | None = None) -> tuple[str, str | None]:
     language = lang or resolve_cli_language()
     if not help_subargs:
-        return 'core', None
+        return 'overview', None
     if len(help_subargs) == 1 and help_subargs[0] == 'modules':
         return 'modules', None
+    if len(help_subargs) == 1 and help_subargs[0] == 'all':
+        return 'all', None
     if len(help_subargs) >= 2 and help_subargs[0] == 'module':
         return 'module', help_subargs[1]
     if len(help_subargs) == 1 and help_subargs[0] == 'module':
         raise SystemExit(t('help_module_name_required', lang=language))
+    if len(help_subargs) == 1:
+        return 'section', help_subargs[0]
     raise SystemExit(t(
         'help_unknown_args',
         lang=language,
@@ -407,7 +490,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         'help_subargs',
         nargs='*',
-        help='modules | module <name>',
+        help='all | <section> | modules | module <name>',
     )
     return parser
 
@@ -432,10 +515,19 @@ def main() -> int:
     root = _resolve_project_root(args.root)
     ensure_project_env_loaded(root)
     lang = resolve_cli_language(project_root=root)
-    mode, module_name = resolve_help_subargs(args.help_subargs, lang)
+    mode, target = resolve_help_subargs(args.help_subargs, lang)
 
-    if mode == 'core':
+    if mode == 'overview':
+        sys.stdout.write(render_overview(root, args.platform, lang))
+        return 0
+
+    if mode == 'all':
         sys.stdout.write(render_core(root, args.platform, lang))
+        return 0
+
+    if mode == 'section':
+        assert target is not None
+        sys.stdout.write(render_section(root, args.platform, target, lang))
         return 0
 
     if mode == 'modules':
@@ -443,8 +535,8 @@ def main() -> int:
         return 0
 
     if mode == 'module':
-        assert module_name is not None
-        sys.stdout.write(render_module(root, module_name, lang))
+        assert target is not None
+        sys.stdout.write(render_module(root, target, lang))
         return 0
 
     raise SystemExit(t('help_unknown_mode', lang=lang, mode=mode))

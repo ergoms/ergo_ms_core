@@ -4,7 +4,9 @@ sections:
   title: Utilisation
   static_lines:
   - ergoms <commande> [arguments]
-  - ergoms help                  — aide du noyau
+  - ergoms help                  — sections de l'aide
+  - ergoms help <section>        — commandes de la section
+  - ergoms help all              — liste complète des commandes
   - ergoms help modules          — liste des modules avec commandes ergoms
   - ergoms help module <nom>     — aide du module
   - ergoms <nom_module>:<commande> [arguments] — appeler une commande de module
@@ -202,7 +204,7 @@ sections:
   - name: update-all
     summary: Mettre à jour les dépendances Python et npm (noyau et modules)
   - name: reinstall
-    summary: Réinstaller les dépendances (poetry install --sync, npm ci)
+    summary: Réinstaller les dépendances (poetry install --sync et npm run install:all)
   - name: deps
     summary: Rapport des dépendances du projet
 - id: build
@@ -302,18 +304,11 @@ sections:
     summary: "Référence des niveaux ERGO_SECURITY (étape 2 : clés absentes au runtime ; n'écrit pas .env)"
   - name: security-check
     summary: Rapport de conformité au niveau de sécurité (étape 2)
-  - name: deployment-test
-    invoke: ergoms deployment-test
-    summary: Tests unitaires de déploiement (docker_runtime, ergo_modes, env_resolvers, recipes, nginx render) sans démon
-      Docker
   - name: deployment-scenario-test
     invoke: ergoms deployment-scenario-test
     summary: Scénarios isolés hôte et Docker (ports et répertoires séparés ; n'écrit pas le .env du dépôt)
-  - name: test_system
-    invoke: ergoms test_system [--with-scenario] [--spec host_sqlite_direct]
-    summary: Tests unitaires de déploiement sous Windows et Linux ; --with-scenario lance un spec isolé sans installer NSSM/systemd
   - name: system-test
-    invoke: ergoms system-test [--suite unit|install|commands|scenarios|security|performance|browser|os-services|all] [--launch docker|host|os-services] [--spec host_sqlite_direct]
+    invoke: ergoms system-test [--suite unit|install|commands|scenarios|security|performance|browser|os-services|all] [--launch docker|host|os-services] [--spec host_sqlite_direct] [--strict]
     summary: Tests système isolés depuis zéro (unit, installation, commandes, scénarios, sécurité, vitesse, navigateur, services OS)
 
   - name: ps1-encoding-check
@@ -327,8 +322,21 @@ sections:
     summary: Rapport des limites de téléversement (MEDIA_UPLOAD_MAX_SIZE, direct-upload, nginx client_max_body_size)
   - name: test-smtp
     summary: Vérifier SMTP et envoyer un e-mail de test
+  - name: lock-check
+    invoke: ergoms lock-check
+    summary: Vérifier que les paquets des modules ne sont pas entrés dans le poetry.lock et le package-lock.json du noyau
+  - name: npm-lock-refresh
+    summary: Reconstruire le package-lock.json du noyau après un changement de dépendances dans virtual_env/npm/package.json
+  - name: npm-lock-sanitize
+    summary: Retirer du package-lock.json du noyau les entrées de modules apparues par accident
+  - name: ci
+    invoke: ergoms ci
+    summary: Contrôles rapides avant une demande de fusion (locks, règles du noyau, tests unitaires de déploiement, lint client, tests client des modules)
+  - name: ci-nightly
+    invoke: ergoms ci-nightly
+    summary: Contrôles rapides et passage nocturne strict (SQLite, Docker, sécurité, navigateur). Un contrôle obligatoire ignoré est un échec
 - id: service_aliases
-  title: Services OS (alias de commands.conf)
+  title: Services OS individuels
   note: Pour une gestion complète, ergoms start, stop, restart et status suffisent.
   commands:
   - name: start-api-service
@@ -371,19 +379,11 @@ sections:
     summary: Redémarrer le service Media API
   - name: status-media-service
     summary: État du service Media API
-  - name: start-all-services
-    summary: Démarrer tous les services individuellement
-  - name: stop-all-services
-    summary: Arrêter tous les services
-  - name: restart-all-services
-    summary: Redémarrer tous les services
-  - name: status-all-services
-    summary: État de tous les services
 - id: deploy
   title: Déploiement
   commands:
   - name: deploy-api
-    summary: Mettre à jour les sous-modules API, dépendances, migrations, static
+    summary: Mettre à jour les sous-modules API, écrire les versions, copier les bases, appliquer les migrations et collecter static
   - name: deploy-client
     summary: Mettre à jour le sous-module client, dépendances, compilation
   - name: deploy-api-dev
@@ -391,7 +391,7 @@ sections:
   - name: deploy-client-dev
     summary: Déployer le client et démarrer le serveur de développement
   - name: deploy-all
-    summary: Déploiement complet de l'API et du client
+    summary: Déploiement complet de l'API et du client. Avant les migrations — copie des bases ; versions dans logs/deploy-revision.txt
 - id: nginx
   title: Nginx (optionnel)
   note: Automatique dans setup-full si NGINX_ENABLED=true. L'installation nécessite les droits administrateur ; status-nginx
@@ -468,6 +468,11 @@ sections:
   commands:
   - name: package-list
     summary: Lister les paquets du registre et l'état d'installation
+  - name: runtime-check
+    summary: Vérifier les versions et les liens de runtime_requirements.yaml
+  - name: runtime-install-tools
+    invoke: ergoms runtime-install-tools [--include-optional]
+    summary: Installer les outils obligatoires via le registre commun des paquets
   - name: package-status
     invoke: ergoms package-status [name]
     summary: État détaillé d'un paquet ou de tous
@@ -483,6 +488,18 @@ sections:
   commands:
   - name: huggingface-models
     summary: Liste des instantanés huggingface_models.yaml et état sur disque
+  - name: runtime-models
+    invoke: ergoms runtime-models [--json]
+    summary: Index commun des modèles déclarés et des liens locaux vérifiés
+  - name: runtime-model-check
+    invoke: ergoms runtime-model-check [--json]
+    summary: Vérifier les modèles obligatoires sans téléchargement et mettre à jour l'index fichier
+  - name: runtime-model-install
+    invoke: ergoms runtime-model-install [--include-optional] [--provider NAME --model NAME]
+    summary: Installer les modèles avec les chargeurs existants ; par défaut, uniquement les obligatoires
+  - name: runtime-model-resolve
+    invoke: ergoms runtime-model-resolve --provider NAME --model NAME [--allow-download] [--json]
+    summary: Obtenir un lien local vérifié ; le téléchargement n'est permis qu'explicitement
   - name: pull-huggingface-models
     invoke: ergoms pull-huggingface-models [--force] [--repo org/name] [--include-optional]
     summary: Télécharger les instantanés obligatoires (automatique dans setup-full). Ignore ceux déjà présents dans trained_models

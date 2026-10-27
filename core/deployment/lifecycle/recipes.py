@@ -56,6 +56,7 @@ from lifecycle.steps.host_steps import (
     PoetryInstallStep,
     UpdateModuleSubmodulesStep,
 )
+from lifecycle.steps.deploy_trace import BackupDatabaseStep, RecordDeployRevisionStep  # noqa: E402
 from lifecycle.steps.infra_steps import (  # noqa: E402
     EnsureMeilisearchOsServiceStep,
     EnsureMeilisearchStep,
@@ -195,7 +196,9 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
             'deploy-api',
             (
                 _deploy_api_submodules(),
+                RecordDeployRevisionStep(paths=('core/api', 'core/media_api')),
                 PythonInstallStep(),
+                BackupDatabaseStep(),
                 MigrateStep(),
                 WarmupCachesStep(),
                 CollectStaticStep(),
@@ -211,11 +214,13 @@ def build_recipe_registry() -> dict[str, RecipeSpec]:
             'deploy-all',
             (
                 _deploy_all_submodules(),
+                RecordDeployRevisionStep(paths=('core/api', 'core/client', 'core/media_api')),
                 ParallelStepGroup(
                     PythonInstallStep(),
                     NpmInstallStep(),
                     name='python_and_npm',
                 ),
+                BackupDatabaseStep(),
                 MigrateStep(),
                 WarmupCachesStep(),
                 CollectStaticStep(),

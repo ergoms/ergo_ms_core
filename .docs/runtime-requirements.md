@@ -308,7 +308,7 @@ sentence-transformers, chonkie, pandas, openpyxl, tabulate.
 Установщик pgvector выполняет специфичную операцию PostgreSQL с `always_run`;
 его перенос требует отдельной проверки. ffmpeg в прочитанных объявлениях отсутствует.
 
-Проверки: `ergoms deployment-test` на Windows и отдельный контрактный набор
+Проверки: `ergoms system-test --suite unit` на Windows и отдельный контрактный набор
 в существующей Ubuntu WSL. Повтор нового шага установки реально проверяется
 на обеих ОС во временном проекте с локальным архивом. Рабочие БД и службы
 для этого не меняются. Полная установка всех дистрибутивов производителей
@@ -335,7 +335,7 @@ sentence-transformers, chonkie, pandas, openpyxl, tabulate.
 
 ## Предыдущая проверка на Windows
 
-- `ergoms deployment-test`: 618 тестов, ошибок нет, один Linux-тест пропущен.
+- `ergoms system-test --suite unit`: 618 тестов, ошибок нет, один Linux-тест пропущен.
 - Тесты `modules/ollama_framework/tests`: 16 прошли, включая девять сценариев манифеста.
 - Прежние тесты Tesseract/OCR: 5 прошли.
 - `runtime-check --json`: четыре инструмента, 17 объявлений моделей семи потребителей в текущем дереве, включая старые hooks.
