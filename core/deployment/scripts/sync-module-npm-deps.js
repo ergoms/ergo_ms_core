@@ -108,7 +108,7 @@ function collectModuleDependencies() {
 
 function isDependencyInstalled(depName) {
   // Vite резолвит только hoisted node_modules — вложенные копии в modules/*/client не считаем.
-  return fs.existsSync(path.join(NPM_ROOT, 'node_modules', depName))
+  return fs.existsSync(path.join(NPM_ROOT, 'node_modules', depName, 'package.json'))
 }
 
 function hasMissingDirectPackages(moduleDeps) {

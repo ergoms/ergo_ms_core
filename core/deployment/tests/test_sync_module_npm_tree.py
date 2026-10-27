@@ -121,6 +121,23 @@ class SyncModuleNpmTreeTests(unittest.TestCase):
                 ['docx-preview@^0.3.7', 'pdfjs-dist@^5.4.296'],
             )
 
+    def test_missing_core_specs_detects_partial_directory_despite_current_stamp(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            npm_root = Path(tmp)
+            (npm_root / 'package.json').write_text(json.dumps({
+                'name': 'fixture', 'dependencies': {'@vuepic/vue-datepicker': '^14.0.0'},
+            }), encoding='utf-8')
+            (npm_root / 'package-lock.json').write_text('{"lockfileVersion":3}\n', encoding='utf-8')
+            incomplete = npm_root / 'node_modules/@vuepic/vue-datepicker'
+            incomplete.mkdir(parents=True)
+            (incomplete / 'partial.js').write_text('// interrupted installation\n', encoding='utf-8')
+            result = json.loads(_run_tree_query(npm_root,
+                'mod.writeCoreTreeStamp(npmRoot, nodeModules);'
+                'console.log(JSON.stringify({missing: mod.collectMissingCoreInstallSpecs(npmRoot, nodeModules),'
+                'current: mod.isCoreTreeCurrent({npmRoot, nodeModules})}))'))
+            self.assertEqual(result['missing'], ['@vuepic/vue-datepicker@^14.0.0'])
+            self.assertFalse(result['current'])
+
     def test_core_tree_current_is_false_when_only_stamp_drifts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             npm_root = Path(tmp)

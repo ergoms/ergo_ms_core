@@ -106,6 +106,18 @@ class SyncModuleNpmInstallTests(unittest.TestCase):
                 )
                 self.assertEqual(json.loads(run('-e', require)), ['core', 'module'])
                 self.assertEqual((npm_root / 'package-lock.json').read_bytes(), lock)
+                # A directory left by an interrupted install must not count as
+                # a usable dependency. Repair it without replacing core packages.
+                module_manifest = npm_root / 'node_modules' / module_name / 'package.json'
+                module_manifest.unlink()
+                check = subprocess.run([str(node), SCRIPT, '--check'], cwd=root, env=environment,
+                                       capture_output=True, text=True, timeout=90)
+                self.assertEqual(check.returncode, 1, check.stdout + check.stderr)
+                run(SCRIPT, '--install-all')
+                self.assertTrue(module_manifest.is_file())
+                self.assertEqual(shared.read_bytes(), core_shared)
+                self.assertEqual(json.loads(run('-e', require)), ['core', 'module'])
+                self.assertEqual((npm_root / 'package-lock.json').read_bytes(), lock)
                 before = {p.relative_to(npm_root).as_posix(): (p.stat().st_size, p.stat().st_mtime_ns)
                           for p in (npm_root / 'node_modules').rglob('*')
                           if p.is_file() and not p.name.startswith('.ergo-')}

@@ -119,7 +119,7 @@ export function collectMissingCoreInstallSpecs(npmRoot, nodeModules) {
     if (workspaceNames.has(name)) {
       continue
     }
-    if (fs.existsSync(packageDir(nodeModules, name))) {
+    if (fs.existsSync(path.join(packageDir(nodeModules, name), 'package.json'))) {
       continue
     }
     const version = versions.get(name)
@@ -344,7 +344,7 @@ export function isCoreTreeCurrent({ npmRoot, nodeModules }) {
   }
 
   for (const name of collectCoreDirectNames(npmRoot)) {
-    if (!fs.existsSync(packageDir(nodeModules, name))) {
+    if (!fs.existsSync(path.join(packageDir(nodeModules, name), 'package.json'))) {
       return false
     }
   }
