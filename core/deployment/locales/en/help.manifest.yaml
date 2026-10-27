@@ -2,6 +2,7 @@
 sections:
 - id: usage
   title: Usage
+  about: command invocation and help sections
   static_lines:
   - ergoms <command> [arguments]
   - ergoms help                  — help sections
@@ -14,6 +15,7 @@ sections:
     core/deployment/lifecycle/runner.py --list'
 - id: builtin_services
   title: OS services (built-in)
+  about: installing and starting services together
   note: Require administrator rights (Windows) or root/sudo (Linux). For development, start-all is enough.
   commands:
   - name: install
@@ -58,6 +60,7 @@ sections:
     summary: Remove the /usr/local/bin/ergoms symlink; files in bin are kept
 - id: development
   title: Local development
+  about: local API, client, and background jobs
   commands:
   - name: dev
     summary: Start API with cache warmup (mode from ERGO_ENV)
@@ -113,6 +116,7 @@ sections:
     summary: API/pages load test (Locust), find-limit, DB isolation, or delete lt_* users
 - id: docker
   title: Docker Compose
+  about: containers and cluster workers
   note: DOCKER_* variables and profiles — Docker section in .env.example. Ports — API_PORT, CLIENT_PORT, etc. DB — databases.yaml.
   commands:
   - name: docker-init
@@ -165,6 +169,7 @@ sections:
     summary: Remove the Swarm worker stack
 - id: dependencies
   title: Dependencies and database
+  about: dependencies, migrations, and initial setup
   commands:
   - name: setup
     summary: Full initial setup (git, venv, poetry, npm, migrate, static)
@@ -209,6 +214,7 @@ sections:
     summary: Project dependency report
 - id: build
   title: Build
+  about: client build and server static files
   commands:
   - name: client-build
     summary: Build the client for this host; with nginx, rewrite site conf and reload
@@ -230,6 +236,7 @@ sections:
     summary: Collect Django static files
 - id: cache_env
   title: Caches and configuration
+  about: caches, environment, and development processes
   commands:
   - name: warmup-caches
     summary: Warm up core caches (apps, celery, modules_env)
@@ -275,6 +282,7 @@ sections:
     summary: Compile API .po catalogs into .mo
 - id: maintenance
   title: Maintenance
+  about: cleanup, checks, and maintenance mode
   commands:
   - name: clean
     summary: Remove dependencies and static (media is kept)
@@ -337,6 +345,7 @@ sections:
     summary: Fast checks plus a strict nightly run (SQLite, Docker, security, browser). A skipped required check is a failure
 - id: service_aliases
   title: Individual OS services
+  about: start and status of a single service
   note: For full control, ergoms start, stop, restart, and status are enough.
   commands:
   - name: start-api-service
@@ -381,6 +390,7 @@ sections:
     summary: Media API service status
 - id: deploy
   title: Deployment
+  about: API and client rollout with a database copy
   commands:
   - name: deploy-api
     summary: Update API submodules, write revisions, snapshot databases, apply migrations, and collect static
@@ -394,6 +404,7 @@ sections:
     summary: Full API and client deployment. Before migrations — a database snapshot; revisions go to logs/deploy-revision.txt
 - id: nginx
   title: Nginx (optional)
+  about: reverse proxy
   note: Automatic in setup-full when NGINX_ENABLED=true. Install requires administrator rights; status-nginx and test-nginx
     do not.
   commands:
@@ -415,6 +426,7 @@ sections:
     summary: Test nginx configuration
 - id: redis
   title: Redis (optional)
+  about: queue broker
   note: Portable under virtual_env/packages/redis. Automatic in setup-full when ERGO_BROKER=redis.
   commands:
   - name: install-redis
@@ -433,6 +445,7 @@ sections:
     summary: Check with redis-cli ping
 - id: meilisearch
   title: Meilisearch (BM25 search)
+  about: full-text search
   note: Portable under virtual_env/packages/meilisearch. Automatic in setup-full when ERGO_SEARCH_ENABLED=true; OS service via install-services. See env/search.env.example.
   commands:
   - name: install-meilisearch
@@ -463,6 +476,7 @@ sections:
     summary: Publish this process knowledge packs to media_api (knowledge/)
 - id: packages
   title: Portable packages
+  about: programs from the install registry
   note: 'Registry under virtual_env/packages: core (core_packages.yaml) and modules (packages.yaml). redis/nginx services
     — separate install-* commands.'
   commands:
@@ -484,6 +498,7 @@ sections:
     summary: Remove the package directory (--purge-extra also removes extra_dirs)
 - id: huggingface
   title: Hugging Face snapshots
+  about: local models
   note: 'Registry under virtual_env/trained_models/huggingface: modules/*/huggingface_models.yaml. Not ollama pull and not packages.yaml.'
   commands:
   - name: huggingface-models
@@ -505,6 +520,7 @@ sections:
     summary: Download required snapshots (automatic in setup-full). Skips snapshots already in trained_models
 - id: postgres
   title: PostgreSQL (portable)
+  about: bundled PostgreSQL database
   note: Automatic in setup-full when ERGO_DB=portable_postgres. Directory virtual_env/packages/postgres. install-services also registers the OS service.
   commands:
   - name: install-postgres
@@ -527,6 +543,7 @@ sections:
     summary: 'Migrate to portable: --source-password is required; yaml = portable; on success updates port in yaml'
 - id: extensions
   title: VS Code extensions
+  about: editor extensions
   commands:
   - name: install-extensions
     summary: Install extensions from the project list
@@ -536,6 +553,7 @@ sections:
     summary: Uninstall project extensions
 - id: submodules
   title: Git submodules
+  about: updating nested repositories
   commands:
   - name: update-submodules
     summary: Update core submodules and switch to dev
@@ -543,6 +561,7 @@ sections:
     summary: Update module submodules from .gitmodules
 - id: proxy
   title: Proxies
+  about: Django, Poetry, npm, and Media API calls
   static_lines:
   - ergoms api <django_command> [arguments]     — Django commands
   - ergoms poetry <arguments>                   — Poetry
@@ -550,6 +569,7 @@ sections:
   - ergoms media_api <arguments>                — Media API manage.py
 - id: mcp_cursor
   title: MCP (Cursor)
+  about: Cursor tool servers
   note: 'MCP pickup — ERGO MS Module Cursor MCP extension after ergoms install-extensions. Primary path — Cursor
     registerServer API (mcp.json is not rewritten); fallback — mcp.json only when content changes. Enable via ERGO MS:
     Enable MCP Servers.'
@@ -558,17 +578,20 @@ platform_sections:
   windows:
   - id: nginx_service
     title: Nginx as a Windows service
+    about: nginx service on Windows
     commands:
     - name: install-nginx-service
       summary: Install nginx as a Windows service (autostart)
   - id: redis_service
     title: Redis as a Windows service
+    about: redis service on Windows
     commands:
     - name: install-redis-service
       summary: Install Redis as a Windows service (autostart)
   linux:
   - id: tls
     title: TLS (Let's Encrypt, Linux only)
+    about: TLS certificate for Linux
     note: Requires root/sudo; status-tls does not need root.
     commands:
     - name: install-tls
@@ -579,6 +602,7 @@ platform_sections:
       summary: Certificate expiry and paths
   - id: redis_service
     title: Redis as a systemd service
+    about: redis service on systemd
     commands:
     - name: install-redis-service
       summary: Install Redis as a systemd unit

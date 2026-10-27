@@ -1,7 +1,9 @@
 # Source of truth (ru). Translations: locales/<lang>/help.manifest.yaml
 sections:
 - id: usage
+  group: work
   title: Использование
+  about: вызов команд и разделы справки
   static_lines:
   - ergoms <команда> [аргументы]
   - ergoms help                  — разделы справки
@@ -14,7 +16,9 @@ sections:
     core/deployment/lifecycle/runner.py --list'
 - id: builtin_services
   help: services
+  group: work
   title: Службы ОС (встроенные)
+  about: установка и общий запуск служб
   note: Требуют права администратора (Windows) или root/sudo (Linux). Для разработки достаточно start-all.
   commands:
   - name: install
@@ -59,7 +63,9 @@ sections:
     summary: Снять системную ссылку /usr/local/bin/ergoms; файлы в bin не удаляются
 - id: development
   help: dev
+  group: work
   title: Локальная разработка
+  about: локальный API, клиент и фоновые задачи
   commands:
   - name: dev
     summary: Запуск API с прогревом кэшей (режим из ERGO_ENV)
@@ -115,7 +121,9 @@ sections:
     invoke: ergoms loadtest [--profile …] [--isolated-db|--docker-isolated] | --find-limit … | --cleanup-users
     summary: Нагрузочный прогон API/pages (Locust), find-limit, изоляция БД или удаление lt_*
 - id: docker
+  group: build
   title: Docker Compose
+  about: контейнеры и воркеры кластера
   note: Переменные DOCKER_* и profiles — секция Docker в .env.example. Порты — API_PORT, CLIENT_PORT и др. БД — databases.yaml.
   commands:
   - name: docker-init
@@ -168,7 +176,9 @@ sections:
     summary: Снять стек воркеров Swarm
 - id: dependencies
   help: deps
+  group: build
   title: Зависимости и база данных
+  about: зависимости, миграции и первичная настройка
   commands:
   - name: setup
     summary: Полная первичная настройка (git, venv, poetry, npm, migrate, static)
@@ -212,7 +222,9 @@ sections:
   - name: deps
     summary: Отчёт о зависимостях проекта
 - id: build
+  group: build
   title: Сборка
+  about: сборка клиента и статика сервера
   commands:
   - name: client-build
     summary: Собрать клиент по роли хоста; при nginx пересобирает сайт-конфиг и делает reload
@@ -234,7 +246,9 @@ sections:
     summary: Собрать статику Django
 - id: cache_env
   help: cache
+  group: build
   title: Кэши и конфигурация
+  about: кэши, окружение и процессы разработки
   commands:
   - name: warmup-caches
     summary: Прогреть кэши ядра (apps, celery, modules_env)
@@ -279,7 +293,9 @@ sections:
   - name: i18n-compilemessages
     summary: Скомпилировать .po каталоги API в .mo
 - id: maintenance
+  group: build
   title: Обслуживание
+  about: очистка, проверки и режим технических работ
   commands:
   - name: clean
     summary: Удалить зависимости и static (media сохраняется)
@@ -342,7 +358,9 @@ sections:
     summary: Быстрые проверки и строгий ночной прогон (SQLite, Docker, безопасность, браузер). Пропуск обязательной проверки — ошибка
 - id: service_aliases
   help: os-services
+  group: build
   title: Отдельные службы ОС
+  about: запуск и состояние отдельной службы
   note: Для полного управления достаточно ergoms start, stop, restart, status.
   commands:
   - name: start-api-service
@@ -386,7 +404,9 @@ sections:
   - name: status-media-service
     summary: Статус службы Media API
 - id: deploy
+  group: build
   title: Развёртывание
+  about: выкладка API и клиента с копией баз
   commands:
   - name: deploy-api
     summary: Обновить субмодули API, записать версии, снять копию баз, применить миграции и собрать static
@@ -399,7 +419,9 @@ sections:
   - name: deploy-all
     summary: Полное развёртывание API и клиента. Перед миграцией — копия баз, версии в logs/deploy-revision.txt
 - id: nginx
+  group: env
   title: Nginx (опционально)
+  about: обратный прокси
   note: Авто в setup-full при NGINX_ENABLED=true. Установка требует прав администратора; status-nginx и test-nginx — без них.
   commands:
   - name: install-nginx
@@ -419,7 +441,9 @@ sections:
   - name: test-nginx
     summary: Проверить конфигурацию nginx
 - id: redis
+  group: env
   title: Redis (опционально)
+  about: брокер очередей
   note: Portable в virtual_env/packages/redis. Авто в setup-full при ERGO_BROKER=redis.
   commands:
   - name: install-redis
@@ -438,7 +462,9 @@ sections:
     summary: Проверка redis-cli ping
 - id: meilisearch
   help: search
+  group: env
   title: Meilisearch (поиск BM25)
+  about: полнотекстовый поиск
   note: Portable в virtual_env/packages/meilisearch. Авто в setup-full при ERGO_SEARCH_ENABLED=true; OS-служба — в install-services. Переменные — env/search.env.example.
   commands:
   - name: install-meilisearch
@@ -468,7 +494,9 @@ sections:
     invoke: ergoms publish-knowledge-packs
     summary: Опубликовать пакеты справки этого процесса в media_api (knowledge/)
 - id: packages
+  group: env
   title: Portable-пакеты
+  about: программы реестра установки
   note: 'Реестр virtual_env/packages: ядро (core_packages.yaml) и модули (packages.yaml). Службы redis/nginx — отдельные команды
     install-*.'
   commands:
@@ -490,7 +518,9 @@ sections:
     summary: Удалить каталог пакета (--purge-extra — также extra_dirs)
 - id: huggingface
   help: models
+  group: env
   title: Снимки Hugging Face
+  about: локальные модели
   note: 'Реестр virtual_env/trained_models/huggingface: modules/*/huggingface_models.yaml. Не путать с ollama pull и packages.yaml.'
   commands:
   - name: huggingface-models
@@ -511,7 +541,9 @@ sections:
     invoke: ergoms pull-huggingface-models [--force] [--repo org/name] [--include-optional]
     summary: Скачать обязательные снимки (авто в setup-full). Уже лежащие в trained_models не качает повторно
 - id: postgres
+  group: env
   title: PostgreSQL (portable)
+  about: встроенная база PostgreSQL
   note: Авто в setup-full при ERGO_DB=portable_postgres. Каталог virtual_env/packages/postgres. Службу также ставит install-services.
   commands:
   - name: install-postgres
@@ -533,7 +565,9 @@ sections:
   - name: migrate-postgres-to-portable
     summary: 'Перенос в portable: --source-password обязателен; yaml = portable; после успеха обновляет port в yaml'
 - id: extensions
+  group: other
   title: Расширения VS Code
+  about: расширения редактора
   commands:
   - name: install-extensions
     summary: Установить расширения из списка проекта
@@ -542,14 +576,18 @@ sections:
   - name: uninstall-extensions
     summary: Удалить расширения проекта
 - id: submodules
+  group: other
   title: Git submodules
+  about: обновление вложенных репозиториев
   commands:
   - name: update-submodules
     summary: Обновить субмодули ядра и переключить на dev
   - name: update-module-submodules
     summary: Обновить субмодули модулей из .gitmodules
 - id: proxy
+  group: other
   title: Прокси
+  about: вызов Django, Poetry, npm и Media API
   static_lines:
   - ergoms api <команда_django> [аргументы]     — команды Django
   - ergoms poetry <аргументы>                   — Poetry
@@ -557,7 +595,9 @@ sections:
   - ergoms media_api <аргументы>                — Media API manage.py
 - id: mcp_cursor
   help: mcp
+  group: other
   title: MCP (Cursor)
+  about: серверы инструментов Cursor
   note: 'Подхват MCP — расширение ERGO MS Module Cursor MCP после ergoms install-extensions. Основной путь —
     registerServer Cursor API (mcp.json не перезаписывается); fallback — mcp.json только при изменении. Включение —
     ERGO MS: Enable MCP Servers.'
@@ -566,19 +606,25 @@ platform_sections:
   windows:
   - id: nginx_service
     help: nginx-service
+    group: env
     title: Nginx как служба Windows
+    about: служба nginx в Windows
     commands:
     - name: install-nginx-service
       summary: Установить nginx как службу Windows (автозапуск)
   - id: redis_service
     help: redis-service
+    group: env
     title: Redis как служба Windows
+    about: служба redis в Windows
     commands:
     - name: install-redis-service
       summary: Установить Redis как службу Windows (автозапуск)
   linux:
   - id: tls
+    group: env
     title: TLS (Let's Encrypt, только Linux)
+    about: сертификат TLS для Linux
     note: Требует root/sudo; status-tls — без root.
     commands:
     - name: install-tls
@@ -589,7 +635,9 @@ platform_sections:
       summary: Срок действия сертификата и пути
   - id: redis_service
     help: redis-service
+    group: env
     title: Redis как служба systemd
+    about: служба redis в systemd
     commands:
     - name: install-redis-service
       summary: Установить Redis как unit systemd

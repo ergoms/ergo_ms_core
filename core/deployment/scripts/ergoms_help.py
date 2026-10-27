@@ -13,7 +13,9 @@ from __future__ import annotations
 
 import argparse
 import re
+import shutil
 import sys
+import textwrap
 from pathlib import Path
 from typing import Any
 
@@ -142,20 +144,54 @@ def _command_invoke(name: str, item: dict[str, Any] | None = None) -> str:
     return f'ergoms {name}'
 
 
+_LABEL_WIDTH = 42
+_SUMMARY_COLUMN = 45
+_MIN_SUMMARY = 24
+
+
+def _terminal_columns(width: int | None) -> int:
+    if width is not None:
+        return width
+    return shutil.get_terminal_size(fallback=(80, 24)).columns
+
+
+def _wrap_words(text: str, width: int) -> list[str]:
+    # Флаг вроде --module=<name> не режется посередине.
+    return textwrap.wrap(
+        text,
+        max(width, 1),
+        break_long_words=False,
+        break_on_hyphens=False,
+    )
+
+
 def _format_command_line(
     name: str,
     summary: str,
     *,
     invoke: str | None = None,
-    width: int = 42,
+    columns: int | None = None,
 ) -> str:
     label = invoke or f'ergoms {name}'
+    window = _terminal_columns(columns)
+    if window - _SUMMARY_COLUMN < _MIN_SUMMARY:
+        return _format_stacked_command(label, summary, window)
+    summary_lines = _wrap_words(summary, window - _SUMMARY_COLUMN) if summary else []
     # Вызов с длинным списком флагов не влезает в колонку и сдвигает описание.
-    if len(label) <= width:
-        return f'  {label.ljust(width)} {summary}'
-    lines = [f'  {label}']
+    if len(label) <= _LABEL_WIDTH:
+        if not summary_lines:
+            return f'  {label}'
+        lines = [f'  {label.ljust(_LABEL_WIDTH)} {summary_lines[0]}']
+    else:
+        lines = [f'  {part}' for part in _wrap_words(label, window - 2)]
+    lines.extend(f'{" " * _SUMMARY_COLUMN}{part}' for part in summary_lines[1 if len(label) <= _LABEL_WIDTH else 0:])
+    return '\n'.join(lines)
+
+
+def _format_stacked_command(label: str, summary: str, columns: int) -> str:
+    lines = [f'  {part}' for part in _wrap_words(label, columns - 2)]
     if summary:
-        lines.append(f'  {"": <{width}} {summary}')
+        lines.extend(f'    {part}' for part in _wrap_words(summary, columns - 4))
     return '\n'.join(lines)
 
 
@@ -174,6 +210,7 @@ def _render_section_commands(
     *,
     validate: bool,
     lang: str,
+    columns: int,
 ) -> list[str]:
     lines: list[str] = []
     title = _as_text(section.get('title'))
@@ -198,6 +235,7 @@ def _render_section_commands(
                 name,
                 summary,
                 invoke=_command_invoke(name, entry),
+                columns=columns,
             ))
 
     for static_line in section.get('static_lines') or []:
@@ -208,11 +246,18 @@ def _render_section_commands(
     return lines
 
 
-def render_core(root: Path, platform: str, lang: str | None = None) -> str:
+def render_core(
+    root: Path,
+    platform: str,
+    lang: str | None = None,
+    *,
+    width: int | None = None,
+) -> str:
     language = lang or resolve_cli_language(project_root=root)
     manifest = _load_manifest(language)
     conf_commands = _parse_conf_commands(root / 'core' / 'deployment' / 'commands.conf')
     platform_label = _PLATFORM_LABELS.get(platform, platform)
+    columns = _terminal_columns(width)
 
     out: list[str] = [
         t('help_title', lang=language, platform=platform_label),
@@ -222,7 +267,7 @@ def render_core(root: Path, platform: str, lang: str | None = None) -> str:
 
     for section in manifest.get('sections') or []:
         block = _render_section_commands(
-            section, conf_commands, validate=True, lang=language,
+            section, conf_commands, validate=True, lang=language, columns=columns,
         )
         if block:
             out.extend(block)
@@ -230,7 +275,7 @@ def render_core(root: Path, platform: str, lang: str | None = None) -> str:
 
     for section in (manifest.get('platform_sections') or {}).get(platform) or []:
         block = _render_section_commands(
-            section, conf_commands, validate=True, lang=language,
+            section, conf_commands, validate=True, lang=language, columns=columns,
         )
         if block:
             out.extend(block)
@@ -258,7 +303,19 @@ def render_core(root: Path, platform: str, lang: str | None = None) -> str:
     return '\n'.join(out).rstrip() + '\n'
 
 
-_SECTION_ID_WIDTH = 22
+_WORDMARK = (
+    '░██████████                                ░███     ░███   ░██████',
+    '░██                                        ░████   ░████  ░██   ░██',
+    '░██         ░██░████  ░████████  ░███████  ░██░██ ░██░██ ░██',
+    '░█████████  ░███     ░██    ░██ ░██    ░██ ░██ ░████ ░██  ░████████',
+    '░██         ░██      ░██    ░██ ░██    ░██ ░██  ░██  ░██         ░██',
+    '░██         ░██      ░██   ░███ ░██    ░██ ░██       ░██  ░██   ░██',
+    '░██████████ ░██       ░█████░██  ░███████  ░██       ░██   ░██████',
+    '                            ░██',
+    '                      ░███████',
+)
+_WORDMARK_WIDTH = max(len(line) for line in _WORDMARK)
+_GROUP_ORDER = ('work', 'build', 'env', 'other')
 
 
 def _section_label(section: dict[str, Any]) -> str:
@@ -289,27 +346,65 @@ def _render_scenarios(manifest: dict[str, Any], language: str) -> str:
     return '\n'.join(out).rstrip() + '\n'
 
 
-def render_overview(root: Path, platform: str, lang: str | None = None) -> str:
+def _overview_rows(
+    manifest: dict[str, Any],
+    platform: str,
+    language: str,
+) -> list[tuple[str, str, str]]:
+    rows: list[tuple[str, str, str]] = []
+    for section in _catalog_sections(manifest, platform):
+        label = _section_label(section)
+        about = _as_text(section.get('about')) or _as_text(section.get('title'))
+        if label and about:
+            group = str(section.get('group') or 'other')
+            rows.append((group, label, about))
+    if manifest.get('scenarios'):
+        rows.append(('other', 'scenarios', t('help_scenarios_about', lang=language)))
+    order = {name: index for index, name in enumerate(_GROUP_ORDER)}
+    rows.sort(key=lambda row: order.get(row[0], len(order)))
+    return rows
+
+
+def render_overview(
+    root: Path,
+    platform: str,
+    lang: str | None = None,
+    *,
+    width: int | None = None,
+) -> str:
     """Оглавление: имя раздела и его заголовок, без списка команд."""
     language = lang or resolve_cli_language(project_root=root)
     manifest = _load_manifest(language)
     platform_label = _PLATFORM_LABELS.get(platform, platform)
-    out = [
-        t('help_title', lang=language, platform=platform_label),
-        '=' * (18 + len(platform_label)),
-        '',
-        t('help_open_section', lang=language),
-        t('help_open_all', lang=language),
-        t('help_open_modules', lang=language),
-        '',
-    ]
-    for section in _catalog_sections(manifest, platform):
-        label = _section_label(section)
-        title = _as_text(section.get('title'))
-        if label and title:
-            out.append(f'  {label.ljust(_SECTION_ID_WIDTH)} {title}')
-    if manifest.get('scenarios'):
-        out.append(f'  {"scenarios".ljust(_SECTION_ID_WIDTH)} {t("help_scenarios_heading", lang=language)}')
+    columns = width if width is not None else shutil.get_terminal_size(fallback=(80, 24)).columns
+    title = t('help_title', lang=language, platform=platform_label)
+    out: list[str] = []
+    # Длинный рисунок в узком окне переносится по краю и ломает буквы.
+    # Пустая строка сверху отделяет буквы от приглашения оболочки.
+    if columns >= _WORDMARK_WIDTH:
+        out.append('')
+        out.extend(_WORDMARK)
+        out.append('')
+    out.extend([title, ''])
+    hints = (
+        (t('help_hint_section', lang=language), t('help_hint_section_text', lang=language)),
+        (t('help_hint_all', lang=language), t('help_hint_all_text', lang=language)),
+        (t('help_hint_modules', lang=language), t('help_hint_modules_text', lang=language)),
+    )
+    hint_width = max(len(command) for command, _text in hints) + 2
+    for command, text in hints:
+        out.append(f'  {command.ljust(hint_width)} {text}')
+    out.append('')
+    rows = _overview_rows(manifest, platform, language)
+    column = max((len(label) for _group, label, _title in rows), default=0) + 2
+    current = ''
+    for group, label, section_title in rows:
+        if group != current:
+            if current:
+                out.append('')
+            out.append(t(f'help_group_{group}', lang=language))
+            current = group
+        out.append(f'  {label.ljust(column)} — {section_title}')
     doc = (manifest.get('footer') or {}).get('doc')
     if doc:
         out.append('')
@@ -317,23 +412,32 @@ def render_overview(root: Path, platform: str, lang: str | None = None) -> str:
     return '\n'.join(out).rstrip() + '\n'
 
 
-def render_section(root: Path, platform: str, section_id: str, lang: str | None = None) -> str:
+def render_section(
+    root: Path,
+    platform: str,
+    section_id: str,
+    lang: str | None = None,
+    *,
+    width: int | None = None,
+) -> str:
     language = lang or resolve_cli_language(project_root=root)
     manifest = _load_manifest(language)
     if section_id == 'scenarios':
         return _render_scenarios(manifest, language)
     conf_commands = _parse_conf_commands(root / 'core' / 'deployment' / 'commands.conf')
+    columns = _terminal_columns(width)
     for section in _catalog_sections(manifest, platform):
         if _section_matches(section, section_id):
             block = _render_section_commands(
-                section, conf_commands, validate=True, lang=language,
+                section, conf_commands, validate=True, lang=language, columns=columns,
             )
             return '\n'.join(block).rstrip() + '\n'
     raise SystemExit(t('help_unknown_section', lang=language, name=section_id))
 
 
-def render_modules(root: Path, lang: str | None = None) -> str:
+def render_modules(root: Path, lang: str | None = None, *, width: int | None = None) -> str:
     language = lang or resolve_cli_language(project_root=root)
+    columns = _terminal_columns(width)
     module_confs = _discover_module_confs(root)
     if not module_confs:
         return t('help_modules_empty', lang=language) + '\n'
@@ -361,11 +465,12 @@ def render_modules(root: Path, lang: str | None = None) -> str:
                     count=count,
                     summary=summary,
                 )
-            out.append(_format_command_line(module_name, label))
+            out.append(_format_command_line(module_name, label, columns=columns))
         else:
             out.append(_format_command_line(
                 module_name,
                 t('help_modules_no_yaml', lang=language, count=count),
+                columns=columns,
             ))
 
     out.extend([
@@ -375,8 +480,15 @@ def render_modules(root: Path, lang: str | None = None) -> str:
     return '\n'.join(out) + '\n'
 
 
-def render_module(root: Path, module_name: str, lang: str | None = None) -> str:
+def render_module(
+    root: Path,
+    module_name: str,
+    lang: str | None = None,
+    *,
+    width: int | None = None,
+) -> str:
     language = lang or resolve_cli_language(project_root=root)
+    columns = _terminal_columns(width)
     module_confs = _discover_module_confs(root)
     if module_name not in module_confs:
         names = ', '.join(sorted(module_confs)) or '—'
@@ -436,6 +548,7 @@ def render_module(root: Path, module_name: str, lang: str | None = None) -> str:
             cmd_name,
             cmd_summary,
             invoke=f'ergoms {full_name}',
+            columns=columns,
         ))
         out.append('')
 
