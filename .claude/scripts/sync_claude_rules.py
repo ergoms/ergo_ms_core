@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Собирает .claude/rules/*.md из .cursor/rules/*.mdc.
 
-Источник правды — .cursor/rules. Из каждого правила с globs получается копия
-с полем paths, текст не меняется. Пропускаются:
-- alwaysApply: true — они уже подключены импортами в CLAUDE.md;
-- без globs — в Cursor такие правила подключаются вручную или по описанию;
-- *.local.mdc — личные файлы, они не коммитятся.
+Источник правды — .cursor/rules. Каждое правило превращается в .claude/rules/*.md,
+текст не меняется:
+- с globs — копия с полем paths, грузится при работе с подходящими файлами;
+- с alwaysApply: true — копия без paths, грузится в каждой сессии.
+Пропускаются правила без globs и без alwaysApply (в Cursor их подключают вручную
+или по описанию) и *.local.mdc (личные файлы, они не коммитятся).
+Импорты @...mdc из CLAUDE.md не используются: Claude Code не раскрывает .mdc.
 
 Использование:
     python3 .claude/scripts/sync_claude_rules.py          # записать копии
@@ -46,8 +48,10 @@ def split_frontmatter(text):
 
 def render(meta, body):
     globs = meta.get("globs") or []
-    lines = ["---", "paths:"] + [f"  - {json.dumps(g, ensure_ascii=False)}" for g in globs]
-    lines += ["---", MARK, ""]
+    lines = []
+    if globs:
+        lines = ["---", "paths:"] + [f"  - {json.dumps(g, ensure_ascii=False)}" for g in globs] + ["---"]
+    lines += [MARK, ""]
     # Ссылки на соседние .mdc ведут в .cursor/rules, рядом их в .claude/rules нет.
     body = LINK.sub(r"](../../.cursor/rules/\1)", body.lstrip("\n"))
     return "\n".join(lines) + "\n" + body
@@ -59,7 +63,7 @@ def plan():
         if src.name.endswith(".local.mdc"):
             continue
         meta, body = split_frontmatter(src.read_text(encoding="utf-8").replace("\r\n", "\n"))
-        if meta.get("alwaysApply") or not meta.get("globs"):
+        if not meta["alwaysApply"] and not meta.get("globs"):
             continue
         wanted[DST / f"{src.stem}.md"] = render(meta, body)
     return wanted
