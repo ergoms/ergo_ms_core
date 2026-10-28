@@ -36,7 +36,7 @@ class NpmArgumentTests(unittest.TestCase):
             def log_message(self, *args):
                 return
 
-        with tempfile.TemporaryDirectory() as tmp, ThreadingHTTPServer(('127.0.0.1', 0), Registry) as server:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp, ThreadingHTTPServer(('127.0.0.1', 0), Registry) as server:
             thread = threading.Thread(target=server.serve_forever, daemon=True)
             thread.start()
             try:
@@ -47,6 +47,7 @@ class NpmArgumentTests(unittest.TestCase):
                                'PATH': str(node.parent) + os.pathsep + os.environ.get('PATH', ''),
                                'NO_PROXY': 'localhost,127.0.0.1', 'no_proxy': 'localhost,127.0.0.1',
                                'npm_config_cache': str(folder / 'cache'), 'npm_config_offline': 'false',
+                               'npm_config_fund': 'false', 'npm_config_audit': 'false',
                                'npm_config_userconfig': str(folder / 'user.npmrc'),
                                'npm_config_globalconfig': str(folder / 'global.npmrc')}
                 script = (ROOT / 'core/deployment/scripts/run_npm_spawn.js').as_uri()
@@ -57,10 +58,24 @@ class NpmArgumentTests(unittest.TestCase):
                         f'const result=runNpm({json.dumps(args)},{{stdio:"pipe",encoding:"utf8"}});'
                         'process.stdout.write(result.stdout || "");'
                         'process.stderr.write(result.stderr || "");process.exit(result.status ?? 1)')
-                result = subprocess.run([str(node), '--input-type=module', '-e', code],
-                                        cwd=folder, env=environment, capture_output=True, text=True, timeout=30)
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual(json.loads(result.stdout), ['1.0.0', '1.1.0'])
+                # Под параллельным ergoms ci старт npm занимает десятки секунд.
+                # Таймаут subprocess.run процесс не убивает, и каталог остаётся занят.
+                proc = subprocess.Popen(
+                    [str(node), '--input-type=module', '-e', code],
+                    cwd=folder,
+                    env=environment,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+                try:
+                    stdout, stderr = proc.communicate(timeout=90)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.communicate()
+                    self.fail('npm view не завершился за 90 с')
+                self.assertEqual(proc.returncode, 0, stderr)
+                self.assertEqual(json.loads(stdout), ['1.0.0', '1.1.0'])
             finally:
                 server.shutdown()
                 thread.join(timeout=5)
