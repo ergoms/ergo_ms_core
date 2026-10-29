@@ -52,14 +52,16 @@ class CspPolicyBuilderTests(unittest.TestCase):
 
     def test_no_unsafe_drops_unsafe_keeps_maps(self) -> None:
         policy = build_csp_policy('no_unsafe')
-        self.assertNotIn('unsafe-eval', policy)
+        self.assertNotIn("'unsafe-eval'", policy)
+        self.assertIn("'wasm-unsafe-eval'", policy)
         self.assertNotIn('unsafe-inline', policy)
         self.assertIn('api-maps.yandex.ru', policy)
         self.assertIn("img-src 'self' data: blob: https:", policy)
 
     def test_maximum_stub_tightens_externals(self) -> None:
         policy = build_csp_policy('no_unsafe_plus_externals')
-        self.assertNotIn('unsafe-eval', policy)
+        self.assertNotIn("'unsafe-eval'", policy)
+        self.assertIn("'wasm-unsafe-eval'", policy)
         self.assertNotIn('unsafe-inline', policy)
         self.assertNotIn('blob: https:;', policy)
         self.assertNotIn('api-maps.yandex.ru', policy)
@@ -85,7 +87,8 @@ class CspPolicyBuilderTests(unittest.TestCase):
         block = build_security_headers_nginx('no_unsafe')
         self.assertIn('X-Frame-Options', block)
         self.assertIn('Content-Security-Policy', block)
-        self.assertNotIn('unsafe-eval', block)
+        self.assertNotIn("'unsafe-eval'", block)
+        self.assertIn("'wasm-unsafe-eval'", block)
 
     def test_resolve_merges_profile(self) -> None:
         self.assertEqual(resolve_csp_mode({'ERGO_SECURITY': 'hardened'}), 'no_unsafe')
@@ -222,7 +225,8 @@ class CspNginxRenderTests(unittest.TestCase):
             render_docker_nginx_config(raw_env, template_path=docker_template, output_path=out)
             rendered = out.read_text(encoding='utf-8')
         self.assertIn('Content-Security-Policy', rendered)
-        self.assertNotIn('unsafe-eval', rendered)
+        self.assertNotIn("'unsafe-eval'", rendered)
+        self.assertIn("'wasm-unsafe-eval'", rendered)
         self.assertIn('api-maps.yandex.ru', rendered)
 
 
@@ -257,7 +261,8 @@ class MiddlewareModeSelectionTests(unittest.TestCase):
             middleware = mod.SecurityHeadersMiddleware(get_response)
             out = middleware(MagicMock())
         self.assertEqual(out.headers['Content-Security-Policy'], policy)
-        self.assertNotIn('unsafe-eval', out.headers['Content-Security-Policy'])
+        self.assertNotIn("'unsafe-eval'", out.headers['Content-Security-Policy'])
+        self.assertIn("'wasm-unsafe-eval'", out.headers['Content-Security-Policy'])
 
 
 if __name__ == '__main__':
