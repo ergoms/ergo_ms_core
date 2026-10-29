@@ -2,7 +2,10 @@
 """Собирает .claude/rules/*.md из .cursor/rules/*.mdc.
 
 Источник правды — .cursor/rules. Каждое правило превращается в .claude/rules/*.md,
-текст не меняется:
+текст не меняется. Правила модулей modules/<имя>/.cursor/rules/*.mdc ложатся в
+.claude/rules/modules/<имя>/: Claude Code читает только корневой .claude/rules
+(с подкаталогами), вложенный modules/<имя>/.claude/rules он не видит. Каталог
+.claude/rules/modules/ не коммитится, его пересобирает хук SessionStart.
 - с globs — копия с полем paths, грузится при работе с подходящими файлами;
 - с alwaysApply: true — копия без paths, грузится в каждой сессии.
 Пропускаются правила без globs и без alwaysApply (в Cursor их подключают вручную
@@ -12,9 +15,11 @@
 Использование:
     python3 .claude/scripts/sync_claude_rules.py          # записать копии
     python3 .claude/scripts/sync_claude_rules.py --check  # код 1, если копии устарели
+    python3 .claude/scripts/sync_claude_rules.py --quiet  # для хука: молчит, если всё сошлось
 """
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -22,8 +27,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / ".cursor" / "rules"
 DST = ROOT / ".claude" / "rules"
+MODULES = ROOT / "modules"
+MODULES_DST = DST / "modules"
 MARK = "<!-- Сгенерировано .claude/scripts/sync_claude_rules.py из .cursor/rules. Не редактировать. -->"
-LINK = re.compile(r"\]\(([^)/]+\.mdc)\)")
+LINK = re.compile(r"\]\(([^)\s#]+)(#[^)\s]*)?\)")
 
 
 def split_frontmatter(text):
@@ -46,38 +53,74 @@ def split_frontmatter(text):
     return meta, text[end + 5:]
 
 
-def render(meta, body):
+def relink(body, src, dst):
+    """Относительная ссылка из правила ведёт туда же, куда вела из .mdc."""
+
+    def fix(match):
+        target, anchor = match.group(1), match.group(2) or ""
+        if "://" in target or target.startswith(("mailto:", "/")):
+            return match.group(0)
+        resolved = os.path.normpath(os.path.join(src.parent, target))
+        slash = "/" if target.endswith("/") else ""
+        return f"]({Path(os.path.relpath(resolved, dst.parent)).as_posix()}{slash}{anchor})"
+
+    return LINK.sub(fix, body)
+
+
+def render(meta, body, src, dst):
     globs = meta.get("globs") or []
     lines = []
     if globs:
         lines = ["---", "paths:"] + [f"  - {json.dumps(g, ensure_ascii=False)}" for g in globs] + ["---"]
     lines += [MARK, ""]
-    # Ссылки на соседние .mdc ведут в .cursor/rules, рядом их в .claude/rules нет.
-    body = LINK.sub(r"](../../.cursor/rules/\1)", body.lstrip("\n"))
-    return "\n".join(lines) + "\n" + body
+    return "\n".join(lines) + "\n" + relink(body.lstrip("\n"), src, dst)
+
+
+def sources():
+    """Пары (.mdc, копия): сначала корень, затем каждый checkout-нутый модуль."""
+    for src in sorted(SRC.glob("*.mdc")):
+        yield src, DST / f"{src.stem}.md", None
+    for src in sorted(MODULES.glob("*/.cursor/rules/*.mdc")):
+        module = src.parents[2].name
+        yield src, MODULES_DST / module / f"{src.stem}.md", module
 
 
 def plan():
     wanted = {}
-    for src in sorted(SRC.glob("*.mdc")):
+    for src, dst, module in sources():
         if src.name.endswith(".local.mdc"):
             continue
         meta, body = split_frontmatter(src.read_text(encoding="utf-8").replace("\r\n", "\n"))
+        if module and meta["alwaysApply"]:
+            # alwaysApply в модуле запрещён; если всё же стоит — держим правило в границах модуля.
+            meta["alwaysApply"] = False
+            meta["globs"] = meta.get("globs") or [f"modules/{module}/**"]
         if not meta["alwaysApply"] and not meta.get("globs"):
             continue
-        wanted[DST / f"{src.stem}.md"] = render(meta, body)
+        wanted[dst] = render(meta, body, src, dst)
     return wanted
 
 
 def generated_files():
     if not DST.exists():
         return []
-    return [p for p in DST.glob("*.md") if MARK in p.read_text(encoding="utf-8")]
+    return [p for p in DST.rglob("*.md") if MARK in p.read_text(encoding="utf-8")]
+
+
+def drop_empty_dirs():
+    if not MODULES_DST.exists():
+        return
+    for folder in sorted(MODULES_DST.rglob("*"), reverse=True):
+        if folder.is_dir() and not any(folder.iterdir()):
+            folder.rmdir()
+    if not any(MODULES_DST.iterdir()):
+        MODULES_DST.rmdir()
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--check", action="store_true", help="не писать, только проверить")
+    parser.add_argument("--quiet", action="store_true", help="ничего не печатать, если менять нечего")
     args = parser.parse_args()
 
     wanted = plan()
@@ -95,12 +138,15 @@ def main():
         print(f"Копии актуальны: {len(wanted)} файлов")
         return 0
 
-    DST.mkdir(parents=True, exist_ok=True)
     for p, text in wanted.items():
         if p in stale:
+            p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text(text, encoding="utf-8")
     for p in orphans:
         p.unlink()
+    drop_empty_dirs()
+    if args.quiet and not stale and not orphans:
+        return 0
     print(f"Записано: {len(stale)}, удалено лишних: {len(orphans)}, всего правил: {len(wanted)}")
     return 0
 
