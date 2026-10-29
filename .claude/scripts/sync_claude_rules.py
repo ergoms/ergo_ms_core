@@ -8,8 +8,11 @@
 .claude/rules/modules/ не коммитится, его пересобирает хук SessionStart.
 - с globs — копия с полем paths, грузится при работе с подходящими файлами;
 - с alwaysApply: true — копия без paths, грузится в каждой сессии.
-Пропускаются правила без globs и без alwaysApply (в Cursor их подключают вручную
-или по описанию) и *.local.mdc (личные файлы, они не коммитятся).
+Правила без globs и без alwaysApply Cursor подключает по описанию. Их текст не
+копируется: в .claude/rules/rules-index.md (и modules/rules-index.md для модулей)
+лежит оглавление с описанием и путём, его Claude Code видит в каждой сессии.
+*.local.mdc (личные файлы, не коммитятся) попадают в .claude/rules/local/rules-index.md,
+этот каталог тоже не в git.
 Импорты @...mdc из CLAUDE.md не используются: Claude Code не раскрывает .mdc.
 
 Использование:
@@ -29,6 +32,9 @@ SRC = ROOT / ".cursor" / "rules"
 DST = ROOT / ".claude" / "rules"
 MODULES = ROOT / "modules"
 MODULES_DST = DST / "modules"
+INDEX = DST / "rules-index.md"
+MODULES_INDEX = MODULES_DST / "rules-index.md"
+LOCAL_INDEX = DST / "local" / "rules-index.md"
 MARK = "<!-- Сгенерировано .claude/scripts/sync_claude_rules.py из .cursor/rules. Не редактировать. -->"
 LINK = re.compile(r"\]\(([^)\s#]+)(#[^)\s]*)?\)")
 
@@ -85,19 +91,44 @@ def sources():
         yield src, MODULES_DST / module / f"{src.stem}.md", module
 
 
+INDEX_INTRO = (
+    "Cursor подключает эти правила по описанию, Claude Code сам их не грузит. "
+    "Если задача совпадает с описанием, открой файл через Read до первых действий."
+)
+
+
+def render_index(title, entries, dst):
+    lines = [MARK, "", f"# {title}", "", INDEX_INTRO, ""]
+    for src, description in sorted(entries, key=lambda item: str(item[0])):
+        link = Path(os.path.relpath(src, dst.parent)).as_posix()
+        lines.append(f"- [`{src.relative_to(ROOT).as_posix()}`]({link}) — {description or 'без описания'}")
+    return "\n".join(lines) + "\n"
+
+
 def plan():
     wanted = {}
+    shared, module_only, local = [], [], []
     for src, dst, module in sources():
-        if src.name.endswith(".local.mdc"):
-            continue
         meta, body = split_frontmatter(src.read_text(encoding="utf-8").replace("\r\n", "\n"))
+        description = str(meta.get("description") or "").strip().strip('"').strip("'")
+        if src.name.endswith(".local.mdc"):
+            # Локальные правила с адресами хоста: в оглавление, которое не коммитится, текст не копируем.
+            local.append((src, description))
+            continue
         if module and meta["alwaysApply"]:
             # alwaysApply в модуле запрещён; если всё же стоит — держим правило в границах модуля.
             meta["alwaysApply"] = False
             meta["globs"] = meta.get("globs") or [f"modules/{module}/**"]
         if not meta["alwaysApply"] and not meta.get("globs"):
+            (module_only if module else shared).append((src, description))
             continue
         wanted[dst] = render(meta, body, src, dst)
+    if shared:
+        wanted[INDEX] = render_index("Правила по запросу", shared, INDEX)
+    if module_only:
+        wanted[MODULES_INDEX] = render_index("Правила модулей по запросу", module_only, MODULES_INDEX)
+    if local:
+        wanted[LOCAL_INDEX] = render_index("Локальные правила этого сервера", local, LOCAL_INDEX)
     return wanted
 
 

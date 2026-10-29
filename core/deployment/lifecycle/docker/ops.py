@@ -22,6 +22,7 @@ if str(_NGINX_DIR) not in sys.path:
     sys.path.insert(0, str(_NGINX_DIR))
 
 from cli_locale import t  # noqa: E402
+from project_layout import package_dir  # noqa: E402
 from console_tags import format_console  # noqa: E402
 from env_resolvers import load_merged_env  # noqa: E402
 from ergo_modes import effective_docker_enabled, effective_docker_profile_meilisearch, effective_nginx_enabled, env_bool_key  # noqa: E402
@@ -76,6 +77,12 @@ def find_docker_compose() -> list[str]:
         )
         if result.returncode == 0:
             return ['docker', 'compose']
+    # Портативный бинарник из virtual_env/packages — запасной вариант, если плагина compose в системе нет.
+    portable = package_dir(PROJECT_ROOT, 'docker-compose') / 'docker-compose'
+    if portable.is_file() and os.access(portable, os.X_OK):
+        result = subprocess.run([str(portable), 'version'], capture_output=True, text=True, check=False)
+        if result.returncode == 0:
+            return [str(portable)]
     return []
 
 

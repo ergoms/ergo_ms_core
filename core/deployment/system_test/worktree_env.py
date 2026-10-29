@@ -249,6 +249,10 @@ class HostWorktreeEnvironment(IsolatedEnvironment):
                 self.workspace / 'virtual_env' / 'packages' / 'python',
                 self.tree_root / 'virtual_env' / 'packages' / 'python',
             ),
+            (
+                self.workspace / 'virtual_env' / 'packages' / 'docker-compose',
+                self.tree_root / 'virtual_env' / 'packages' / 'docker-compose',
+            ),
         )
         for source, target in pairs:
             try:

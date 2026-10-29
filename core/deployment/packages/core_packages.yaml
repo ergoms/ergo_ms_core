@@ -124,3 +124,12 @@ packages:
       linux:
         - [chrome/chrome, chrome-linux64/chrome]
         - [chromedriver/chromedriver, chromedriver-linux64/chromedriver]
+
+  docker-compose:
+    kind: custom
+    dest: docker-compose
+    version: "2.29.7"
+    installer: packages/installers/docker_compose.py
+    supports_refresh: true
+    supported_platforms: [linux]
+    marker_linux: docker-compose

@@ -109,3 +109,4 @@ core/client/dist/
 # Копии правил модулей для Claude Code: собирает .claude/scripts/sync_claude_rules.py
 # из modules/<имя>/.cursor/rules при каждом старте сессии; источник живёт в репозитории модуля
 .claude/rules/modules/
+.claude/rules/local/
