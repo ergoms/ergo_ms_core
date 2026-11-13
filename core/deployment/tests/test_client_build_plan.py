@@ -8,6 +8,7 @@ import _bootstrap  # noqa: F401
 
 from lifecycle.client_build_plan import (  # noqa: E402
     is_local_remote_entry,
+    npm_invokes_shell_build,
     parse_client_module_remotes,
     resolve_client_build_plan,
     should_reload_nginx_after_client_build,
@@ -170,6 +171,19 @@ class ClientBuildPlanTests(unittest.TestCase):
             entry.write_text('// remote\n', encoding='utf-8')
             write_client_build_stamp(root, env)
             self.assertTrue(client_build_up_to_date(root, env))
+
+
+class NpmShellBuildTests(unittest.TestCase):
+    def test_run_build_is_shell(self) -> None:
+        self.assertTrue(npm_invokes_shell_build(['run', 'build']))
+        self.assertTrue(npm_invokes_shell_build(['run', 'build', '-w', '@ergo-ms/core-client']))
+        self.assertTrue(npm_invokes_shell_build(['run', '--silent', 'build']))
+
+    def test_other_scripts_are_not_shell(self) -> None:
+        self.assertFalse(npm_invokes_shell_build(['run', 'build:remote']))
+        self.assertFalse(npm_invokes_shell_build(['run', 'dev']))
+        self.assertFalse(npm_invokes_shell_build(['install']))
+        self.assertFalse(npm_invokes_shell_build([]))
 
 
 class NginxReloadAfterClientBuildTests(unittest.TestCase):

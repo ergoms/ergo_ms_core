@@ -6,6 +6,7 @@ import argparse
 import os
 import subprocess
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
@@ -20,6 +21,7 @@ from cli_locale import t  # noqa: E402
 from console_tags import configure_stdio_utf8, format_console  # noqa: E402
 from env_file_loader import load_project_env  # noqa: E402
 from lifecycle.client_build_plan import (  # noqa: E402
+    npm_invokes_shell_build,
     resolve_client_build_plan,
     should_reload_nginx_after_client_build,
 )
@@ -116,6 +118,13 @@ def _prepare_unprivileged_build(project_root: Path) -> None:
     restore_client_build_ownership(project_root)
     if drop_to_project_owner(project_root):
         print(format_console('info', t('client_build_drop_root')))
+
+
+def maybe_reload_nginx_after_npm(project_root: Path, argv: Sequence[str]) -> int:
+    """После ``ergoms npm run build`` подтянуть хеш import map в CSP nginx."""
+    if not npm_invokes_shell_build(argv):
+        return 0
+    return reload_nginx_after_build(project_root, _merged_env(project_root))
 
 
 def reload_nginx_after_build(project_root: Path, environ: dict[str, str]) -> int:

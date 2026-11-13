@@ -17,9 +17,60 @@ _ergoms_export_tool_caches() {
 _ergoms_prepend_nodejs_path() {
   local root="$1"
   local node_bin="$root/virtual_env/packages/nodejs/bin"
+  local npm_bins="$root/virtual_env/npm/node_modules/.bin"
+  local prefix=""
   if [[ -d "$node_bin" ]]; then
-    export PATH="$node_bin:$PATH"
+    prefix="$node_bin"
   fi
+  # Workspace не предок core/client: npm сам не кладёт vite в PATH скрипта.
+  if [[ -d "$npm_bins" ]]; then
+    if [[ -n "$prefix" ]]; then
+      prefix="$prefix:$npm_bins"
+    else
+      prefix="$npm_bins"
+    fi
+  fi
+  if [[ -n "$prefix" ]]; then
+    export PATH="$prefix:$PATH"
+  fi
+}
+
+_ergoms_npm_args_look_like_shell_build() {
+  local saw_run=0
+  local arg
+  for arg in "$@"; do
+    if [[ $saw_run -eq 0 ]]; then
+      if [[ "$arg" == "run" ]]; then
+        saw_run=1
+      fi
+      continue
+    fi
+    case "$arg" in
+      -*) continue ;;
+    esac
+    [[ "$arg" == "build" ]]
+    return
+  done
+  return 1
+}
+
+_ergoms_after_npm_shell_build() {
+  local root="$1"
+  shift
+  if ! _ergoms_npm_args_look_like_shell_build "$@"; then
+    return 0
+  fi
+  local py="$root/virtual_env/python/bin/python"
+  if [[ ! -x "$py" ]]; then
+    return 0
+  fi
+  "$py" -c 'import sys
+from pathlib import Path
+root = Path(sys.argv[1])
+sys.path[:0] = [str(root / "core" / "deployment"), str(root / "core" / "deployment" / "scripts")]
+from client_build import maybe_reload_nginx_after_npm
+raise SystemExit(maybe_reload_nginx_after_npm(root, sys.argv[2:]))
+' "$root" "$@"
 }
 
 _ergoms_npm_bin() {
@@ -150,7 +201,14 @@ execute_command_string() {
         _ergoms_export_tool_caches "$root"
         _ergoms_prepend_nodejs_path "$root"
         # shellcheck disable=SC2086
-        exec "$(_ergoms_npm_bin "$root")" $cmd_args "${user_args[@]}"
+        "$(_ergoms_npm_bin "$root")" $cmd_args "${user_args[@]}"
+        local npm_rc=$?
+        if [[ $npm_rc -ne 0 ]]; then
+          exit "$npm_rc"
+        fi
+        # shellcheck disable=SC2086
+        _ergoms_after_npm_shell_build "$root" $cmd_args "${user_args[@]}"
+        exit $?
         ;;
       shell|linux)
         cd "$root" || exit 1
@@ -470,7 +528,13 @@ invoke_npm_command() {
     return $?
   fi
 
-  exec "$npm_bin" "$@"
+  "$npm_bin" "$@"
+  local npm_rc=$?
+  if [[ $npm_rc -ne 0 ]]; then
+    exit "$npm_rc"
+  fi
+  _ergoms_after_npm_shell_build "$root" "$@"
+  exit $?
 }
 
 export -f _ergoms_export_tool_caches

@@ -110,3 +110,17 @@ def resolve_client_build_plan(
 def should_reload_nginx_after_client_build(environ: Mapping[str, str]) -> bool:
     """После сборки пересобрать сайт-конфиг и reload, если этот хост отдаёт клиент через nginx."""
     return effective_nginx_enabled(environ)
+
+
+def npm_invokes_shell_build(argv: Sequence[str]) -> bool:
+    """``npm run build`` переписывает оболочку. ``build:remote`` и прочие скрипты — нет."""
+    saw_run = False
+    for arg in argv:
+        if not saw_run:
+            if arg == 'run':
+                saw_run = True
+            continue
+        if arg.startswith('-'):
+            continue
+        return arg == 'build'
+    return False

@@ -109,10 +109,51 @@ function Split-CompositeCommand {
 function Add-PortableNodejsToPath {
     param([Parameter(Mandatory = $true)][string]$Root)
     $nodeDir = Join-Path $Root 'virtual_env\packages\nodejs'
+    $npmBins = Join-Path $Root 'virtual_env\npm\node_modules\.bin'
+    if (Test-Path -LiteralPath $npmBins) {
+        $env:PATH = "$npmBins;$env:PATH"
+    }
     if (Test-Path -LiteralPath $nodeDir) {
         $env:PATH = "$nodeDir;$env:PATH"
     }
     return $nodeDir
+}
+
+function Test-NpmShellBuildArgs {
+    param([string[]]$CommandArgs)
+    $sawRun = $false
+    foreach ($arg in $CommandArgs) {
+        if (-not $sawRun) {
+            if ($arg -eq 'run') { $sawRun = $true }
+            continue
+        }
+        if ($arg.StartsWith('-')) { continue }
+        return ($arg -eq 'build')
+    }
+    return $false
+}
+
+function Invoke-NginxReloadAfterNpmBuild {
+    param([string]$Root, [string[]]$CommandArgs)
+    if (-not (Test-NpmShellBuildArgs -CommandArgs $CommandArgs)) {
+        return
+    }
+    $py = Join-Path $Root 'virtual_env\python\Scripts\python.exe'
+    if (-not (Test-Path -LiteralPath $py)) {
+        return
+    }
+    $snippet = @'
+import sys
+from pathlib import Path
+root = Path(sys.argv[1])
+sys.path[:0] = [str(root / "core" / "deployment"), str(root / "core" / "deployment" / "scripts")]
+from client_build import maybe_reload_nginx_after_npm
+raise SystemExit(maybe_reload_nginx_after_npm(root, sys.argv[2:]))
+'@
+    & $py -c $snippet $Root @CommandArgs
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
 }
 
 function Set-ModuleApiProcessRole {
@@ -282,6 +323,10 @@ function Execute-CommandString {
                         $npmCmdLine = "`"$npmBin`" " + ($allArgs -join ' ')
                     }
                     & cmd /c $npmCmdLine
+                    if ($LASTEXITCODE -ne 0) {
+                        exit $LASTEXITCODE
+                    }
+                    Invoke-NginxReloadAfterNpmBuild -Root $ProjectRoot -CommandArgs $allArgs
                 }
                 finally {
                     Pop-Location
@@ -529,6 +574,7 @@ function Invoke-NpmCommand {
         } elseif ($npmExit -ne 0) {
             exit $npmExit
         }
+        Invoke-NginxReloadAfterNpmBuild -Root $Root -CommandArgs $CommandArgs
     }
     finally {
         Pop-Location
