@@ -78,7 +78,9 @@ Docker volume → /app/virtual_env/npm/node_modules
 
 ## Vite и запуск клиента
 
-[`start_client_if_dev.py`](../../core/deployment/scripts/start_client_if_dev.py) / `start_client_if_enabled.py` и [`client_build.py`](../../core/deployment/scripts/client_build.py) запускают Vite через `npm run … -w @ergo-ms/core-client` с `cwd=virtual_env/npm`. В `PATH` обязательно должен быть `virtual_env/npm/node_modules/.bin`: workspace лежит не в предке `core/client`, поэтому npm сам не находит `vite`.
+[`start_client_if_dev.py`](../../core/deployment/scripts/start_client_if_dev.py) / `start_client_if_enabled.py` и [`client_build.py`](../../core/deployment/scripts/client_build.py) запускают Vite через `npm run … -w @ergo-ms/core-client` с `cwd=virtual_env/npm`. В `PATH` обязательно должен быть `virtual_env/npm/node_modules/.bin`: workspace лежит не в предке `core/client`, поэтому npm сам не находит `vite`. `ergoms npm` и префикс `npm:` добавляют этот каталог вместе с portable Node.
+
+`npm run build` (скрипт ровно `build`, не `build:remote`) переписывает оболочку и хеш inline import map. Если хост отдаёт клиент через nginx, после успешной сборки вызывается тот же reload, что у `ergoms client-build`. Иначе CSP остаётся со старым хешем, браузер не применяет import map и страница не уходит со спиннера.
 
 При правках [`vite.config.js`](../../core/client/vite.config.js) сохраняй резолв из `virtual_env/npm/node_modules` и доступ `server.fs.allow` к npm-root.
 
