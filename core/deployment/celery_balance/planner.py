@@ -204,6 +204,21 @@ def _gpu_slots_from_free(
     return sum(math.floor(free / vram_need) for free in free_by_index.values())
 
 
+def _queue_room(
+    spec: TaskFootprint,
+    room: tuple[float, float] | None,
+    hard_max: int,
+    floor: int,
+) -> int:
+    """Сколько задач очереди помещается в бюджет, оставшийся воркеру, по её footprint."""
+    if room is None:
+        return floor
+    ram, cpu = room
+    ram_slots = math.floor(ram / spec.ram_mb) if spec.ram_mb > 0 else hard_max
+    cpu_slots = math.floor(cpu / spec.cpu_units) if spec.cpu_units > 0 else hard_max
+    return max(floor, min(ram_slots, cpu_slots, hard_max))
+
+
 def _finish_plan(
     draft: _WorkerDraft,
     *,
@@ -212,6 +227,7 @@ def _finish_plan(
     pending_sec: float,
     extra_reasons: list[str],
     pause_queues: list[str],
+    host_room: tuple[float, float] | None = None,
 ) -> WorkerPlan:
     reasons = list(draft.reasons)
     reasons.extend(extra_reasons)
@@ -237,8 +253,14 @@ def _finish_plan(
         queue_classes[spec.queue] = spec.task_class
         if spec.queue in paused:
             queue_limits[spec.queue] = 0
+            continue
+        # Очередь без GPU не наследует потолок VRAM соседней очереди того же воркера
+        # и считается по своей заявке, а не по средней по воркеру.
+        if spec.gpu_required:
+            ceiling = concurrency
         else:
-            queue_limits[spec.queue] = max(1, min(concurrency, spec.max_parallel))
+            ceiling = _queue_room(spec, host_room, draft.hard_max, concurrency)
+        queue_limits[spec.queue] = max(1, min(ceiling, spec.max_parallel))
     reserve_light = 0
     non_light_cap = 0
     if mixed and concurrency > 1:
@@ -387,6 +409,7 @@ def plan_all(
                     )
                 gpu_slots = capped
 
+        room = (remaining_ram, remaining_cpu)
         raw = min(ram_slots, cpu_slots, draft.hard_max)
         if draft.gpu_required:
             raw = min(raw, max(gpu_slots, 0))
@@ -412,6 +435,7 @@ def plan_all(
             pending_sec=pending_sec,
             extra_reasons=extra,
             pause_queues=pause_queues,
+            host_room=room,
         )
 
     return [planned[worker.name] for worker in workers]

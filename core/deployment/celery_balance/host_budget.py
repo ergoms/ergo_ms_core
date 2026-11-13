@@ -248,17 +248,31 @@ def sample_budget(
         rule.role_id for rule in module_rules if rule.reserve_host_budget
     }
     reserve_role_ids = RESERVE_ROLES | extra_reserve_roles
-    reserve = round(
-        sum(item.memory_mb for role, item in roles.items() if role in reserve_role_ids)
-        + float(settings.os_reserve_ram_mb),
-        1,
-    )
     celery_mem = roles.get(
         CELERY_WORKER_ROLE,
         RoleTotals(memory_mb=0.0, cpu_percent=0.0, count=0),
     ).memory_mb
-    ram_budget = max(0.0, round(host_ram_total - reserve, 1))
-    cpu_budget = max(0.25, round(cpu_count - settings.reserve_cpu, 2))
+    # Чужие процессы хоста (контейнеры, демоны вне ERGO) тоже едят память.
+    # Celery достаётся то, что остаётся до целевой доли машины.
+    non_celery_used = max(0.0, host_ram_used - celery_mem)
+    # RSS считает общую память (shared_buffers PostgreSQL) в каждом процессе заново.
+    # Сумма по ролям не может быть больше того, что реально занято вне Celery.
+    measured_reserve = sum(
+        item.memory_mb for role, item in roles.items() if role in reserve_role_ids
+    )
+    reserve = round(
+        min(measured_reserve, non_celery_used) + float(settings.os_reserve_ram_mb),
+        1,
+    )
+    target = settings.target_util_pct / 100.0
+    ram_budget = max(
+        0.0,
+        round(min(host_ram_total - reserve, host_ram_total * target - non_celery_used), 1),
+    )
+    cpu_budget = max(
+        0.25,
+        round(min(cpu_count - settings.reserve_cpu, cpu_count * target), 2),
+    )
 
     gpu_on = include_gpu and settings.gpu_enabled
     gpu = probe_gpu(enabled=gpu_on)

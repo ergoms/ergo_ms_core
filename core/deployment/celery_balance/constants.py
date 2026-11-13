@@ -59,6 +59,8 @@ HEAVY_PREFETCH = 1
 DEFAULT_RESERVE_LIGHT = 2
 DEFAULT_QUEUE_NAME = 'default'
 DEFAULT_GPU_UTIL_CAP = 80.0
+# Доля машины, которую Celery может занять вместе со всем остальным на хосте.
+DEFAULT_TARGET_UTIL_PCT = 90.0
 
 CLUSTER_OFF = 'off'
 CLUSTER_ON = 'on'

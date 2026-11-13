@@ -20,6 +20,7 @@ from celery_balance.constants import (
     DEFAULT_CLUSTER,
     DEFAULT_CLUSTER_ROLE,
     DEFAULT_GPU_UTIL_CAP,
+    DEFAULT_TARGET_UTIL_PCT,
     DEFAULT_QUARANTINE_TTL_SEC,
     DEFAULT_HYSTERESIS_RATIO,
     DEFAULT_MIN_CONCURRENCY,
@@ -85,6 +86,7 @@ class BalanceSettings:
     egress_url: str = ''
     auto_placement: str = DEFAULT_AUTO_PLACEMENT
     quarantine_ttl_sec: int = DEFAULT_QUARANTINE_TTL_SEC
+    target_util_pct: float = DEFAULT_TARGET_UTIL_PCT
 
     @property
     def apply_overlay(self) -> bool:
@@ -209,4 +211,14 @@ def load_settings(project_root: Path) -> BalanceSettings:
         egress_url=_pick(environ, 'CELERY_CLUSTER_EGRESS_URL'),
         auto_placement=auto_placement,
         quarantine_ttl_sec=quarantine_ttl,
+        target_util_pct=max(
+            10.0,
+            min(
+                100.0,
+                _as_float(
+                    _pick(environ, 'CELERY_BALANCE_TARGET_UTIL'),
+                    DEFAULT_TARGET_UTIL_PCT,
+                ),
+            ),
+        ),
     )

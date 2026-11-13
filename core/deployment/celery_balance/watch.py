@@ -11,6 +11,7 @@ from console_tags import format_console
 
 from celery_balance.apply import apply_plans, should_skip_change
 from celery_balance.constants import MODE_AUTO, MODE_RECOMMEND, ROLE_MANAGER
+from celery_balance.overlay import decision_drifted
 from celery_balance.report import print_report
 from celery_balance.service import collect_snapshot, persist_snapshot, previous_concurrency
 
@@ -70,7 +71,12 @@ def _watch_once(
         not dry_run
         and snapshot.settings.mode in {MODE_AUTO, MODE_RECOMMEND}
     )
-    if apply_overlay and not skip_all:
+    limits_drifted = decision_drifted(
+        project_root,
+        snapshot.plans,
+        snapshot.allowed_queues,
+    )
+    if apply_overlay and (not skip_all or limits_drifted):
         persist_snapshot(project_root, snapshot)
     elif apply_overlay and snapshot.settings.mode == MODE_RECOMMEND:
         persist_snapshot(project_root, snapshot)

@@ -27,20 +27,8 @@ def decision_path(project_root: Path) -> Path:
     return cache_celery_balance_dir(project_root) / DECISION_FILENAME
 
 
-def write_decision(
-    project_root: Path,
-    *,
-    settings: BalanceSettings,
-    budget: dict[str, Any],
-    queues: dict[str, Any],
-    forecast: dict[str, Any],
-    workers: list[WorkerPlan],
-    yaml_workers: dict[str, Any],
-    allowed_queues: list[str] | None = None,
-    node_id: str | None = None,
-) -> Path:
-    path = decision_path(project_root)
-    ensure_dir(path.parent)
+def merge_worker_limits(workers: list[WorkerPlan]) -> dict[str, Any]:
+    """Общие поля overlay из планов воркеров: их читает воркер без своего плана."""
     queue_limits: dict[str, int] = {}
     queue_classes: dict[str, str] = {}
     pause_queues: list[str] = []
@@ -56,6 +44,52 @@ def write_decision(
             queue_limits[queue_name] = limit if prev is None else min(prev, limit)
         for queue_name, task_class in item.queue_classes.items():
             queue_classes[str(queue_name)] = str(task_class)
+    return {
+        'queue_limits': queue_limits,
+        'queue_classes': queue_classes,
+        'reserve_light': reserve_light,
+        'non_light_cap': min(non_light_caps) if non_light_caps else 0,
+        'pause_queues': sorted(set(pause_queues)),
+    }
+
+
+def decision_drifted(
+    project_root: Path,
+    workers: list[WorkerPlan],
+    allowed_queues: list[str] | None,
+) -> bool:
+    """Лимиты, паузы или разрешённые очереди разошлись с decision.json.
+
+    Файл — запасной план при сбое Redis. Если писать его только при смене
+    concurrency, воркер после сбоя получит лимиты недельной давности.
+    """
+    data = load_decision(project_root)
+    if not data:
+        return True
+    merged = merge_worker_limits(workers)
+    for key in ('queue_limits', 'pause_queues', 'non_light_cap'):
+        if data.get(key) != merged[key]:
+            return True
+    if allowed_queues is not None and data.get('allowed_queues') != list(allowed_queues):
+        return True
+    return False
+
+
+def write_decision(
+    project_root: Path,
+    *,
+    settings: BalanceSettings,
+    budget: dict[str, Any],
+    queues: dict[str, Any],
+    forecast: dict[str, Any],
+    workers: list[WorkerPlan],
+    yaml_workers: dict[str, Any],
+    allowed_queues: list[str] | None = None,
+    node_id: str | None = None,
+) -> Path:
+    path = decision_path(project_root)
+    ensure_dir(path.parent)
+    merged = merge_worker_limits(workers)
     payload = {
         'version': 1,
         'generated_at': datetime.now(timezone.utc).isoformat(),
@@ -65,11 +99,7 @@ def write_decision(
         'forecast': forecast,
         'yaml': yaml_workers,
         'plans': {item.name: item.to_dict() for item in workers},
-        'queue_limits': queue_limits,
-        'queue_classes': queue_classes,
-        'reserve_light': reserve_light,
-        'non_light_cap': min(non_light_caps) if non_light_caps else 0,
-        'pause_queues': sorted(set(pause_queues)),
+        **merged,
     }
     if node_id:
         payload['node_id'] = node_id
@@ -168,3 +198,22 @@ def worker_override(
     if not data:
         return None
     return _plans_override(data.get('plans'), worker_name)
+
+
+def queue_pool_ceiling(project_root: Path, queues: list[str], floor: int | None = None) -> int | None:
+    """Пул threads-воркера модуля: сумма max_parallel его очередей, не ниже floor.
+
+    План общего воркера `all` урезан потолком VRAM и сюда не подходит. Лишний поток
+    ничего не стоит: живое число задач очереди режет семафор по плану балансировщика.
+    """
+    from celery_balance.footprint_loader import load_footprints, resolve_footprint
+    from celery_balance.settings import load_settings
+
+    settings = load_settings(project_root)
+    if settings.mode != MODE_AUTO or not queues:
+        return floor
+    catalog = load_footprints(str(project_root))
+    ceiling = sum(max(1, resolve_footprint(name, catalog).max_parallel) for name in queues)
+    if settings.max_concurrency:
+        ceiling = min(ceiling, settings.max_concurrency)
+    return max(ceiling, floor or 0) or None
