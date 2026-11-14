@@ -36,6 +36,7 @@ alwaysApply: false
 | `core.person.find_by_users` | op | `{user_public_id: payload}` по `user_public_ids` без создания карточек | ядро |
 | `core.person.create_unlinked` | op | Карточка без учётки (`last_name`/`first_name`/`middle_name` или `person_name`, `birth_date`). Ответ `{status, person}` или `{status: 'error', error}` | ядро |
 | `core.person.find_namesakes` | op | Кандидаты-однофамильцы по ФИО: фамилия и имя совпадают, инициал отчества — если есть с обеих сторон | ядро |
+| `core.person.search` | op | Поиск по строке `query`: карточки без учётки по ФИО и учётки через поиск пользователей; у учётки есть `email`, у учётки без карточки пустой `public_id` | ядро |
 | `core.person.update` | op | Правка ФИО и даты рождения карточки без учётки (`actor_user_public_id`). Карточку с учёткой правят через учётку | ядро |
 | `core.person.link` / `core.person.unlink` | op | Явная привязка учётки и отвязка, только глобальный админ. При расхождении ФИО или даты ответ `{status: 'conflict', conflicts}`, повтор с `names_from` / `birth_date_from` = `person` или `account` | ядро |
 | `core.person.merge` | op | Слияние двух карточек (`survivor_public_id`, `loser_public_id`), только глобальный админ. Обе с учёткой — отказ | ядро |

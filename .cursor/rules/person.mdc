@@ -29,6 +29,7 @@ alwaysApply: false
 - В модуле храни `person_public_id` (UUID), не FK на `Person` и не FK на `AUTH_USER_MODEL`.
 - Списки разрешай пакетно — `CORE_PERSON_RESOLVE_MANY` и `CORE_PERSON_FIND_BY_USERS`, не по одному вызову на строку.
 - Новый человек без учётки — сначала `CORE_PERSON_FIND_NAMESAKES`, потом `CORE_PERSON_CREATE_UNLINKED`.
+- Выбор человека по строке — `CORE_PERSON_SEARCH` (`core/api/src/core/persons/search.py`), не свой фильтр по `Person` и `User`.
 - На слияние карточек подпишись (`CORE_PERSON_MERGED`) и перевесь свои ссылки сам.
 - Кэш ФИО и права, зависящие от учётки, обновляй по `CORE_PERSON_LINKED` и `CORE_PERSON_UNLINKED`. Привязку учётки к карточке делает только ядро и только явно, не по совпадению ФИО или почты.
 - Право правки ФИО — `CORE_PERSON_CAN_EDIT`. Своё правило доступа модуль регистрирует в группе `CORE_PERSON_EDIT_POLICY`.
