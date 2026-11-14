@@ -186,6 +186,11 @@ def cache_system_test_dir(root: Path) -> Path:
     return cache_tmp_dir(root) / 'system-test'
 
 
+def cache_client_dir(root: Path) -> Path:
+    """Кэш скриптов сборки клиента (core/client/scripts), например обхода иконок."""
+    return cache_dir(root) / 'client'
+
+
 def cache_playwright_dir(root: Path) -> Path:
     """Кэш браузеров Playwright для системных e2e."""
     return cache_dir(root) / 'playwright'
