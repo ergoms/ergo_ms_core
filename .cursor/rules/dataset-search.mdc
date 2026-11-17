@@ -21,6 +21,12 @@ alwaysApply: false
 
 Общие диски через поисковик: `site:disk.yandex.ru`, `site:drive.google.com`, `site:cloud.mail.ru`, плюс `filetype:csv` или parquet.
 
+Государственные открытые данные: паспорт набора по стандарту `opendata.gosmonitor.ru` перечисляет ежедневные версии файла в тегах `source` и `created`. Начинай с паспорта, не с поисковика. Если `https` рвётся, проверь тот же адрес по `http`.
+
+Mendeley Data ищи через `https://data.mendeley.com/api/research-data/search?query=<слова>`. Параметр `search=` фильтр не применяет и отдаёт весь каталог. Файлы набора — `public-api/datasets/<id>`, скачивание — `public-files/datasets/<id>/files/<file_id>/file_downloaded`.
+
+Сортируй выдачу Hugging Face по `lastModified`: перезалив чужого набора под новым автором виден по совпадению размера файла и колонок.
+
 Учёба: название курса плюс предмет. Яндекс Практикум, karpov.courses, Stepik, ВШЭ, МФТИ.
 
 Статьи как вход к файлу: КиберЛенинка, eLibrary, Google Scholar. Если таблицы в статье нет, это повод написать авторам. Повторный краул статью не заменяет. Диссертации и ВКР: репозитории ВШЭ, СПбГУ, УрФУ.
