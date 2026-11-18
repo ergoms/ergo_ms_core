@@ -20,11 +20,13 @@ def main(argv: list[str] | None = None) -> int:
         Path('node'),
     ]
     node = next((p for p in node_candidates if p == Path('node') or p.is_file()), Path('node'))
-    # Сначала globs под standalone
-    gen = root / 'core' / 'client' / 'scripts' / 'generate-module-globs.js'
-    rc = subprocess.call([str(node), str(gen)], cwd=str(root), env=env)
-    if rc != 0:
-        return rc
+    # Сначала globs под standalone и карты Lucide: vite build здесь идёт мимо npm prebuild,
+    # а сгенерированные файлы иконок не хранятся в git.
+    scripts_dir = root / 'core' / 'client' / 'scripts'
+    for gen_name in ('generate-module-globs.js', 'generate-lucide-icon-map.js'):
+        rc = subprocess.call([str(node), str(scripts_dir / gen_name)], cwd=str(root), env=env)
+        if rc != 0:
+            return rc
     cmd = [str(node), str(script), *args]
     return subprocess.call(cmd, cwd=str(root), env=env)
 

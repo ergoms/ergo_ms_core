@@ -103,6 +103,9 @@ __pycache__/
 # Генерируется перед dev/build (scripts/generate-module-globs.js)
 core/client/src/modules/core/sharedGlobs.generated.js
 core/client/src/js/lucideIconFiles.generated.js
+core/client/src/js/lucideCoreIcons.generated.js
+core/client/src/js/lucideMenuIcons.generated.js
+core/client/src/js/lucideMenuIconFiles.generated.json
 # Генерируется unplugin-auto-import при dev/build (vite.config.js)
 core/client/src/auto-imports.d.ts
 core/client/dist/
