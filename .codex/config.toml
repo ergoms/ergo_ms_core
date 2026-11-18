@@ -1,0 +1,2 @@
+# Codex ищет резервное имя в корне проекта. Текст инструкций лежит в .codex/CODEX.md.
+project_doc_fallback_filenames = [".codex-project-instructions"]

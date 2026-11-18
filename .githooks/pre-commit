@@ -1,4 +1,6 @@
 #!/bin/sh
-# Не даёт закоммитить устаревшие копии .claude/rules из .cursor/rules.
+# Проверяет, что копии правил Cursor для Claude Code и Codex актуальны.
 # Включение: git config core.hooksPath .githooks
-python3 "$(git rev-parse --show-toplevel)/.claude/scripts/sync_claude_rules.py" --check || exit 1
+root=$(git rev-parse --show-toplevel) || exit 1
+python3 "$root/.claude/scripts/sync_claude_rules.py" --check || exit 1
+python3 -B "$root/.codex/scripts/sync_codex_rules.py" --check

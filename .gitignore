@@ -73,6 +73,8 @@ __pycache__/
 
 # npm workspace: манифесты в virtual_env/npm/, пакеты — только node_modules
 /virtual_env/npm/node_modules
+# Кэш Vite из локальных проверок клиента
+/virtual_env/node_modules/
 # legacy: старый корневой node_modules до переноса в virtual_env/npm
 /node_modules
 
@@ -119,3 +121,7 @@ core/client/dist/
 .claude/rules/local/
 # MCP для Claude Code: абсолютные пути этой машины, собирает .cursor/mcp_sync.py claude
 .mcp.json
+# Codex собирает копии правил и оглавление при старте сессии
+/.codex/rules/
+# Локальная рабочая память Codex для этого проекта
+/.codex/working-memory.md

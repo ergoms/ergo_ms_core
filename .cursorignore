@@ -12,5 +12,5 @@
 *.heif-srgb
 *.heif-srgb-alpha
 
-databases.yaml
-.env
+#databases.yaml
+#.env

@@ -1,0 +1,45 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-superproject-working-tree)\" && { [ -n \"$root\" ] || root=\"$(git rev-parse --show-toplevel)\"; } && python3 -B \"$root/.codex/scripts/sync_codex_rules.py\" --session-start",
+            "timeout": 30,
+            "statusMessage": "Синхронизирую правила Codex",
+            "additionalContextLimit": 2000
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-superproject-working-tree)\" && { [ -n \"$root\" ] || root=\"$(git rev-parse --show-toplevel)\"; } && python3 -B \"$root/.codex/scripts/load_glob_rules.py\"",
+            "timeout": 10,
+            "additionalContextLimit": 16000,
+            "statusMessage": "Подбираю правила по путям"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "root=\"$(git rev-parse --show-superproject-working-tree)\" && { [ -n \"$root\" ] || root=\"$(git rev-parse --show-toplevel)\"; } && python3 -B \"$root/.codex/scripts/load_glob_rules.py\"",
+            "timeout": 10,
+            "additionalContextLimit": 16000,
+            "statusMessage": "Подбираю правила по путям"
+          }
+        ],
+        "matcher": "^(Bash|apply_patch)$"
+      }
+    ]
+  }
+}
