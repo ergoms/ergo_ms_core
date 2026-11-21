@@ -30,5 +30,6 @@ import RemovableTags from '@/components/RemovableTags.vue'
 | `items` | уникальные строки; текст метки и ключ списка — сама строка |
 | `disabled` | крестик не нажимается |
 | `removeLabel` | `aria-label` кнопки снятия |
+| `accent` | метки залиты акцентным цветом, текст и крестик контрастные |
 
 Событие `remove` отдаёт снятую строку.
