@@ -16,6 +16,7 @@ alwaysApply: false
 | `audit.scope_dimensions` | group | Измерения журнала: `{key, label, resolve(request), filter_param?, indexed?, read_guard?}`; `read_guard=True` ограничивает чтение не-админам | модуль-владелец scope (ключи измерений — домен модуля) |
 | `audit.can_read` | event | Право читать аудит в scope-контексте (`scope=dict` из read_guard измерений) | модуль-владелец scope |
 | `audit.record` | event | Запись события | ядро |
+| `audit.list_events` | op | События одного модуля-источника для его экрана: `source_module`, `entity_types?`, `actions?`, `with_actor?` (без записей фоновых задач), `limit` (до 200), `offset` → `{count, results[]}` без IP и meta; право проверяет вызывающий модуль | ядро |
 | `notifications.event_definitions` | group | Каталог уведомлений | модули |
 | `notifications.email_context` | group | Контекст письма | модули |
 | `notifications.email_templates` | group | Спека писем модуля: `get_spec(event_key)` / `MODULE_DEFAULT` | модули |

@@ -142,7 +142,9 @@ bridge.provide_many(AUDIT_SCOPE_DIMENSIONS_GROUP, 'project', {
   но и сам не клади (`security.mdc`).
 - Класть в `entity.ref` числовой pk БД — только `public_id` / UUID / opaque-ссылку.
 - Свой UI журнала в модуле. Нужен встроенный виджет «история объекта» — фильтруй
-  центральный API по `entity_type` + `entity_ref`, не копируй страницу.
+  центральный API по `entity_type` + `entity_ref`, не копируй страницу. Лента своих
+  действий на экране модуля читается операцией моста `audit.list_events`
+  (`source_module` своего модуля), а не своей таблицей; право чтения проверяет модуль.
 - Логировать в аудит шум (каждый GET, служебные модели) — только значимые действия.
 - Писать отмену отдельным доменным действием вместо `undo.performed` и дублировать её на вкладке «Действия пользователей».
 
@@ -151,7 +153,7 @@ bridge.provide_many(AUDIT_SCOPE_DIMENSIONS_GROUP, 'project', {
 | Слой | Файл |
 |---|---|
 | Модель, сервис, redaction | `core/api/src/core/audit/` |
-| Операция моста `audit.record` | `core/api/src/core/audit/integrations.py` |
+| Операции моста `audit.record`, `audit.list_events` | `core/api/src/core/audit/integrations.py` |
 | Автоаудит CRUD | `core/api/src/core/audit/mixin.py` → `AuditedModelMixin` |
 | Каталог действий | группа моста `audit.action_definitions` |
 | Измерения (scope) | `core/api/src/core/audit/dimensions.py`, группа `audit.scope_dimensions` |
