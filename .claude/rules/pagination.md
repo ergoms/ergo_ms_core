@@ -1,7 +1,8 @@
 ---
 paths:
-  - "**/*.vue"
-  - "**/*.js"
+  - "**/Pagination*.vue"
+  - "**/DataTable.vue"
+  - "**/useRouteQueryState.js"
 ---
 <!-- Сгенерировано .claude/scripts/sync_claude_rules.py из .cursor/rules. Не редактировать. -->
 

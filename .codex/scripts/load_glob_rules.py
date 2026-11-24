@@ -11,7 +11,7 @@ from pathlib import Path
 
 from sync_codex_rules import GLOBS, ROOT, RULES, plan
 
-PATH_TOKEN = re.compile(r"""[`"']([^`"'\r\n]+)[`"']|([\w./~@+-]+)""")
+PATH_TOKEN = re.compile(r"""[`"']([^`"'\r\n]+)[`"']|([\w./~@+*-]+)""")
 PATCH_PATH = re.compile(r"^\*\*\* (?:Add File|Update File|Delete File|Move to): (.+)$", re.M)
 GLOB_TOKEN = re.compile(r"\*\*/|\*\*|\*|\?|.")
 GLOB_REGEX = {"**/": "(?:.*/)?", "**": ".*", "*": "[^/]*", "?": "[^/]"}
@@ -47,7 +47,7 @@ def referenced_paths(event):
             absolute = (base / candidate).resolve()
             if not absolute.is_relative_to(ROOT):
                 continue
-            if absolute.is_file() or ((is_patch or candidate.suffix) and absolute.parent.is_dir()):
+            if absolute.is_file() or (is_patch and absolute.parent.is_dir()):
                 yield absolute.relative_to(ROOT).as_posix()
                 break
 

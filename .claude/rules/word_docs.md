@@ -1,8 +1,10 @@
 ---
 paths:
-  - "**/*.py"
-  - "**/*.js"
-  - "**/*.vue"
+  - "**/*.docx"
+  - "**/word.py"
+  - "**/word_*.py"
+  - "**/*_docx.py"
+  - "modules/*/api/summary_report.py"
 ---
 <!-- Сгенерировано .claude/scripts/sync_claude_rules.py из .cursor/rules. Не редактировать. -->
 

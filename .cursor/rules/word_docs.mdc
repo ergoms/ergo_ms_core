@@ -1,9 +1,11 @@
 ---
-description: Word-документы — метрические единицы (мм, см, pt), не дюймы
+description: Создание и изменение Word-документов и экспорта в DOCX — метрические единицы (мм, см, pt), не дюймы
 globs:
-  - "**/*.py"
-  - "**/*.js"
-  - "**/*.vue"
+  - "**/*.docx"
+  - "**/word.py"
+  - "**/word_*.py"
+  - "**/*_docx.py"
+  - "modules/*/api/summary_report.py"
 alwaysApply: false
 ---
 # Word-документы
