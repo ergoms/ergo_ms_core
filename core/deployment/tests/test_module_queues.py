@@ -16,6 +16,7 @@ from src.core.utils.celery.module_queues import (  # noqa: E402
     queues_for_module,
     read_dedicated_queues,
     read_module_workers,
+    supplement_declared_queues,
 )
 
 
@@ -44,6 +45,27 @@ class ModuleQueuesTests(unittest.TestCase):
             queues_for_module('demo_mod', routes=routes, module_dir=missing),
             ['demo_mod', 'source_q'],
         )
+
+    def test_supplement_keeps_literal_queue_of_a_known_module(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            known = root / 'demo_mod'
+            known.mkdir()
+            (known / 'celery_config.py').write_text(
+                "EXTRA = {'queue': 'demo_mod_xml'}\n",
+                encoding='utf-8',
+            )
+            other = root / 'other_mod'
+            other.mkdir()
+            (other / 'celery_config.py').write_text(
+                "ONLY = {'queue': 'other_only'}\n"
+                "SHARED = {'queue': 'default'}\n",
+                encoding='utf-8',
+            )
+            extra = supplement_declared_queues(['demo_mod', 'default'], root)
+            self.assertEqual(extra, {'demo_mod_xml'})
 
     def test_reads_nested_celery_config_when_routes_empty(self) -> None:
         import tempfile
