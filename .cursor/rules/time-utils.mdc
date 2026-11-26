@@ -4,7 +4,7 @@ alwaysApply: false
 ---
 # Даты и время на клиенте
 
-Файл: `core/client/src/js/utils/timeUtils.js`.
+Файл: `core/client/src/js/utils/timeUtils.js`. Часы и «сегодня» — пояс `TIME_ZONE` из `.env`, не пояс браузера.
 
 ```javascript
 import { getRelativeTime, formatDateTime, formatChatListTime } from '@/js/utils/timeUtils.js'
