@@ -29,7 +29,7 @@ import FileCard from '@/components/FileCard.vue'
 | Prop | Когда |
 |------|-------|
 | `fileName` / `fileUrl` | имя; из URL, если имя пусто |
-| `fileType` | иконка по типу (`docx`; иначе Lucide `FileText`) |
+| `fileType` | иконка по типу (`docx`, `xlsx`; иначе Lucide `FileText`) |
 | `icon` | явный URL иконки |
 | `meta` | готовая строка метаданных (иначе author / size / date) |
 | `authorName` / `sizeBytes` / `uploadedAt` | сборка meta, если `meta` пуст |

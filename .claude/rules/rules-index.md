@@ -19,7 +19,7 @@ Cursor подключает эти правила по описанию, Claude 
 - [`.cursor/rules/diagnose-before-code.mdc`](../../.cursor/rules/diagnose-before-code.mdc) — Пустой экран, старый dist, nginx и CSP — сначала ergoms client-build и .env, потом правка кода
 - [`.cursor/rules/django.mdc`](../../.cursor/rules/django.mdc) — Django и DRF в ERGO MS — PyPI-пакеты, ErgoUser (AbstractUser), admin отключён
 - [`.cursor/rules/docker.mdc`](../../.cursor/rules/docker.mdc) — Docker Compose ERGO MS — ergoms docker-*, DOCKER_*, compose profiles; при правках запуска/развёртывания учитывать Docker
-- [`.cursor/rules/document-viewer.mdc`](../../.cursor/rules/document-viewer.mdc) — UI ядра — Просмотр PDF и DOCX — DocumentViewer
+- [`.cursor/rules/document-viewer.mdc`](../../.cursor/rules/document-viewer.mdc) — UI ядра — Просмотр PDF, DOCX и XLSX — DocumentViewer
 - [`.cursor/rules/drop-down.mdc`](../../.cursor/rules/drop-down.mdc) — UI ядра — Меню действий — DropDown
 - [`.cursor/rules/drop-zone.mdc`](../../.cursor/rules/drop-zone.mdc) — UI ядра — Зона файлов — DropZone
 - [`.cursor/rules/ergoms-commands.mdc`](../../.cursor/rules/ergoms-commands.mdc) — Техническая справка ergoms — commands.conf, help.manifest.yaml, help modules/module, префиксы api/npm
