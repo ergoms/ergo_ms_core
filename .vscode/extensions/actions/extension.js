@@ -354,7 +354,7 @@ function loadActions(root, python) {
     timer = setTimeout(() => {
       child.kill();
       log('check timed out');
-      finish([]);
+      finish(null);
     }, CHECK_TIMEOUT_MS);
     child.stdout.on('data', (chunk) => {
       stdout += chunk.toString();
@@ -364,7 +364,7 @@ function loadActions(root, python) {
     });
     child.on('error', (error) => {
       log(String(error));
-      finish([]);
+      finish(null);
     });
     child.on('close', () => {
       if (stderr.trim()) {
@@ -372,10 +372,10 @@ function loadActions(root, python) {
       }
       try {
         const payload = JSON.parse(stdout.trim());
-        finish(Array.isArray(payload.actions) ? payload.actions : []);
+        finish(Array.isArray(payload.actions) ? payload.actions : null);
       } catch (error) {
         log(stdout.trim() || String(error));
-        finish([]);
+        finish(null);
       }
     });
   });
@@ -415,12 +415,25 @@ async function present(root, actions) {
   await offerRemaining(root, pending);
 }
 
-async function check() {
+function loadWithProgress(root, python) {
+  return vscode.window.withProgress(
+    { location: vscode.ProgressLocation.Notification, title: t('Checking required actions…') },
+    () => loadActions(root, python),
+  );
+}
+
+async function check(manual) {
   if (checking) {
+    if (manual) {
+      vscode.window.showInformationMessage(t('The check is already running.'));
+    }
     return;
   }
   const root = workspaceRoot();
   if (!root) {
+    if (manual) {
+      vscode.window.showWarningMessage(t('Open the ERGO MS project folder to check required actions.'));
+    }
     return;
   }
   checking = true;
@@ -430,8 +443,25 @@ async function check() {
       await present(root, [{ id: 'python-env', commands: ['ergoms install-python'] }]);
       return;
     }
-    const actions = await loadActions(root, python);
-    await present(root, actions);
+    const actions = manual ? await loadWithProgress(root, python) : await loadActions(root, python);
+    if (actions === null) {
+      if (manual) {
+        const details = t('Details');
+        const choice = await vscode.window.showWarningMessage(t('Could not check required actions.'), details);
+        if (choice === details && output) {
+          output.show(true);
+        }
+      }
+      return;
+    }
+    const pending = actions.filter((action) => actionCommands(action).length);
+    if (!pending.length) {
+      if (manual) {
+        vscode.window.showInformationMessage(t('No actions needed.'));
+      }
+      return;
+    }
+    await present(root, pending);
   } finally {
     checking = false;
   }
@@ -442,10 +472,10 @@ function activate(context) {
   context.subscriptions.push(
     vscode.commands.registerCommand('ergo-ms-actions.check', () => {
       dismissed.clear();
-      return check();
+      return check(true);
     }),
   );
-  return check();
+  return check(false);
 }
 
 function deactivate() {}

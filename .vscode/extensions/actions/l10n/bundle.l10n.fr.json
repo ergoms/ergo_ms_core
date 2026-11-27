@@ -8,5 +8,11 @@
   "Run": "Exécuter",
   "Later": "Plus tard",
   "Review": "Examiner",
-  "Required actions": "Actions requises"
+  "Required actions": "Actions requises",
+  "Checking required actions…": "Vérification des actions nécessaires…",
+  "No actions needed.": "Aucune action nécessaire.",
+  "Could not check required actions.": "Impossible de vérifier les actions nécessaires.",
+  "Details": "Détails",
+  "The check is already running.": "La vérification est déjà en cours.",
+  "Open the ERGO MS project folder to check required actions.": "Ouvrez le dossier du projet ERGO MS pour vérifier les actions nécessaires."
 }
