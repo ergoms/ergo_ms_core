@@ -1,0 +1,18 @@
+{
+  "Python environment is not installed.": "L'environnement Python n'est pas installé.",
+  "Python packages do not match the lock file.": "Les paquets Python ne correspondent pas au fichier lock.",
+  "npm packages do not match the manifests.": "Les paquets npm ne correspondent pas aux manifestes.",
+  "{0} migrations are not applied.": "Migrations non appliquées : {0}.",
+  "Commits are not pulled: {0}.": "Commits non récupérés : {0}.",
+  "{0} actions need attention.": "Actions nécessaires : {0}.",
+  "Run": "Exécuter",
+  "Later": "Plus tard",
+  "Review": "Examiner",
+  "Required actions": "Actions requises",
+  "Checking required actions…": "Vérification des actions nécessaires…",
+  "No actions needed.": "Aucune action nécessaire.",
+  "Could not check required actions.": "Impossible de vérifier les actions nécessaires.",
+  "Details": "Détails",
+  "The check is already running.": "La vérification est déjà en cours.",
+  "Open the ERGO MS project folder to check required actions.": "Ouvrez le dossier du projet ERGO MS pour vérifier les actions nécessaires."
+}

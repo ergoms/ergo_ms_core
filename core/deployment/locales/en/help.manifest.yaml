@@ -550,6 +550,8 @@ sections:
   commands:
   - name: install-extensions
     summary: Install extensions from the project list
+  - name: ide-actions
+    summary: JSON of IDE actions — unapplied migrations, packages, and commits not pulled
   - name: update-vsix
     summary: Update VSIX extensions
   - name: uninstall-extensions
@@ -562,6 +564,14 @@ sections:
     summary: Update core submodules and switch to dev
   - name: update-module-submodules
     summary: Update module submodules from .gitmodules
+- id: forks
+  title: Forks
+  about: update a fork without merge commits
+  note: 'origin is your fork and upstream is the source repository. Or origin is the source repository and the fork remote is your fork. The command does not push to the source repository. Uncommitted edits are stashed and restored.'
+  commands:
+  - name: sync-forks
+    invoke: ergoms sync-forks [--dry-run] [--no-push] [--branch NAME]
+    summary: Replay fork branches onto the fresh source repository and push them to the fork without merge commits
 - id: proxy
   title: Proxies
   about: Django, Poetry, npm, and Media API calls

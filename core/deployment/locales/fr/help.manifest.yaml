@@ -551,6 +551,8 @@ sections:
   commands:
   - name: install-extensions
     summary: Installer les extensions de la liste du projet
+  - name: ide-actions
+    summary: JSON des actions IDE — migrations non appliquées, paquets et commits non récupérés
   - name: update-vsix
     summary: Mettre à jour les extensions VSIX
   - name: uninstall-extensions
@@ -563,6 +565,14 @@ sections:
     summary: Mettre à jour les sous-modules du noyau et basculer sur dev
   - name: update-module-submodules
     summary: Mettre à jour les sous-modules des modules depuis .gitmodules
+- id: forks
+  title: Forks
+  about: mettre à jour un fork sans commits de fusion
+  note: 'origin est votre fork et upstream le dépôt d''origine. Ou origin est le dépôt d''origine et le remote fork est votre fork. La commande n''envoie rien au dépôt d''origine. Les modifications non validées sont mises de côté puis restaurées.'
+  commands:
+  - name: sync-forks
+    invoke: ergoms sync-forks [--dry-run] [--no-push] [--branch NAME]
+    summary: Rejouer la branche des forks sur le dépôt d'origine à jour et l'envoyer au fork sans commits de fusion
 - id: proxy
   title: Proxies
   about: appels Django, Poetry, npm et Media API

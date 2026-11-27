@@ -574,6 +574,8 @@ sections:
   commands:
   - name: install-extensions
     summary: Установить расширения из списка проекта
+  - name: ide-actions
+    summary: JSON действий для IDE — неприменённые миграции, пакеты и неподтянутые коммиты
   - name: update-vsix
     summary: Обновить VSIX-расширения
   - name: uninstall-extensions
@@ -587,6 +589,15 @@ sections:
     summary: Обновить субмодули ядра и переключить на dev
   - name: update-module-submodules
     summary: Обновить субмодули модулей из .gitmodules
+- id: forks
+  group: other
+  title: Форки
+  about: обновление форка без коммитов слияния
+  note: 'origin — ваш форк, upstream — исходный репозиторий. Либо origin — исходный репозиторий, а remote fork — ваш форк. Команда не отправляет коммиты в исходный репозиторий. Незакоммиченные правки прячутся и возвращаются.'
+  commands:
+  - name: sync-forks
+    invoke: ergoms sync-forks [--dry-run] [--no-push] [--branch NAME]
+    summary: Переложить ветку форков на свежий исходный репозиторий и отправить её в форк без коммитов слияния
 - id: proxy
   group: other
   title: Прокси
